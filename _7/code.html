@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>إعدادات التنبيهات الذكية - ZAM Operations</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&amp;family=Noto+Kufi+Arabic:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Noto Kufi Arabic', 'Montserrat', sans-serif;
+            background-color: #fcf9f8;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #33210d;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #33210d;
+        }
+        .glass-card {
+            background: rgba(245, 245, 220, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid #E5E5D0;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #33210d;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#bd9f83",
+                        "primary-fixed": "#fedcbe",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#4e453d",
+                        "on-primary-fixed": "#291806",
+                        "on-tertiary": "#ffffff",
+                        "surface-bright": "#fcf9f8",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "secondary-fixed": "#e4e4cc",
+                        "on-primary-fixed-variant": "#59422c",
+                        "primary-container": "#4b3621",
+                        "on-secondary-fixed-variant": "#474836",
+                        "tertiary-fixed": "#94f990",
+                        "tertiary-fixed-dim": "#78dc77",
+                        "on-secondary-container": "#636451",
+                        "secondary-container": "#e1e1c9",
+                        "outline-variant": "#d2c4ba",
+                        "surface-container-highest": "#e4e2e1",
+                        "background": "#fcf9f8",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed": "#1b1d0e",
+                        "inverse-surface": "#303030",
+                        "inverse-primary": "#e1c1a4",
+                        "on-surface": "#1b1c1c",
+                        "tertiary": "#002c06",
+                        "primary": "#33210d",
+                        "surface-container": "#f0eded",
+                        "primary-fixed-dim": "#e1c1a4",
+                        "on-background": "#1b1c1c",
+                        "on-secondary": "#ffffff",
+                        "inverse-on-surface": "#f3f0f0",
+                        "surface-tint": "#725a42",
+                        "secondary-fixed-dim": "#c8c8b0",
+                        "outline": "#80756c",
+                        "on-tertiary-container": "#56b958",
+                        "surface-container-high": "#eae7e7",
+                        "secondary": "#5e604d",
+                        "error-container": "#ffdad6",
+                        "tertiary-container": "#00450e",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#fcf9f8",
+                        "surface-variant": "#e4e2e1",
+                        "surface-container-low": "#f6f3f2",
+                        "on-tertiary-fixed-variant": "#005313",
+                        "surface-dim": "#dcd9d9",
+                        "on-tertiary-fixed": "#002204"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "xl": "64px",
+                        "sm": "12px",
+                        "margin-desktop": "32px",
+                        "lg": "40px",
+                        "gutter": "24px",
+                        "base": "8px",
+                        "xs": "4px",
+                        "md": "24px"
+                    },
+                    "fontFamily": {
+                        "title-md": ["Montserrat", "Noto Kufi Arabic"],
+                        "headline-lg": ["Montserrat", "Noto Kufi Arabic"],
+                        "label-bold": ["Montserrat", "Noto Kufi Arabic"],
+                        "display-lg": ["Montserrat", "Noto Kufi Arabic"],
+                        "body-lg": ["Montserrat", "Noto Kufi Arabic"],
+                        "body-sm": ["Montserrat", "Noto Kufi Arabic"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex overflow-hidden">
+<!-- Sidebar Navigation -->
+<aside class="fixed right-0 top-0 h-full w-[280px] bg-surface dark:bg-surface-dim border-l border-outline-variant flex flex-col py-lg px-md gap-base z-40">
+<div class="mb-lg flex items-center gap-sm">
+<div class="w-12 h-12 flex items-center justify-center rounded-xl overflow-hidden">
+<img alt="ZAM Logo" class="w-full h-full object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJrqkdjXmhgzJwFfTSIUHeC8vTG6_WLGK8QBRGWG1tdvrfmXh-aAS05vqxlnXojuOh5p0nhxgZHaIaxoJ3rr2vtfySBa2oCLAPrUl6VAA4-_oZ4LJMEtTHAivUdHfqMuzGtQKJ0NL9OWXeN2eqCDM43qfsutFh-4iZzpHB5Y93WF5vq6rMjRDGvhrZCATQZ73_xKNdSdbz_49Si4r1i29EqRfMYyGU2ISnVYqQ76I_F_96OheUdnRL4qlEZpH0EhKT1w"/>
+</div>
+<div>
+<h1 class="font-display-lg text-[24px] font-bold text-primary">ZAM Cafe</h1>
+<p class="text-body-sm text-on-surface-variant">إدارة العمليات</p>
+</div>
+</div>
+<nav class="flex flex-col gap-xs grow">
+<a class="flex items-center gap-base px-md py-sm text-on-surface-variant hover:bg-surface-container transition-colors rounded-lg group" href="../SCREEN_19/code.html">
+<span class="material-symbols-outlined group-hover:text-primary">dashboard</span>
+<span class="font-body-lg">لوحة التحكم</span>
+</a>
+<a class="flex items-center gap-base px-md py-sm text-on-surface-variant hover:bg-surface-container transition-colors rounded-lg group" href="../SCREEN_21/code.html">
+<span class="material-symbols-outlined group-hover:text-primary">storefront</span>
+<span class="font-body-lg">الفروع</span>
+</a>
+<a class="flex items-center gap-base px-md py-sm text-on-surface-variant hover:bg-surface-container transition-colors rounded-lg group" href="../SCREEN_20/code.html">
+<span class="material-symbols-outlined group-hover:text-primary">checklist</span>
+<span class="font-body-lg">قوائم التحقق</span>
+</a>
+<a class="flex items-center gap-base px-md py-sm text-on-surface-variant hover:bg-surface-container transition-colors rounded-lg group" href="../SCREEN_17/code.html">
+<span class="material-symbols-outlined group-hover:text-primary">assessment</span>
+<span class="font-body-lg">التقارير</span>
+</a>
+<a class="flex items-center gap-base px-md py-sm text-primary font-bold border-r-4 border-primary transition-colors bg-surface-container rounded-l-none rounded-r-lg group" href="../SCREEN_18/code.html">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-lg">الإعدادات</span>
+</a>
+</nav>
+<button class="bg-primary text-on-primary py-sm px-md rounded-xl font-label-bold flex items-center justify-center gap-xs hover:opacity-90 transition-all active:scale-95 mt-auto">
+<span class="material-symbols-outlined text-[18px]">add</span>
+            قائمة جديدة
+        </button>
+</aside>
+<!-- Main Content Shell -->
+<main class="mr-[280px] w-full min-h-screen flex flex-col relative overflow-y-auto custom-scrollbar">
+<!-- Top App Bar -->
+<header class="sticky top-0 z-30 flex justify-between items-center w-full h-20 px-margin-desktop bg-surface shadow-sm border-b border-outline-variant">
+<div class="flex items-center gap-md">
+<h2 class="font-headline-lg text-headline-lg text-primary font-black">إعدادات الأتمتة</h2>
+<div class="hidden md:flex gap-base mr-lg">
+<span class="text-primary font-bold border-b-2 border-primary pb-1 font-label-bold">التنبيهات الذكية</span>
+<span class="text-on-surface-variant hover:text-primary transition-colors cursor-pointer font-label-bold">سجلات النظام</span>
+<span class="text-on-surface-variant hover:text-primary transition-colors cursor-pointer font-label-bold">إدارة الأدوار</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex items-center gap-sm bg-surface-container px-sm py-xs rounded-full">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim animate-pulse"></span>
+<span class="text-body-sm font-label-bold text-on-surface">مناوبة الصباح</span>
+</div>
+<div class="flex items-center gap-sm">
+<button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 left-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+</button>
+<div class="w-10 h-10 rounded-full border-2 border-outline-variant overflow-hidden cursor-pointer hover:border-primary transition-all">
+<img alt="User portrait" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuACxBWTX1bJ__MOZUctJEozsDcYN6JyDCsG8AEwcLmZSeMIj5ue6PT5x9cPTkUoO6hOw3UXCEgmKw9nsxKv7i5qkf9nGuRPCuHCwn12CsB01GoBi3iAdatGAxcjMpumvwNKAGAHlgtx3A8VhThZQS4jGUIcWw6XMfBGHr1SsR67S9n93aBf7uilI7QkA9i4_pZce5L2gKS6I_5JjGbnhhdr3vUHzKif5HDf81NajVMoF0PcUn4nLAj8"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="p-margin-desktop flex flex-col gap-gutter max-w-6xl">
+<!-- Welcome Header Section -->
+<section class="flex flex-col gap-xs mb-base">
+<p class="text-on-surface-variant font-label-bold uppercase tracking-widest text-[10px]">مركز التحكم بالعمليات</p>
+<h3 class="text-title-md font-title-md text-primary">تكوين الأتمتة والذكاء الاصطناعي</h3>
+<p class="text-on-surface-variant text-body-lg">قم بإعداد تذكيرات تلقائية لضمان كفاءة التشغيل بنسبة 100% خلال جميع المناوبات.</p>
+</section>
+<!-- Automation Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
+<!-- Left Column: Primary Automation Cards -->
+<div class="lg:col-span-8 flex flex-col gap-gutter">
+<!-- Card 1: Shift Start Detection -->
+<div class="bg-surface-container-low rounded-xl border border-outline-variant p-md flex flex-col gap-md transition-all hover:shadow-md">
+<div class="flex justify-between items-start">
+<div class="flex gap-md">
+<div class="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined text-[28px]">login</span>
+</div>
+<div>
+<h4 class="font-title-md text-primary">كشف الحضور المتأخر</h4>
+<p class="text-body-sm text-on-surface-variant max-w-md">إرسال تنبيه فوري إذا بدأت المناوبة ولم يتم رصد تسجيل دخول الموظف في النظام.</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-14 h-7 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:-translate-x-full rtl:peer-checked:after:-translate-x-7 peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all"></div>
+</label>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md pt-sm border-t border-outline-variant">
+<div class="flex flex-col gap-xs">
+<label class="font-label-bold text-primary">فترة السماح (دقائق)</label>
+<input class="bg-surface border border-outline-variant rounded-lg p-sm focus:ring-2 focus:ring-primary focus:outline-none text-on-surface font-label-bold" type="number" value="10"/>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-bold text-primary">قنوات الإرسال</label>
+<div class="flex gap-xs">
+<span class="px-sm py-xs bg-primary text-on-primary rounded-full text-[12px] font-label-bold">WhatsApp</span>
+<span class="px-sm py-xs bg-secondary-container text-on-secondary-container rounded-full text-[12px] font-label-bold">Push</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 2: Checklist Completion Monitoring -->
+<div class="bg-surface-container-low rounded-xl border border-outline-variant p-md flex flex-col gap-md transition-all hover:shadow-md">
+<div class="flex justify-between items-start">
+<div class="flex gap-md">
+<div class="w-12 h-12 rounded-xl bg-tertiary-container flex items-center justify-center text-on-tertiary-container">
+<span class="material-symbols-outlined text-[28px]">rule</span>
+</div>
+<div>
+<h4 class="font-title-md text-primary">متابعة قوائم التحقق</h4>
+<p class="text-body-sm text-on-surface-variant max-w-md">تذكيرات دورية للموظفين إذا لم تكتمل قوائم التحقق بنسبة 100% قبل نهاية المناوبة.</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-14 h-7 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:-translate-x-full rtl:peer-checked:after:-translate-x-7 peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all"></div>
+</label>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-md pt-sm border-t border-outline-variant">
+<div class="flex flex-col gap-xs">
+<label class="font-label-bold text-primary">تواتر التذكير</label>
+<select class="bg-surface border border-outline-variant rounded-lg p-sm focus:ring-2 focus:ring-primary focus:outline-none text-on-surface font-label-bold">
+<option>كل 30 دقيقة</option>
+<option selected="">كل ساعة</option>
+<option>مرة واحدة</option>
+</select>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-bold text-primary">وقت البدء</label>
+<select class="bg-surface border border-outline-variant rounded-lg p-sm focus:ring-2 focus:ring-primary focus:outline-none text-on-surface font-label-bold">
+<option selected="">ساعة قبل الانتهاء</option>
+<option>ساعتان قبل الانتهاء</option>
+</select>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-bold text-primary">نبرة الرسالة</label>
+<div class="flex items-center gap-base mt-base">
+<span class="w-3 h-3 rounded-full bg-error"></span>
+<span class="text-body-sm">رسمية صارمة</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 3: Manager Escalation Alerts -->
+<div class="bg-surface-container-low rounded-xl border border-outline-variant p-md flex flex-col gap-md transition-all hover:shadow-md overflow-hidden relative">
+<!-- Accent Bar -->
+<div class="absolute top-0 right-0 h-full w-1 bg-error"></div>
+<div class="flex justify-between items-start">
+<div class="flex gap-md">
+<div class="w-12 h-12 rounded-xl bg-error-container flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-[28px]">notification_important</span>
+</div>
+<div>
+<h4 class="font-title-md text-primary">تصعيد التنبيهات للمدير</h4>
+<p class="text-body-sm text-on-surface-variant max-w-md">تنبيه المدير المباشر تلقائياً في حال بقاء مهام حرجة معلقة بعد انتهاء وقت المناوبة.</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-14 h-7 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:-translate-x-full rtl:peer-checked:after:-translate-x-7 peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all"></div>
+</label>
+</div>
+<div class="flex flex-col gap-md pt-sm border-t border-outline-variant">
+<div class="flex flex-col gap-base">
+<label class="font-label-bold text-primary">المهام التي تشمل التصعيد</label>
+<div class="flex flex-wrap gap-xs">
+<button class="px-md py-xs rounded-full border border-outline text-body-sm hover:bg-surface-container transition-all">سلامة الغذاء</button>
+<button class="px-md py-xs rounded-full border border-primary bg-primary-fixed text-on-primary-fixed text-body-sm">إغلاق الصندوق</button>
+<button class="px-md py-xs rounded-full border border-primary bg-primary-fixed text-on-primary-fixed text-body-sm">تنظيف الماكينة</button>
+<button class="px-md py-xs rounded-full border border-outline text-body-sm hover:bg-surface-container transition-all">+ إضافة أخرى</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Visual Summary & Stats -->
+<div class="lg:col-span-4 flex flex-col gap-gutter">
+<!-- Notification Preview Card -->
+<div class="glass-card rounded-xl p-md flex flex-col gap-md relative overflow-hidden">
+<div class="absolute -top-10 -right-10 w-32 h-32 bg-primary opacity-5 rounded-full"></div>
+<h4 class="font-label-bold text-on-surface-variant flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">visibility</span>
+                            معاينة التنبيه (موظف)
+                        </h4>
+<div class="bg-surface rounded-xl p-sm shadow-sm border border-outline-variant flex flex-col gap-xs">
+<div class="flex justify-between items-center border-b border-outline-variant pb-xs">
+<div class="flex items-center gap-xs">
+<div class="w-6 h-6 bg-primary rounded flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-[14px]">notifications_active</span>
+</div>
+<span class="text-[12px] font-bold">ZAM Operations</span>
+</div>
+<span class="text-[10px] text-on-surface-variant">الآن</span>
+</div>
+<div class="py-xs">
+<p class="text-body-sm font-bold text-primary">⚠️ تذكير: قائمة التحقق لم تكتمل</p>
+<p class="text-[12px] text-on-surface-variant">بقي 15 دقيقة على نهاية المناوبة. يرجى إكمال مهام "تنظيف منطقة التحضير" لتجنب التصعيد.</p>
+</div>
+</div>
+<div class="flex justify-center">
+<span class="text-[10px] text-on-surface-variant italic">يتم إنشاء الرسائل بواسطة محرك القواعد الذكي</span>
+</div>
+</div>
+<!-- Performance Stats -->
+<div class="bg-surface-container-highest rounded-xl p-md flex flex-col gap-md border border-outline-variant">
+<h4 class="font-title-md text-primary">تأثير الأتمتة</h4>
+<div class="space-y-md">
+<div class="flex flex-col gap-xs">
+<div class="flex justify-between text-body-sm">
+<span class="">معدل الالتزام بالمواعيد</span>
+<span class="text-tertiary font-bold">+12%</span>
+</div>
+<div class="w-full h-2 bg-surface rounded-full overflow-hidden">
+<div class="h-full bg-tertiary-fixed-dim" style="width: 85%"></div>
+</div>
+</div>
+<div class="flex flex-col gap-xs">
+<div class="flex justify-between text-body-sm">
+<span class="">اكتمال القوائم اليومية</span>
+<span class="text-tertiary font-bold">98%</span>
+</div>
+<div class="w-full h-2 bg-surface rounded-full overflow-hidden">
+<div class="h-full bg-tertiary-fixed-dim" style="width: 98%"></div>
+</div>
+</div>
+<div class="flex flex-col gap-xs">
+<div class="flex justify-between text-body-sm">
+<span class="">تقليل تدخل المدير</span>
+<span class="text-primary font-bold">30%</span>
+</div>
+<div class="w-full h-2 bg-surface rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 65%"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Red Accent Tip -->
+<div class="bg-error-container/20 rounded-xl p-md border-r-4 border-error flex gap-sm">
+<span class="material-symbols-outlined text-error">tips_and_updates</span>
+<div class="flex flex-col gap-xs">
+<p class="text-body-sm font-bold text-on-error-container">نصيحة التشغيل</p>
+<p class="text-[12px] text-on-surface-variant leading-relaxed">تفعيل التصعيد التلقائي يقلل من ضغط العمل بنسبة 40% على المشرفين الميدانيين.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Actions -->
+<footer class="mt-xl flex justify-end gap-md border-t border-outline-variant pt-lg pb-xl">
+<button class="px-xl py-sm rounded-lg border border-primary text-primary font-label-bold hover:bg-surface-container transition-all">إلغاء التغييرات</button>
+<button class="px-xl py-sm rounded-lg bg-primary text-on-primary font-label-bold hover:opacity-90 shadow-md transition-all active:scale-95">حفظ الإعدادات</button>
+</footer>
+</div>
+</main>
+<!-- Micro-interaction Scripts -->
+<script>
+        document.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
+            toggle.addEventListener('change', function() {
+                const card = this.closest('.bg-surface-container-low');
+                if (card) {
+                    if (this.checked) {
+                        card.classList.remove('opacity-60');
+                        card.style.transform = 'scale(1)';
+                    } else {
+                        card.classList.add('opacity-60');
+                        card.style.transform = 'scale(0.99)';
+                    }
+                }
+            });
+        });
+
+        // Hover animation for cards
+        document.querySelectorAll('.transition-all').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                if (!card.classList.contains('opacity-60')) {
+                    card.style.borderColor = '#33210d';
+                }
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.borderColor = '';
+            });
+        });
+    </script>
+</body></html>

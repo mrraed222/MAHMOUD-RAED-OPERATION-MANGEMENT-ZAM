@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ZAM Coffee Operations</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;800;900&amp;family=Noto+Sans+Arabic:wght@300;400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-dim": "#dcd9d9",
+                        "surface-container-low": "#f6f3f2",
+                        "inverse-on-surface": "#f3f0f0",
+                        "secondary-fixed": "#e4e4cc",
+                        "primary-container": "#4b3621",
+                        "background": "#fcf9f8",
+                        "surface-bright": "#fcf9f8",
+                        "primary-fixed": "#fedcbe",
+                        "surface": "#fcf9f8",
+                        "inverse-surface": "#303030",
+                        "error-container": "#ffdad6",
+                        "on-secondary": "#ffffff",
+                        "inverse-primary": "#e1c1a4",
+                        "secondary": "#5e604d",
+                        "on-tertiary-fixed-variant": "#005313",
+                        "on-primary-fixed-variant": "#59422c",
+                        "on-tertiary-container": "#56b958",
+                        "tertiary-container": "#00450e",
+                        "surface-container-highest": "#e4e2e1",
+                        "on-secondary-fixed": "#1b1d0e",
+                        "surface-tint": "#725a42",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-surface": "#1b1c1c",
+                        "on-primary-fixed": "#291806",
+                        "on-tertiary": "#ffffff",
+                        "outline-variant": "#d2c4ba",
+                        "outline": "#80756c",
+                        "primary-fixed-dim": "#e1c1a4",
+                        "secondary-fixed-dim": "#c8c8b0",
+                        "on-background": "#1b1c1c",
+                        "tertiary-fixed-dim": "#78dc77",
+                        "tertiary-fixed": "#94f990",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed": "#002204",
+                        "on-secondary-container": "#636451",
+                        "primary": "#33210d",
+                        "surface-container": "#f0eded",
+                        "on-error": "#ffffff",
+                        "tertiary": "#002c06",
+                        "on-surface-variant": "#4e453d",
+                        "on-primary-container": "#bd9f83",
+                        "on-secondary-fixed-variant": "#474836",
+                        "surface-variant": "#e4e2e1",
+                        "on-primary": "#ffffff",
+                        "surface-container-high": "#eae7e7",
+                        "secondary-container": "#e1e1c9"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "1.5rem" 
+                    },
+                    spacing: {
+                        "xl": "64px",
+                        "base": "8px",
+                        "margin-mobile": "16px",
+                        "gutter": "24px",
+                        "md": "24px",
+                        "margin-desktop": "32px",
+                        "lg": "40px",
+                        "sm": "12px",
+                        "xs": "4px"
+                    },
+                    fontFamily: {
+                        "arabic": ["Noto Sans Arabic", "sans-serif"],
+                        "label-bold": ["Montserrat", "Noto Sans Arabic"],
+                        "display-lg": ["Montserrat", "Noto Sans Arabic"],
+                        "title-md": ["Montserrat", "Noto Sans Arabic"],
+                        "headline-lg": ["Montserrat", "Noto Sans Arabic"],
+                        "body-lg": ["Montserrat", "Noto Sans Arabic"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Noto Sans Arabic', sans-serif; background-color: #f3f4f6; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .active-tab { border-right: 4px solid #33210d; background-color: #f0eded; font-weight: 700; color: #33210d; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .card-shadow { box-shadow: 0px 4px 12px rgba(75, 54, 33, 0.08); }
+        input:focus, select:focus { outline: none; border-color: #33210d; ring: 2px; ring-color: #33210d; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- Sidebar Navigation (Predicted Component) -->
+<aside class="fixed right-0 top-0 h-full w-[280px] bg-surface flex flex-col py-lg px-md gap-base border-l border-outline-variant z-50">
+<div class="flex flex-col items-center mb-lg gap-sm">
+<img alt="ZAM Cafe Logo" class="h-24 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxO42S-WnHYygdmwISCaNL4q1r-qDPwn5svjMLhYaqdyYdaBA9W4iwaeKao0SZW7BF9jyw4QoT1s17KSUI7khbF5foORUR1iQxeTQ5hF4JTxdKPKYOUo867d6WbrUf7DqV86mlxCPdOUmhiWB8YOmPYNhltHWgiiCFLgUYhdVkQoQAKTaWzWl24d4JkoOTfKVwmJO0o84NFIyNxdMgDHvaJjpHxGdnCyRMX5OIf5Ts3ZrPxlG5TBv7WWs6dWGlGxLE_g"/>
+<div class="text-center">
+<h1 class="font-display-lg text-title-md font-bold text-primary">ZAM Cafe</h1>
+<p class="text-body-sm text-on-surface-variant">Operations Management</p>
+</div>
+</div>
+<nav class="flex flex-col gap-xs flex-grow">
+<button class="flex items-center gap-sm px-md py-sm rounded-lg active-tab hover:bg-surface-container transition-colors w-full text-right" id="tab-report" onclick="switchTab('report')">
+<span class="material-symbols-outlined">checklist</span>
+<span class="font-label-bold text-label-bold">نموذج التقرير اليومي</span>
+</button>
+<button class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors w-full text-right" id="tab-dashboard" onclick="switchTab('dashboard')">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-bold text-label-bold">لوحة تحكم المدير</span>
+</button>
+<button class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors w-full text-right" id="tab-settings" onclick="switchTab('settings')">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-bold text-label-bold">إعدادات الأتمتة</span>
+</button>
+</nav>
+<div class="mt-auto p-md bg-surface-container-low rounded-full border border-outline-variant flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">person</span>
+</div>
+<div>
+<p class="font-label-bold text-label-bold text-primary">مدير العمليات</p>
+<p class="text-[10px] text-on-surface-variant">آخر تسجيل: 10:00 ص</p>
+</div>
+</div>
+</aside>
+<!-- Top AppBar (Predicted Component) -->
+<header class="fixed top-0 left-0 right-0 mr-[280px] h-20 bg-surface shadow-sm z-40 flex justify-between items-center px-margin-desktop border-b border-outline-variant">
+<div class="flex items-center gap-md">
+<h2 class="font-headline-lg text-headline-lg font-black text-primary" id="page-title">التقارير اليومية</h2>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex gap-xs">
+<span class="px-sm py-xs bg-secondary-container text-on-secondary-container rounded-full text-label-bold font-label-bold">الوردية الصباحية</span>
+<span class="px-sm py-xs bg-surface-container-highest text-on-surface-variant rounded-full text-label-bold font-label-bold">الوردية المسائية</span>
+</div>
+<div class="flex gap-sm border-r border-outline-variant pr-md mr-md">
+<button class="w-10 h-10 rounded-full hover:bg-surface-container-high flex items-center justify-center transition-all">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+</button>
+<button class="w-10 h-10 rounded-full hover:bg-surface-container-high flex items-center justify-center transition-all">
+<span class="material-symbols-outlined text-on-surface-variant">help</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="mr-[280px] pt-24 min-h-screen p-margin-desktop">
+<!-- Tab 1: Daily Report Form -->
+<section class="tab-content active space-y-gutter animate-fade-in" id="content-report">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<div class="bg-surface rounded-full p-md card-shadow border border-outline-variant">
+<label class="block text-label-bold font-label-bold text-primary mb-xs">التاريخ</label>
+<input class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm" type="date" value="2023-11-20"/>
+</div>
+<div class="bg-surface rounded-full p-md card-shadow border border-outline-variant">
+<label class="block text-label-bold font-label-bold text-primary mb-xs">الوردية</label>
+<select class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm">
+<option>الوردية الصباحية</option>
+<option>الوردية المسائية</option>
+</select>
+</div>
+<div class="bg-surface rounded-full p-md card-shadow border border-outline-variant">
+<label class="block text-label-bold font-label-bold text-primary mb-xs">اسم المشرف</label>
+<input class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm" placeholder="أدخل الاسم" type="text"/>
+</div>
+</div>
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant">
+<h3 class="font-title-md text-title-md text-primary border-b border-outline-variant pb-base mb-md flex items-center gap-sm">
+<span class="material-symbols-outlined">payments</span> البيانات المالية
+                </h3>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<div>
+<label class="block text-label-bold font-label-bold text-on-surface-variant mb-xs">إجمالي المبيعات (ريال)</label>
+<input class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm text-headline-lg font-bold" id="totalSales" oninput="calcAverage()" placeholder="0.00" type="number"/>
+</div>
+<div>
+<label class="block text-label-bold font-label-bold text-on-surface-variant mb-xs">عدد الطلبات</label>
+<input class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm text-headline-lg font-bold" id="orderCount" oninput="calcAverage()" placeholder="0" type="number"/>
+</div>
+<div>
+<label class="block text-label-bold font-label-bold text-on-surface-variant mb-xs">متوسط الفاتورة</label>
+<div class="w-full bg-surface-container text-primary rounded-lg p-sm text-headline-lg font-bold border border-outline-variant h-[50px] flex items-center" id="averageTicket">
+                            0.00 ريال
+                        </div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+<!-- Checklist -->
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant">
+<h3 class="font-title-md text-title-md text-primary border-b border-outline-variant pb-base mb-md flex items-center gap-sm">
+<span class="material-symbols-outlined">checklist_rtl</span> قائمة المهام التشغيلية
+                    </h3>
+<div class="space-y-sm">
+<label class="flex items-center gap-md p-sm hover:bg-surface-container-low rounded-lg transition-all cursor-pointer">
+<input class="w-6 h-6 rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-lg">فحص نظافة الماكينات والمطاحن</span>
+</label>
+<label class="flex items-center gap-md p-sm hover:bg-surface-container-low rounded-lg transition-all cursor-pointer">
+<input class="w-6 h-6 rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-lg">التأكد من توفر المواد الأولية (البن، الحليب)</span>
+</label>
+<label class="flex items-center gap-md p-sm hover:bg-surface-container-low rounded-lg transition-all cursor-pointer">
+<input class="w-6 h-6 rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-lg">جرد الصندوق المالي ومطابقة العجز</span>
+</label>
+<label class="flex items-center gap-md p-sm hover:bg-surface-container-low rounded-lg transition-all cursor-pointer">
+<input class="w-6 h-6 rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-lg">مراجعة درجات حرارة الثلاجات</span>
+</label>
+</div>
+</div>
+<!-- Waste Section -->
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant">
+<div class="flex justify-between items-center border-b border-outline-variant pb-base mb-md">
+<h3 class="font-title-md text-title-md text-primary flex items-center gap-sm">
+<span class="material-symbols-outlined text-error">delete_sweep</span> الهدر
+                        </h3>
+<button class="bg-primary text-white px-md py-xs rounded-full text-label-bold flex items-center gap-xs hover:opacity-90 active:scale-95 transition-all" onclick="addRow('waste-table')">
+<span class="material-symbols-outlined text-[18px]">add</span> إضافة
+                        </button>
+</div>
+<table class="w-full text-right" id="waste-table">
+<thead>
+<tr class="text-on-surface-variant text-label-bold border-b border-outline-variant">
+<th class="py-sm px-sm">المنتج</th>
+<th class="py-sm px-sm">الكمية</th>
+<th class="py-sm px-sm">السبب</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="py-sm px-sm"><input class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs" placeholder="مثال: حليب" type="text"/></td>
+<td class="py-sm px-sm"><input class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs" placeholder="0" type="number"/></td>
+<td class="py-sm px-sm"><input class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs" placeholder="مثال: منتهي" type="text"/></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+<!-- Google Reviews -->
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant">
+<div class="flex justify-between items-center border-b border-outline-variant pb-base mb-md">
+<h3 class="font-title-md text-title-md text-primary flex items-center gap-sm">
+<span class="material-symbols-outlined text-tertiary-container">star</span> تقييمات جوجل
+                        </h3>
+<button class="bg-primary text-white px-md py-xs rounded-full text-label-bold flex items-center gap-xs hover:opacity-90 active:scale-95 transition-all" onclick="addRow('google-table')">
+<span class="material-symbols-outlined text-[18px]">add</span> إضافة
+                        </button>
+</div>
+<table class="w-full text-right" id="google-table">
+<thead>
+<tr class="text-on-surface-variant text-label-bold border-b border-outline-variant">
+<th class="py-sm px-sm">التقييم</th>
+<th class="py-sm px-sm">التعليق</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="py-sm px-sm"><input class="w-20 bg-surface-container-lowest border-outline-variant rounded p-xs" max="5" min="1" placeholder="5" type="number"/></td>
+<td class="py-sm px-sm"><input class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs" placeholder="أدخل التعليق" type="text"/></td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Shift Issues -->
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant">
+<div class="flex justify-between items-center border-b border-outline-variant pb-base mb-md">
+<h3 class="font-title-md text-title-md text-primary flex items-center gap-sm">
+<span class="material-symbols-outlined text-error">report_problem</span> مشاكل الشفت
+                        </h3>
+<button class="bg-primary text-white px-md py-xs rounded-full text-label-bold flex items-center gap-xs hover:opacity-90 active:scale-95 transition-all" onclick="addRow('issues-table')">
+<span class="material-symbols-outlined text-[18px]">add</span> إضافة
+                        </button>
+</div>
+<table class="w-full text-right" id="issues-table">
+<thead>
+<tr class="text-on-surface-variant text-label-bold border-b border-outline-variant">
+<th class="py-sm px-sm">المشكلة</th>
+<th class="py-sm px-sm">الإجراء المتخذ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="py-sm px-sm"><input class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs" placeholder="وصف المشكلة" type="text"/></td>
+<td class="py-sm px-sm"><input class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs" placeholder="ماذا فعلت؟" type="text"/></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant flex flex-col md:flex-row items-center justify-between gap-md">
+<label class="flex items-center gap-md cursor-pointer">
+<input class="w-6 h-6 rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-lg font-bold text-primary">أقر بصحة جميع البيانات المدخلة في هذا التقرير تحت مسؤوليتي.</span>
+</label>
+<button class="bg-primary-container text-white px-xl py-md rounded-full font-headline-lg text-title-md shadow-lg hover:scale-[1.02] active:scale-95 transition-all">
+                    إرسال التقرير
+                </button>
+</div>
+</section>
+<!-- Tab 2: Manager Dashboard -->
+<section class="tab-content space-y-gutter animate-fade-in" id="content-dashboard">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant text-center">
+<span class="material-symbols-outlined text-tertiary-container text-xl mb-xs">trending_up</span>
+<p class="text-on-surface-variant font-label-bold">إجمالي مبيعات اليوم</p>
+<h4 class="text-headline-lg font-black text-primary">42,500 ريال</h4>
+</div>
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant text-center">
+<span class="material-symbols-outlined text-error text-xl mb-xs">inventory_2</span>
+<p class="text-on-surface-variant font-label-bold">تكلفة الهدر</p>
+<h4 class="text-headline-lg font-black text-error">1,240 ريال</h4>
+</div>
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant text-center">
+<span class="material-symbols-outlined text-primary text-xl mb-xs">priority_high</span>
+<p class="text-on-surface-variant font-label-bold">البلاغات النشطة</p>
+<h4 class="text-headline-lg font-black text-primary">3</h4>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant">
+<h3 class="font-title-md text-title-md text-primary mb-md">المبيعات حسب الفرع</h3>
+<div class="h-64 w-full flex items-end gap-md px-md">
+<div class="flex-1 flex flex-col items-center gap-xs">
+<div class="w-full bg-primary-fixed rounded-t-lg transition-all hover:bg-primary" style="height: 80%"></div>
+<span class="text-body-sm font-bold">فرع 1</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-xs">
+<div class="w-full bg-primary-fixed rounded-t-lg transition-all hover:bg-primary" style="height: 60%"></div>
+<span class="text-body-sm font-bold">فرع 2</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-xs">
+<div class="w-full bg-primary-fixed rounded-t-lg transition-all hover:bg-primary" style="height: 95%"></div>
+<span class="text-body-sm font-bold">فرع 3</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-xs">
+<div class="w-full bg-primary-fixed rounded-t-lg transition-all hover:bg-primary" style="height: 45%"></div>
+<span class="text-body-sm font-bold">فرع 4</span>
+</div>
+</div>
+</div>
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant overflow-hidden">
+<h3 class="font-title-md text-title-md text-primary mb-md">آخر التقارير المستلمة</h3>
+<div class="overflow-x-auto">
+<table class="w-full text-right">
+<thead>
+<tr class="text-on-surface-variant text-label-bold border-b border-outline-variant">
+<th class="pb-sm px-sm">الفرع</th>
+<th class="pb-sm px-sm">الوقت</th>
+<th class="pb-sm px-sm">الحالة</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr>
+<td class="py-md px-sm font-bold">فرع التحلية</td>
+<td class="py-md px-sm">04:30 م</td>
+<td class="py-md px-sm">
+<span class="px-md py-xs bg-tertiary-fixed text-on-tertiary-fixed rounded-full text-label-bold">في الوقت</span>
+</td>
+</tr>
+<tr>
+<td class="py-md px-sm font-bold">فرع الربوة</td>
+<td class="py-md px-sm">05:15 م</td>
+<td class="py-md px-sm">
+<span class="px-md py-xs bg-error-container text-error rounded-full text-label-bold">متأخر</span>
+</td>
+</tr>
+<tr>
+<td class="py-md px-sm font-bold">فرع الروضة</td>
+<td class="py-md px-sm">04:55 م</td>
+<td class="py-md px-sm">
+<span class="px-md py-xs bg-tertiary-fixed text-on-tertiary-fixed rounded-full text-label-bold">في الوقت</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+<!-- Tab 3: Automation Settings -->
+<section class="tab-content space-y-gutter animate-fade-in" id="content-settings">
+<div class="max-w-4xl mx-auto space-y-gutter">
+<div class="bg-error-container p-lg rounded-full border border-error flex items-start gap-md">
+<span class="material-symbols-outlined text-error text-xl">warning</span>
+<p class="text-on-error-container font-bold text-body-lg">
+                        تنبيه: يرجى الانتهاء من ملف التقرير قبل أن يسجل النظام تلقائياً تأخيركم في الإرسال ويؤثر على تقييم الأداء الشهري.
+                    </p>
+</div>
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant space-y-md">
+<h3 class="font-title-md text-title-md text-primary flex items-center gap-sm">
+<span class="material-symbols-outlined">schedule</span> إعدادات المواعيد النهائية (Deadlines)
+                    </h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<div>
+<label class="block text-label-bold font-label-bold mb-xs">نهاية الوردية الصباحية</label>
+<input class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm" type="time" value="16:00"/>
+</div>
+<div>
+<label class="block text-label-bold font-label-bold mb-xs">نهاية الوردية المسائية</label>
+<input class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm" type="time" value="02:00"/>
+</div>
+</div>
+</div>
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant space-y-md">
+<h3 class="font-title-md text-title-md text-primary flex items-center gap-sm">
+<span class="material-symbols-outlined">notifications_active</span> إعدادات التنبيهات والأتمتة
+                    </h3>
+<div class="divide-y divide-outline-variant">
+<div class="py-md flex items-center justify-between">
+<div>
+<h4 class="font-bold text-primary">إرسال بريد عند استلام تقرير</h4>
+<p class="text-body-sm text-on-surface-variant">تصل نسخة تلقائية للمدير فور إرسال التقرير</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-14 h-7 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[-100%] peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="py-md flex items-center justify-between">
+<div>
+<h4 class="font-bold text-primary">تنبيه قبل ساعة للمشرفين</h4>
+<p class="text-body-sm text-on-surface-variant">إشعار على الجوال قبل انتهاء الوقت بـ 60 دقيقة</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-14 h-7 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[-100%] peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="py-md flex items-center justify-between">
+<div>
+<h4 class="font-bold text-primary">تحذير نهائي عند انتهاء الوقت</h4>
+<p class="text-body-sm text-on-surface-variant">تغيير لون التقرير في لوحة المدير للأحمر</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-14 h-7 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[-100%] peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</div>
+<div class="flex justify-end">
+<button class="bg-primary text-white px-xl py-md rounded-full font-bold shadow-md hover:bg-primary-container transition-all">
+                        حفظ جميع الإعدادات
+                    </button>
+</div>
+</div>
+</section>
+</main>
+<script>
+        function switchTab(tabId) {
+            // Hide all contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            // Show selected content
+            document.getElementById('content-' + tabId).classList.add('active');
+
+            // Reset navigation styles
+            document.querySelectorAll('aside nav button').forEach(btn => {
+                btn.classList.remove('active-tab');
+                btn.classList.add('text-on-surface-variant');
+            });
+            // Highlight selected tab
+            document.getElementById('tab-' + tabId).classList.add('active-tab');
+            document.getElementById('tab-' + tabId).classList.remove('text-on-surface-variant');
+
+            // Update Page Title
+            const titles = {
+                'report': 'التقارير اليومية',
+                'dashboard': 'لوحة تحكم المدير',
+                'settings': 'إعدادات الأتمتة'
+            };
+            document.getElementById('page-title').innerText = titles[tabId];
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function calcAverage() {
+            const sales = parseFloat(document.getElementById('totalSales').value) || 0;
+            const orders = parseInt(document.getElementById('orderCount').value) || 0;
+            const avgDiv = document.getElementById('averageTicket');
+            
+            if (orders > 0) {
+                const avg = (sales / orders).toFixed(2);
+                avgDiv.innerText = avg + ' ريال';
+            } else {
+                avgDiv.innerText = '0.00 ريال';
+            }
+        }
+
+        function addRow(tableId) {
+            const table = document.getElementById(tableId).getElementsByTagName('tbody')[0];
+            const newRow = table.insertRow();
+            
+            if (tableId === 'waste-table') {
+                newRow.innerHTML = `
+                    <td class="py-sm px-sm"><input type="text" placeholder="المنتج" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs"></td>
+                    <td class="py-sm px-sm"><input type="number" placeholder="0" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs"></td>
+                    <td class="py-sm px-sm"><input type="text" placeholder="السبب" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs"></td>
+                `;
+            } else if (tableId === 'google-table') {
+                newRow.innerHTML = `
+                    <td class="py-sm px-sm"><input type="number" min="1" max="5" placeholder="5" class="w-20 bg-surface-container-lowest border-outline-variant rounded p-xs"></td>
+                    <td class="py-sm px-sm"><input type="text" placeholder="التعليق" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs"></td>
+                `;
+            } else if (tableId === 'issues-table') {
+                newRow.innerHTML = `
+                    <td class="py-sm px-sm"><input type="text" placeholder="المشكلة" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs"></td>
+                    <td class="py-sm px-sm"><input type="text" placeholder="الإجراء" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs"></td>
+                `;
+            }
+            
+            // Minimal entry animation
+            newRow.style.opacity = '0';
+            newRow.style.transform = 'translateY(10px)';
+            newRow.style.transition = 'all 0.3s ease';
+            requestAnimationFrame(() => {
+                newRow.style.opacity = '1';
+                newRow.style.transform = 'translateY(0)';
+            });
+        }
+    </script>
+</body></html>

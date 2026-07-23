@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&amp;family=Noto+Sans+Arabic:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Noto+Sans+Arabic', 'Montserrat', sans-serif;
+            background-color: #fcf9f8;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d2c4ba;
+            border-radius: 10px;
+        }
+        /* Toggle Switch Animation */
+        .toggle-dot { transition: all 0.3s ease-in-out; }
+        input:checked ~ .toggle-dot { transform: translateX(-100%); background-color: #ffffff; }
+        input:checked ~ .toggle-bg { background-color: #4b3621; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container": "#f0eded",
+                      "secondary-container": "#e1e1c9",
+                      "error-container": "#ffdad6",
+                      "on-primary": "#ffffff",
+                      "surface-container-highest": "#e4e2e1",
+                      "on-surface-variant": "#4e453d",
+                      "on-primary-container": "#bd9f83",
+                      "on-primary-fixed-variant": "#59422c",
+                      "on-secondary": "#ffffff",
+                      "surface-tint": "#725a42",
+                      "on-background": "#1b1c1c",
+                      "tertiary-fixed-dim": "#78dc77",
+                      "tertiary-fixed": "#94f990",
+                      "on-tertiary-fixed": "#002204",
+                      "on-error": "#ffffff",
+                      "inverse-on-surface": "#f3f0f0",
+                      "outline-variant": "#d2c4ba",
+                      "on-tertiary-container": "#56b958",
+                      "secondary-fixed": "#e4e4cc",
+                      "outline": "#80756c",
+                      "surface-container-high": "#eae7e7",
+                      "on-secondary-container": "#636451",
+                      "on-secondary-fixed-variant": "#474836",
+                      "inverse-surface": "#303030",
+                      "primary-container": "#4b3621",
+                      "surface": "#fcf9f8",
+                      "surface-variant": "#e4e2e1",
+                      "secondary": "#5e604d",
+                      "inverse-primary": "#e1c1a4",
+                      "on-primary-fixed": "#291806",
+                      "surface-dim": "#dcd9d9",
+                      "primary-fixed": "#fedcbe",
+                      "on-tertiary-fixed-variant": "#005313",
+                      "background": "#fcf9f8",
+                      "primary": "#33210d",
+                      "surface-bright": "#fcf9f8",
+                      "error": "#ba1a1a",
+                      "on-error-container": "#93000a",
+                      "surface-container-low": "#f6f3f2",
+                      "surface-container-lowest": "#ffffff",
+                      "on-secondary-fixed": "#1b1d0e",
+                      "tertiary-container": "#00450e",
+                      "on-tertiary": "#ffffff",
+                      "on-surface": "#1b1c1c",
+                      "tertiary": "#002c06",
+                      "primary-fixed-dim": "#e1c1a4",
+                      "secondary-fixed-dim": "#c8c8b0"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "md": "24px",
+                      "lg": "40px",
+                      "gutter": "24px",
+                      "base": "8px",
+                      "xs": "4px",
+                      "margin-desktop": "32px",
+                      "sm": "12px",
+                      "margin-mobile": "16px",
+                      "xl": "64px"
+              },
+              "fontFamily": {
+                      "headline-lg": ["Montserrat", "Noto Sans Arabic"],
+                      "body-lg": ["Montserrat", "Noto Sans Arabic"],
+                      "body-sm": ["Montserrat", "Noto Sans Arabic"],
+                      "title-md": ["Montserrat", "Noto Sans Arabic"],
+                      "display-lg": ["Montserrat", "Noto Sans Arabic"],
+                      "label-bold": ["Montserrat", "Noto Sans Arabic"]
+              },
+              "fontSize": {
+                      "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface overflow-x-hidden">
+<!-- Navigation Rail / SideBar -->
+<aside class="fixed right-0 top-0 h-full w-[280px] bg-surface dark:bg-surface-dim border-l border-outline-variant flex flex-col py-lg px-md gap-base z-50">
+<div class="flex items-center gap-base mb-lg">
+<div class="w-12 h-12 bg-primary-container rounded-full flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional, minimalist logo for a high-end cafe operations brand called ZAM Cafe. The logo features a stylized coffee bean integrated with a sleek geometric gear icon, representing precision and management. The color palette consists of deep coffee brown and warm cream, set against a pristine, soft-lit background with a premium corporate aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCf4B_L9mPwIBjfFo9Dy5xJjuKhe-xH28zhjz2XHFo-xgdzPTFPxF8QFam_i3Fd-GW_cU5v-lErTUDF3HKjNGcS45OY0ehnCsXlsuh1SSqqX4UtoYNmniAgmffP98h-pNIq0ZRT6pFKAie5JIaT3Wc_DAn5Xt7L9Mw2LwGWsBYpRKNCykHHFtQ4CTXmZ1voXV1kqeSJYyfvW0lk9ikwVdXRjmMLg_QKkKy_8mYxzlBkQ88r7KVPbfQm"/>
+</div>
+<div>
+<h1 class="font-display-lg text-[24px] leading-tight font-bold text-primary">ZAM Cafe</h1>
+<p class="font-body-sm text-on-surface-variant">إدارة العمليات</p>
+</div>
+</div>
+<nav class="flex flex-col gap-xs flex-1"><a class="flex items-center gap-base p-md rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors" href="../SCREEN_19/code.html"><span class="material-symbols-outlined">dashboard</span><span class="font-body-lg">لوحة التحكم</span></a><a class="flex items-center gap-base p-md rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors" href="../SCREEN_21/code.html"><span class="material-symbols-outlined">storefront</span><span class="font-body-lg">الفروع</span></a><a class="flex items-center gap-base p-md rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors" href="../SCREEN_20/code.html"><span class="material-symbols-outlined">checklist</span><span class="font-body-lg">قوائم التحقق</span></a><a class="flex items-center gap-base p-md rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors" href="../SCREEN_17/code.html"><span class="material-symbols-outlined">assessment</span><span class="font-body-lg">التقارير</span></a><a class="flex items-center gap-base p-md rounded-lg text-primary font-bold border-l-4 border-primary bg-surface-container" href="../SCREEN_18/code.html"><span class="material-symbols-outlined">settings</span><span class="font-body-lg">الإعدادات</span></a></nav>
+<button class="mt-auto bg-primary text-on-primary font-label-bold py-md px-lg rounded-full shadow-sm active:scale-[0.98] transition-transform">
+            قائمة تحقق جديدة
+        </button>
+</aside>
+<!-- Main Content Area -->
+<main class="mr-[280px] min-h-screen">
+<!-- Top App Bar -->
+<header class="flex justify-between items-center w-full h-20 px-margin-desktop sticky top-0 bg-surface dark:bg-surface-dim z-40 border-b border-outline-variant shadow-sm">
+<div class="flex items-center gap-lg">
+<h2 class="font-headline-lg text-primary">أتمتة التقارير</h2>
+<div class="flex items-center gap-md bg-surface-container-low px-md py-xs rounded-full border border-outline-variant">
+<span class="material-symbols-outlined text-outline">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-sm w-64" placeholder="بحث في الإعدادات..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex items-center gap-xs">
+<button class="px-md py-xs rounded-full border border-outline-variant font-label-bold text-on-surface-variant hover:bg-surface-container transition-all">الوردية الصباحية</button>
+<button class="px-md py-xs rounded-full border border-outline-variant font-label-bold text-on-surface-variant hover:bg-surface-container transition-all">الوردية المسائية</button>
+</div>
+<div class="flex items-center gap-sm">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary">
+<img class="w-full h-full object-cover" data-alt="A close-up portrait of a professional cafe manager in a modern, sunlit office. The manager is wearing a clean, branded apron over a crisp white shirt. The background is slightly blurred, showing elements of an artisanal coffee shop like a high-end espresso machine and warm wooden shelving, creating an atmosphere of expertise and warm hospitality." src="https://lh3.googleusercontent.com/aida-public/AB6AXuClYAHOkQpVYPRsBlgEys7YWIG4pmDSRuSmS4LtbQizlf3hQpA7UGqZtG15QMeXXK0_lM2d4_J3UMHkljFgiI68I8c-iRnSuM05eSUYKwh6yeSOOiuWg-GMxBwPjaSwUyNQraPsXXMlH29dpAcuF6T4CZNfwa7mrgAyaSuMCyQT94pJ5GXaJPKQdgLzJY5yaPyEu9tTrlwR8PlsoTLV-GRaW458VtzmBSC4Y0M4uShkaaH1YEvmGwND"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Canvas / Dashboard -->
+<section class="p-lg max-w-6xl mx-auto">
+<div class="mb-lg flex justify-between items-end">
+<div>
+<h3 class="font-display-lg text-primary mb-xs">إعدادات الأتمتة</h3>
+<p class="font-body-lg text-on-surface-variant">قم بضبط جدولة التقارير التلقائية وإدارة وصول المديرين.</p>
+</div>
+<!-- Master Toggle -->
+<div class="flex items-center gap-md p-md bg-surface-container rounded-xl border border-outline-variant">
+<span class="font-label-bold text-primary">تفعيل نظام الأتمتة</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="toggle-bg w-14 h-7 bg-outline-variant rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-1 after:right-1 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-gutter items-start">
+<!-- Automation Times Card -->
+<div class="col-span-12 lg:col-span-5 bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm flex flex-col gap-md">
+<div class="flex justify-between items-center border-b border-outline-variant pb-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">schedule</span>
+<h4 class="font-title-md text-primary">أوقات الإرسال التلقائي</h4>
+</div>
+<button class="text-primary hover:bg-primary-container/10 p-xs rounded-lg transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div class="space-y-md py-base">
+<div class="flex items-center justify-between p-md bg-surface-container-low rounded-lg border border-outline-variant hover:shadow-md transition-all">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">wb_twilight</span>
+<div>
+<p class="font-label-bold text-on-surface-variant">التقرير الصباحي</p>
+<p class="font-headline-lg text-primary text-[24px]">10:00 ص</p>
+</div>
+</div>
+<input checked="" class="w-5 h-5 rounded border-outline text-primary focus:ring-primary" type="checkbox"/>
+</div>
+<div class="flex items-center justify-between p-md bg-surface-container-low rounded-lg border border-outline-variant hover:shadow-md transition-all">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">light_mode</span>
+<div>
+<p class="font-label-bold text-on-surface-variant">تقرير الظهيرة</p>
+<p class="font-headline-lg text-primary text-[24px]">04:00 م</p>
+</div>
+</div>
+<input checked="" class="w-5 h-5 rounded border-outline text-primary focus:ring-primary" type="checkbox"/>
+</div>
+<div class="flex items-center justify-between p-md bg-surface-container-low rounded-lg border border-outline-variant hover:shadow-md transition-all">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">bedtime</span>
+<div>
+<p class="font-label-bold text-on-surface-variant">تقرير الإغلاق</p>
+<p class="font-headline-lg text-primary text-[24px]">12:00 ص</p>
+</div>
+</div>
+<input checked="" class="w-5 h-5 rounded border-outline text-primary focus:ring-primary" type="checkbox"/>
+</div>
+</div>
+<button class="flex items-center justify-center gap-base w-full py-md border-2 border-dashed border-outline-variant text-on-surface-variant rounded-lg hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined">add_circle</span>
+<span class="font-label-bold">إضافة وقت جديد</span>
+</button>
+</div>
+<!-- Email Settings & Personalization -->
+<div class="col-span-12 lg:col-span-7 space-y-gutter">
+<!-- Manager Emails -->
+<div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm">
+<div class="flex justify-between items-center border-b border-outline-variant pb-md mb-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">group</span>
+<h4 class="font-title-md text-primary">عناوين بريد المديرين</h4>
+</div>
+</div>
+<div class="space-y-md">
+<div class="flex gap-md">
+<div class="flex-1">
+<label class="font-label-bold text-on-surface-variant block mb-xs">البريد الإلكتروني</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg p-md focus:border-primary focus:ring-1 focus:ring-primary transition-all text-body-lg h-12" type="email" value="manager.one@zamcafe.com"/>
+</div>
+<div class="w-32">
+<label class="font-label-bold text-on-surface-variant block mb-xs">الصلاحية</label>
+<select class="w-full bg-surface-container-low border border-outline-variant rounded-lg p-md focus:border-primary focus:ring-1 focus:ring-primary transition-all text-body-sm h-12">
+<option>مشرف</option>
+<option>مدير فرع</option>
+</select>
+</div>
+<button class="self-end p-md text-error hover:bg-error-container/20 rounded-lg">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+<div class="flex gap-md">
+<div class="flex-1">
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg p-md focus:border-primary focus:ring-1 focus:ring-primary transition-all text-body-lg h-12" placeholder="أضف بريداً إلكترونياً جديداً..." type="email"/>
+</div>
+<button class="bg-secondary-container text-on-secondary-container px-lg rounded-lg font-label-bold hover:opacity-90 transition-opacity">
+                                    إضافة
+                                </button>
+</div>
+</div>
+</div>
+<!-- Summary Personalization (Bento-style items) -->
+<div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant shadow-sm">
+<div class="flex justify-between items-center border-b border-outline-variant pb-md mb-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">tune</span>
+<h4 class="font-title-md text-primary">تخصيص الملخص</h4>
+</div>
+</div>
+<p class="font-body-sm text-on-surface-variant mb-md">اختر البيانات التي ترغب في تضمينها في البريد الإلكتروني التلقائي:</p>
+<div class="grid grid-cols-2 gap-md">
+<label class="flex items-center justify-between p-md rounded-lg border border-outline-variant hover:bg-surface-container cursor-pointer transition-all">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-secondary-container">monetization_on</span>
+<span class="font-body-lg">إجمالي المبيعات</span>
+</div>
+<input checked="" class="w-5 h-5 rounded text-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-md rounded-lg border border-outline-variant hover:bg-surface-container cursor-pointer transition-all">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-secondary-container">inventory_2</span>
+<span class="font-body-lg">حالة المخزون</span>
+</div>
+<input checked="" class="w-5 h-5 rounded text-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-md rounded-lg border border-outline-variant hover:bg-surface-container cursor-pointer transition-all">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-secondary-container">warning</span>
+<span class="font-body-lg">المهام المتأخرة</span>
+</div>
+<input checked="" class="w-5 h-5 rounded text-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-md rounded-lg border border-outline-variant hover:bg-surface-container cursor-pointer transition-all">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-secondary-container">badge</span>
+<span class="font-body-lg">أداء الموظفين</span>
+</div>
+<input class="w-5 h-5 rounded text-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-md rounded-lg border border-outline-variant hover:bg-surface-container cursor-pointer transition-all">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-secondary-container">reviews</span>
+<span class="font-body-lg">تقييمات العملاء</span>
+</div>
+<input class="w-5 h-5 rounded text-primary" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-md rounded-lg border border-outline-variant hover:bg-surface-container cursor-pointer transition-all">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-secondary-container">straighten</span>
+<span class="font-body-lg">درجات الحرارة</span>
+</div>
+<input checked="" class="w-5 h-5 rounded text-primary" type="checkbox"/>
+</label>
+</div>
+<div class="mt-lg pt-md border-t border-outline-variant flex justify-between items-center">
+<span class="font-body-sm text-on-surface-variant flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">info</span>
+                                سيتم إرسال الملخص كملف PDF مرفق أيضاً.
+                            </span>
+<div class="flex gap-md">
+<button class="px-lg py-md border border-outline-variant rounded-lg font-label-bold hover:bg-surface-container transition-all">معاينة التقرير</button>
+<button class="px-lg py-md bg-primary text-on-primary rounded-lg font-label-bold shadow-md hover:opacity-90 active:scale-[0.98] transition-all">حفظ الإعدادات</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Visual Decorative Element (Atmospheric Card) -->
+<div class="mt-gutter relative rounded-2xl overflow-hidden h-48 border border-outline-variant">
+<img class="w-full h-full object-cover brightness-75" data-alt="A stylized, high-contrast overhead shot of a clean barista station with espresso equipment, steamed milk in a pitcher, and a notepad with checklists. The lighting is warm and cinematic, emphasizing the artisanal and professional nature of the cafe. The composition is clean and minimalist, following the corporate modern aesthetic with rich coffee browns and cream tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBUy9Ki2ctR5kyrT06VelMJsyCTLgdrTxU8DwLE8RQav-h0DWwLlwJq5ApjSuAUHCQH4TX6VlXGKRgZBiFUjhAoptCmNoUyNhHoM7mNVnN3dLqoDkGOmFLeIOrrAz6mjPgZjE-lOG1Tk64ajzEup2CdctZ-X3erF2vxO_wi7jl3nOB9OGF62f0cbHFTEuZEI686HRURzPC2AkgHD2SRz5nge3dQnYdSpOwbUaKW3K_iucnIblQS1agn"/>
+<div class="absolute inset-0 bg-gradient-to-l from-primary/80 to-transparent flex items-center justify-end p-xl">
+<div class="text-left text-on-primary max-w-md text-right">
+<h5 class="font-headline-lg text-white mb-base">كفاءة العمل تبدأ بالتنظيم</h5>
+<p class="font-body-lg text-white/80">نظام الأتمتة يضمن وصول التقارير الحيوية لصناع القرار في الوقت المناسب دون تدخل يدوي.</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<script>
+        // Simple Interaction: Toast simulation for "Save"
+        const saveBtn = document.querySelectorAll('button').forEach(btn => {
+            if (btn.innerText.includes('حفظ')) {
+                btn.onclick = () => {
+                    const toast = document.createElement('div');
+                    toast.className = "fixed bottom-8 left-8 bg-primary text-on-primary px-lg py-md rounded-xl shadow-2xl flex items-center gap-md transform translate-y-20 transition-transform duration-300 z-[100]";
+                    toast.innerHTML = `
+                        <span class="material-symbols-outlined text-tertiary-fixed">check_circle</span>
+                        <span class="font-label-bold">تم حفظ الإعدادات بنجاح</span>
+                    `;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.style.transform = "translateY(0)", 100);
+                    setTimeout(() => {
+                        toast.style.transform = "translateY(100px)";
+                        setTimeout(() => toast.remove(), 300);
+                    }, 3000);
+                }
+            }
+        });
+
+        // Search Bar Micro-interaction
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.onfocus = () => {
+            searchInput.parentElement.classList.add('ring-2', 'ring-primary/20', 'border-primary');
+        };
+        searchInput.onblur = () => {
+            searchInput.parentElement.classList.remove('ring-2', 'ring-primary/20', 'border-primary');
+        };
+    </script>
+</body></html>

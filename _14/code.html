@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>زام كافيه - إدارة العمليات</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&amp;family=Noto+Sans+Arabic:wght@400;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container": "#f0eded",
+                    "secondary-container": "#e1e1c9",
+                    "error-container": "#ffdad6",
+                    "on-primary": "#ffffff",
+                    "surface-container-highest": "#e4e2e1",
+                    "on-surface-variant": "#4e453d",
+                    "on-primary-container": "#bd9f83",
+                    "on-primary-fixed-variant": "#59422c",
+                    "on-secondary": "#ffffff",
+                    "surface-tint": "#725a42",
+                    "on-background": "#1b1c1c",
+                    "tertiary-fixed-dim": "#78dc77",
+                    "tertiary-fixed": "#94f990",
+                    "on-tertiary-fixed": "#002204",
+                    "on-error": "#ffffff",
+                    "inverse-on-surface": "#f3f0f0",
+                    "outline-variant": "#d2c4ba",
+                    "on-tertiary-container": "#56b958",
+                    "secondary-fixed": "#e4e4cc",
+                    "outline": "#80756c",
+                    "surface-container-high": "#eae7e7",
+                    "on-secondary-container": "#636451",
+                    "on-secondary-fixed-variant": "#474836",
+                    "inverse-surface": "#303030",
+                    "primary-container": "#4b3621",
+                    "surface": "#fcf9f8",
+                    "surface-variant": "#e4e2e1",
+                    "secondary": "#5e604d",
+                    "inverse-primary": "#e1c1a4",
+                    "on-primary-fixed": "#291806",
+                    "surface-dim": "#dcd9d9",
+                    "primary-fixed": "#fedcbe",
+                    "on-tertiary-fixed-variant": "#005313",
+                    "background": "#fcf9f8",
+                    "primary": "#33210d",
+                    "surface-bright": "#fcf9f8",
+                    "error": "#ba1a1a",
+                    "on-error-container": "#93000a",
+                    "surface-container-low": "#f6f3f2",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-fixed": "#1b1d0e",
+                    "tertiary-container": "#00450e",
+                    "on-tertiary": "#ffffff",
+                    "on-surface": "#1b1c1c",
+                    "tertiary": "#002c06",
+                    "primary-fixed-dim": "#e1c1a4",
+                    "secondary-fixed-dim": "#c8c8b0"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "md": "24px",
+                    "lg": "40px",
+                    "gutter": "24px",
+                    "base": "8px",
+                    "xs": "4px",
+                    "margin-desktop": "32px",
+                    "sm": "12px",
+                    "margin-mobile": "16px",
+                    "xl": "64px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Noto Sans Arabic", "Montserrat"],
+                    "body-lg": ["Noto Sans Arabic", "Montserrat"],
+                    "body-sm": ["Noto Sans Arabic", "Montserrat"],
+                    "title-md": ["Noto Sans Arabic", "Montserrat"],
+                    "display-lg": ["Noto Sans Arabic", "Montserrat"],
+                    "label-bold": ["Noto Sans Arabic", "Montserrat"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Noto Sans Arabic', sans-serif;
+            background-color: #FAFAFA;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .tonal-layer {
+            background: #F5F5DC;
+            border: 1px solid #E5E5D0;
+        }
+        .premium-shadow {
+            box-shadow: 0px 4px 12px rgba(75, 54, 33, 0.08);
+        }
+        .active-shift {
+            background-color: #33210d;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- SideNavBar -->
+<aside class="fixed right-0 top-0 h-full w-[280px] bg-surface border-l border-outline-variant flex flex-col py-lg px-md gap-base z-50">
+<div class="flex items-center gap-sm mb-lg">
+<div class="w-16 h-16 flex items-center justify-center overflow-hidden"><img alt="ZAM Logo" class="w-full h-full object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQbf8ikvTYHjxwZKbuyg7rLRywWKCR7EVL2BFgGablvAMBfEbOp5r1OpC7ir4DFIJ9_5zWmlBHfn6az_DzEf2t04q8N2_Q_Q_KmSPrePEcCX2SSRGsF3dGnjIL2dXkfj8wc5Px8gSKG2bVv5Mpxo2XU-ZFQ_U2cAUeDRfv5_Kaq7TOdOtZNOPja1BQtqyxb1fb_UpiCPKWOuwjA0Ysdx1jY2gmoLdh2YLa_uoQmvc4GVu6eKKWNQ20h4PZ21lCb9bebg"/></div>
+</div>
+<nav class="flex flex-col gap-xs flex-grow">
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors" href="{{DATA:SCREEN:SCREEN_19}}">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-lg">لوحة التحكم</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg text-primary font-bold border-r-4 border-primary bg-surface-container transition-colors" href="{{DATA:SCREEN:SCREEN_21}}">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">storefront</span>
+<span class="font-body-lg">الفروع</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors" href="{{DATA:SCREEN:SCREEN_20}}">
+<span class="material-symbols-outlined">checklist</span>
+<span class="font-body-lg">قوائم التحقق</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors" href="{{DATA:SCREEN:SCREEN_17}}">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-body-lg">التقارير</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors mt-auto" href="{{DATA:SCREEN:SCREEN_18}}">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-lg">الإعدادات</span>
+</a>
+</nav>
+<button class="mt-md bg-primary text-on-primary py-sm px-md rounded-xl font-label-bold flex items-center justify-center gap-xs hover:opacity-90 active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined text-[18px]">add</span>
+            قائمة جديدة
+        </button>
+</aside>
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 right-[280px] h-20 bg-surface shadow-sm flex justify-between items-center px-margin-desktop z-40 border-b border-outline-variant">
+<div class="flex items-center gap-lg">
+<div class="w-12 h-12 flex items-center justify-center overflow-hidden mr-sm"><img alt="ZAM Logo" class="w-full h-full object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2xdqilfHpEZQNOSfRQyxfiTD_H8wKW9hmSw4yFqkMijF_4L1PtgcgFPC5mBf6rIJVOB9lZ2KM6b1PYezaEgR5GDK9SUcE5vJnMKLxyGI1KJf1q9ndajpeIopXvO7tQ3PmEKB-hcElc0qLeH5xT6tSp82p9j242Jd0KF4bJnA7gYwv5ia1s8ZdxJBDBXqcD2OvwVEwI9LS2C-w3cE2SYVY4APBWy_ChD5sVO2fBrQifiyEIE3lvEiscEawh-Eaol9MSw"/></div><h2 class="font-headline-lg text-primary">إدارة الفروع</h2>
+<div class="flex gap-sm bg-surface-container p-1 rounded-full">
+<button class="px-md py-1.5 rounded-full font-label-bold active-shift transition-all" onclick="toggleShift(this, 'morning')">الشفت الصباحي</button>
+<button class="px-md py-1.5 rounded-full font-label-bold text-on-surface-variant hover:bg-surface-container-highest transition-all" onclick="toggleShift(this, 'evening')">الشفت المسائي</button>
+</div><button class="mr-md bg-primary text-on-primary py-1.5 px-md rounded-full font-label-bold flex items-center gap-xs hover:opacity-90 active:scale-[0.98] transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px]">add_business</span>
+إضافة فرع جديد
+</button>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex gap-xs">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+<div class="h-10 w-px bg-outline-variant mx-2"></div>
+<div class="flex items-center gap-sm">
+<div class="text-left">
+<p class="font-label-bold text-on-surface text-[12px]">أحمد محمد</p>
+<p class="text-on-surface-variant text-[10px]">مدير العمليات</p>
+</div>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-outline">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a Middle Eastern male manager in a modern cafe setting, soft natural lighting, high-quality photography, neutral corporate background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKL_sM21I61K_exjHgxLmmjt22WzMPIl1_op1GrPxThU0Jzx4I2ctFvFCkR5P0J15X8jYnuqmhMRjIe_Wbxplr37KFOKqW5V3QMELcEY6DCOMlHcSLHCme8s6hK7pO67JfZLEGtYlxc6_jgt_JA8paa47YjFeZ4QCw96PgVkyStVh2xrOtfHux1tai8zuH1NvVuoGZUzkaADTg-lWW0x9f3Iv9ESJ2dJ8zRWEYFP5zGKBO5bsbuET0"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="mr-[280px] pt-20 p-margin-desktop min-h-screen">
+<!-- Branch Selector Chips -->
+<section class="mb-lg">
+<div class="flex flex-wrap gap-sm">
+<div class="flex items-center gap-xs bg-surface-container p-1 rounded-xl border border-outline-variant">
+<button class="px-md py-sm bg-primary text-on-primary rounded-lg font-label-bold premium-shadow">زام 1 (الرئيسي)</button>
+<div class="flex gap-1 px-1">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="تعديل">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1 text-error hover:opacity-70 transition-colors" title="حذف">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-xs bg-surface-container p-1 rounded-xl border border-outline-variant">
+<button class="px-md py-sm bg-primary text-on-primary rounded-lg font-label-bold premium-shadow">زام 2</button>
+<div class="flex gap-1 px-1">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="تعديل">زام 2</button>
+<button class="p-1 text-error hover:opacity-70 transition-colors" title="حذف">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-xs bg-surface-container p-1 rounded-xl border border-outline-variant">
+<button class="px-md py-sm bg-primary text-on-primary rounded-lg font-label-bold premium-shadow">زام 3</button>
+<div class="flex gap-1 px-1">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="تعديل">زام 3</button>
+<button class="p-1 text-error hover:opacity-70 transition-colors" title="حذف">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-xs bg-surface-container p-1 rounded-xl border border-outline-variant">
+<button class="px-md py-sm bg-primary text-on-primary rounded-lg font-label-bold premium-shadow">زام 4</button>
+<div class="flex gap-1 px-1">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="تعديل">زام 4</button>
+<button class="p-1 text-error hover:opacity-70 transition-colors" title="حذف">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-xs bg-surface-container p-1 rounded-xl border border-outline-variant">
+<button class="px-md py-sm bg-primary text-on-primary rounded-lg font-label-bold premium-shadow">زام 5</button>
+<div class="flex gap-1 px-1">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="تعديل">زام 5</button>
+<button class="p-1 text-error hover:opacity-70 transition-colors" title="حذف">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-xs bg-surface-container p-1 rounded-xl border border-outline-variant">
+<button class="px-md py-sm bg-primary text-on-primary rounded-lg font-label-bold premium-shadow">زام 6</button>
+<div class="flex gap-1 px-1">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="تعديل">زام 6</button>
+<button class="p-1 text-error hover:opacity-70 transition-colors" title="حذف">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Bento Grid Dashboard -->
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Checklist Status Section -->
+<div class="col-span-12 lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- Supervisor Card -->
+<div class="tonal-layer p-md rounded-xl premium-shadow flex flex-col gap-md">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+</div>
+<h3 class="font-title-md text-primary">تشيك ليست المشرف</h3>
+</div>
+<span class="px-sm py-xs bg-[#E8F5E9] text-[#2E7D32] rounded-full text-[10px] font-label-bold">مكتمل</span>
+</div>
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-full overflow-hidden border-2 border-primary">
+<img class="w-full h-full object-cover" data-alt="A portrait of a male coffee shop supervisor in a clean uniform, smiling confidently, in a bright modern cafe environment with blurred coffee machines in the background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3FFm7qdOPA7Zr7J6b1MwRdxfrtSqBNXY1LYvtvxSNIJdYl_Vl_dcRP5I9KoKN2nVFfexJHbRK4bTv-OFuw0PTBxR1EaHRWLpzCbgkM1AW6W9t6qKpGsi24DpmEnQ-yqO6Rp5jPO-_6wp0jFThCLnB1Pp1aPKEO9zuM7bimKExsW6_W9huoyWenC1_djx0x-UXnqU-ZPcuuqjOVwFnWIlcT13sJtoEtvddLs_INbu00dj608244JuB"/>
+</div>
+<div>
+<p class="font-label-bold text-on-surface">سالم العتيبي</p>
+<p class="text-on-surface-variant text-[12px]">مشرف الشفت</p>
+</div>
+</div>
+<div class="mt-auto pt-sm border-t border-outline-variant flex justify-between items-center">
+<span class="text-on-surface-variant text-[11px]">آخر تحديث: 09:30 ص</span>
+<button class="text-primary font-label-bold text-[12px] flex items-center gap-xs">
+                            عرض التفاصيل <span class="material-symbols-outlined text-[16px]">chevron_left</span>
+</button>
+</div>
+</div>
+<!-- Barista Card -->
+<div class="tonal-layer p-md rounded-xl premium-shadow flex flex-col gap-md">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined">local_cafe</span>
+</div>
+<h3 class="font-title-md text-primary">تشيك ليست البار</h3>
+</div>
+<span class="px-sm py-xs bg-[#FFF8E1] text-[#F57F17] rounded-full text-[10px] font-label-bold">جاري العمل</span>
+</div>
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-full overflow-hidden border-2 border-primary">
+<img class="w-full h-full object-cover" data-alt="Close up of a focused barista preparing latte art, detailed focus on hands and steam wand, warm cafe lighting, aesthetic morning mood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuHZrKLAg2P-gaFnMz2RnLzSkt6o-GMD-sL4AO1lyFOq93gahItXVbHKhpH3tRDiCtd-xTFvILwH_UdjuHohZjfVcCdv8kDnsEs5gdXR1YPuhKp75m9eQSDVvy-mu0bHYVURz7YV2fGEYvOK_zDcxSyU2sI0RUgkeLOj5d1fnzuM0LgRofLCoFhroHRCjyBpPlGS5wrXNaH6YODkKUEuvYr-usLbIVHoX8rzJz8DUvJaG49Ue4BshQ"/>
+</div>
+<div>
+<p class="font-label-bold text-on-surface">فهد خالد</p>
+<p class="text-on-surface-variant text-[12px]">باريستا أول</p>
+</div>
+</div>
+<div class="mt-auto pt-sm border-t border-outline-variant flex justify-between items-center">
+<span class="text-on-surface-variant text-[11px]">آخر تحديث: 10:15 ص</span>
+<button class="text-primary font-label-bold text-[12px] flex items-center gap-xs">
+                            عرض التفاصيل <span class="material-symbols-outlined text-[16px]">chevron_left</span>
+</button>
+</div>
+</div>
+<!-- Kitchen Card -->
+<div class="tonal-layer p-md rounded-xl premium-shadow flex flex-col gap-md">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined">restaurant</span>
+</div>
+<h3 class="font-title-md text-primary">تشيك ليست المطبخ</h3>
+</div>
+<span class="px-sm py-xs bg-[#E8F5E9] text-[#2E7D32] rounded-full text-[10px] font-label-bold">مكتمل</span>
+</div>
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-full overflow-hidden border-2 border-primary">
+<img class="w-full h-full object-cover" data-alt="A professional chef in a clean white toque preparing fresh pastries in a high-end commercial kitchen, bright surgical-grade lighting, stainless steel surfaces." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrtMOB7RTFd0xoQ-DMJR2zRiF4Y79ivlmwHfPPWwnR0RmlWtoj_uUny8Ge92oKjp-nbtkEX4ddYuHXBQDvbGYOQx2HrM7-M-vAGAnPl7xfSBOd41E33ij7lGB_myypuuvcFF0_yGnosXs2Mq4-xnJjIcCFNijWiSkgFdtySxN22-4cSd6aT5JgbxSFqwwur-plPYd_V2D37uKC-MyBsiaNeTEqmHKhZZe-DD9P762pvf-IuvdPZEwX"/>
+</div>
+<div>
+<p class="font-label-bold text-on-surface">عمر سليمان</p>
+<p class="text-on-surface-variant text-[12px]">مسؤول المطبخ</p>
+</div>
+</div>
+<div class="mt-auto pt-sm border-t border-outline-variant flex justify-between items-center">
+<span class="text-on-surface-variant text-[11px]">آخر تحديث: 08:00 ص</span>
+<button class="text-primary font-label-bold text-[12px] flex items-center gap-xs">
+                            عرض التفاصيل <span class="material-symbols-outlined text-[16px]">chevron_left</span>
+</button>
+</div>
+</div>
+<!-- Waiter Card -->
+<div class="tonal-layer p-md rounded-xl premium-shadow flex flex-col gap-md">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined">person_pin_circle</span>
+</div>
+<h3 class="font-title-md text-primary">تشيك ليست الصالة</h3>
+</div>
+<span class="px-sm py-xs bg-[#FFEBEE] text-[#C62828] rounded-full text-[10px] font-label-bold">متأخر</span>
+</div>
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-full overflow-hidden border-2 border-primary">
+<img class="w-full h-full object-cover" data-alt="A friendly waiter holding a serving tray in a minimalist luxury cafe, elegant uniform, clean lines, bright interior design background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAROQPWwTFp9iG48TGxddSFmMMHqd7Ly35bWDS53dWWPzT6rsUDaiYiFa1-MMXuMOlj0THt1dNf_LBrEDnyLNIktVV1_LfnJPEXIaYsTbwy2ZTxWnkSaceTXxoROjoWh2YmXFrRe3NW7uG3HhB0N-xFXIGJr9zcwUTDTK-YlgQhN_l6FB-vgZzyjhW_d-MxAxuVB17ZFx_y90Lyrh8fWJqpaYDYZ2x8yl-MtKkm94G3znxbMq3JY17O"/>
+</div>
+<div>
+<p class="font-label-bold text-on-surface">ياسر حسين</p>
+<p class="text-on-surface-variant text-[12px]">خدمة العملاء</p>
+</div>
+</div>
+<div class="mt-auto pt-sm border-t border-outline-variant flex justify-between items-center">
+<span class="text-on-surface-variant text-[11px]">لم يتم البدء بعد</span>
+<button class="text-error font-label-bold text-[12px] flex items-center gap-xs">
+                            إرسال تنبيه <span class="material-symbols-outlined text-[16px]">notifications_active</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Team Overview & Map Section -->
+<div class="col-span-12 lg:col-span-4 flex flex-col gap-gutter">
+<!-- Location Info -->
+<div class="tonal-layer p-md rounded-xl premium-shadow h-48 relative overflow-hidden">
+<div class="absolute inset-0 z-0">
+<div class="w-full h-full grayscale opacity-20" data-location="Riyadh" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC8fK70WttGfUbPlCTFd9Oo2AjLKpcEMel_L63s1Qt6qxN_0d_pm-MPMsAag74AdBXe8hrKwAiGgQ0IQ0SmXrXGiy79uluklmLFDHJHbKGBfmcVc8dEYWvP0sWJ8yYf30tkASi6UREF2EL4f4qqHPR41KUjZA8i5LPlO8slHGNh8DReCyUuOmnakRCQp4EvyIjMc6Z6rhakuAq5BbbPGP3q8S_Kbx2XQ-CQRIVzkH48iD6WzaXCwIgq')"></div>
+</div>
+<div class="relative z-10">
+<h4 class="font-title-md text-primary mb-xs">فرع العليا - زام 1</h4>
+<p class="text-on-surface-variant text-[12px] flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">location_on</span>
+                            شارع العليا العام، الرياض
+                        </p>
+<div class="mt-md flex gap-sm">
+<div class="flex -space-x-2 space-x-reverse">
+<div class="w-8 h-8 rounded-full border-2 border-surface overflow-hidden"><img class="w-full h-full object-cover" data-alt="Avatar 1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuClAH8mYs-jxEdy5EeAnxXimNFPn71NlB5XnSEQHXz9GRjgNHp7Xn1LmXc--voj8HSiXUaZRmkEa8SQ67oRToVAubTkgDYSCR6KT8-7E6d3KtB-v5dG0rExco1E5Xd_gv5N-19VV4SnzI-QfUTUvjdFdNKFYXDcFAG3aLYOw6lFSunLavV39cUFG2PKdYtdKxqosyqs_u9o2ogNI4wvdncWKXbyooh2q5KLR7BhfSc2SdlfFp6TcKWm"/></div>
+<div class="w-8 h-8 rounded-full border-2 border-surface overflow-hidden"><img class="w-full h-full object-cover" data-alt="Avatar 2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6OGhSBybaW9WSuZWTzpctfgy1Pi3oo7Ykf_4MimVE74qWrgwcLxygtDBMPlH4XgXnW79GYqD23HNuFguEoItjKtfFUX5nF3Ztr9EOdDqHEtyYm7uu45NWhlEIfZN_I2D21K3kJF0Sophl7Pzkap4yiPlyifmnDCNcxytOQjOkyzXJvIv8OqUPAakCTGWR9DCsMzYJmyIgP41K-WDqXkWrWpXqncTDqINFwhlBSOxp0hDBVJle-LF2"/></div>
+<div class="w-8 h-8 rounded-full border-2 border-surface overflow-hidden"><img class="w-full h-full object-cover" data-alt="Avatar 3" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCqeFxHj1dvuFnaY1DYKv7ERi3PzhoKosR7kZCtDzdlauUFSsb_fFQN7AJT2COt9hSzeiOZTWJIO0c1ZpWQ6whVlQuQUKRO68n6R_QCUnrjm_AWO7byqVji13a5L8B_bIOXRCxqlgqOnfwrgbd0SAT1XsjdO4D1RYiguGbezlMJ7LQW2zVqcRBzfIAuqC9PKvODU6TkRY48eEoyq0oFPaO178MJwfmI-KFdhHpWluldCm2K7kTeRNJF"/></div>
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center text-[10px] border-2 border-surface">+5</div>
+</div>
+<span class="text-[12px] font-label-bold flex items-center">8 موظفين نشطين</span>
+</div>
+</div>
+</div>
+<!-- Shift Statistics -->
+<div class="tonal-layer p-md rounded-xl premium-shadow flex-grow">
+<h4 class="font-label-bold text-primary mb-md">إحصائيات الشفت الحالي</h4>
+<div class="space-y-md">
+<div>
+<div class="flex justify-between text-[12px] mb-1">
+<span class="text-on-surface-variant">إنجاز المهام</span>
+<span class="font-label-bold">75%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+<div class="bg-[#2E7D32] h-full" style="width: 75%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-[12px] mb-1">
+<span class="text-on-surface-variant">رضا العملاء (تقديري)</span>
+<span class="font-label-bold">92%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+<div class="bg-primary h-full" style="width: 92%"></div>
+</div>
+</div>
+<div class="pt-sm">
+<div class="flex items-center gap-md p-sm bg-surface rounded-lg">
+<div class="flex-shrink-0 w-8 h-8 bg-[#E1F5FE] text-[#0288D1] rounded flex items-center justify-center">
+<span class="material-symbols-outlined">trending_up</span>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant">أداء الشفت</p>
+<p class="font-label-bold text-[14px]">مرتفع جداً</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Logs Section -->
+<section class="mt-xl">
+<div class="flex justify-between items-end mb-md">
+<div>
+<h3 class="font-headline-lg text-primary text-[24px]">آخر التحديثات</h3>
+<p class="text-on-surface-variant">سجل النشاطات المباشر للشفت</p>
+</div>
+<button class="text-primary font-label-bold border-b border-primary hover:opacity-70 transition-opacity">تصدير التقرير اليومي</button>
+</div>
+<div class="tonal-layer rounded-xl overflow-hidden premium-shadow">
+<table class="w-full text-right">
+<thead class="bg-surface-container-high border-b border-outline-variant">
+<tr>
+<th class="p-md font-label-bold text-primary">الموظف</th>
+<th class="p-md font-label-bold text-primary">القسم</th>
+<th class="p-md font-label-bold text-primary">الإجراء</th>
+<th class="p-md font-label-bold text-primary">الوقت</th>
+<th class="p-md font-label-bold text-primary">الحالة</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container transition-colors">
+<td class="p-md flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant"><img class="w-full h-full object-cover" data-alt="Staff profile small thumbnail" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5fIrWHUA47JtegVggUNJ_GjlntApLhKNv2H-yCtZP0WK5K7SnfcpI526zfSDkAANaks65qcm0KFCt8RVxAu_bVvsKUUlHQyOpcizviDQ74d3y7gWFS9S9pYsvMwrcwZYey4-1PQr_F1UFoIb9GjKe_By_pC81sOqMgbksRsnfWomYE95TuFEouDlWDgmmxV5kyH34Eob8fo2zoq5jCFDqogDJ8BqGiDccTCKjXJIyyNfUSNW2qpYr"/></div>
+<span class="font-body-lg">سالم العتيبي</span>
+</td>
+<td class="p-md text-on-surface-variant">الإشراف</td>
+<td class="p-md">إكمال جولة الفحص الصباحية</td>
+<td class="p-md text-on-surface-variant">09:30 ص</td>
+<td class="p-md"><span class="material-symbols-outlined text-[#2E7D32]">check_circle</span></td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors">
+<td class="p-md flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant"><img class="w-full h-full object-cover" data-alt="Staff profile small thumbnail" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmOd0ee7ga9yW72pOoF6aefmpuUbITwMd54fZykCGSMCS8fGRFK98DQP3A67jL5sm2nizaCJRDgkZxJ8RjmaSH5LTCJQdiGTuu_OiK-d6eHeT-zF-86yY3oRhFltMMnE4J8lpDz6S60MSCLCtXMI8idoALJM-qPAso7T9l3eauXj77wjshPfkPdmizBaM8bX6lv2gtSVYLAoIk5W6yDPhbBP6nSgqU5geVDE9wtrazAMIxszOzBHHo"/></div>
+<span class="font-body-lg">فهد خالد</span>
+</td>
+<td class="p-md text-on-surface-variant">البار</td>
+<td class="p-md">معايرة مطحنة الإسبريسو</td>
+<td class="p-md text-on-surface-variant">08:45 ص</td>
+<td class="p-md"><span class="material-symbols-outlined text-[#2E7D32]">check_circle</span></td>
+</tr>
+<tr class="hover:bg-surface-container transition-colors">
+<td class="p-md flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant"><img class="w-full h-full object-cover" data-alt="Staff profile small thumbnail" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHrizO8zUJmY2ZLQ6RUTbEoZrmIAg24xjDTfXxlem9fP48k6oKZBBOskBxu25dka_BJfqUoBf1K14WBcz-vNMYUVgMB67eM341u3mNwmN9iWZGKZrsElwiNrtHJIL5MVImifomYtjXHPPwg4V33GgS80WF9qdPuhFcAsudLZHeJHzN5XZHAhUBgVHMHmy7mSsEu95bfivzb0x3f57ez2Ra7nXug9eeP596-Kj7_Qe8zNG7dqm9ueIr"/></div>
+<span class="font-body-lg">ياسر حسين</span>
+</td>
+<td class="p-md text-on-surface-variant">الصالة</td>
+<td class="p-md">تحديث قائمة انتظار الطاولات</td>
+<td class="p-md text-on-surface-variant">10:20 ص</td>
+<td class="p-md"><span class="material-symbols-outlined text-[#F57F17]">pending</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</main>
+<script>
+        function toggleShift(btn, type) {
+            const buttons = btn.parentElement.querySelectorAll('button');
+            buttons.forEach(b => {
+                b.classList.remove('active-shift', 'bg-primary', 'text-on-primary');
+                b.classList.add('text-on-surface-variant');
+            });
+            btn.classList.remove('text-on-surface-variant');
+            btn.classList.add('active-shift');
+        }
+
+        // Lightweight interaction for cards
+        document.querySelectorAll('.tonal-layer').forEach(card => {
+            card.addEventListener('mousedown', () => {
+                card.style.transform = 'scale(0.985)';
+                card.style.transition = 'transform 0.1s ease';
+            });
+            card.addEventListener('mouseup', () => {
+                card.style.transform = 'scale(1)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body></html>
