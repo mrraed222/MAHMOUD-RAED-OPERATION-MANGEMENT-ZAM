@@ -1,0 +1,2 @@
+127.0.0.1 - - [08/Aug/2026 16:22:42] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [08/Aug/2026 16:22:43] "GET /assets/supabase-config.js HTTP/1.1" 200 -

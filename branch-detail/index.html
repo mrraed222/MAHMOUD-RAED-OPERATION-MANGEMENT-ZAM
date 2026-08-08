@@ -21,6 +21,11 @@
   if (!['Owner','Admin','Manager','Supervisor'].includes(currentUser.role)) {
       window.location.href = zamRoleHomePath(currentUser.role);
   }
+  const params = new URLSearchParams(window.location.search);
+  const branchId = params.get('branch');
+  if (currentUser.role === 'Supervisor' && branchId !== currentUser.branch_id) {
+      window.location.href = `index.html?branch=${currentUser.branch_id}&name=${encodeURIComponent(currentUser.branches?.name || 'فرعي')}`;
+  }
 </script>
 </head>
 <body class="bg-background text-on-surface overflow-x-hidden">
