@@ -1,12 +1,12 @@
 -- ============================================================
 -- مخطط قاعدة بيانات نظام "زام" للعمليات (ZAM Operations)
--- نسخة موحدة تجمع بين zam_schema.md (القديم) و readme.md (الأحدث)
+-- نسخة موحدة ومحدثة بالكامل لضمان تشغيل كافة وظائف النظام
 -- نفّذ هذا الملف بالكامل في Supabase -> SQL Editor
 -- ============================================================
 
 create extension if not exists "uuid-ossp";
 
--- 1. الفروع
+-- 1. الفروع (Branches)
 create table if not exists branches (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
@@ -14,53 +14,128 @@ create table if not exists branches (
   created_at timestamptz default now()
 );
 
--- 2. الموظفين وصلاحياتهم
+-- 2. الموظفين وصلاحياتهم (Profiles)
 create table if not exists profiles (
   id uuid primary key default uuid_generate_v4(),
   full_name text not null,
   email text,
   whatsapp_number text,
-  role text default 'Barista' check (role in ('Barista','Supervisor','Manager','Kitchen','Waiter')),
+  role text default 'Barista' check (role in ('Owner','Admin','Supervisor','Manager','Kitchen','Waiter')),
   passcode text unique not null,
-  branch_id uuid references branches(id),
+  branch_id uuid references branches(id) on delete set null,
   avatar_url text,
-  status text default 'pending' check (status in ('pending','active','suspended')),
+  status text default 'pending' check (status in ('pending','active','suspended','rejected')),
+  receives_branch_reports boolean default false,
+  employee_number text,
   created_at timestamptz default now()
 );
 
--- 3. التقارير اليومية
+-- 3. صلاحيات الأدمن المتقدمة (Admin Permissions)
+create table if not exists admin_permissions (
+  profile_id uuid primary key references profiles(id) on delete cascade,
+  can_manage_staff boolean default false,
+  can_manage_branches boolean default false,
+  can_manage_templates boolean default false,
+  can_manage_automations boolean default false,
+  can_manage_reports boolean default false,
+  can_view_all_reports boolean default false
+);
+
+-- 4. قوالب قوائم التحقق (Checklist Templates)
+create table if not exists checklist_templates (
+  id uuid primary key default uuid_generate_v4(),
+  task_title text not null,
+  category text not null,
+  shift_type text not null check (shift_type in ('Morning', 'Evening')),
+  instructions text,
+  branch_id uuid references branches(id) on delete cascade,
+  requires_photo boolean default false,
+  created_at timestamptz default now()
+);
+
+-- 5. سجلات تنفيذ المهام اليومية (Checklist Logs)
+create table if not exists checklist_logs (
+  id uuid primary key default uuid_generate_v4(),
+  template_id uuid references checklist_templates(id) on delete cascade,
+  branch_id uuid references branches(id) on delete cascade,
+  executed_by uuid references profiles(id) on delete cascade,
+  status text default 'Completed',
+  notes text,
+  photo_url text,
+  execution_date date default current_date,
+  created_at timestamptz default now()
+);
+
+-- 6. التقارير اليومية (Daily Reports)
 create table if not exists daily_reports (
   id uuid primary key default uuid_generate_v4(),
-  branch_id uuid references branches(id),
-  supervisor_id uuid references profiles(id),
+  branch_id uuid references branches(id) on delete cascade,
+  supervisor_name text,
+  report_date date default current_date,
+  shift_type text check (shift_type in ('Morning', 'Evening')),
   total_sales decimal,
   orders_count integer,
-  waste_data jsonb,
-  google_maps_reviews jsonb,
-  shift_type text check (shift_type in ('Morning','Evening')),
+  avg_ticket decimal,
+  team_status text,
+  positive_reviews integer default 0,
+  custom_fields jsonb default '{}'::jsonb,
   created_at timestamptz default now()
 );
 
--- 4. قوائم التحقق (Checklists)
-create table if not exists checklists (
+-- 7. سجلات الهدر (Waste Logs)
+create table if not exists waste_logs (
   id uuid primary key default uuid_generate_v4(),
-  task_name text not null,
-  category text,
-  branch_id uuid references branches(id),
-  is_completed boolean default false,
-  assigned_to uuid references profiles(id),
-  evidence_image_url text,
-  created_at timestamptz default now(),
-  completed_at timestamptz
+  report_id uuid references daily_reports(id) on delete cascade,
+  item_name text not null,
+  quantity decimal not null,
+  unit text,
+  reason text,
+  created_at timestamptz default now()
 );
 
--- 5. التنبيهات والأتمتة
-create table if not exists automations (
+-- 8. مشاكل الشفت (Shift Issues)
+create table if not exists shift_issues (
   id uuid primary key default uuid_generate_v4(),
-  trigger_condition text,
-  channel text check (channel in ('WhatsApp','Email','Push')),
-  message_template text,
+  report_id uuid references daily_reports(id) on delete cascade,
+  description text not null,
+  action_taken text,
+  priority text,
+  created_at timestamptz default now()
+);
+
+-- 9. تقييمات جوجل المضافة بالتقارير (Negative Reviews)
+create table if not exists negative_reviews (
+  id uuid primary key default uuid_generate_v4(),
+  report_id uuid references daily_reports(id) on delete cascade,
+  comment_text text not null,
+  review_type text,
+  created_at timestamptz default now()
+);
+
+-- 10. إعدادات الأتمتة (Automation Settings)
+create table if not exists automation_settings (
+  key text primary key,
   is_active boolean default true,
+  created_at timestamptz default now()
+);
+
+-- 11. جداول أتمتة التقارير (Automation Schedules)
+create table if not exists automation_schedules (
+  id uuid primary key default uuid_generate_v4(),
+  report_type text not null,
+  branch_id uuid references branches(id) on delete cascade,
+  send_time time not null,
+  is_active boolean default true,
+  created_at timestamptz default now()
+);
+
+-- 12. تعريفات حقول التقارير الإضافية (Report Field Definitions)
+create table if not exists report_field_definitions (
+  id uuid primary key default uuid_generate_v4(),
+  field_name text not null,
+  field_type text not null,
+  is_active boolean default true,
+  display_order integer default 0,
   created_at timestamptz default now()
 );
 
@@ -69,34 +144,36 @@ create table if not exists automations (
 -- ============================================================
 alter table branches enable row level security;
 alter table profiles enable row level security;
+alter table admin_permissions enable row level security;
+alter table checklist_templates enable row level security;
+alter table checklist_logs enable row level security;
 alter table daily_reports enable row level security;
-alter table checklists enable row level security;
-alter table automations enable row level security;
+alter table waste_logs enable row level security;
+alter table shift_issues enable row level security;
+alter table negative_reviews enable row level security;
+alter table automation_settings enable row level security;
+alter table automation_schedules enable row level security;
+alter table report_field_definitions enable row level security;
 
 -- ملاحظة مهمة: السياسات دي أساسية للبدء فقط (تسمح بالقراءة للجميع
 -- عبر مفتاح anon اللازم لتسجيل الدخول بالباسكود). لازم تُراجع
 -- وتُشدّد الصلاحيات (خصوصاً الكتابة) قبل الإطلاق الفعلي للعملاء.
 
-create policy "allow read profiles for login" on profiles
-  for select using (true);
-
-create policy "allow insert profiles for registration" on profiles
-  for insert with check (status = 'pending');
-
-create policy "allow read branches" on branches
-  for select using (true);
-
-create policy "allow all checklists" on checklists
-  for all using (true) with check (true);
-
-create policy "allow all daily_reports" on daily_reports
-  for all using (true) with check (true);
-
-create policy "allow read automations" on automations
-  for select using (true);
+create policy "allow all branches" on branches for all using (true) with check (true);
+create policy "allow all profiles" on profiles for all using (true) with check (true);
+create policy "allow all admin_permissions" on admin_permissions for all using (true) with check (true);
+create policy "allow all checklist_templates" on checklist_templates for all using (true) with check (true);
+create policy "allow all checklist_logs" on checklist_logs for all using (true) with check (true);
+create policy "allow all daily_reports" on daily_reports for all using (true) with check (true);
+create policy "allow all waste_logs" on waste_logs for all using (true) with check (true);
+create policy "allow all shift_issues" on shift_issues for all using (true) with check (true);
+create policy "allow all negative_reviews" on negative_reviews for all using (true) with check (true);
+create policy "allow all automation_settings" on automation_settings for all using (true) with check (true);
+create policy "allow all automation_schedules" on automation_schedules for all using (true) with check (true);
+create policy "allow all report_field_definitions" on report_field_definitions for all using (true) with check (true);
 
 -- ============================================================
--- بيانات أولية تجريبية (اختياري - احذفها لو مش محتاجها)
+-- بيانات أولية تجريبية (يمكن تعديلها أو حذفها لاحقاً)
 -- ============================================================
 insert into branches (name, location_url) values
   ('زام 1 - العليا', null),
