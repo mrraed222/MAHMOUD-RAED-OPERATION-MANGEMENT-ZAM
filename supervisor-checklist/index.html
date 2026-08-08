@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../assets/supabase-config.js"></script>
+<script>
+  // حماية الشاشة: لازم تسجيل دخول قبل الوصول
+  const currentUser = ZamSession.requireAuth('../index.html');
+</script>
+
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&amp;family=Noto+Sans+Arabic:wght@400;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        :root {
+            font-family: 'Noto Sans Arabic', 'Montserrat', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .checklist-item:has(input:checked) {
+            background-color: rgba(0, 44, 6, 0.05);
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container": "#f0eded",
+                        "secondary-container": "#e1e1c9",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "surface-container-highest": "#e4e2e1",
+                        "on-surface-variant": "#4e453d",
+                        "on-primary-container": "#bd9f83",
+                        "on-primary-fixed-variant": "#59422c",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#725a42",
+                        "on-background": "#1b1c1c",
+                        "tertiary-fixed-dim": "#78dc77",
+                        "tertiary-fixed": "#94f990",
+                        "on-tertiary-fixed": "#002204",
+                        "on-error": "#ffffff",
+                        "inverse-on-surface": "#f3f0f0",
+                        "outline-variant": "#d2c4ba",
+                        "on-tertiary-container": "#56b958",
+                        "secondary-fixed": "#e4e4cc",
+                        "outline": "#80756c",
+                        "surface-container-high": "#eae7e7",
+                        "on-secondary-container": "#636451",
+                        "on-secondary-fixed-variant": "#474836",
+                        "inverse-surface": "#303030",
+                        "primary-container": "#4b3621",
+                        "surface": "#fcf9f8",
+                        "surface-variant": "#e4e2e1",
+                        "secondary": "#5e604d",
+                        "inverse-primary": "#e1c1a4",
+                        "on-primary-fixed": "#291806",
+                        "surface-dim": "#dcd9d9",
+                        "primary-fixed": "#fedcbe",
+                        "on-tertiary-fixed-variant": "#005313",
+                        "background": "#fcf9f8",
+                        "primary": "#33210d",
+                        "surface-bright": "#fcf9f8",
+                        "error": "#ba1a1a",
+                        "on-error-container": "#93000a",
+                        "surface-container-low": "#f6f3f2",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed": "#1b1d0e",
+                        "tertiary-container": "#00450e",
+                        "on-tertiary": "#ffffff",
+                        "on-surface": "#1b1c1c",
+                        "tertiary": "#002c06",
+                        "primary-fixed-dim": "#e1c1a4",
+                        "secondary-fixed-dim": "#c8c8b0"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "md": "24px",
+                        "lg": "40px",
+                        "gutter": "24px",
+                        "base": "8px",
+                        "xs": "4px",
+                        "margin-desktop": "32px",
+                        "sm": "12px",
+                        "margin-mobile": "16px",
+                        "xl": "64px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Noto Sans Arabic", "Montserrat"],
+                        "body-lg": ["Noto Sans Arabic", "Montserrat"],
+                        "body-sm": ["Noto Sans Arabic", "Montserrat"],
+                        "title-md": ["Noto Sans Arabic", "Montserrat"],
+                        "display-lg": ["Noto Sans Arabic", "Montserrat"],
+                        "label-bold": ["Noto Sans Arabic", "Montserrat"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface overflow-x-hidden">
+<!-- Side Navigation Shell -->
+<script>document.write(renderZamSidebar('supervisor-checklist', currentUser.role));</script>
+<!-- Top App Bar Shell -->
+<header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline shadow-sm z-40 flex justify-between items-center px-margin-desktop">
+<div class="flex items-center gap-md">
+<h2 class="font-headline-lg text-headline-lg font-black text-primary">ZAM Operations</h2>
+<div class="hidden lg:flex items-center gap-base">
+<span class="bg-secondary-container text-on-secondary-container px-base py-xs rounded text-label-bold">ZAM 1</span>
+<span class="text-on-surface-variant font-label-bold">فرع التخصصي</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex gap-xs bg-surface-container-low p-xs rounded-full" id="shift-toggle">
+<button class="shift-btn px-md py-xs rounded-full font-label-bold transition-all" data-shift="Morning">الشفت الصباحي</button>
+<button class="shift-btn px-md py-xs rounded-full font-label-bold transition-all" data-shift="Evening">الشفت المسائي</button>
+</div>
+<div class="flex items-center gap-sm border-r border-outline-variant pr-md mr-base">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<img class="w-10 h-10 rounded-full border border-outline" data-alt="A professional headshot of a cafe operations manager, smiling warmly, wearing a neat espresso-colored apron, set against a blurred high-end cafe interior with warm lighting and wooden textures." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQ3DqSL5h4-Hi-2QrjsKQ91_0gbzBCe0nc7bqYUZjSnuj98so231lg1Ex71d6qMl7PSPSdgllahJGU8BDZjVFGocXhFEe03rcp_E9zIEJPJqMM0LK4UAuwHBIIObv7EeeeVxV2mQyejGGSGv6gflCcoeRgTcz651lKQYPb8pQ1zLc69nPQi1IEr-bcRcrJulObCfiSNdlANEzVobRnB6Tj88Bvkf28ksGGsXmPIx_5RdV0P0vcUBfv"/>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="md:pr-[280px] pt-20 min-h-screen">
+<div class="p-margin-desktop max-w-5xl mx-auto space-y-md">
+<!-- Page Header & Metadata -->
+<section class="flex flex-col md:flex-row md:items-end justify-between gap-base border-b border-outline-variant pb-md">
+<div>
+<h1 class="font-display-lg text-primary text-[32px] font-black">دليل المهام اليومية</h1>
+<p class="text-on-surface-variant font-body-lg">متابعة دقيقة لمعايير الجودة والتشغيل في فرع "ZAM 1"</p>
+</div>
+<div class="flex flex-col items-end text-left">
+<span class="text-label-bold text-on-surface-variant uppercase tracking-widest">تاريخ اليوم</span>
+<span class="font-title-md text-secondary">24 مايو 2024</span>
+</div>
+</section>
+<!-- Role Selection (Bento Style) -->
+<section class="grid grid-cols-2 md:grid-cols-4 gap-base" id="category-cards">
+<button class="role-card flex flex-col items-center justify-center p-md bg-surface-container-lowest border-2 border-primary rounded-xl transition-all shadow-sm" data-category="">
+<span class="material-symbols-outlined text-[32px] text-primary mb-xs" style="font-variation-settings: 'FILL' 1;">admin_panel_settings</span>
+<span class="font-label-bold text-primary">كل الفروع/الفئات</span>
+</button>
+<button class="role-card flex flex-col items-center justify-center p-md bg-surface border border-outline-variant rounded-xl hover:border-primary transition-all opacity-70" data-category="البار">
+<span class="material-symbols-outlined text-[32px] text-on-surface-variant mb-xs">local_cafe</span>
+<span class="font-label-bold text-on-surface-variant">البار (Barista)</span>
+</button>
+<button class="role-card flex flex-col items-center justify-center p-md bg-surface border border-outline-variant rounded-xl hover:border-primary transition-all opacity-70" data-category="المطبخ">
+<span class="material-symbols-outlined text-[32px] text-on-surface-variant mb-xs">restaurant</span>
+<span class="font-label-bold text-on-surface-variant">المطبخ</span>
+</button>
+<button class="role-card flex flex-col items-center justify-center p-md bg-surface border border-outline-variant rounded-xl hover:border-primary transition-all opacity-70" data-category="الصالة">
+<span class="material-symbols-outlined text-[32px] text-on-surface-variant mb-xs">person_pin</span>
+<span class="font-label-bold text-on-surface-variant">الخدمة (Waiter)</span>
+</button>
+</section>
+<!-- Checklist Section -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+<div class="bg-primary text-on-primary px-md py-base flex justify-between items-center">
+<h3 class="font-label-bold">قائمة مهام المشرف - الفترة الصباحية</h3>
+<span class="text-xs opacity-80" id="progress-label">جارِ التحميل...</span>
+</div>
+<div class="divide-y divide-outline-variant" id="checklist-container">
+<p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل المهام من قاعدة البيانات...</p>
+</div>
+</section>
+<!-- Notes & Final Action -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-md">
+<div class="md:col-span-2">
+<label class="font-label-bold text-on-surface-variant block mb-base">ملاحظات إضافية (اختياري)</label>
+<textarea class="w-full bg-surface border border-outline-variant rounded-xl p-md focus:border-primary focus:ring-1 focus:ring-primary h-32" placeholder="اكتب أي ملاحظات تتعلق بسير العمل هنا..."></textarea>
+</div>
+<div class="flex flex-col justify-end gap-base">
+<div class="bg-secondary-container/30 p-md rounded-xl border border-secondary-container">
+<p class="text-body-sm text-secondary font-bold mb-xs flex items-center gap-xs">
+<span class="material-symbols-outlined text-sm">info</span>
+                            تنبيه النظام
+                        </p>
+<p class="text-xs text-on-surface-variant leading-relaxed">
+                            بإرسال هذا التقرير، أنت تؤكد التزامك بكافة معايير الجودة والسلامة المهنية في ZAM Cafe.
+                        </p>
+</div>
+<button class="w-full bg-primary text-on-primary py-md rounded-xl font-bold text-lg flex items-center justify-center gap-sm shadow-lg hover:bg-primary-container active:scale-[0.99] transition-all" id="send-report-btn">
+<span class="material-symbols-outlined">send</span>
+                        إرسال التقرير النهائي
+                    </button>
+</div>
+</section>
+</div>
+</main>
+<!-- Mobile Navigation Shell -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface border-t border-outline-variant px-md py-base flex justify-around items-center z-50">
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" href="../dashboard/index.html">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-bold">الرئيسية</span>
+</a>
+<a class="flex flex-col items-center gap-xs text-primary" href="../supervisor-checklist/index.html">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">checklist</span>
+<span class="text-[10px] font-bold">المهام</span>
+</a>
+<div class="relative -top-6">
+<button class="bg-primary text-on-primary p-md rounded-full shadow-xl">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" href="../reports-log/index.html">
+<span class="material-symbols-outlined">assessment</span>
+<span class="text-[10px] font-bold">تقارير</span>
+</a>
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" href="../automation-settings/index.html">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-bold">حسابي</span>
+</a>
+</nav>
+<script>
+        // ============================================
+        // فلاتر الوردية والفئة + تحميل قوائم التحقق الحقيقية
+        // ============================================
+        let currentShift = 'Morning';
+        let currentCategory = ''; // فاضي = كل الفئات
+
+        const container = document.getElementById('checklist-container');
+        const progressLabel = document.getElementById('progress-label');
+
+        function setActiveShiftButton() {
+            document.querySelectorAll('.shift-btn').forEach(btn => {
+                const active = btn.dataset.shift === currentShift;
+                btn.classList.toggle('bg-primary', active);
+                btn.classList.toggle('text-on-primary', active);
+                btn.classList.toggle('text-on-surface-variant', !active);
+            });
+        }
+
+        document.querySelectorAll('.shift-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentShift = btn.dataset.shift;
+                setActiveShiftButton();
+                loadChecklist();
+            });
+        });
+
+        document.querySelectorAll('.role-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.role-card').forEach(c => {
+                    c.classList.remove('border-primary', 'bg-surface-container-lowest', 'opacity-100');
+                    c.classList.add('border-outline-variant', 'bg-surface', 'opacity-70');
+                    c.querySelector('span:last-child').classList.replace('text-primary', 'text-on-surface-variant');
+                });
+                card.classList.remove('border-outline-variant', 'bg-surface', 'opacity-70');
+                card.classList.add('border-primary', 'bg-surface-container-lowest', 'opacity-100');
+                card.querySelector('span:last-child').classList.replace('text-on-surface-variant', 'text-primary');
+
+                currentCategory = card.dataset.category || '';
+                loadChecklist();
+            });
+        });
+
+        function renderChecklist(templates, logsByTemplate) {
+            if (!templates.length) {
+                container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">لا توجد مهام معرّفة لهذه الوردية/الفئة حالياً. يمكن إضافتها من إدارة قوائم التحقق.</p>';
+                progressLabel.textContent = 'لا توجد مهام';
+                return;
+            }
+
+            const done = templates.filter(t => logsByTemplate[t.id]).length;
+            progressLabel.textContent = `تم إنجاز ${done} من ${templates.length} مهام`;
+
+            container.innerHTML = templates.map(item => {
+                const log = logsByTemplate[item.id];
+                const completed = !!log;
+                return `
+                <div class="checklist-item group flex items-center justify-between p-md hover:bg-surface-container-low transition-all">
+                    <div class="flex items-center gap-md">
+                        <span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-outline'}">${completed ? 'check_circle' : 'radio_button_unchecked'}</span>
+                        <div>
+                            <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${item.task_title}</h4>
+                            <p class="text-body-sm text-on-surface-variant">${item.category}${completed && log.profiles ? ' • نفّذها: ' + log.profiles.full_name : ''}</p>
+                        </div>
+                    </div>
+                    ${log && log.photo_url ? `<a href="${log.photo_url}" target="_blank" class="text-primary"><span class="material-symbols-outlined">image</span></a>` : ''}
+                </div>
+            `;
+            }).join('');
+        }
+
+        async function loadChecklist() {
+            container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
+            try {
+                const templates = await ZamAPI.getTemplates(currentCategory || null, currentShift, currentUser.branch_id);
+                const logs = await ZamAPI.getTodayLogs(currentUser.branch_id);
+                const logsByTemplate = {};
+                logs.forEach(l => { logsByTemplate[l.template_id] = l; });
+                renderChecklist(templates, logsByTemplate);
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل المهام من قاعدة البيانات.</p>';
+            }
+        }
+
+        setActiveShiftButton();
+        loadChecklist();
+
+        document.getElementById('send-report-btn')?.addEventListener('click', () => {
+            window.location.href = '../daily-report/index.html';
+        });
+    </script>
+</body></html>

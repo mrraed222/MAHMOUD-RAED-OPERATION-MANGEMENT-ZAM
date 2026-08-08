@@ -1,0 +1,140 @@
+<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>ZAM Operations - داشبورد متابعة التشغيل</title><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#bd9f83","primary-fixed": "#fedcbe","on-error-container": "#93000a","on-surface-variant": "#4e453d","on-primary-fixed": "#291806","on-tertiary": "#ffffff","surface-bright": "#fcf9f8","on-error": "#ffffff","error": "#ba1a1a","secondary-fixed": "#e4e4cc","on-primary-fixed-variant": "#59422c","primary-container": "#4b3621","on-secondary-fixed-variant": "#474836","tertiary-fixed": "#94f990","tertiary-fixed-dim": "#78dc77","on-secondary-container": "#636451","secondary-container": "#e1e1c9","outline-variant": "#d2c4ba","surface-container-highest": "#e4e2e1","background": "#fcf9f8","on-primary": "#ffffff","on-secondary-fixed": "#1b1d0e","inverse-surface": "#303030","inverse-primary": "#e1c1a4","on-surface": "#1b1c1c","tertiary": "#002c06","primary": "#33210d","surface-container": "#f0eded","primary-fixed-dim": "#e1c1a4","on-background": "#1b1c1c","on-secondary": "#ffffff","inverse-on-surface": "#f3f0f0","surface-tint": "#725a42","secondary-fixed-dim": "#c8c8b0","outline": "#80756c","on-tertiary-container": "#56b958","surface-container-high": "#eae7e7","secondary": "#5e604d","error-container": "#ffdad6","tertiary-container": "#00450e","surface-container-lowest": "#ffffff","surface": "#fcf9f8","surface-variant": "#e4e2e1","surface-container-low": "#f6f3f2","on-tertiary-fixed-variant": "#005313","surface-dim": "#dcd9d9","on-tertiary-fixed": "#002204"
+                    },
+                    "borderRadius": {"DEFAULT": "0.125rem","lg": "0.25rem","xl": "0.5rem","full": "0.75rem"},
+                    "spacing": {"margin-mobile": "16px","xl": "64px","sm": "12px","margin-desktop": "32px","lg": "40px","gutter": "24px","base": "8px","xs": "4px","md": "24px"},
+                    "fontFamily": {"title-md": ["Montserrat", "Noto Sans Arabic"],"headline-lg": ["Montserrat", "Noto Sans Arabic"],"label-bold": ["Montserrat", "Noto Sans Arabic"],"display-lg": ["Montserrat", "Noto Sans Arabic"],"body-lg": ["Montserrat", "Noto Sans Arabic"],"body-sm": ["Montserrat", "Noto Sans Arabic"]},
+                    "fontSize": {"title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],"headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],"label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],"display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],"body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],"body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]}
+                }
+            }
+        }
+    }catch(_e){}</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../assets/supabase-config.js"></script>
+<script>
+  const currentUser = ZamSession.requireAuth('../index.html');
+  if (!['Owner','Admin','Manager'].includes(currentUser.role)) {
+      window.location.href = zamRoleHomePath(currentUser.role);
+  }
+</script>
+</head>
+<body class="bg-background text-on-surface overflow-x-hidden">
+<script>document.write(renderZamSidebar('dashboard', currentUser.role));</script>
+
+<header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
+  <div class="flex items-center gap-md">
+    <img alt="ZAM Logo" class="h-10 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHYjgc7-eHXckPir6xT6Xzc1JNl0hItkD1yF71b62A5frAA5eteEdI18Mc8RP8ZlZLBF4ZeBhX-d13FeVqvDMi6wKmruamvwo3BGpfLZky0bs6d5Vln2w1n5DqsKfSfWTn5lKXesAQ8Ku_WHvbiG4EAMG6g7aMQxV0vv4RYQOSAhL4G9MOdCjwQ4GQ0_sFmo0xQOpkbT6i04J4U7sctAJexifNjbeQDiJxKxPVIVlZ-HHqUhUj4rUkYRMiCKqwWcdzhw">
+    <div>
+      <h1 class="font-title-md text-title-md text-primary">داشبورد متابعة التشغيل</h1>
+      <p class="text-body-sm text-on-surface-variant">أداء كل الفروع في تنفيذ قوائم التحقق اليومية</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-md">
+    <span class="text-body-sm text-on-surface-variant" id="date-label"></span>
+    <a href="../daily-report/index.html" class="text-body-sm font-bold text-primary hover:underline">داشبورد التقارير ←</a>
+    <a href="../manage-templates/index.html" class="text-body-sm font-bold text-primary hover:underline">إدارة قوائم التحقق</a>
+    <a href="../permissions/index.html" id="permissions-link" class="text-body-sm font-bold text-primary hover:underline hidden">الأذونات والصلاحيات</a>
+  </div>
+</header>
+
+<main class="md:pr-[280px] pt-20 min-h-screen"><div class="max-w-6xl mx-auto p-margin-desktop">
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-md mb-lg" id="summary-cards">
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
+      <p class="text-body-sm text-on-surface-variant">متوسط الإنجاز اليوم</p>
+      <p class="text-2xl font-bold text-primary" id="avg-completion">—</p>
+    </div>
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
+      <p class="text-body-sm text-on-surface-variant">عدد الفروع</p>
+      <p class="text-2xl font-bold text-primary" id="branch-count">—</p>
+    </div>
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
+      <p class="text-body-sm text-on-surface-variant">مبيعات اليوم (كل الفروع)</p>
+      <p class="text-2xl font-bold text-primary" id="today-sales">—</p>
+    </div>
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
+      <p class="text-body-sm text-on-surface-variant">مشاكل شفت مفتوحة اليوم</p>
+      <p class="text-2xl font-bold text-error" id="open-issues">—</p>
+    </div>
+  </section>
+
+  <h2 class="font-title-md text-title-md text-primary mb-sm">أداء الفروع</h2>
+  <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md" id="branch-cards">
+    <p class="text-on-surface-variant text-body-sm">جارِ التحميل...</p>
+  </section>
+</div></main>
+
+<script>
+document.getElementById('date-label').textContent = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+if (currentUser.role === 'Owner') {
+    document.getElementById('permissions-link').classList.remove('hidden');
+}
+
+async function loadDashboard() {
+    const today = new Date().toISOString().split('T')[0];
+
+    const [branches, templates, todayLogsRes, todayReportsRes, openIssuesRes] = await Promise.all([
+        ZamAPI.getBranches(),
+        ZamAPI.getTemplates(),
+        zamClient.from('checklist_logs').select('branch_id, template_id, photo_url, status, created_at, profiles(full_name)').eq('execution_date', today),
+        zamClient.from('daily_reports').select('branch_id, total_sales').eq('report_date', today),
+        zamClient.from('shift_issues').select('id, branch_id').gte('created_at', today)
+    ]);
+
+    const todayLogs = todayLogsRes.data || [];
+    const todayReports = todayReportsRes.data || [];
+    const openIssues = openIssuesRes.data || [];
+
+    const totalSales = todayReports.reduce((s, r) => s + (Number(r.total_sales) || 0), 0);
+
+    document.getElementById('branch-count').textContent = branches.length;
+    document.getElementById('today-sales').textContent = totalSales.toLocaleString('ar-EG') + ' ر.س';
+    document.getElementById('open-issues').textContent = openIssues.length;
+
+    const cardsEl = document.getElementById('branch-cards');
+    let sumPct = 0;
+
+    cardsEl.innerHTML = branches.map(branch => {
+        // قوالب هذا الفرع = القوالب العامة + القوالب الخاصة بيه فقط (التشيك ليست ممكن يختلف من فرع لآخر)
+        const branchTemplates = templates.filter(t => !t.branch_id || t.branch_id === branch.id);
+        const logsForBranch = todayLogs.filter(l => l.branch_id === branch.id);
+        const doneTemplateIds = new Set(logsForBranch.map(l => l.template_id));
+        const pct = branchTemplates.length ? Math.round((doneTemplateIds.size / branchTemplates.length) * 100) : 0;
+        sumPct += pct;
+        const salesForBranch = todayReports.filter(r => r.branch_id === branch.id).reduce((s, r) => s + (Number(r.total_sales) || 0), 0);
+        const color = pct >= 80 ? 'text-tertiary-container' : pct >= 50 ? 'text-primary' : 'text-error';
+        const barColor = pct >= 80 ? 'bg-tertiary-container' : pct >= 50 ? 'bg-primary' : 'bg-error';
+
+
+        return `
+        <a href="../branch-detail/index.html?branch=${branch.id}&name=${encodeURIComponent(branch.name)}"
+           class="block bg-surface-container-lowest border border-outline-variant rounded-xl p-md hover:shadow-md hover:border-primary transition-all">
+            <div class="flex justify-between items-start mb-sm">
+                <h3 class="font-title-md text-title-md text-on-surface">${branch.name}</h3>
+                <span class="text-xl font-bold ${color}">${pct}%</span>
+            </div>
+            <div class="w-full bg-surface-container-high rounded-full h-2 mb-sm">
+                <div class="${barColor} h-2 rounded-full" style="width:${pct}%"></div>
+            </div>
+            <div class="flex justify-between text-body-sm text-on-surface-variant">
+                <span>${doneTemplateIds.size} من ${branchTemplates.length} مهمة</span>
+                <span>${salesForBranch.toLocaleString('ar-EG')} ر.س اليوم</span>
+            </div>
+        </a>`;
+    }).join('');
+
+    document.getElementById('avg-completion').textContent = branches.length ? Math.round(sumPct / branches.length) + '%' : '—';
+}
+
+loadDashboard().catch(err => {
+    console.error(err);
+    document.getElementById('branch-cards').innerHTML = '<p class="text-error text-body-sm">تعذّر تحميل بيانات الفروع.</p>';
+});
+
+
+</script>
+</body></html>

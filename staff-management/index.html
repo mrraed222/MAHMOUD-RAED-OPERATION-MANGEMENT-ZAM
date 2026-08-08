@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../assets/supabase-config.js"></script>
+<script>
+  // حماية الشاشة: لازم تسجيل دخول قبل الوصول
+  const currentUser = ZamSession.requireAuth('../index.html');
+</script>
+
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ZAM Operations - إدارة الموظفين</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&amp;family=Noto+Sans+Arabic:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Supabase Client Library -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+        body {
+            font-family: 'Noto Sans Arabic', 'Montserrat', sans-serif;
+            background-color: #fcf9f8;
+            color: #1b1c1c;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid #e5e5d0;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f0eded;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d2c4ba;
+            border-radius: 10px;
+        }
+        .header-accent {
+            border-bottom: 4px solid #8B2635;
+        }
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#bd9f83",
+                        "primary-fixed": "#fedcbe",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#4e453d",
+                        "on-primary-fixed": "#291806",
+                        "on-tertiary": "#ffffff",
+                        "surface-bright": "#fcf9f8",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "secondary-fixed": "#e4e4cc",
+                        "on-primary-fixed-variant": "#59422c",
+                        "primary-container": "#4b3621",
+                        "on-secondary-fixed-variant": "#474836",
+                        "tertiary-fixed": "#94f990",
+                        "tertiary-fixed-dim": "#78dc77",
+                        "on-secondary-container": "#636451",
+                        "secondary-container": "#e1e1c9",
+                        "outline-variant": "#d2c4ba",
+                        "surface-container-highest": "#e4e2e1",
+                        "background": "#fcf9f8",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed": "#1b1d0e",
+                        "inverse-surface": "#303030",
+                        "inverse-primary": "#e1c1a4",
+                        "on-surface": "#1b1c1c",
+                        "tertiary": "#002c06",
+                        "primary": "#33210d",
+                        "surface-container": "#f0eded",
+                        "primary-fixed-dim": "#e1c1a4",
+                        "on-background": "#1b1c1c",
+                        "on-secondary": "#ffffff",
+                        "inverse-on-surface": "#f3f0f0",
+                        "surface-tint": "#725a42",
+                        "secondary-fixed-dim": "#c8c8b0",
+                        "outline": "#80756c",
+                        "on-tertiary-container": "#56b958",
+                        "surface-container-high": "#eae7e7",
+                        "secondary": "#5e604d",
+                        "error-container": "#ffdad6",
+                        "tertiary-container": "#00450e",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#fcf9f8",
+                        "surface-variant": "#e4e2e1",
+                        "surface-container-low": "#f6f3f2",
+                        "on-tertiary-fixed-variant": "#005313",
+                        "surface-dim": "#dcd9d9",
+                        "on-tertiary-fixed": "#002204",
+                        "travertine-red": "#8B2635"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "xl": "64px",
+                        "sm": "12px",
+                        "margin-desktop": "32px",
+                        "lg": "40px",
+                        "gutter": "24px",
+                        "base": "8px",
+                        "xs": "4px",
+                        "md": "24px"
+                    },
+                    "fontFamily": {
+                        "title-md": ["Montserrat", "Noto Sans Arabic"],
+                        "headline-lg": ["Montserrat", "Noto Sans Arabic"],
+                        "label-bold": ["Montserrat", "Noto Sans Arabic"],
+                        "display-lg": ["Montserrat", "Noto Sans Arabic"],
+                        "body-lg": ["Montserrat", "Noto Sans Arabic"],
+                        "body-sm": ["Montserrat", "Noto Sans Arabic"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-surface selection:bg-primary-fixed">
+<!-- Sidebar Navigation -->
+<script>document.write(renderZamSidebar('staff-management', currentUser.role));</script>
+<!-- Top App Bar -->
+<header class="fixed top-0 left-0 right-0 h-20 bg-surface border-b border-outline-variant flex justify-between items-center px-margin-desktop mr-[280px] z-40">
+<div class="flex items-center gap-lg">
+<div class="flex items-center gap-sm">
+<img alt="ZAM Logo" class="h-10 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtVHrl_wlRZ8OCKMtpGjeBEhiwUkCPNH5lkysNkUO1GEPO-AYeQMtn8aNF4SxyDf_o8_nfgAAWXhJyez5JTTwSRCIMYzONEZ2TGESRnegBD6SFokELZQjT212djm2tzsEusqv3r0aGg1Q1C9kGaXEOiJITpUgh_BFnyMXNfIkTCp-bDvdwM1fU4gXfBvXEysp3D1dwX8BaUEKgK1qeQraMs20WmFhSEeemLvrmz6tFHXwLlVVrPFnl0Urmm6rj1EFWuw"/>
+<span class="font-headline-lg text-primary text-[24px] font-black">Operations</span>
+</div>
+<div class="hidden md:flex items-center gap-md">
+<a class="text-on-surface-variant hover:text-primary font-label-bold transition-colors" href="#">ZAM 1</a>
+<a class="text-on-surface-variant hover:text-primary font-label-bold transition-colors" href="#">ZAM 2</a>
+<a class="text-primary font-bold border-b-2 border-primary pb-1 font-label-bold" href="#">ZAM 3</a>
+<a class="text-on-surface-variant hover:text-primary font-label-bold transition-colors" href="#">ZAM 4</a>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex bg-surface-container rounded-full p-1 border border-outline-variant">
+<button class="px-md py-1 rounded-full text-body-sm font-bold bg-primary text-on-primary">الوردية الصباحية</button>
+<button class="px-md py-1 rounded-full text-body-sm text-on-surface-variant hover:bg-surface-container-highest">الوردية المسائية</button>
+</div>
+<div class="flex items-center gap-sm">
+<button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-outline ml-sm">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDg3xxxa_ATQHEdv34uixRCz8jnWIza7ElO7JzcobBDJ_ic2_n3PlBQsJzWSdA9PVJjxulZT2Rb2mmESWrWdlZ038EkjeJZwGyu3WqGlAaK3mXVm7QBGQDuyPtVrReDEB2wLV3cf35Qv88f5cSJER90vxSs8LcxT8orbRhz0UI6HIreNfavf9WpCLitghLXiV9NQPFdnrboY4RrODOaR3ZVtWkASmsBbW8_-ua9gEwFARXTZj0oDFho"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="mr-[280px] pt-20 p-margin-desktop">
+<div class="flex flex-col gap-gutter">
+<!-- Page Title & Header -->
+<section class="flex justify-between items-end pb-base header-accent">
+<div>
+<nav class="flex items-center gap-xs text-body-sm text-on-surface-variant mb-xs">
+<span class="">الإعدادات</span>
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+<span class="text-primary font-bold">صلاحيات الموظفين</span>
+</nav>
+<h3 class="font-headline-lg text-primary">إدارة الطاقم والأدوار</h3>
+</div>
+<div class="flex gap-sm">
+<button class="border border-primary text-primary px-md py-sm rounded-xl font-label-bold hover:bg-primary-fixed transition-colors">تصدير التقرير</button>
+<button class="bg-travertine-red text-white px-md py-sm rounded-xl font-label-bold flex items-center gap-sm hover:opacity-90 transition-shadow shadow-sm">
+<span class="material-symbols-outlined text-lg">person_add</span>
+                    إضافة موظف
+                </button>
+</div>
+</section>
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Permissions Management Panel -->
+<div class="col-span-12 lg:col-span-4 flex flex-col gap-gutter">
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-sm border border-outline-variant">
+<h4 class="font-title-md text-primary mb-sm flex items-center gap-sm"><span class="material-symbols-outlined">admin_panel_settings</span> الصلاحيات والأذونات</h4>
+<p class="text-body-sm text-on-surface-variant mb-md">إدارة أدوار الموظفين وصلاحيات الأدمن التفصيلية بقت في شاشة مخصصة.</p>
+<a href="../permissions/index.html" class="w-full bg-primary text-on-primary py-sm rounded-lg font-label-bold flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-base">open_in_new</span> فتح شاشة الأذونات
+</a>
+</div>
+<div class="bg-primary-container p-md rounded-xl text-on-primary flex flex-col gap-sm overflow-hidden relative">
+<div class="absolute -bottom-4 -left-4 opacity-10">
+<span class="material-symbols-outlined text-[120px]">groups</span>
+</div>
+<h5 class="font-label-bold text-on-primary-container">ملخص الطاقم</h5>
+<div class="flex justify-between items-end mt-base">
+<div>
+<span class="block text-[40px] font-black leading-none" id="staff-total-count">—</span>
+<span class="text-body-sm opacity-80">إجمالي الموظفين</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-sm border border-outline-variant">
+<h4 class="font-title-md text-primary mb-sm flex items-center gap-sm"><span class="material-symbols-outlined">edit_note</span> قوائم التحقق</h4>
+<p class="text-body-sm text-on-surface-variant mb-md">إضافة وتعديل مهام التشيك ليست وربطها بفرع محدد أو كل الفروع.</p>
+<a href="../manage-templates/index.html" class="w-full bg-primary text-on-primary py-sm rounded-lg font-label-bold flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-base">open_in_new</span> فتح إدارة قوائم التحقق
+</a>
+</div>
+</div>
+<!-- Main Employee Table -->
+<div class="col-span-12 lg:col-span-8">
+<div class="bg-surface rounded-xl border border-outline-variant shadow-sm overflow-hidden h-full flex flex-col">
+<div class="p-md bg-surface-container-low border-b border-outline-variant flex justify-between items-center">
+<div class="relative w-72">
+<span class="material-symbols-outlined absolute right-sm top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full bg-white border border-outline-variant rounded-full py-base pr-lg pl-md text-body-sm focus:border-primary focus:ring-0" placeholder="البحث عن موظف..." type="text"/>
+</div>
+<div class="flex gap-sm">
+<button class="w-10 h-10 border border-outline-variant rounded-lg flex items-center justify-center hover:bg-white"><span class="material-symbols-outlined">filter_list</span></button>
+<button class="w-10 h-10 border border-outline-variant rounded-lg flex items-center justify-center hover:bg-white"><span class="material-symbols-outlined">more_vert</span></button>
+</div>
+</div>
+<div class="flex-1 overflow-x-auto custom-scrollbar">
+<table class="w-full text-right border-collapse">
+<thead>
+<tr class="bg-surface-container text-on-surface-variant font-label-bold text-[11px] uppercase tracking-wider">
+<th class="py-md px-md border-b border-outline-variant">الاسم</th>
+<th class="py-md px-md border-b border-outline-variant">الدور الوظيفي</th>
+<th class="py-md px-md border-b border-outline-variant">الفرع</th>
+<th class="py-md px-md border-b border-outline-variant">رمز المرور</th>
+<th class="py-md px-md border-b border-outline-variant">الحالة</th>
+<th class="py-md px-md border-b border-outline-variant"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant" id="staff-tbody">
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-md px-md">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center font-bold text-on-secondary-container">أ م</div>
+<div>
+<div class="font-bold text-on-surface">أحمد محمد</div>
+<div class="text-[11px] text-on-surface-variant">ahmed@zamcafe.com</div>
+</div>
+</div>
+</td>
+<td class="py-md px-md text-body-sm">
+<span class="px-sm py-xs bg-secondary-fixed text-on-secondary-fixed-variant rounded-lg text-[11px] font-bold">باريستا</span>
+</td>
+<td class="py-md px-md text-body-sm">ZAM - الرياض ريفر</td>
+<td class="py-md px-md text-body-sm font-mono tracking-widest text-primary">**** 443</td>
+<td class="py-md px-md">
+<span class="inline-flex items-center gap-1 text-[11px] font-bold text-tertiary-container bg-tertiary-fixed-dim/20 px-sm py-xs rounded-full">
+<span class="w-1.5 h-1.5 rounded-full bg-on-tertiary-container"></span>
+                                            نشط
+                                        </span>
+</td>
+<td class="py-md px-md text-left">
+<button class="text-on-surface-variant hover:text-primary transition-opacity opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-md px-md">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center font-bold text-on-primary-fixed">س خ</div>
+<div>
+<div class="font-bold text-on-surface">سارة خالد</div>
+<div class="text-[11px] text-on-surface-variant">sara.k@zamcafe.com</div>
+</div>
+</div>
+</td>
+<td class="py-md px-md text-body-sm">
+<span class="px-sm py-xs bg-primary-container text-on-primary-container rounded-lg text-[11px] font-bold">مشرف وردية</span>
+</td>
+<td class="py-md px-md text-body-sm">ZAM - جدة بارك</td>
+<td class="py-md px-md text-body-sm font-mono tracking-widest text-primary">**** 821</td>
+<td class="py-md px-md">
+<span class="inline-flex items-center gap-1 text-[11px] font-bold text-tertiary-container bg-tertiary-fixed-dim/20 px-sm py-xs rounded-full">
+<span class="w-1.5 h-1.5 rounded-full bg-on-tertiary-container"></span>
+                                            نشط
+                                        </span>
+</td>
+<td class="py-md px-md text-left">
+<button class="text-on-surface-variant hover:text-primary transition-opacity opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-md border-t border-outline-variant flex justify-between items-center bg-surface-container-low text-[11px] text-on-surface-variant font-bold">
+<span>عرض 2 من أصل 24 موظف</span>
+<div class="flex gap-xs">
+<button class="w-8 h-8 rounded border border-outline-variant flex items-center justify-center hover:bg-white"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+<button class="w-8 h-8 rounded bg-primary text-on-primary flex items-center justify-center">1</button>
+<button class="w-8 h-8 rounded border border-outline-variant flex items-center justify-center hover:bg-white">2</button>
+<button class="w-8 h-8 rounded border border-outline-variant flex items-center justify-center hover:bg-white"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<section class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<div class="glass-panel p-md rounded-xl flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-secondary-fixed-dim flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">lock_open</span>
+</div>
+<div>
+<h6 class="text-body-sm font-bold text-on-surface-variant">آخر تسجيل دخول</h6>
+<p class="text-title-md font-bold text-primary">قبل 5 دقائق</p>
+<p class="text-[10px] text-on-surface-variant">بواسطة سارة خالد (مشرف)</p>
+</div>
+</div>
+<div class="glass-panel p-md rounded-xl flex items-center gap-md border-r-4 border-travertine-red">
+<div class="w-12 h-12 rounded-full bg-primary-fixed-dim flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">history</span>
+</div>
+<div>
+<h6 class="text-body-sm font-bold text-on-surface-variant">آخر تحديث للصلاحيات</h6>
+<p class="text-title-md font-bold text-primary">أمس، 11:30 م</p>
+<p class="text-[10px] text-on-surface-variant">تعديل صلاحيات الباريستا</p>
+</div>
+</div>
+<div class="glass-panel p-md rounded-xl flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed-variant">
+<span class="material-symbols-outlined">password</span>
+</div>
+<div>
+<h6 class="text-body-sm font-bold text-on-surface-variant">طلبات تغيير الرمز</h6>
+<p class="text-title-md font-bold text-primary">لا يوجد طلبات</p>
+<p class="text-[10px] text-on-surface-variant">النظام آمن كلياً</p>
+</div>
+</div>
+</section>
+</div>
+</main>
+<script>
+    // ملاحظة: الاتصال الحقيقي بـ Supabase موجود في assets/supabase-config.js (zamClient / ZamAPI)
+
+</script>
+<script>
+    const ROLE_LABELS = { Barista: 'باريستا', Supervisor: 'مشرف وردية', Manager: 'مدير', Kitchen: 'مطبخ', Waiter: 'خدمة' };
+    const STATUS_LABELS = { active: 'نشط', pending: 'قيد المراجعة', suspended: 'موقوف' };
+
+    function initials(name) {
+        const parts = (name || '').trim().split(/\s+/);
+        return parts.slice(0, 2).map(p => p[0]).join('');
+    }
+
+    async function loadStaff() {
+        const tbody = document.getElementById('staff-tbody');
+        try {
+            const staff = await ZamAPI.getStaff();
+            document.getElementById('staff-total-count').textContent = staff.filter(e => e.status === 'active').length;
+            if (!staff.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="py-md px-md text-center text-on-surface-variant">لا يوجد موظفون مسجلون بعد.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = staff.map(emp => `
+                <tr class="hover:bg-surface-container-low transition-colors group">
+                    <td class="py-md px-md">
+                        <div class="flex items-center gap-sm">
+                            <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center font-bold text-on-secondary-container">${initials(emp.full_name)}</div>
+                            <div>
+                                <div class="font-bold text-on-surface">${emp.full_name}</div>
+                                <div class="text-[11px] text-on-surface-variant">${emp.email || '—'}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-md px-md text-body-sm">
+                        <span class="px-sm py-xs bg-secondary-fixed text-on-secondary-fixed-variant rounded-lg text-[11px] font-bold">${ROLE_LABELS[emp.role] || emp.role}</span>
+                    </td>
+                    <td class="py-md px-md text-body-sm">${emp.branches ? emp.branches.name : '—'}</td>
+                    <td class="py-md px-md text-body-sm font-mono tracking-widest text-primary">**** ${String(emp.passcode).slice(-3)}</td>
+                    <td class="py-md px-md">
+                        <span class="inline-flex items-center gap-1 text-[11px] font-bold text-tertiary-container bg-tertiary-fixed-dim/20 px-sm py-xs rounded-full">
+                            <span class="w-1.5 h-1.5 rounded-full bg-on-tertiary-container"></span>
+                            ${STATUS_LABELS[emp.status] || emp.status}
+                        </span>
+                    </td>
+                    <td class="py-md px-md text-left">
+                        <button class="text-on-surface-variant hover:text-primary transition-opacity opacity-0 group-hover:opacity-100">
+                            <span class="material-symbols-outlined">edit</span>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error(err);
+            tbody.innerHTML = '<tr><td colspan="6" class="py-md px-md text-center text-error">تعذّر تحميل بيانات الموظفين.</td></tr>';
+        }
+    }
+    loadStaff();
+</script>
+</body></html>

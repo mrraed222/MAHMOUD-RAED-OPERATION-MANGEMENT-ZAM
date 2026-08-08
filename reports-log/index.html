@@ -1,0 +1,186 @@
+<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>ZAM Operations - سجل التقارير</title><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#bd9f83","primary-fixed": "#fedcbe","on-error-container": "#93000a","on-surface-variant": "#4e453d","on-primary-fixed": "#291806","on-tertiary": "#ffffff","surface-bright": "#fcf9f8","on-error": "#ffffff","error": "#ba1a1a","secondary-fixed": "#e4e4cc","on-primary-fixed-variant": "#59422c","primary-container": "#4b3621","on-secondary-fixed-variant": "#474836","tertiary-fixed": "#94f990","tertiary-fixed-dim": "#78dc77","on-secondary-container": "#636451","secondary-container": "#e1e1c9","outline-variant": "#d2c4ba","surface-container-highest": "#e4e2e1","background": "#fcf9f8","on-primary": "#ffffff","on-secondary-fixed": "#1b1d0e","inverse-surface": "#303030","inverse-primary": "#e1c1a4","on-surface": "#1b1c1c","tertiary": "#002c06","primary": "#33210d","surface-container": "#f0eded","primary-fixed-dim": "#e1c1a4","on-background": "#1b1c1c","on-secondary": "#ffffff","inverse-on-surface": "#f3f0f0","surface-tint": "#725a42","secondary-fixed-dim": "#c8c8b0","outline": "#80756c","on-tertiary-container": "#56b958","surface-container-high": "#eae7e7","secondary": "#5e604d","error-container": "#ffdad6","tertiary-container": "#00450e","surface-container-lowest": "#ffffff","surface": "#fcf9f8","surface-variant": "#e4e2e1","surface-container-low": "#f6f3f2","on-tertiary-fixed-variant": "#005313","surface-dim": "#dcd9d9","on-tertiary-fixed": "#002204"
+                    },
+                    "borderRadius": {"DEFAULT": "0.125rem","lg": "0.25rem","xl": "0.5rem","full": "0.75rem"},
+                    "spacing": {"margin-mobile": "16px","xl": "64px","sm": "12px","margin-desktop": "32px","lg": "40px","gutter": "24px","base": "8px","xs": "4px","md": "24px"},
+                    "fontFamily": {"title-md": ["Montserrat", "Noto Sans Arabic"],"headline-lg": ["Montserrat", "Noto Sans Arabic"],"label-bold": ["Montserrat", "Noto Sans Arabic"],"display-lg": ["Montserrat", "Noto Sans Arabic"],"body-lg": ["Montserrat", "Noto Sans Arabic"],"body-sm": ["Montserrat", "Noto Sans Arabic"]},
+                    "fontSize": {"title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],"headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],"label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],"display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],"body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],"body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]}
+                }
+            }
+        }
+    }catch(_e){}</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../assets/supabase-config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+  const currentUser = ZamSession.requireAuth('../index.html');
+</script>
+</head>
+<body class="bg-background text-on-surface overflow-x-hidden">
+<script>document.write(renderZamSidebar('reports-log', currentUser.role));</script>
+
+<header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
+  <div>
+    <h1 class="font-title-md text-title-md text-primary">سجل التقارير</h1>
+    <p class="text-body-sm text-on-surface-variant">كل التقارير اليومية المرسلة من المشرفين</p>
+  </div>
+  <button id="export-btn" class="text-body-sm font-bold text-primary hover:underline flex items-center gap-1">
+    <span class="material-symbols-outlined text-base">download</span> تصدير Excel
+  </button>
+</header>
+
+<main class="md:pr-[280px] pt-20 min-h-screen">
+<div class="max-w-5xl mx-auto p-margin-desktop">
+
+  <div class="flex gap-sm mb-md">
+    <select id="f-branch" class="border border-outline-variant rounded-lg p-sm"><option value="">كل الفروع</option></select>
+    <input type="date" id="f-from" class="border border-outline-variant rounded-lg p-sm"/>
+    <input type="date" id="f-to" class="border border-outline-variant rounded-lg p-sm"/>
+    <button id="apply-filter" class="bg-primary text-on-primary rounded-lg px-md py-sm font-bold">فلترة</button>
+  </div>
+
+  <div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-x-auto">
+    <table class="w-full text-body-sm">
+      <thead class="bg-surface-container text-on-surface-variant">
+        <tr>
+          <th class="p-sm text-right">التاريخ</th>
+          <th class="p-sm text-right">الفرع</th>
+          <th class="p-sm text-right">المشرف</th>
+          <th class="p-sm text-right">الوردية</th>
+          <th class="p-sm text-right">المبيعات</th>
+          <th class="p-sm text-right">أداء الفريق</th>
+          <th class="p-sm text-right"></th>
+        </tr>
+      </thead>
+      <tbody id="reports-tbody"><tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+</main>
+
+<!-- Modal تفاصيل التقرير -->
+<div id="detail-modal" class="fixed inset-0 bg-inverse-surface/40 hidden items-center justify-center z-50 p-margin-mobile">
+  <div class="bg-surface-container-lowest rounded-xl p-md w-full max-w-lg max-h-[85vh] overflow-y-auto">
+    <div class="flex justify-between items-center mb-md">
+      <h3 class="font-title-md text-title-md text-primary" id="detail-title">تفاصيل التقرير</h3>
+      <button id="close-detail" class="text-on-surface-variant"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div id="detail-body"></div>
+  </div>
+</div>
+
+<script>
+let reportsData = [];
+
+async function loadBranchOptions() {
+    const branches = await ZamAPI.getBranches();
+    const sel = document.getElementById('f-branch');
+    branches.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.id; opt.textContent = b.name;
+        sel.appendChild(opt);
+    });
+}
+
+async function loadReports() {
+    const tbody = document.getElementById('reports-tbody');
+    tbody.innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
+    try {
+        let query = zamClient.from('daily_reports').select('*, branches(name)').order('report_date', { ascending: false }).limit(150);
+        const branchId = document.getElementById('f-branch').value;
+        const from = document.getElementById('f-from').value;
+        const to = document.getElementById('f-to').value;
+        if (branchId) query = query.eq('branch_id', branchId);
+        if (from) query = query.gte('report_date', from);
+        if (to) query = query.lte('report_date', to);
+
+        const { data, error } = await query;
+        if (error) throw error;
+        reportsData = data;
+
+        if (!data.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">لا توجد تقارير مطابقة.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(r => `
+            <tr class="border-t border-outline-variant hover:bg-surface-container-low cursor-pointer view-detail-row" data-id="${r.id}">
+                <td class="p-sm">${r.report_date}</td>
+                <td class="p-sm">${r.branches?.name || '—'}</td>
+                <td class="p-sm">${r.supervisor_name}</td>
+                <td class="p-sm">${r.shift_type === 'Morning' ? 'صباحي' : 'مسائي'}</td>
+                <td class="p-sm">${r.total_sales} ر.س</td>
+                <td class="p-sm">${r.team_status || '—'}</td>
+                <td class="p-sm"><span class="material-symbols-outlined text-primary text-[18px]">visibility</span></td>
+            </tr>
+        `).join('');
+
+        tbody.querySelectorAll('.view-detail-row').forEach(row => {
+            row.addEventListener('click', () => openDetail(row.dataset.id));
+        });
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="7" class="p-md text-center text-error">تعذّر تحميل التقارير.</td></tr>';
+    }
+}
+
+async function openDetail(id) {
+    const report = reportsData.find(r => r.id === id);
+    document.getElementById('detail-title').textContent = `${report.branches?.name || ''} — ${report.report_date}`;
+    const body = document.getElementById('detail-body');
+    body.innerHTML = '<p class="text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
+    document.getElementById('detail-modal').classList.remove('hidden');
+    document.getElementById('detail-modal').classList.add('flex');
+
+    try {
+        const [wasteRes, issuesRes, reviewsRes] = await Promise.all([
+            zamClient.from('waste_logs').select('*').eq('report_id', id),
+            zamClient.from('shift_issues').select('*').eq('report_id', id),
+            zamClient.from('negative_reviews').select('*').eq('report_id', id),
+        ]);
+        const waste = wasteRes.data || [], issues = issuesRes.data || [], reviews = reviewsRes.data || [];
+
+        body.innerHTML = `
+            <div class="grid grid-cols-3 gap-sm mb-md text-center">
+                <div class="bg-surface-container rounded-lg p-sm"><p class="text-[11px] text-on-surface-variant">المبيعات</p><p class="font-bold">${report.total_sales} ر.س</p></div>
+                <div class="bg-surface-container rounded-lg p-sm"><p class="text-[11px] text-on-surface-variant">الطلبات</p><p class="font-bold">${report.orders_count}</p></div>
+                <div class="bg-surface-container rounded-lg p-sm"><p class="text-[11px] text-on-surface-variant">متوسط الفاتورة</p><p class="font-bold">${Number(report.avg_ticket || 0).toFixed(2)}</p></div>
+            </div>
+            ${waste.length ? `<h4 class="font-bold text-primary mb-xs">الهدر</h4><ul class="text-body-sm mb-md list-disc pr-md">${waste.map(w => `<li>${w.item_name}: ${w.quantity} ${w.unit} — ${w.reason || ''}</li>`).join('')}</ul>` : ''}
+            ${issues.length ? `<h4 class="font-bold text-primary mb-xs">مشاكل الشفت</h4><ul class="text-body-sm mb-md list-disc pr-md">${issues.map(i => `<li>[${i.priority}] ${i.description}</li>`).join('')}</ul>` : ''}
+            ${reviews.length ? `<h4 class="font-bold text-primary mb-xs">التقييمات</h4><ul class="text-body-sm list-disc pr-md">${reviews.map(r => `<li>${r.review_type === 'positive' ? '👍' : '👎'} ${r.comment_text}</li>`).join('')}</ul>` : ''}
+            ${!waste.length && !issues.length && !reviews.length ? '<p class="text-body-sm text-on-surface-variant">لا توجد تفاصيل إضافية.</p>' : ''}
+        `;
+    } catch (err) {
+        console.error(err);
+        body.innerHTML = '<p class="text-error text-body-sm">تعذّر تحميل التفاصيل.</p>';
+    }
+}
+
+document.getElementById('close-detail').addEventListener('click', () => {
+    document.getElementById('detail-modal').classList.add('hidden');
+    document.getElementById('detail-modal').classList.remove('flex');
+});
+
+document.getElementById('apply-filter').addEventListener('click', loadReports);
+
+document.getElementById('export-btn').addEventListener('click', () => {
+    const rows = reportsData.map(r => ({
+        التاريخ: r.report_date, الفرع: r.branches?.name || '', المشرف: r.supervisor_name,
+        الوردية: r.shift_type, المبيعات: r.total_sales, الطلبات: r.orders_count, 'حالة الفريق': r.team_status || ''
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'التقارير');
+    XLSX.writeFile(wb, `سجل_التقارير_${new Date().toISOString().split('T')[0]}.xlsx`);
+});
+
+loadBranchOptions();
+loadReports();
+</script>
+</body></html>

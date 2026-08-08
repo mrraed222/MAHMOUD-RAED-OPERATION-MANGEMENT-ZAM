@@ -1,0 +1,350 @@
+<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>ZAM Operations - الأذونات والصلاحيات</title><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#bd9f83","primary-fixed": "#fedcbe","on-error-container": "#93000a","on-surface-variant": "#4e453d","on-primary-fixed": "#291806","on-tertiary": "#ffffff","surface-bright": "#fcf9f8","on-error": "#ffffff","error": "#ba1a1a","secondary-fixed": "#e4e4cc","on-primary-fixed-variant": "#59422c","primary-container": "#4b3621","on-secondary-fixed-variant": "#474836","tertiary-fixed": "#94f990","tertiary-fixed-dim": "#78dc77","on-secondary-container": "#636451","secondary-container": "#e1e1c9","outline-variant": "#d2c4ba","surface-container-highest": "#e4e2e1","background": "#fcf9f8","on-primary": "#ffffff","on-secondary-fixed": "#1b1d0e","inverse-surface": "#303030","inverse-primary": "#e1c1a4","on-surface": "#1b1c1c","tertiary": "#002c06","primary": "#33210d","surface-container": "#f0eded","primary-fixed-dim": "#e1c1a4","on-background": "#1b1c1c","on-secondary": "#ffffff","inverse-on-surface": "#f3f0f0","surface-tint": "#725a42","secondary-fixed-dim": "#c8c8b0","outline": "#80756c","on-tertiary-container": "#56b958","surface-container-high": "#eae7e7","secondary": "#5e604d","error-container": "#ffdad6","tertiary-container": "#00450e","surface-container-lowest": "#ffffff","surface": "#fcf9f8","surface-variant": "#e4e2e1","surface-container-low": "#f6f3f2","on-tertiary-fixed-variant": "#005313","surface-dim": "#dcd9d9","on-tertiary-fixed": "#002204"
+                    },
+                    "borderRadius": {"DEFAULT": "0.125rem","lg": "0.25rem","xl": "0.5rem","full": "0.75rem"},
+                    "spacing": {"margin-mobile": "16px","xl": "64px","sm": "12px","margin-desktop": "32px","lg": "40px","gutter": "24px","base": "8px","xs": "4px","md": "24px"},
+                    "fontFamily": {"title-md": ["Montserrat", "Noto Sans Arabic"],"headline-lg": ["Montserrat", "Noto Sans Arabic"],"label-bold": ["Montserrat", "Noto Sans Arabic"],"display-lg": ["Montserrat", "Noto Sans Arabic"],"body-lg": ["Montserrat", "Noto Sans Arabic"],"body-sm": ["Montserrat", "Noto Sans Arabic"]},
+                    "fontSize": {"title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],"headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],"label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],"display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],"body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],"body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]}
+                }
+            }
+        }
+    }catch(_e){}</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../assets/supabase-config.js"></script>
+<script>
+  const currentUser = ZamSession.requireAuth('../index.html');
+  if (currentUser.role !== 'Owner') {
+      window.location.href = zamRoleHomePath(currentUser.role);
+  }
+</script>
+</head>
+<body class="bg-background text-on-surface overflow-x-hidden">
+<script>document.write(renderZamSidebar('permissions', currentUser.role));</script>
+
+<header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
+  <div class="flex items-center gap-md">
+    <a href="../dashboard/index.html" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">arrow_forward</span></a>
+    <img alt="ZAM Logo" class="h-10 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHYjgc7-eHXckPir6xT6Xzc1JNl0hItkD1yF71b62A5frAA5eteEdI18Mc8RP8ZlZLBF4ZeBhX-d13FeVqvDMi6wKmruamvwo3BGpfLZky0bs6d5Vln2w1n5DqsKfSfWTn5lKXesAQ8Ku_WHvbiG4EAMG6g7aMQxV0vv4RYQOSAhL4G9MOdCjwQ4GQ0_sFmo0xQOpkbT6i04J4U7sctAJexifNjbeQDiJxKxPVIVlZ-HHqUhUj4rUkYRMiCKqwWcdzhw">
+    <div>
+      <h1 class="font-title-md text-title-md text-primary">الأذونات والصلاحيات</h1>
+      <p class="text-body-sm text-on-surface-variant">إدارة أدوار الموظفين وأرقام مرورهم (متاحة للمالك فقط)</p>
+    </div>
+  </div>
+</header>
+
+<main class="md:pr-[280px] pt-20 min-h-screen"><div class="max-w-5xl mx-auto p-margin-desktop">
+
+  <!-- حساب المالك -->
+  <section class="bg-primary-container/10 border border-primary/30 rounded-xl p-md mb-lg">
+    <h2 class="font-title-md text-title-md text-primary mb-sm">حسابي (المالك)</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-md items-end">
+      <div>
+        <label class="text-body-sm text-on-surface-variant">البريد الإلكتروني</label>
+        <input id="my-email" type="email" class="w-full border border-outline-variant rounded-lg p-sm mt-xs bg-surface-container-lowest"/>
+      </div>
+      <div>
+        <label class="text-body-sm text-on-surface-variant">رمز المرور الجديد</label>
+        <input id="my-passcode" type="text" placeholder="اتركه فارغاً لعدم التغيير" class="w-full border border-outline-variant rounded-lg p-sm mt-xs bg-surface-container-lowest"/>
+      </div>
+      <button id="save-my-account" class="bg-primary text-on-primary rounded-lg p-sm font-bold h-fit">حفظ التغييرات</button>
+    </div>
+    <p id="my-account-msg" class="text-body-sm mt-sm hidden"></p>
+  </section>
+
+  <!-- طلبات تسجيل قيد المراجعة -->
+  <section id="pending-section" class="mb-lg hidden">
+    <h2 class="font-title-md text-title-md text-error mb-sm flex items-center gap-sm">
+      <span class="material-symbols-outlined">pending_actions</span> طلبات تسجيل قيد المراجعة
+    </h2>
+    <div id="pending-list" class="flex flex-col gap-sm"></div>
+  </section>
+
+  <!-- إضافة صلاحية جديدة سريعًا -->
+  <section class="flex justify-between items-center mb-sm">
+    <h2 class="font-title-md text-title-md text-primary">كل الموظفين</h2>
+    <a href="../register/index.html" class="text-body-sm font-bold text-primary hover:underline flex items-center gap-1">
+      <span class="material-symbols-outlined text-base">person_add</span> إضافة موظف جديد
+    </a>
+  </section>
+
+  <div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-x-auto">
+    <table class="w-full text-body-sm">
+      <thead class="bg-surface-container text-on-surface-variant">
+        <tr>
+          <th class="p-sm text-right">الاسم</th>
+          <th class="p-sm text-right">الدور</th>
+          <th class="p-sm text-right">الفرع</th>
+          <th class="p-sm text-right">رمز المرور</th>
+          <th class="p-sm text-right">صلاحيات الأدمن</th>
+          <th class="p-sm text-right"></th>
+        </tr>
+      </thead>
+      <tbody id="staff-tbody">
+        <tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></main>
+
+<script>
+const ROLES = ['Owner', 'Admin', 'Supervisor', 'Barista', 'Kitchen', 'Waiter'];
+const ROLE_LABELS = { Owner: 'مالك', Admin: 'أدمن', Supervisor: 'مشرف وردية', Barista: 'باريستا', Kitchen: 'مطبخ', Waiter: 'خدمة' };
+const PERMS = [
+    { key: 'can_manage_staff', label: 'إدارة الموظفين' },
+    { key: 'can_manage_branches', label: 'إدارة الفروع' },
+    { key: 'can_manage_templates', label: 'تعديل قوالب التشيك ليست' },
+    { key: 'can_manage_automations', label: 'إعدادات الأتمتة' },
+    { key: 'can_manage_reports', label: 'تعديل/حذف التقارير' },
+    { key: 'can_view_all_reports', label: 'الاطلاع على كل التقارير' },
+];
+
+document.getElementById('my-email').value = currentUser.email || '';
+
+document.getElementById('save-my-account').addEventListener('click', async () => {
+    const email = document.getElementById('my-email').value.trim();
+    const newPasscode = document.getElementById('my-passcode').value.trim();
+    const msg = document.getElementById('my-account-msg');
+    msg.classList.add('hidden');
+
+    const payload = { email };
+    if (newPasscode) {
+        if (newPasscode.length < 4) {
+            msg.textContent = 'رمز المرور لازم يكون 4 أحرف/أرقام على الأقل.';
+            msg.className = 'text-error text-body-sm mt-sm';
+            return;
+        }
+        payload.passcode = newPasscode;
+    }
+
+    try {
+        await zamClient.from('profiles').update(payload).eq('id', currentUser.id);
+        currentUser.email = email;
+        if (newPasscode) currentUser.passcode = newPasscode;
+        ZamSession.save(currentUser);
+        document.getElementById('my-passcode').value = '';
+        msg.textContent = 'تم الحفظ بنجاح.';
+        msg.className = 'text-tertiary-container text-body-sm mt-sm font-bold';
+    } catch (err) {
+        console.error(err);
+        msg.textContent = err.message?.includes('duplicate') ? 'رمز المرور ده مستخدم بالفعل.' : 'حدث خطأ أثناء الحفظ.';
+        msg.className = 'text-error text-body-sm mt-sm';
+    }
+});
+
+let branchesCache = [];
+let permsCache = {}; // profile_id -> permissions row
+
+function permsCellHTML(emp) {
+    if (emp.role !== 'Admin') return '<span class="text-outline text-[11px]">—</span>';
+    const p = permsCache[emp.id] || {};
+    return `<button class="edit-perms-btn text-primary hover:underline text-[12px] font-bold" data-id="${emp.id}">تحديد الصلاحيات</button>`;
+}
+
+function openPermsEditor(empId, empName) {
+    const p = permsCache[empId] || {};
+    const existing = document.getElementById('perms-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'perms-modal';
+    modal.className = 'fixed inset-0 bg-inverse-surface/40 flex items-center justify-center z-50 p-margin-mobile';
+    modal.innerHTML = `
+        <div class="bg-surface-container-lowest rounded-xl p-md w-full max-w-sm">
+            <h3 class="font-title-md text-title-md text-primary mb-sm">صلاحيات ${empName}</h3>
+            <div class="flex flex-col gap-sm mb-md">
+                ${PERMS.map(perm => `
+                    <label class="flex items-center gap-sm">
+                        <input type="checkbox" class="perm-checkbox w-5 h-5" data-key="${perm.key}" ${p[perm.key] ? 'checked' : ''}/>
+                        <span class="text-body-sm">${perm.label}</span>
+                    </label>
+                `).join('')}
+            </div>
+            <div class="flex gap-sm justify-end">
+                <button id="cancel-perms" class="px-md py-xs rounded-lg text-on-surface-variant">إلغاء</button>
+                <button id="save-perms" class="px-md py-xs bg-primary text-on-primary rounded-lg font-bold">حفظ الصلاحيات</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+
+    document.getElementById('cancel-perms').addEventListener('click', () => modal.remove());
+    document.getElementById('save-perms').addEventListener('click', async () => {
+        const payload = { profile_id: empId };
+        modal.querySelectorAll('.perm-checkbox').forEach(cb => { payload[cb.dataset.key] = cb.checked; });
+        try {
+            await zamClient.from('admin_permissions').upsert(payload);
+            permsCache[empId] = payload;
+            modal.remove();
+        } catch (err) {
+            console.error(err);
+            alert('حدث خطأ أثناء حفظ الصلاحيات.');
+        }
+    });
+}
+
+function renderPending(pending) {
+    const section = document.getElementById('pending-section');
+    const list = document.getElementById('pending-list');
+    if (!pending.length) { section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+
+    list.innerHTML = pending.map(emp => `
+        <div class="bg-error-container/20 border border-error/40 rounded-xl p-md" data-id="${emp.id}">
+            <div class="flex items-center gap-md mb-sm">
+                ${emp.avatar_url ? `<img src="${emp.avatar_url}" class="w-12 h-12 rounded-full object-cover"/>` : '<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined">person</span></div>'}
+                <div>
+                    <p class="font-bold text-on-surface">${emp.full_name} <span class="text-[11px] text-on-surface-variant">(${emp.employee_number || '—'})</span></p>
+                    <p class="text-body-sm text-on-surface-variant">${emp.email || '—'} ${emp.whatsapp_number ? '• ' + emp.whatsapp_number : ''}</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-sm items-end">
+                <div>
+                    <label class="text-[11px] text-on-surface-variant">الدور</label>
+                    <select class="p-role-select w-full border border-outline-variant rounded-lg p-1">
+                        ${ROLES.filter(r => r !== 'Owner').map(r => `<option value="${r}" ${r === emp.role ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] text-on-surface-variant">الفرع</label>
+                    <select class="p-branch-select w-full border border-outline-variant rounded-lg p-1">
+                        <option value="">بدون فرع</option>
+                        ${branchesCache.map(b => `<option value="${b.id}" ${b.id === emp.branch_id ? 'selected' : ''}>${b.name}</option>`).join('')}
+                    </select>
+                </div>
+                <label class="flex items-center gap-1 text-body-sm">
+                    <input type="checkbox" class="p-reports-check w-4 h-4"/> يستلم ملخص/تقرير فرعه بالإيميل
+                </label>
+                <div class="flex gap-sm">
+                    <button class="approve-btn flex-1 bg-tertiary-container text-on-tertiary rounded-lg py-1 text-body-sm font-bold">قبول</button>
+                    <button class="reject-btn flex-1 bg-error text-on-error rounded-lg py-1 text-body-sm font-bold">رفض</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    list.querySelectorAll('.approve-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const card = btn.closest('[data-id]');
+            const id = card.dataset.id;
+            const role = card.querySelector('.p-role-select').value;
+            const branch_id = card.querySelector('.p-branch-select').value || null;
+            const receives_branch_reports = card.querySelector('.p-reports-check').checked;
+            btn.disabled = true;
+            try {
+                await zamClient.from('profiles').update({ status: 'active', role, branch_id, receives_branch_reports }).eq('id', id);
+                await loadStaff();
+            } catch (err) {
+                console.error(err);
+                alert('حدث خطأ أثناء الموافقة.');
+                btn.disabled = false;
+            }
+        });
+    });
+
+    list.querySelectorAll('.reject-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (!confirm('تأكيد رفض هذا الطلب؟')) return;
+            const card = btn.closest('[data-id]');
+            const id = card.dataset.id;
+            try {
+                await zamClient.from('profiles').update({ status: 'rejected' }).eq('id', id);
+                await loadStaff();
+            } catch (err) {
+                console.error(err);
+                alert('حدث خطأ أثناء الرفض.');
+            }
+        });
+    });
+}
+
+async function loadStaff() {
+    const tbody = document.getElementById('staff-tbody');
+    try {
+        const [branches, staff, permsRes] = await Promise.all([
+            ZamAPI.getBranches(),
+            ZamAPI.getStaff(),
+            zamClient.from('admin_permissions').select('*')
+        ]);
+        branchesCache = branches;
+        (permsRes.data || []).forEach(row => { permsCache[row.profile_id] = row; });
+
+        const pending = staff.filter(e => e.status === 'pending');
+        const others = staff.filter(e => e.status !== 'pending');
+
+        renderPending(pending);
+
+        tbody.innerHTML = others.map(emp => `
+            <tr class="border-t border-outline-variant" data-id="${emp.id}" data-name="${emp.full_name}">
+                <td class="p-sm font-bold">${emp.full_name}${emp.id === currentUser.id ? ' <span class=\"text-[10px] text-primary\">(أنت)</span>' : ''}${emp.status === 'rejected' ? ' <span class=\"text-[10px] text-error font-bold\">(مرفوض)</span>' : ''}</td>
+                <td class="p-sm">
+                    <select class="role-select border border-outline-variant rounded-lg p-1" ${emp.id === currentUser.id ? 'disabled' : ''}>
+                        ${ROLES.map(r => `<option value="${r}" ${r === emp.role ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
+                    </select>
+                </td>
+                <td class="p-sm">
+                    <select class="branch-select border border-outline-variant rounded-lg p-1">
+                        <option value="">بدون فرع</option>
+                        ${branchesCache.map(b => `<option value="${b.id}" ${b.id === emp.branch_id ? 'selected' : ''}>${b.name}</option>`).join('')}
+                    </select>
+                </td>
+                <td class="p-sm">
+                    <input type="text" class="passcode-input border border-outline-variant rounded-lg p-1 w-24" value="${emp.passcode}"/>
+                </td>
+                <td class="p-sm perms-cell">${permsCellHTML(emp)}</td>
+                <td class="p-sm">
+                    <button class="save-row-btn text-primary hover:underline text-[12px] font-bold">حفظ</button>
+                    <span class="row-msg text-[11px]"></span>
+                </td>
+            </tr>
+        `).join('');
+
+        tbody.querySelectorAll('.edit-perms-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const row = btn.closest('tr');
+                openPermsEditor(row.dataset.id, row.dataset.name);
+            });
+        });
+
+        tbody.querySelectorAll('.role-select').forEach(sel => {
+            sel.addEventListener('change', () => {
+                const row = sel.closest('tr');
+                row.querySelector('.perms-cell').innerHTML = permsCellHTML({ id: row.dataset.id, role: sel.value });
+                if (sel.value === 'Admin') {
+                    row.querySelector('.edit-perms-btn')?.addEventListener('click', () => openPermsEditor(row.dataset.id, row.dataset.name));
+                }
+            });
+        });
+
+        tbody.querySelectorAll('.save-row-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const row = btn.closest('tr');
+                const id = row.dataset.id;
+                const role = row.querySelector('.role-select').value;
+                const branch_id = row.querySelector('.branch-select').value || null;
+                const passcode = row.querySelector('.passcode-input').value.trim();
+                const msgEl = row.querySelector('.row-msg');
+
+                try {
+                    await zamClient.from('profiles').update({ role, branch_id, passcode }).eq('id', id);
+                    msgEl.textContent = 'تم ✓';
+                    msgEl.className = 'row-msg text-[11px] text-tertiary-container font-bold';
+                } catch (err) {
+                    console.error(err);
+                    msgEl.textContent = err.message?.includes('duplicate') ? 'الرمز مستخدم' : 'خطأ';
+                    msgEl.className = 'row-msg text-[11px] text-error font-bold';
+                }
+            });
+        });
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="6" class="p-md text-center text-error">تعذّر تحميل بيانات الموظفين.</td></tr>';
+    }
+}
+
+loadStaff();
+</script>
+</body></html>

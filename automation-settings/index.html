@@ -1,0 +1,326 @@
+<!DOCTYPE html><html dir="rtl" lang="ar"><head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../assets/supabase-config.js"></script>
+<script>
+  // حماية الشاشة: لازم تسجيل دخول قبل الوصول
+  const currentUser = ZamSession.requireAuth('../index.html');
+</script>
+
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&amp;family=Noto+Sans+Arabic:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        body {
+            font-family: 'Noto+Sans+Arabic', 'Montserrat', sans-serif;
+            background-color: #fcf9f8;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d2c4ba;
+            border-radius: 10px;
+        }
+        /* Toggle Switch Animation */
+        .toggle-dot { transition: all 0.3s ease-in-out; }
+        input:checked ~ .toggle-dot { transform: translateX(-100%); background-color: #ffffff; }
+        input:checked ~ .toggle-bg { background-color: #4b3621; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container": "#f0eded",
+                      "secondary-container": "#e1e1c9",
+                      "error-container": "#ffdad6",
+                      "on-primary": "#ffffff",
+                      "surface-container-highest": "#e4e2e1",
+                      "on-surface-variant": "#4e453d",
+                      "on-primary-container": "#bd9f83",
+                      "on-primary-fixed-variant": "#59422c",
+                      "on-secondary": "#ffffff",
+                      "surface-tint": "#725a42",
+                      "on-background": "#1b1c1c",
+                      "tertiary-fixed-dim": "#78dc77",
+                      "tertiary-fixed": "#94f990",
+                      "on-tertiary-fixed": "#002204",
+                      "on-error": "#ffffff",
+                      "inverse-on-surface": "#f3f0f0",
+                      "outline-variant": "#d2c4ba",
+                      "on-tertiary-container": "#56b958",
+                      "secondary-fixed": "#e4e4cc",
+                      "outline": "#80756c",
+                      "surface-container-high": "#eae7e7",
+                      "on-secondary-container": "#636451",
+                      "on-secondary-fixed-variant": "#474836",
+                      "inverse-surface": "#303030",
+                      "primary-container": "#4b3621",
+                      "surface": "#fcf9f8",
+                      "surface-variant": "#e4e2e1",
+                      "secondary": "#5e604d",
+                      "inverse-primary": "#e1c1a4",
+                      "on-primary-fixed": "#291806",
+                      "surface-dim": "#dcd9d9",
+                      "primary-fixed": "#fedcbe",
+                      "on-tertiary-fixed-variant": "#005313",
+                      "background": "#fcf9f8",
+                      "primary": "#33210d",
+                      "surface-bright": "#fcf9f8",
+                      "error": "#ba1a1a",
+                      "on-error-container": "#93000a",
+                      "surface-container-low": "#f6f3f2",
+                      "surface-container-lowest": "#ffffff",
+                      "on-secondary-fixed": "#1b1d0e",
+                      "tertiary-container": "#00450e",
+                      "on-tertiary": "#ffffff",
+                      "on-surface": "#1b1c1c",
+                      "tertiary": "#002c06",
+                      "primary-fixed-dim": "#e1c1a4",
+                      "secondary-fixed-dim": "#c8c8b0"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "md": "24px",
+                      "lg": "40px",
+                      "gutter": "24px",
+                      "base": "8px",
+                      "xs": "4px",
+                      "margin-desktop": "32px",
+                      "sm": "12px",
+                      "margin-mobile": "16px",
+                      "xl": "64px"
+              },
+              "fontFamily": {
+                      "headline-lg": ["Montserrat", "Noto Sans Arabic"],
+                      "body-lg": ["Montserrat", "Noto Sans Arabic"],
+                      "body-sm": ["Montserrat", "Noto Sans Arabic"],
+                      "title-md": ["Montserrat", "Noto Sans Arabic"],
+                      "display-lg": ["Montserrat", "Noto Sans Arabic"],
+                      "label-bold": ["Montserrat", "Noto Sans Arabic"]
+              },
+              "fontSize": {
+                      "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface overflow-x-hidden">
+<!-- Navigation Rail / SideBar -->
+<script>document.write(renderZamSidebar('automation-settings', currentUser.role));</script>
+<!-- Main Content Area -->
+<main class="mr-[280px] min-h-screen">
+<!-- Top App Bar -->
+<header class="flex justify-between items-center w-full h-20 px-margin-desktop sticky top-0 bg-surface dark:bg-surface-dim z-40 border-b border-outline-variant shadow-sm">
+<div class="flex items-center gap-lg">
+<h2 class="font-headline-lg text-primary">أتمتة التقارير</h2>
+<div class="flex items-center gap-md bg-surface-container-low px-md py-xs rounded-full border border-outline-variant">
+<span class="material-symbols-outlined text-outline">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-sm w-64" placeholder="بحث في الإعدادات..." type="text">
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex items-center gap-xs">
+<button class="px-md py-xs rounded-full border border-outline-variant font-label-bold text-on-surface-variant hover:bg-surface-container transition-all">الوردية الصباحية</button>
+<button class="px-md py-xs rounded-full border border-outline-variant font-label-bold text-on-surface-variant hover:bg-surface-container transition-all">الوردية المسائية</button>
+</div>
+<div class="flex items-center gap-sm">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary">
+<img class="w-full h-full object-cover" data-alt="A close-up portrait of a professional cafe manager in a modern, sunlit office. The manager is wearing a clean, branded apron over a crisp white shirt. The background is slightly blurred, showing elements of an artisanal coffee shop like a high-end espresso machine and warm wooden shelving, creating an atmosphere of expertise and warm hospitality." src="https://lh3.googleusercontent.com/aida-public/AB6AXuClYAHOkQpVYPRsBlgEys7YWIG4pmDSRuSmS4LtbQizlf3hQpA7UGqZtG15QMeXXK0_lM2d4_J3UMHkljFgiI68I8c-iRnSuM05eSUYKwh6yeSOOiuWg-GMxBwPjaSwUyNQraPsXXMlH29dpAcuF6T4CZNfwa7mrgAyaSuMCyQT94pJ5GXaJPKQdgLzJY5yaPyEu9tTrlwR8PlsoTLV-GRaW458VtzmBSC4Y0M4uShkaaH1YEvmGwND">
+</div>
+</div>
+</div>
+</header>
+<section class="p-lg max-w-5xl mx-auto">
+<div class="mb-lg">
+<h3 class="font-display-lg text-primary mb-xs">⭐ إعدادات الأتمتة</h3>
+<p class="font-body-lg text-on-surface-variant">تحكم في مواعيد إرسال التقارير والملخصات تلقائيًا بالإيميل — من هنا فقط، بدون أي تدخل خارجي.</p>
+</div>
+
+<!-- الإرسال الفوري عند تسليم التقرير -->
+<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant mb-lg flex items-center justify-between">
+<div>
+<h4 class="font-title-md text-title-md text-primary mb-xs">إرسال فوري عند استلام تقرير جديد</h4>
+<p class="text-body-sm text-on-surface-variant">أول ما مشرف يرسل تقريره، تتبعت نسخة PDF فورية لإيميلات الإدارة.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input type="checkbox" id="instant-forward-toggle" class="sr-only peer">
+<div class="toggle-bg w-14 h-7 bg-outline-variant rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-1 after:right-1 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+
+<!-- إضافة جدولة جديدة -->
+<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant mb-lg">
+<h4 class="font-title-md text-title-md text-primary mb-md">➕ إضافة موعد إرسال جديد</h4>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-sm items-end">
+<div>
+<label class="text-body-sm text-on-surface-variant">نوع التقرير</label>
+<select id="new-report-type" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
+<option value="checklist_summary">ملخص تشيك ليست بالفئات</option>
+<option value="manager_reports_summary">ملخص أداء التقارير</option>
+<option value="missed_report_alert">تنبيه تأخر تسليم التقارير</option>
+</select>
+</div>
+<div>
+<label class="text-body-sm text-on-surface-variant">الفرع</label>
+<select id="new-branch" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
+<option value="">كل الفروع (تقرير واحد مجمّع)</option>
+</select>
+</div>
+<div>
+<label class="text-body-sm text-on-surface-variant">موعد الإرسال اليومي</label>
+<input type="time" id="new-send-time" value="21:00" class="w-full border border-outline-variant rounded-lg p-sm mt-xs"/>
+</div>
+<button id="add-schedule-btn" class="bg-primary text-on-primary rounded-lg p-sm font-bold">إضافة الموعد</button>
+</div>
+<p class="text-[12px] text-on-surface-variant mt-sm">ملحوظة: النظام بيتحقق من المواعيد كل 10 دقائق، فممكن يوصل الإيميل بفارق بسيط عن الموعد المحدد بالظبط.</p>
+</div>
+
+<!-- قائمة الجدولة الحالية -->
+<div class="bg-surface rounded-xl card-shadow border border-outline-variant">
+<h4 class="font-title-md text-title-md text-primary p-lg pb-0">المواعيد المفعّلة حاليًا</h4>
+<div id="schedules-list" class="p-lg">
+<p class="text-on-surface-variant text-body-sm">جارِ التحميل...</p>
+</div>
+</div>
+</section>
+</main>
+<script>
+        // Search Bar Micro-interaction (تصميمي فقط)
+        const searchInput = document.querySelector('input[type="text"]');
+        if (searchInput) {
+            searchInput.onfocus = () => searchInput.parentElement.classList.add('ring-2', 'ring-primary/20', 'border-primary');
+            searchInput.onblur = () => searchInput.parentElement.classList.remove('ring-2', 'ring-primary/20', 'border-primary');
+        }
+
+        const REPORT_TYPE_LABELS = {
+            checklist_summary: 'ملخص تشيك ليست بالفئات',
+            manager_reports_summary: 'ملخص أداء التقارير',
+            missed_report_alert: 'تنبيه تأخر تسليم التقارير',
+        };
+
+        let branchesCache = [];
+
+        async function loadBranchOptions() {
+            branchesCache = await ZamAPI.getBranches();
+            const sel = document.getElementById('new-branch');
+            branchesCache.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.id; opt.textContent = b.name;
+                sel.appendChild(opt);
+            });
+        }
+
+        async function loadInstantForwardToggle() {
+            const { data } = await zamClient.from('automation_settings').select('*').eq('key', 'instant_report_forward').maybeSingle();
+            document.getElementById('instant-forward-toggle').checked = data ? data.is_active : true;
+        }
+
+        document.getElementById('instant-forward-toggle').addEventListener('change', async (e) => {
+            try {
+                await zamClient.from('automation_settings').upsert({ key: 'instant_report_forward', is_active: e.target.checked });
+            } catch (err) {
+                console.error(err);
+                alert('حدث خطأ أثناء حفظ الإعداد.');
+            }
+        });
+
+        async function loadSchedules() {
+            const container = document.getElementById('schedules-list');
+            try {
+                const { data, error } = await zamClient.from('automation_schedules').select('*, branches(name)').order('send_time');
+                if (error) throw error;
+
+                if (!data.length) {
+                    container.innerHTML = '<p class="text-on-surface-variant text-body-sm">لا توجد مواعيد مضبوطة بعد. أضف أول موعد من الأعلى.</p>';
+                    return;
+                }
+
+                container.innerHTML = data.map(s => `
+                    <div class="flex items-center justify-between border-b border-outline-variant py-sm last:border-0" data-id="${s.id}">
+                        <div>
+                            <p class="font-bold text-on-surface">${REPORT_TYPE_LABELS[s.report_type] || s.report_type}</p>
+                            <p class="text-body-sm text-on-surface-variant">${s.branches ? s.branches.name : 'كل الفروع'} — الساعة ${s.send_time?.slice(0,5)}</p>
+                        </div>
+                        <div class="flex items-center gap-sm">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" class="sched-toggle sr-only peer" ${s.is_active ? 'checked' : ''}>
+                                <div class="toggle-bg w-12 h-6 bg-outline-variant rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-1 after:right-1 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-container"></div>
+                            </label>
+                            <button class="delete-sched-btn text-error"><span class="material-symbols-outlined text-[20px]">delete</span></button>
+                        </div>
+                    </div>
+                `).join('');
+
+                container.querySelectorAll('.sched-toggle').forEach(cb => {
+                    cb.addEventListener('change', async (e) => {
+                        const id = e.target.closest('[data-id]').dataset.id;
+                        await zamClient.from('automation_schedules').update({ is_active: e.target.checked }).eq('id', id);
+                    });
+                });
+                container.querySelectorAll('.delete-sched-btn').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        if (!confirm('حذف هذا الموعد نهائياً؟')) return;
+                        const id = btn.closest('[data-id]').dataset.id;
+                        await zamClient.from('automation_schedules').delete().eq('id', id);
+                        await loadSchedules();
+                    });
+                });
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<p class="text-error text-body-sm">تعذّر تحميل الجدولة.</p>';
+            }
+        }
+
+        document.getElementById('add-schedule-btn').addEventListener('click', async () => {
+            const report_type = document.getElementById('new-report-type').value;
+            const branch_id = document.getElementById('new-branch').value || null;
+            const send_time = document.getElementById('new-send-time').value;
+            if (!send_time) { alert('حدد موعد الإرسال.'); return; }
+
+            try {
+                await zamClient.from('automation_schedules').insert([{ report_type, branch_id, send_time, is_active: true }]);
+                await loadSchedules();
+            } catch (err) {
+                console.error(err);
+                alert('حدث خطأ أثناء إضافة الموعد. تأكد إن عندك صلاحية "إعدادات الأتمتة".');
+            }
+        });
+
+        loadBranchOptions();
+        loadInstantForwardToggle();
+        loadSchedules();
+    </script>
+
+
+</body></html>

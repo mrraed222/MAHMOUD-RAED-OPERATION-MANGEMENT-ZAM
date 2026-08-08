@@ -1,0 +1,128 @@
+<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>ZAM Operations - الملف الشخصي</title><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#bd9f83","primary-fixed": "#fedcbe","on-error-container": "#93000a","on-surface-variant": "#4e453d","on-primary-fixed": "#291806","on-tertiary": "#ffffff","surface-bright": "#fcf9f8","on-error": "#ffffff","error": "#ba1a1a","secondary-fixed": "#e4e4cc","on-primary-fixed-variant": "#59422c","primary-container": "#4b3621","on-secondary-fixed-variant": "#474836","tertiary-fixed": "#94f990","tertiary-fixed-dim": "#78dc77","on-secondary-container": "#636451","secondary-container": "#e1e1c9","outline-variant": "#d2c4ba","surface-container-highest": "#e4e2e1","background": "#fcf9f8","on-primary": "#ffffff","on-secondary-fixed": "#1b1d0e","inverse-surface": "#303030","inverse-primary": "#e1c1a4","on-surface": "#1b1c1c","tertiary": "#002c06","primary": "#33210d","surface-container": "#f0eded","primary-fixed-dim": "#e1c1a4","on-background": "#1b1c1c","on-secondary": "#ffffff","inverse-on-surface": "#f3f0f0","surface-tint": "#725a42","secondary-fixed-dim": "#c8c8b0","outline": "#80756c","on-tertiary-container": "#56b958","surface-container-high": "#eae7e7","secondary": "#5e604d","error-container": "#ffdad6","tertiary-container": "#00450e","surface-container-lowest": "#ffffff","surface": "#fcf9f8","surface-variant": "#e4e2e1","surface-container-low": "#f6f3f2","on-tertiary-fixed-variant": "#005313","surface-dim": "#dcd9d9","on-tertiary-fixed": "#002204"
+                    },
+                    "borderRadius": {"DEFAULT": "0.125rem","lg": "0.25rem","xl": "0.5rem","full": "0.75rem"},
+                    "spacing": {"margin-mobile": "16px","xl": "64px","sm": "12px","margin-desktop": "32px","lg": "40px","gutter": "24px","base": "8px","xs": "4px","md": "24px"},
+                    "fontFamily": {"title-md": ["Montserrat", "Noto Sans Arabic"],"headline-lg": ["Montserrat", "Noto Sans Arabic"],"label-bold": ["Montserrat", "Noto Sans Arabic"],"display-lg": ["Montserrat", "Noto Sans Arabic"],"body-lg": ["Montserrat", "Noto Sans Arabic"],"body-sm": ["Montserrat", "Noto Sans Arabic"]},
+                    "fontSize": {"title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],"headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],"label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],"display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],"body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],"body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]}
+                }
+            }
+        }
+    }catch(_e){}</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../assets/supabase-config.js"></script>
+<script>
+  const currentUser = ZamSession.requireAuth('../index.html');
+</script>
+</head>
+<body class="bg-background text-on-surface overflow-x-hidden">
+<script>document.write(renderZamSidebar('employee-profile', currentUser.role));</script>
+
+<header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
+  <div>
+    <h1 class="font-title-md text-title-md text-primary">الملف الشخصي</h1>
+    <p class="text-body-sm text-on-surface-variant">بياناتك وأداؤك في النظام</p>
+  </div>
+</header>
+
+<main class="md:pr-[280px] pt-20 min-h-screen">
+<div class="max-w-3xl mx-auto p-margin-desktop">
+
+  <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg flex items-center gap-md mb-lg">
+    <img id="avatar-img" alt="صورة شخصية" class="w-20 h-20 rounded-full object-cover border-4 border-surface-container bg-surface-container" src=""/>
+    <div>
+      <h2 class="font-title-md text-title-md text-on-surface" id="p-name">—</h2>
+      <p class="text-body-sm text-on-surface-variant" id="p-role-branch">—</p>
+      <p class="text-[12px] text-on-surface-variant" id="p-number">—</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-md mb-lg">
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
+      <h3 class="font-title-md text-title-md text-primary mb-sm flex items-center gap-sm"><span class="material-symbols-outlined">contact_mail</span> بيانات التواصل</h3>
+      <p class="text-body-sm text-on-surface-variant">البريد الإلكتروني: <span id="p-email" class="text-on-surface font-bold">—</span></p>
+      <p class="text-body-sm text-on-surface-variant mt-xs">الواتساب: <span id="p-whatsapp" class="text-on-surface font-bold">—</span></p>
+    </div>
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
+      <h3 class="font-title-md text-title-md text-primary mb-sm flex items-center gap-sm"><span class="material-symbols-outlined">task_alt</span> أداء آخر 7 أيام</h3>
+      <p class="text-2xl font-bold text-primary" id="p-completion-count">—</p>
+      <p class="text-[12px] text-on-surface-variant">مهمة تم تنفيذها</p>
+    </div>
+  </div>
+
+  <div id="supervisor-section" class="hidden mb-lg">
+    <h3 class="font-title-md text-title-md text-primary mb-sm">آخر التقارير المُرسلة</h3>
+    <div id="my-reports-list" class="bg-surface-container-lowest border border-outline-variant rounded-xl divide-y divide-outline-variant"></div>
+  </div>
+
+</div>
+</main>
+
+<script>
+const ROLE_LABELS = { Owner: 'مالك النظام', Admin: 'أدمن', Supervisor: 'مشرف وردية', Barista: 'باريستا', Kitchen: 'مطبخ', Waiter: 'خدمة' };
+
+document.getElementById('p-name').textContent = currentUser.full_name;
+document.getElementById('p-role-branch').textContent = `${ROLE_LABELS[currentUser.role] || currentUser.role} — ${currentUser.branches?.name || 'بدون فرع'}`;
+document.getElementById('p-number').textContent = currentUser.employee_number ? `الرقم الوظيفي: ${currentUser.employee_number}` : '';
+document.getElementById('p-email').textContent = currentUser.email || '—';
+document.getElementById('p-whatsapp').textContent = currentUser.whatsapp_number || '—';
+document.getElementById('avatar-img').src = currentUser.avatar_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
+
+async function loadPerformance() {
+    try {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const { data, error } = await zamClient
+            .from('checklist_logs')
+            .select('id')
+            .eq('executed_by', currentUser.id)
+            .gte('execution_date', weekAgo.toISOString().split('T')[0]);
+        if (error) throw error;
+        document.getElementById('p-completion-count').textContent = data.length;
+    } catch (err) {
+        console.error(err);
+        document.getElementById('p-completion-count').textContent = '—';
+    }
+}
+
+async function loadMyReports() {
+    if (!['Owner', 'Admin', 'Supervisor'].includes(currentUser.role)) return;
+    document.getElementById('supervisor-section').classList.remove('hidden');
+    const list = document.getElementById('my-reports-list');
+    try {
+        const { data, error } = await zamClient
+            .from('daily_reports')
+            .select('*, branches(name)')
+            .eq('supervisor_name', currentUser.full_name)
+            .order('report_date', { ascending: false })
+            .limit(10);
+        if (error) throw error;
+
+        if (!data.length) {
+            list.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">لا توجد تقارير مرسلة بعد.</p>';
+            return;
+        }
+        list.innerHTML = data.map(r => `
+            <div class="p-sm flex justify-between items-center">
+                <div>
+                    <p class="font-bold text-on-surface text-body-sm">${r.branches?.name || '—'} — ${r.report_date}</p>
+                    <p class="text-[12px] text-on-surface-variant">${r.shift_type === 'Morning' ? 'صباحي' : 'مسائي'} • ${r.total_sales} ر.س</p>
+                </div>
+                <span class="text-[11px] text-on-surface-variant">${r.team_status || ''}</span>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error(err);
+        list.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل التقارير.</p>';
+    }
+}
+
+loadPerformance();
+loadMyReports();
+</script>
+</body></html>
