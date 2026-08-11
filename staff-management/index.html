@@ -146,11 +146,8 @@
 <img alt="ZAM Logo" class="h-10 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtVHrl_wlRZ8OCKMtpGjeBEhiwUkCPNH5lkysNkUO1GEPO-AYeQMtn8aNF4SxyDf_o8_nfgAAWXhJyez5JTTwSRCIMYzONEZ2TGESRnegBD6SFokELZQjT212djm2tzsEusqv3r0aGg1Q1C9kGaXEOiJITpUgh_BFnyMXNfIkTCp-bDvdwM1fU4gXfBvXEysp3D1dwX8BaUEKgK1qeQraMs20WmFhSEeemLvrmz6tFHXwLlVVrPFnl0Urmm6rj1EFWuw"/>
 <span class="font-headline-lg text-primary text-[24px] font-black">Operations</span>
 </div>
-<div class="hidden md:flex items-center gap-md">
-<a class="text-on-surface-variant hover:text-primary font-label-bold transition-colors" href="#">ZAM 1</a>
-<a class="text-on-surface-variant hover:text-primary font-label-bold transition-colors" href="#">ZAM 2</a>
-<a class="text-primary font-bold border-b-2 border-primary pb-1 font-label-bold" href="#">ZAM 3</a>
-<a class="text-on-surface-variant hover:text-primary font-label-bold transition-colors" href="#">ZAM 4</a>
+<div class="hidden md:flex items-center gap-md" id="header-branches-list">
+<span class="text-on-surface-variant text-body-sm font-bold">تحميل الفروع...</span>
 </div>
 </div>
 <div class="flex items-center gap-md">
@@ -166,7 +163,7 @@
 <span class="material-symbols-outlined">help</span>
 </button>
 <div class="w-10 h-10 rounded-full overflow-hidden border border-outline ml-sm">
-<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDg3xxxa_ATQHEdv34uixRCz8jnWIza7ElO7JzcobBDJ_ic2_n3PlBQsJzWSdA9PVJjxulZT2Rb2mmESWrWdlZ038EkjeJZwGyu3WqGlAaK3mXVm7QBGQDuyPtVrReDEB2wLV3cf35Qv88f5cSJER90vxSs8LcxT8orbRhz0UI6HIreNfavf9WpCLitghLXiV9NQPFdnrboY4RrODOaR3ZVtWkASmsBbW8_-ua9gEwFARXTZj0oDFho"/>
+<img class="w-full h-full object-cover" id="header-avatar" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>"/>
 </div>
 </div>
 </div>
@@ -174,6 +171,15 @@
 <!-- Main Content Area -->
 <main class="mr-[280px] pt-20 p-margin-desktop">
 <div class="flex flex-col gap-gutter">
+
+<!-- Scrollable Employee Avatars Row -->
+<section class="bg-surface-container-lowest p-md border border-outline-variant rounded-xl shadow-sm mb-xs">
+  <h4 class="font-title-md text-primary mb-sm flex items-center gap-sm"><span class="material-symbols-outlined">face</span> صور موظفيني</h4>
+  <div class="flex gap-md overflow-x-auto pb-xs scrollbar-thin" id="employee-photos-row">
+    <p class="text-on-surface-variant text-body-sm">تحميل صور الموظفين...</p>
+  </div>
+</section>
+
 <!-- Page Title & Header -->
 <section class="flex justify-between items-end pb-base header-accent">
 <div>
@@ -314,7 +320,42 @@
     async function loadStaff() {
         const tbody = document.getElementById('staff-tbody');
         try {
-            const staff = await ZamAPI.getStaff();
+            // تحديث صورتي الرمزية بالهيدر
+            try {
+                document.getElementById('header-avatar').src = currentUser.avatar_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
+            } catch (e) {}
+
+            const [branches, staff] = await Promise.all([
+                ZamAPI.getBranches(),
+                ZamAPI.getStaff()
+            ]);
+
+            // تحديث الفروع ديناميكياً بالهيدر
+            try {
+                document.getElementById('header-branches-list').innerHTML = branches.map(b => {
+                    const active = b.id === currentUser.branch_id;
+                    const cls = active ? 'text-primary font-bold border-b-2 border-primary pb-1 font-label-bold' : 'text-on-surface-variant hover:text-primary font-label-bold transition-colors';
+                    return `<span class="${cls}">${b.name}</span>`;
+                }).join('');
+            } catch (e) {}
+
+            // تحديث لوحة صور الموظفين بالعلوي
+            try {
+                const activeStaff = staff.filter(e => e.status === 'active');
+                if (!activeStaff.length) {
+                    document.getElementById('employee-photos-row').innerHTML = '<p class="text-on-surface-variant text-body-sm">لا توجد صور موظفين نشطة بعد.</p>';
+                } else {
+                    document.getElementById('employee-photos-row').innerHTML = activeStaff.map(emp => {
+                        const avatarUrl = emp.avatar_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
+                        return `
+                        <div class="flex flex-col items-center gap-1 shrink-0">
+                            <img src="${avatarUrl}" class="w-14 h-14 rounded-full object-cover border-2 border-primary shadow-sm"/>
+                            <span class="text-[11px] font-bold text-on-surface max-w-[70px] truncate text-center">${emp.full_name}</span>
+                        </div>`;
+                    }).join('');
+                }
+            } catch (e) {}
+
             document.getElementById('staff-total-count').textContent = staff.filter(e => e.status === 'active').length;
             if (!staff.length) {
                 tbody.innerHTML = '<tr><td colspan="6" class="py-md px-md text-center text-on-surface-variant">لا يوجد موظفون مسجلون بعد.</td></tr>';

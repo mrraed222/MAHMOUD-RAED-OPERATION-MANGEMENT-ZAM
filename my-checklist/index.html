@@ -92,7 +92,8 @@ document.querySelectorAll('.shift-btn').forEach(btn => {
 });
 
 async function uploadEvidence(file) {
-    const path = `${currentUser.id}/${Date.now()}-${file.name}`;
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `${currentUser.id}/${Date.now()}.${ext}`;
     const { error } = await zamClient.storage.from('task-evidence').upload(path, file);
     if (error) throw error;
     const { data } = zamClient.storage.from('task-evidence').getPublicUrl(path);

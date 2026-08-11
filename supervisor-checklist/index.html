@@ -259,6 +259,7 @@
             activeSubTab = 'my-tasks';
             subtabMyTasks.className = "font-bold border-b-2 border-white pb-xs text-body-sm text-white";
             subtabTeamTasks.className = "pb-xs text-white/70 hover:text-white text-body-sm transition-colors";
+            document.getElementById('category-cards').classList.add('hidden');
             loadChecklist();
         });
 
@@ -266,6 +267,7 @@
             activeSubTab = 'team-tasks';
             subtabTeamTasks.className = "font-bold border-b-2 border-white pb-xs text-body-sm text-white";
             subtabMyTasks.className = "pb-xs text-white/70 hover:text-white text-body-sm transition-colors";
+            document.getElementById('category-cards').classList.remove('hidden');
             loadChecklist();
         });
 
@@ -313,7 +315,8 @@
         });
 
         async function uploadEvidence(file) {
-            const path = `${currentUser.id}/${Date.now()}-${file.name}`;
+            const ext = file.name.split('.').pop() || 'jpg';
+            const path = `${currentUser.id}/${Date.now()}.${ext}`;
             const { error } = await zamClient.storage.from('task-evidence').upload(path, file);
             if (error) throw error;
             const { data } = zamClient.storage.from('task-evidence').getPublicUrl(path);
@@ -468,7 +471,8 @@
         async function loadChecklist() {
             container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
             try {
-                const templates = await ZamAPI.getTemplates(currentCategory || null, currentShift, currentUser.branch_id);
+                const categoryFilter = activeSubTab === 'my-tasks' ? null : (currentCategory || null);
+                const templates = await ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id);
                 const logs = await ZamAPI.getTodayLogs(currentUser.branch_id);
                 const logsByTemplate = {};
                 logs.forEach(l => { logsByTemplate[l.template_id] = l; });
@@ -480,6 +484,7 @@
         }
 
         setActiveShiftButton();
+        document.getElementById('category-cards').classList.add('hidden');
         loadChecklist();
 
         document.getElementById('send-report-btn')?.addEventListener('click', () => {
