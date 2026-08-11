@@ -27,7 +27,7 @@ create table if not exists profiles (
   status text default 'pending' check (status in ('pending','active','suspended','rejected')),
   receives_branch_reports boolean default false,
   employee_number text,
-  shift_type text default 'Morning' check (shift_type in ('Morning','Evening')),
+  shift_type text default 'Morning' check (shift_type in ('Morning','Evening','Both')),
   created_at timestamptz default now()
 );
 
