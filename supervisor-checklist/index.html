@@ -175,9 +175,12 @@
 </section>
 <!-- Checklist Section -->
 <section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-<div class="bg-primary text-on-primary px-md py-base flex justify-between items-center">
-<h3 class="font-label-bold">قائمة مهام المشرف - الفترة الصباحية</h3>
-<span class="text-xs opacity-80" id="progress-label">جارِ التحميل...</span>
+<div class="bg-primary text-on-primary px-md py-base flex flex-col md:flex-row justify-between items-center gap-sm">
+  <div class="flex gap-md">
+    <button id="subtab-my-tasks" class="font-bold border-b-2 border-white pb-xs text-body-sm text-white">📋 مهامي اليومية</button>
+    <button id="subtab-team-tasks" class="pb-xs text-white/70 hover:text-white text-body-sm transition-colors">👥 متابعة أداء الفريق</button>
+  </div>
+  <span class="text-xs opacity-80" id="progress-label">جارِ التحميل...</span>
 </div>
 <div class="divide-y divide-outline-variant" id="checklist-container">
 <p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل المهام من قاعدة البيانات...</p>
@@ -231,15 +234,40 @@
 <span class="text-[10px] font-bold">حسابي</span>
 </a>
 </nav>
+
+<!-- Modal تكبير الصورة -->
+<div id="image-modal" class="fixed inset-0 bg-inverse-surface/90 hidden items-center justify-center z-50 p-margin-mobile">
+  <button id="close-image" class="absolute top-4 right-4 text-white hover:text-primary transition-colors"><span class="material-symbols-outlined text-4xl">close</span></button>
+  <img id="modal-img" src="" class="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"/>
+</div>
+
 <script>
         // ============================================
         // فلاتر الوردية والفئة + تحميل قوائم التحقق الحقيقية
         // ============================================
-        let currentShift = 'Morning';
+        let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : 'Morning';
         let currentCategory = ''; // فاضي = كل الفئات
+        let activeSubTab = 'my-tasks'; // my-tasks (مهامي الإشرافية) أو team-tasks (متابعة الفريق)
 
         const container = document.getElementById('checklist-container');
         const progressLabel = document.getElementById('progress-label');
+
+        const subtabMyTasks = document.getElementById('subtab-my-tasks');
+        const subtabTeamTasks = document.getElementById('subtab-team-tasks');
+
+        subtabMyTasks.addEventListener('click', () => {
+            activeSubTab = 'my-tasks';
+            subtabMyTasks.className = "font-bold border-b-2 border-white pb-xs text-body-sm text-white";
+            subtabTeamTasks.className = "pb-xs text-white/70 hover:text-white text-body-sm transition-colors";
+            loadChecklist();
+        });
+
+        subtabTeamTasks.addEventListener('click', () => {
+            activeSubTab = 'team-tasks';
+            subtabTeamTasks.className = "font-bold border-b-2 border-white pb-xs text-body-sm text-white";
+            subtabMyTasks.className = "pb-xs text-white/70 hover:text-white text-body-sm transition-colors";
+            loadChecklist();
+        });
 
         function setActiveShiftButton() {
             document.querySelectorAll('.shift-btn').forEach(btn => {
@@ -258,6 +286,16 @@
             });
         });
 
+        // قفل أزرار الورديات حسب وردية المشرف المسجل
+        if (currentUser.shift_type && currentUser.shift_type !== 'Both') {
+            currentShift = currentUser.shift_type;
+            document.querySelectorAll('.shift-btn').forEach(btn => {
+                if (btn.dataset.shift !== currentShift) {
+                    btn.style.display = 'none';
+                }
+            });
+        }
+
         document.querySelectorAll('.role-card').forEach(card => {
             card.addEventListener('click', () => {
                 document.querySelectorAll('.role-card').forEach(c => {
@@ -274,32 +312,157 @@
             });
         });
 
+        async function uploadEvidence(file) {
+            const path = `${currentUser.id}/${Date.now()}-${file.name}`;
+            const { error } = await zamClient.storage.from('task-evidence').upload(path, file);
+            if (error) throw error;
+            const { data } = zamClient.storage.from('task-evidence').getPublicUrl(path);
+            return data.publicUrl;
+        }
+
         function renderChecklist(templates, logsByTemplate) {
-            if (!templates.length) {
-                container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">لا توجد مهام معرّفة لهذه الوردية/الفئة حالياً. يمكن إضافتها من إدارة قوائم التحقق.</p>';
+            let filteredTemplates = templates;
+
+            if (activeSubTab === 'my-tasks') {
+                // مهامي كـ مشرف
+                filteredTemplates = templates.filter(t => t.category === 'المشرف' || t.category === 'إشراف');
+            } else {
+                // متابعة الفريق
+                filteredTemplates = templates.filter(t => t.category !== 'المشرف' && t.category !== 'إشراف');
+            }
+
+            if (!filteredTemplates.length) {
+                container.innerHTML = `<p class="p-md text-on-surface-variant text-body-sm text-center">لا توجد مهام ${activeSubTab === 'my-tasks' ? 'إشرافية خاصة بك' : 'للفريق لربطها بمتابعتك'} مسندة في هذه الوردية حالياً.</p>`;
                 progressLabel.textContent = 'لا توجد مهام';
                 return;
             }
 
-            const done = templates.filter(t => logsByTemplate[t.id]).length;
-            progressLabel.textContent = `تم إنجاز ${done} من ${templates.length} مهام`;
+            const done = filteredTemplates.filter(t => logsByTemplate[t.id]).length;
+            progressLabel.textContent = `تم إنجاز ${done} من ${filteredTemplates.length} مهام`;
 
-            container.innerHTML = templates.map(item => {
+            container.innerHTML = filteredTemplates.map(item => {
                 const log = logsByTemplate[item.id];
                 const completed = !!log;
-                return `
-                <div class="checklist-item group flex items-center justify-between p-md hover:bg-surface-container-low transition-all">
-                    <div class="flex items-center gap-md">
-                        <span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-outline'}">${completed ? 'check_circle' : 'radio_button_unchecked'}</span>
-                        <div>
-                            <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${item.task_title}</h4>
-                            <p class="text-body-sm text-on-surface-variant">${item.category}${completed && log.profiles ? ' • نفّذها: ' + log.profiles.full_name : ''}</p>
+
+                // لو كنا في "مهامي الإشرافية"، نعرض تشيك بوكس وزر الرفع التفاعلي
+                if (activeSubTab === 'my-tasks') {
+                    return `
+                    <div class="checklist-item p-md ${completed ? 'bg-tertiary-fixed/10' : ''}">
+                        <div class="flex items-center justify-between gap-md">
+                            <div class="flex items-center gap-md flex-1">
+                                <input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${item.id}" ${completed ? 'checked disabled' : ''}/>
+                                <div class="flex-1">
+                                    <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${item.task_title}</h4>
+                                    ${item.requires_photo ? '<p class="text-body-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-sm">photo_camera</span> يتطلب صورة إثبات</p>' : ''}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    ${log && log.photo_url ? `<a href="${log.photo_url}" target="_blank" class="text-primary"><span class="material-symbols-outlined">image</span></a>` : ''}
-                </div>
-            `;
+                        ${!completed ? `
+                        <div class="mt-xs pr-10 flex items-center gap-sm flex-wrap task-actions" data-id="${item.id}" data-requires-photo="${item.requires_photo}">
+                            ${item.requires_photo ? `
+                                <label class="flex items-center gap-xs cursor-pointer px-sm py-1 bg-surface-container border border-outline rounded-lg text-[12px] font-bold text-primary hover:bg-surface-container-high transition-all">
+                                    <span class="material-symbols-outlined text-[16px]">photo_camera</span>
+                                    <span>ارفق صورة الإثبات</span>
+                                    <input type="file" accept="image/*" capture="environment" class="hidden evidence-input"/>
+                                </label>
+                            ` : ''}
+                            <span class="task-status text-error text-[11px]"></span>
+                            <span class="loading-indicator text-primary text-[11px] font-bold hidden"><span class="material-symbols-outlined animate-spin text-sm">sync</span> جارِ رفع الصورة والحفظ...</span>
+                        </div>` : ''}
+                    </div>`;
+                } else {
+                    // شاشة متابعة الفريق (تأشير ورؤية فقط)
+                    return `
+                    <div class="checklist-item group flex items-center justify-between p-md hover:bg-surface-container-low transition-all">
+                        <div class="flex items-center gap-md">
+                            <span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-outline'}">${completed ? 'check_circle' : 'radio_button_unchecked'}</span>
+                            <div>
+                                <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${item.task_title}</h4>
+                                <p class="text-body-sm text-on-surface-variant">${item.category}${completed && log.profiles ? ' • نفّذها: ' + log.profiles.full_name : ''}</p>
+                            </div>
+                        </div>
+                        ${log && log.photo_url ? `<button class="text-primary hover:underline zoomable-btn flex items-center gap-1" data-src="${log.photo_url}"><span class="material-symbols-outlined">image</span> عرض الصورة</button>` : ''}
+                    </div>`;
+                }
             }).join('');
+
+            // تفعيل مستمعين التشيك بوكس والرفع في مهامي الإشرافية
+            if (activeSubTab === 'my-tasks') {
+                container.querySelectorAll('.task-checkbox').forEach(cb => {
+                    cb.addEventListener('change', async () => {
+                        if (!cb.checked) return;
+                        const wrap = container.querySelector(`.task-actions[data-id="${cb.dataset.id}"]`);
+                        if (wrap && wrap.dataset.requiresPhoto === 'true') {
+                            cb.checked = false;
+                            wrap.querySelector('.evidence-input')?.click();
+                            return;
+                        }
+                        cb.disabled = true;
+                        try {
+                            await ZamAPI.submitChecklistLog({
+                                template_id: cb.dataset.id,
+                                branch_id: currentUser.branch_id,
+                                executed_by: currentUser.id,
+                                status: 'Completed'
+                            });
+                            await loadChecklist();
+                        } catch (err) {
+                            console.error(err);
+                            cb.disabled = false;
+                            cb.checked = false;
+                        }
+                    });
+                });
+
+                container.querySelectorAll('.evidence-input').forEach(input => {
+                    input.addEventListener('change', async () => {
+                        const file = input.files[0];
+                        if (!file) return;
+
+                        const wrap = input.closest('.task-actions');
+                        const templateId = wrap.dataset.id;
+                        const statusSpan = wrap.querySelector('.task-status');
+                        const loader = wrap.querySelector('.loading-indicator');
+                        const label = wrap.querySelector('label');
+                        const checkbox = container.querySelector(`.task-checkbox[data-id="${templateId}"]`);
+
+                        if (checkbox) checkbox.disabled = true;
+                        if (label) label.classList.add('hidden');
+                        if (loader) loader.classList.remove('hidden');
+                        if (statusSpan) statusSpan.textContent = '';
+
+                        try {
+                            const photo_url = await uploadEvidence(file);
+                            await ZamAPI.submitChecklistLog({
+                                template_id: templateId,
+                                branch_id: currentUser.branch_id,
+                                executed_by: currentUser.id,
+                                status: 'Completed',
+                                photo_url
+                            });
+                            await loadChecklist();
+                        } catch (err) {
+                            console.error(err);
+                            if (statusSpan) statusSpan.textContent = 'حدث خطأ أثناء رفع الصورة، حاول مرة أخرى.';
+                            if (checkbox) {
+                                checkbox.disabled = false;
+                                checkbox.checked = false;
+                            }
+                            if (label) label.classList.remove('hidden');
+                            if (loader) loader.classList.add('hidden');
+                        }
+                    });
+                });
+            } else {
+                // مستمعي التكبير في متابعة الفريق
+                document.querySelectorAll('.zoomable-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.getElementById('modal-img').src = btn.dataset.src;
+                        document.getElementById('image-modal').classList.remove('hidden');
+                        document.getElementById('image-modal').classList.add('flex');
+                    });
+                });
+            }
         }
 
         async function loadChecklist() {
@@ -323,11 +486,16 @@
             window.location.href = '../daily-report/index.html';
         });
 
+        document.getElementById('close-image')?.addEventListener('click', () => {
+            document.getElementById('image-modal').classList.add('hidden');
+            document.getElementById('image-modal').classList.remove('flex');
+        });
+
         try {
             document.getElementById('today-date-label').textContent = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
             document.getElementById('branch-sub-label').textContent = currentUser.branches?.name || 'فرعي';
             document.getElementById('branch-badge').textContent = currentUser.branches?.name?.slice(0, 5) || 'ZAM';
-            document.getElementById('branch-name-label').textContent = currentUser.branches?.name || 'بدون فرع محدد';
+            document.getElementById('branch-name-label').textContent = currentUser.branches?.name || 'بدون فرع حدد';
         } catch (e) {
             console.error('Error populating dynamic header labels:', e);
         }

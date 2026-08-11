@@ -79,13 +79,14 @@
           <th class="p-sm text-right">الاسم</th>
           <th class="p-sm text-right">الدور</th>
           <th class="p-sm text-right">الفرع</th>
+          <th class="p-sm text-right">الوردية</th>
           <th class="p-sm text-right">رمز المرور</th>
           <th class="p-sm text-right">صلاحيات الأدمن</th>
           <th class="p-sm text-right"></th>
         </tr>
       </thead>
       <tbody id="staff-tbody">
-        <tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>
+        <tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>
       </tbody>
     </table>
   </div>
@@ -201,7 +202,7 @@ function renderPending(pending) {
                     <p class="text-body-sm text-on-surface-variant">${emp.email || '—'} ${emp.whatsapp_number ? '• ' + emp.whatsapp_number : ''}</p>
                 </div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-sm items-end">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-sm items-end">
                 <div>
                     <label class="text-[11px] text-on-surface-variant">الدور</label>
                     <select class="p-role-select w-full border border-outline-variant rounded-lg p-1">
@@ -215,8 +216,16 @@ function renderPending(pending) {
                         ${branchesCache.map(b => `<option value="${b.id}" ${b.id === emp.branch_id ? 'selected' : ''}>${b.name}</option>`).join('')}
                     </select>
                 </div>
-                <label class="flex items-center gap-1 text-body-sm">
-                    <input type="checkbox" class="p-reports-check w-4 h-4"/> يستلم ملخص/تقرير فرعه بالإيميل
+                <div>
+                    <label class="text-[11px] text-on-surface-variant">الوردية</label>
+                    <select class="p-shift-select w-full border border-outline-variant rounded-lg p-1">
+                        <option value="Morning" ${emp.shift_type === 'Morning' ? 'selected' : ''}>صباحي</option>
+                        <option value="Evening" ${emp.shift_type === 'Evening' ? 'selected' : ''}>مسائي</option>
+                        <option value="Both" ${emp.shift_type === 'Both' ? 'selected' : ''}>كلاهما</option>
+                    </select>
+                </div>
+                <label class="flex items-center gap-1 text-body-sm font-bold">
+                    <input type="checkbox" class="p-reports-check w-4 h-4"/> يستلم ملخص/تقرير فرعه
                 </label>
                 <div class="flex gap-sm">
                     <button class="approve-btn flex-1 bg-tertiary-container text-on-tertiary rounded-lg py-1 text-body-sm font-bold">قبول</button>
@@ -232,10 +241,11 @@ function renderPending(pending) {
             const id = card.dataset.id;
             const role = card.querySelector('.p-role-select').value;
             const branch_id = card.querySelector('.p-branch-select').value || null;
+            const shift_type = card.querySelector('.p-shift-select').value;
             const receives_branch_reports = card.querySelector('.p-reports-check').checked;
             btn.disabled = true;
             try {
-                await zamClient.from('profiles').update({ status: 'active', role, branch_id, receives_branch_reports }).eq('id', id);
+                await zamClient.from('profiles').update({ status: 'active', role, branch_id, shift_type, receives_branch_reports }).eq('id', id);
                 await loadStaff();
             } catch (err) {
                 console.error(err);
@@ -292,6 +302,13 @@ async function loadStaff() {
                     </select>
                 </td>
                 <td class="p-sm">
+                    <select class="shift-select border border-outline-variant rounded-lg p-1">
+                        <option value="Morning" ${emp.shift_type === 'Morning' ? 'selected' : ''}>صباحي</option>
+                        <option value="Evening" ${emp.shift_type === 'Evening' ? 'selected' : ''}>مسائي</option>
+                        <option value="Both" ${emp.shift_type === 'Both' ? 'selected' : ''}>كلاهما</option>
+                    </select>
+                </td>
+                <td class="p-sm">
                     <input type="text" class="passcode-input border border-outline-variant rounded-lg p-1 w-24" value="${emp.passcode}"/>
                 </td>
                 <td class="p-sm perms-cell">${permsCellHTML(emp)}</td>
@@ -325,11 +342,12 @@ async function loadStaff() {
                 const id = row.dataset.id;
                 const role = row.querySelector('.role-select').value;
                 const branch_id = row.querySelector('.branch-select').value || null;
+                const shift_type = row.querySelector('.shift-select').value;
                 const passcode = row.querySelector('.passcode-input').value.trim();
                 const msgEl = row.querySelector('.row-msg');
 
                 try {
-                    await zamClient.from('profiles').update({ role, branch_id, passcode }).eq('id', id);
+                    await zamClient.from('profiles').update({ role, branch_id, shift_type, passcode }).eq('id', id);
                     msgEl.textContent = 'تم ✓';
                     msgEl.className = 'row-msg text-[11px] text-tertiary-container font-bold';
                 } catch (err) {

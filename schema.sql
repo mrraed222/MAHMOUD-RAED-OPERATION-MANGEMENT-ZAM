@@ -27,7 +27,7 @@ create table if not exists profiles (
   status text default 'pending' check (status in ('pending','active','suspended','rejected')),
   receives_branch_reports boolean default false,
   employee_number text,
-  shift_type text default 'Morning' check (shift_type in ('Morning','Evening')),
+  shift_type text default 'Morning' check (shift_type in ('Morning','Evening','Both')),
   created_at timestamptz default now()
 );
 
@@ -204,3 +204,20 @@ on conflict (passcode) do nothing;
 --     url := 'https://<project-ref>.functions.supabase.co/send-reminders',
 --     headers := '{"Authorization":"Bearer <ANON_KEY>"}'::jsonb
 --   )$$);
+
+-- ============================================================
+-- إعداد مخازن الملفات (Storage Buckets) وصلاحياتها في Supabase
+-- ============================================================
+-- 1. إنشاء باكيت task-evidence وصور الآفاتار
+insert into storage.buckets (id, name, public)
+values
+  ('task-evidence', 'task-evidence', true),
+  ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+-- 2. السماح بالرفع والوصول العام لكافة الملفات والصور في الباكيتس
+create policy "Allow public access to task-evidence" on storage.objects
+  for all using (bucket_id = 'task-evidence') with check (bucket_id = 'task-evidence');
+
+create policy "Allow public access to avatars" on storage.objects
+  for all using (bucket_id = 'avatars') with check (bucket_id = 'avatars');
