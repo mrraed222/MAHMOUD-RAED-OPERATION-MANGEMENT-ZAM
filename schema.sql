@@ -27,6 +27,7 @@ create table if not exists profiles (
   status text default 'pending' check (status in ('pending','active','suspended','rejected')),
   receives_branch_reports boolean default false,
   employee_number text,
+  shift_type text default 'Morning' check (shift_type in ('Morning','Evening')),
   created_at timestamptz default now()
 );
 
@@ -63,7 +64,8 @@ create table if not exists checklist_logs (
   notes text,
   photo_url text,
   execution_date date default current_date,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  unique (template_id, execution_date, branch_id)
 );
 
 -- 6. التقارير اليومية (Daily Reports)
@@ -189,3 +191,16 @@ on conflict do nothing;
 insert into profiles (full_name, role, passcode, status)
 values ('مدير النظام', 'Manager', '1234', 'active')
 on conflict (passcode) do nothing;
+
+-- ============================================================
+-- عمليات تنظيف وجدولة التذكيرات (أمثلة وتعليمات إضافية)
+-- ============================================================
+-- 1. حذف النماذج التجريبية غير المرتبطة بفرع
+-- DELETE FROM checklist_templates WHERE branch_id IS NULL AND task_title ILIKE '%تجريبي%';
+
+-- 2. إعداد التذكيرات وتفعيل cron (نفذه يدويًا في SQL Editor بـ Supabase بعد استبدال المعاملات)
+-- SELECT cron.schedule('zam-reminders','* * * * *',
+--   $$SELECT net.http_post(
+--     url := 'https://<project-ref>.functions.supabase.co/send-reminders',
+--     headers := '{"Authorization":"Bearer <ANON_KEY>"}'::jsonb
+--   )$$);

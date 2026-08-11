@@ -85,6 +85,11 @@ async function loadBranchOptions() {
         opt.value = b.id; opt.textContent = b.name;
         sel.appendChild(opt);
     });
+    if (currentUser.role === 'Supervisor') {
+        sel.value = currentUser.branch_id || '';
+        sel.disabled = true;
+        sel.classList.add('bg-surface-container');
+    }
 }
 
 async function loadReports() {
@@ -92,7 +97,10 @@ async function loadReports() {
     tbody.innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
     try {
         let query = zamClient.from('daily_reports').select('*, branches(name)').order('report_date', { ascending: false }).limit(150);
-        const branchId = document.getElementById('f-branch').value;
+        let branchId = document.getElementById('f-branch').value;
+        if (currentUser.role === 'Supervisor') {
+            branchId = currentUser.branch_id;
+        }
         const from = document.getElementById('f-from').value;
         const to = document.getElementById('f-to').value;
         if (branchId) query = query.eq('branch_id', branchId);

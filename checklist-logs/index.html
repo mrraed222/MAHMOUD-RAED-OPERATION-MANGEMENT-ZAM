@@ -1,0 +1,257 @@
+<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>ZAM Operations - سجل التشيك ليست بالصور</title><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#bd9f83","primary-fixed": "#fedcbe","on-error-container": "#93000a","on-surface-variant": "#4e453d","on-primary-fixed": "#291806","on-tertiary": "#ffffff","surface-bright": "#fcf9f8","on-error": "#ffffff","error": "#ba1a1a","secondary-fixed": "#e4e4cc","on-primary-fixed-variant": "#59422c","primary-container": "#4b3621","on-secondary-fixed-variant": "#474836","tertiary-fixed": "#94f990","tertiary-fixed-dim": "#78dc77","on-secondary-container": "#636451","secondary-container": "#e1e1c9","outline-variant": "#d2c4ba","surface-container-highest": "#e4e2e1","background": "#fcf9f8","on-primary": "#ffffff","on-secondary-fixed": "#1b1d0e","inverse-surface": "#303030","inverse-primary": "#e1c1a4","on-surface": "#1b1c1c","tertiary": "#002c06","primary": "#33210d","surface-container": "#f0eded","primary-fixed-dim": "#e1c1a4","on-background": "#1b1c1c","on-secondary": "#ffffff","inverse-on-surface": "#f3f0f0","surface-tint": "#725a42","secondary-fixed-dim": "#c8c8b0","outline": "#80756c","on-tertiary-container": "#56b958","surface-container-high": "#eae7e7","secondary": "#5e604d","error-container": "#ffdad6","tertiary-container": "#00450e","surface-container-lowest": "#ffffff","surface": "#fcf9f8","surface-variant": "#e4e2e1","surface-container-low": "#f6f3f2","on-tertiary-fixed-variant": "#005313","surface-dim": "#dcd9d9","on-tertiary-fixed": "#002204"
+                    },
+                    "borderRadius": {"DEFAULT": "0.125rem","lg": "0.25rem","xl": "0.5rem","full": "0.75rem"},
+                    "spacing": {"margin-mobile": "16px","xl": "64px","sm": "12px","margin-desktop": "32px","lg": "40px","gutter": "24px","base": "8px","xs": "4px","md": "24px"},
+                    "fontFamily": {"title-md": ["Montserrat", "Noto Sans Arabic"],"headline-lg": ["Montserrat", "Noto Sans Arabic"],"label-bold": ["Montserrat", "Noto Sans Arabic"],"display-lg": ["Montserrat", "Noto Sans Arabic"],"body-lg": ["Montserrat", "Noto Sans Arabic"],"body-sm": ["Montserrat", "Noto Sans Arabic"]},
+                    "fontSize": {"title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],"headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],"label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],"display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],"body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],"body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]}
+                }
+            }
+        }
+    }catch(_e){}</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/supabase-config.js"></script><script>
+  const currentUser = ZamSession.requireAuth('../index.html');
+  if (!['Owner','Admin','Manager','Supervisor'].includes(currentUser.role)) {
+      window.location.href = zamRoleHomePath(currentUser.role);
+  }
+</script></head><body class="bg-background text-on-surface overflow-x-hidden">
+<script>document.write(renderZamSidebar('checklist-logs', currentUser.role));</script>
+
+<header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
+  <div>
+    <h1 class="font-title-md text-title-md text-primary">سجل التشيك ليست بالصور</h1>
+    <p class="text-body-sm text-on-surface-variant">متابعة توثيق وصور إثبات المهام اليومية في الفروع</p>
+  </div>
+  <div class="flex items-center gap-md">
+    <span class="text-body-sm text-on-surface-variant" id="date-label"></span>
+  </div>
+</header>
+
+<main class="md:pr-[280px] pt-20 min-h-screen">
+  <div class="max-w-5xl mx-auto p-margin-desktop">
+
+    <!-- الفلاتر -->
+    <div class="flex flex-wrap gap-sm mb-md bg-surface-container-lowest p-md border border-outline-variant rounded-xl shadow-sm items-center">
+      <div class="flex flex-col gap-1 min-w-[150px]">
+        <label class="text-[11px] text-on-surface-variant font-bold">الفرع</label>
+        <select id="f-branch" class="border border-outline-variant rounded-lg p-sm text-body-sm bg-white"><option value="">كل الفروع</option></select>
+      </div>
+      <div class="flex flex-col gap-1 min-w-[130px]">
+        <label class="text-[11px] text-on-surface-variant font-bold">التاريخ</label>
+        <input type="date" id="f-date" class="border border-outline-variant rounded-lg p-sm text-body-sm bg-white"/>
+      </div>
+      <div class="flex flex-col gap-1 min-w-[130px]">
+        <label class="text-[11px] text-on-surface-variant font-bold">الوردية</label>
+        <select id="f-shift" class="border border-outline-variant rounded-lg p-sm text-body-sm bg-white">
+          <option value="">كل الورديات</option>
+          <option value="Morning">الوردية الصباحية</option>
+          <option value="Evening">الوردية المسائية</option>
+        </select>
+      </div>
+      <button id="apply-filters" class="bg-primary text-on-primary rounded-lg px-md py-sm font-bold text-body-sm shrink-0 self-end mt-4 md:mt-0 flex items-center gap-1 hover:bg-primary-container transition-all">
+        <span class="material-symbols-outlined text-base">filter_alt</span> تطبيق الفلاتر
+      </button>
+    </div>
+
+    <!-- الإحصائيات -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-md mb-lg">
+      <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex items-center gap-sm">
+        <div class="w-12 h-12 rounded-full bg-primary-container/10 flex items-center justify-center text-primary"><span class="material-symbols-outlined">task_alt</span></div>
+        <div>
+          <p class="text-body-sm text-on-surface-variant">إجمالي المهام المنجزة</p>
+          <p class="text-2xl font-bold text-primary" id="stat-total-executed">—</p>
+        </div>
+      </div>
+      <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex items-center gap-sm">
+        <div class="w-12 h-12 rounded-full bg-tertiary-fixed/30 flex items-center justify-center text-tertiary"><span class="material-symbols-outlined">image</span></div>
+        <div>
+          <p class="text-body-sm text-on-surface-variant">المهام الموثقة بصور</p>
+          <p class="text-2xl font-bold text-tertiary" id="stat-with-photos">—</p>
+        </div>
+      </div>
+      <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex items-center gap-sm">
+        <div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container"><span class="material-symbols-outlined">groups</span></div>
+        <div>
+          <p class="text-body-sm text-on-surface-variant">موظفون منفذون</p>
+          <p class="text-2xl font-bold text-on-surface" id="stat-staff-count">—</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- عرض التبديل بين الجدول والمعرض -->
+    <div class="flex justify-between items-center mb-sm border-b border-outline-variant pb-xs">
+      <div class="flex gap-sm">
+        <button id="tab-gallery" class="px-md py-sm border-b-2 border-primary font-bold text-primary text-body-sm transition-all flex items-center gap-1"><span class="material-symbols-outlined text-base">grid_view</span> معرض الصور</button>
+        <button id="tab-table" class="px-md py-sm text-on-surface-variant text-body-sm hover:text-primary transition-all flex items-center gap-1"><span class="material-symbols-outlined text-base">table_view</span> جدول التفاصيل</button>
+      </div>
+    </div>
+
+    <!-- حاويات البيانات -->
+    <div id="gallery-view" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-md">
+      <p class="text-on-surface-variant text-body-sm">جارِ التحميل...</p>
+    </div>
+
+    <div id="table-view" class="hidden bg-surface-container-lowest rounded-xl border border-outline-variant overflow-x-auto">
+      <table class="w-full text-body-sm text-right">
+        <thead class="bg-surface-container text-on-surface-variant font-bold">
+          <tr>
+            <th class="p-sm">التاريخ</th>
+            <th class="p-sm">الفرع</th>
+            <th class="p-sm">المهمة</th>
+            <th class="p-sm">الفئة</th>
+            <th class="p-sm">الوردية</th>
+            <th class="p-sm">بواسطة</th>
+            <th class="p-sm">الصورة</th>
+          </tr>
+        </thead>
+        <tbody id="logs-table-tbody" class="divide-y divide-outline-variant">
+          <tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</main>
+
+<!-- Modal تكبير الصورة -->
+<div id="image-modal" class="fixed inset-0 bg-inverse-surface/90 hidden items-center justify-center z-50 p-margin-mobile">
+  <button id="close-image" class="absolute top-4 right-4 text-white hover:text-primary transition-colors"><span class="material-symbols-outlined text-4xl">close</span></button>
+  <img id="modal-img" src="" class="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"/>
+</div>
+
+<script>
+document.getElementById('date-label').textContent = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+
+const tabGallery = document.getElementById('tab-gallery');
+const tabTable = document.getElementById('tab-table');
+const galleryView = document.getElementById('gallery-view');
+const tableView = document.getElementById('table-view');
+
+tabGallery.addEventListener('click', () => {
+    tabGallery.className = "px-md py-sm border-b-2 border-primary font-bold text-primary text-body-sm transition-all flex items-center gap-1";
+    tabTable.className = "px-md py-sm text-on-surface-variant text-body-sm hover:text-primary transition-all flex items-center gap-1";
+    galleryView.classList.remove('hidden');
+    tableView.classList.add('hidden');
+});
+
+tabTable.addEventListener('click', () => {
+    tabTable.className = "px-md py-sm border-b-2 border-primary font-bold text-primary text-body-sm transition-all flex items-center gap-1";
+    tabGallery.className = "px-md py-sm text-on-surface-variant text-body-sm hover:text-primary transition-all flex items-center gap-1";
+    tableView.classList.remove('hidden');
+    galleryView.classList.add('hidden');
+});
+
+let branchesCache = [];
+
+async function loadBranchOptions() {
+    branchesCache = await ZamAPI.getBranches();
+    const sel = document.getElementById('f-branch');
+    branchesCache.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.id; opt.textContent = b.name;
+        sel.appendChild(opt);
+    });
+    if (currentUser.role === 'Supervisor') {
+        sel.value = currentUser.branch_id || '';
+        sel.disabled = true;
+        sel.classList.add('bg-surface-container');
+    }
+}
+
+async function loadLogs() {
+    galleryView.innerHTML = '<p class="text-on-surface-variant text-body-sm p-sm">جارِ التحميل...</p>';
+    document.getElementById('logs-table-tbody').innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
+
+    const branchId = document.getElementById('f-branch').value || (currentUser.role === 'Supervisor' ? currentUser.branch_id : null);
+    const date = document.getElementById('f-date').value;
+    const shiftType = document.getElementById('f-shift').value || null;
+
+    try {
+        const logs = await ZamAPI.getChecklistLogs({ branchId, date, shiftType });
+
+        // حساب الإحصائيات
+        document.getElementById('stat-total-executed').textContent = logs.length;
+        const withPhotos = logs.filter(l => l.photo_url).length;
+        document.getElementById('stat-with-photos').textContent = withPhotos;
+        const staff = [...new Set(logs.map(l => l.executed_by))].length;
+        document.getElementById('stat-staff-count').textContent = staff;
+
+        // رندر معرض الصور
+        const logsWithPhotos = logs.filter(l => l.photo_url);
+        if (!logsWithPhotos.length) {
+            galleryView.innerHTML = '<p class="col-span-3 text-on-surface-variant text-body-sm p-md text-center bg-surface-container-lowest border border-outline-variant rounded-xl">لا توجد مهام موثقة بصور مطابقة للفلاتر اليوم.</p>';
+        } else {
+            galleryView.innerHTML = logsWithPhotos.map(l => `
+                <div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col">
+                  <div class="h-48 overflow-hidden relative cursor-pointer group flex items-center justify-center bg-surface-container">
+                    <img src="${l.photo_url}" class="w-full h-full object-cover group-hover:scale-105 transition-all zoomable-img" data-src="${l.photo_url}"/>
+                    <div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"><span class="material-symbols-outlined text-4xl">zoom_in</span></div>
+                  </div>
+                  <div class="p-sm flex flex-col gap-xs flex-1 justify-between">
+                    <div>
+                      <span class="inline-block px-sm py-xs rounded-full text-[10px] bg-primary/10 text-primary font-bold mb-xs">${l.checklist_templates?.category || 'باريستا'}</span>
+                      <h4 class="font-bold text-on-surface text-body-sm leading-tight">${l.checklist_templates?.task_title || 'مهمة مجهولة'}</h4>
+                    </div>
+                    <div class="text-[11px] text-on-surface-variant border-t border-outline-variant pt-xs mt-xs flex justify-between items-center">
+                      <span>👤 ${l.profiles?.full_name || 'موظف'}</span>
+                      <span>📍 ${l.branches?.name || 'فرع'}</span>
+                    </div>
+                  </div>
+                </div>
+            `).join('');
+        }
+
+        // رندر جدول التفاصيل
+        const tbody = document.getElementById('logs-table-tbody');
+        if (!logs.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">لا توجد سجلات مطابقة للفلاتر.</td></tr>';
+        } else {
+            tbody.innerHTML = logs.map(l => `
+                <tr class="hover:bg-surface-container-low transition-colors">
+                  <td class="p-sm">${l.execution_date}</td>
+                  <td class="p-sm font-bold">${l.branches?.name || 'عام'}</td>
+                  <td class="p-sm">${l.checklist_templates?.task_title || 'مهمة مجهولة'}</td>
+                  <td class="p-sm">${l.checklist_templates?.category || '—'}</td>
+                  <td class="p-sm">${l.checklist_templates?.shift_type === 'Morning' ? 'صباحي' : 'مسائي'}</td>
+                  <td class="p-sm font-bold">${l.profiles?.full_name || '—'}</td>
+                  <td class="p-sm">
+                    ${l.photo_url ? `<button class="text-primary hover:underline flex items-center gap-xs zoomable-btn" data-src="${l.photo_url}"><span class="material-symbols-outlined">image</span> عرض</button>` : '<span class="text-outline">—</span>'}
+                  </td>
+                </tr>
+            `).join('');
+        }
+
+        // إضافة مستمعين للتكبير
+        document.querySelectorAll('.zoomable-img, .zoomable-btn').forEach(el => {
+            el.addEventListener('click', () => {
+                const src = el.dataset.src;
+                document.getElementById('modal-img').src = src;
+                document.getElementById('image-modal').classList.remove('hidden');
+                document.getElementById('image-modal').classList.add('flex');
+            });
+        });
+
+    } catch (err) {
+        console.error(err);
+        galleryView.innerHTML = '<p class="col-span-3 text-error text-body-sm text-center">حدث خطأ أثناء تحميل السجلات.</p>';
+        document.getElementById('logs-table-tbody').innerHTML = '<tr><td colspan="7" class="p-md text-center text-error">حدث خطأ أثناء تحميل السجلات.</td></tr>';
+    }
+}
+
+document.getElementById('close-image').addEventListener('click', () => {
+    document.getElementById('image-modal').classList.add('hidden');
+    document.getElementById('image-modal').classList.remove('flex');
+});
+
+document.getElementById('apply-filters').addEventListener('click', loadLogs);
+
+(async function init() {
+    await loadBranchOptions();
+    await loadLogs();
+})();
+</script></body></html>

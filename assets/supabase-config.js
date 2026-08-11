@@ -36,6 +36,7 @@ const ZAM_NAV_ITEMS = [
     { key: 'manage-templates', label: 'إدارة قوائم التحقق', icon: 'edit_note', href: 'manage-templates/index.html', roles: ['Owner', 'Admin'] },
     { key: 'daily-report', label: 'التقارير اليومية', icon: 'assignment', href: 'daily-report/index.html', roles: ['Owner', 'Admin', 'Supervisor'] },
     { key: 'reports-log', label: 'سجل التقارير', icon: 'assessment', href: 'reports-log/index.html', roles: ['Owner', 'Admin', 'Supervisor'] },
+    { key: 'checklist-logs', label: 'سجل التشيك ليست بالصور', icon: 'photo_library', href: 'checklist-logs/index.html', roles: ['Owner', 'Admin', 'Supervisor'] },
     { key: 'reports-monitor', label: 'متابعة التقارير', icon: 'fact_check', href: 'reports-monitor/index.html', roles: ['Owner', 'Admin'] },
     { key: 'analytics', label: 'داشبورد التحليلات', icon: 'insights', href: 'analytics/index.html', roles: ['Owner', 'Admin'] },
     { key: 'staff-management', label: 'إدارة الطاقم', icon: 'groups', href: 'staff-management/index.html', roles: ['Owner', 'Admin'] },
@@ -156,6 +157,16 @@ const ZamAPI = {
         const { data, error } = await zamClient.from('branches').select('*').order('name');
         if (error) throw error;
         return data;
+    },
+
+    async getChecklistLogs({ branchId = null, date = null, shiftType = null } = {}) {
+        let q = zamClient.from('checklist_logs')
+          .select('*, checklist_templates(task_title, category, shift_type, requires_photo), profiles(full_name), branches(name)');
+        if (date) q = q.eq('execution_date', date);
+        if (branchId) q = q.eq('branch_id', branchId);
+        const { data, error } = await q.order('created_at', { ascending: false });
+        if (error) throw error;
+        return shiftType ? data.filter(l => l.checklist_templates?.shift_type === shiftType) : data;
     },
 
     // جلب موظفي فرع معين

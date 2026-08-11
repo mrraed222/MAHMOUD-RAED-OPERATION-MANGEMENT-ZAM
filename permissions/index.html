@@ -140,7 +140,7 @@ let branchesCache = [];
 let permsCache = {}; // profile_id -> permissions row
 
 function permsCellHTML(emp) {
-    if (emp.role !== 'Admin') return '<span class="text-outline text-[11px]">—</span>';
+    if (emp.role === 'Owner') return '<span class="text-outline text-[11px]">—</span>';
     const p = permsCache[emp.id] || {};
     return `<button class="edit-perms-btn text-primary hover:underline text-[12px] font-bold" data-id="${emp.id}">تحديد الصلاحيات</button>`;
 }
@@ -313,7 +313,7 @@ async function loadStaff() {
             sel.addEventListener('change', () => {
                 const row = sel.closest('tr');
                 row.querySelector('.perms-cell').innerHTML = permsCellHTML({ id: row.dataset.id, role: sel.value });
-                if (sel.value === 'Admin') {
+                if (sel.value !== 'Owner') {
                     row.querySelector('.edit-perms-btn')?.addEventListener('click', () => openPermsEditor(row.dataset.id, row.dataset.name));
                 }
             });

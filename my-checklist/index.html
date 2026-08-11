@@ -65,8 +65,10 @@ const myCategory = ROLE_CATEGORY[currentUser.role] || null;
 
 document.getElementById('user-branch-label').textContent = currentUser.branches?.name || 'بدون فرع محدد';
 
-// تحديد الوردية الافتراضية حسب الوقت الحالي (قبل 4 عصرًا = صباحية)
-let currentShift = new Date().getHours() < 16 ? 'Morning' : 'Evening';
+let currentShift = currentUser.shift_type || (new Date().getHours() < 16 ? 'Morning' : 'Evening');
+if (!isSupervisorLike) {
+  document.querySelectorAll('.shift-btn').forEach(b => b.style.display = b.dataset.shift === currentShift ? '' : 'none');
+}
 
 const container = document.getElementById('checklist-container');
 const progressLabel = document.getElementById('progress-label');
@@ -171,6 +173,32 @@ async function loadMyChecklist() {
                     console.error(err);
                     statusSpan.textContent = 'حدث خطأ، حاول مرة أخرى.';
                     btn.disabled = false;
+                }
+            });
+        });
+
+        container.querySelectorAll('.task-checkbox').forEach(cb => {
+            cb.addEventListener('change', async () => {
+                if (!cb.checked) return;
+                const wrap = container.querySelector(`.task-actions[data-id="${cb.dataset.id}"]`);
+                if (wrap && wrap.dataset.requiresPhoto === 'true') {
+                    cb.checked = false;
+                    wrap.querySelector('.evidence-input')?.click();
+                    return;
+                }
+                cb.disabled = true;
+                try {
+                    await ZamAPI.submitChecklistLog({
+                        template_id: cb.dataset.id,
+                        branch_id: currentUser.branch_id,
+                        executed_by: currentUser.id,
+                        status: 'Completed'
+                    });
+                    await loadMyChecklist();
+                } catch (err) {
+                    console.error(err);
+                    cb.disabled = false;
+                    cb.checked = false;
                 }
             });
         });

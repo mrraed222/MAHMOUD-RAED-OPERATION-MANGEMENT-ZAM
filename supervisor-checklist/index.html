@@ -123,8 +123,8 @@
 <div class="flex items-center gap-md">
 <h2 class="font-headline-lg text-headline-lg font-black text-primary">ZAM Operations</h2>
 <div class="hidden lg:flex items-center gap-base">
-<span class="bg-secondary-container text-on-secondary-container px-base py-xs rounded text-label-bold">ZAM 1</span>
-<span class="text-on-surface-variant font-label-bold">فرع التخصصي</span>
+<span class="bg-secondary-container text-on-secondary-container px-base py-xs rounded text-label-bold" id="branch-badge">ZAM</span>
+<span class="text-on-surface-variant font-label-bold" id="branch-name-label">—</span>
 </div>
 </div>
 <div class="flex items-center gap-md">
@@ -147,11 +147,11 @@
 <section class="flex flex-col md:flex-row md:items-end justify-between gap-base border-b border-outline-variant pb-md">
 <div>
 <h1 class="font-display-lg text-primary text-[32px] font-black">دليل المهام اليومية</h1>
-<p class="text-on-surface-variant font-body-lg">متابعة دقيقة لمعايير الجودة والتشغيل في فرع "ZAM 1"</p>
+<p class="text-on-surface-variant font-body-lg">متابعة دقيقة لمعايير الجودة والتشغيل في فرع "<span id="branch-sub-label">—</span>"</p>
 </div>
 <div class="flex flex-col items-end text-left">
 <span class="text-label-bold text-on-surface-variant uppercase tracking-widest">تاريخ اليوم</span>
-<span class="font-title-md text-secondary">24 مايو 2024</span>
+<span class="font-title-md text-secondary" id="today-date-label">—</span>
 </div>
 </section>
 <!-- Role Selection (Bento Style) -->
@@ -322,5 +322,14 @@
         document.getElementById('send-report-btn')?.addEventListener('click', () => {
             window.location.href = '../daily-report/index.html';
         });
+
+        try {
+            document.getElementById('today-date-label').textContent = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('branch-sub-label').textContent = currentUser.branches?.name || 'فرعي';
+            document.getElementById('branch-badge').textContent = currentUser.branches?.name?.slice(0, 5) || 'ZAM';
+            document.getElementById('branch-name-label').textContent = currentUser.branches?.name || 'بدون فرع محدد';
+        } catch (e) {
+            console.error('Error populating dynamic header labels:', e);
+        }
     </script>
 </body></html>
