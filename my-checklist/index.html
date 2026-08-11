@@ -133,34 +133,40 @@ async function loadMyChecklist() {
                     </div>
                 </div>
                 ${!completed ? `
-                <div class="mt-sm pr-10 flex items-center gap-sm flex-wrap task-actions" data-id="${t.id}" data-requires-photo="${t.requires_photo}">
-                    ${t.requires_photo ? `<input type="file" accept="image/*" capture="environment" class="text-body-sm evidence-input"/>` : ''}
-                    <button class="submit-task-btn px-sm py-xs bg-primary text-on-primary rounded-lg text-[12px] font-bold">تم التنفيذ</button>
+                <div class="mt-xs pr-10 flex items-center gap-sm flex-wrap task-actions" data-id="${t.id}" data-requires-photo="${t.requires_photo}">
+                    ${t.requires_photo ? `
+                        <label class="flex items-center gap-xs cursor-pointer px-sm py-1 bg-surface-container border border-outline rounded-lg text-[12px] font-bold text-primary hover:bg-surface-container-high transition-all">
+                            <span class="material-symbols-outlined text-[16px]">photo_camera</span>
+                            <span>ارفق صورة الإثبات</span>
+                            <input type="file" accept="image/*" capture="environment" class="hidden evidence-input"/>
+                        </label>
+                    ` : ''}
                     <span class="task-status text-error text-[11px]"></span>
+                    <span class="loading-indicator text-primary text-[11px] font-bold hidden"><span class="material-symbols-outlined animate-spin text-sm">sync</span> جارِ رفع الصورة والحفظ...</span>
                 </div>` : ''}
             </div>`;
         }).join('');
 
-        container.querySelectorAll('.submit-task-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const wrap = btn.closest('.task-actions');
+
+        container.querySelectorAll('.evidence-input').forEach(input => {
+            input.addEventListener('change', async () => {
+                const file = input.files[0];
+                if (!file) return;
+
+                const wrap = input.closest('.task-actions');
                 const templateId = wrap.dataset.id;
-                const requiresPhoto = wrap.dataset.requiresPhoto === 'true';
-                const fileInput = wrap.querySelector('.evidence-input');
                 const statusSpan = wrap.querySelector('.task-status');
+                const loader = wrap.querySelector('.loading-indicator');
+                const label = wrap.querySelector('label');
+                const checkbox = container.querySelector(`.task-checkbox[data-id="${templateId}"]`);
 
-                if (requiresPhoto && (!fileInput.files || !fileInput.files[0])) {
-                    statusSpan.textContent = 'المهمة دي محتاجة صورة إثبات.';
-                    return;
-                }
+                if (checkbox) checkbox.disabled = true;
+                if (label) label.classList.add('hidden');
+                if (loader) loader.classList.remove('hidden');
+                if (statusSpan) statusSpan.textContent = '';
 
-                btn.disabled = true;
-                statusSpan.textContent = '';
                 try {
-                    let photo_url = null;
-                    if (requiresPhoto) {
-                        photo_url = await uploadEvidence(fileInput.files[0]);
-                    }
+                    const photo_url = await uploadEvidence(file);
                     await ZamAPI.submitChecklistLog({
                         template_id: templateId,
                         branch_id: currentUser.branch_id,
@@ -171,8 +177,13 @@ async function loadMyChecklist() {
                     await loadMyChecklist();
                 } catch (err) {
                     console.error(err);
-                    statusSpan.textContent = 'حدث خطأ، حاول مرة أخرى.';
-                    btn.disabled = false;
+                    if (statusSpan) statusSpan.textContent = 'حدث خطأ أثناء رفع الصورة، حاول مرة أخرى.';
+                    if (checkbox) {
+                        checkbox.disabled = false;
+                        checkbox.checked = false;
+                    }
+                    if (label) label.classList.remove('hidden');
+                    if (loader) loader.classList.add('hidden');
                 }
             });
         });
