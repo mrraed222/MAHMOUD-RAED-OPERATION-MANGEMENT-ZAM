@@ -215,9 +215,44 @@ values
   ('avatars', 'avatars', true)
 on conflict (id) do nothing;
 
--- 2. السماح بالرفع والوصول العام لكافة الملفات والصور في الباكيتس
-create policy "Allow public access to task-evidence" on storage.objects
-  for all using (bucket_id = 'task-evidence') with check (bucket_id = 'task-evidence');
+-- 2. السماح بالرفع والوصول العام لكافة الملفات والصور في الباكيتس بمرونة تامة
+drop policy if exists "Allow public access to task-evidence" on storage.objects;
+drop policy if exists "Allow public access to avatars" on storage.objects;
 
-create policy "Allow public access to avatars" on storage.objects
-  for all using (bucket_id = 'avatars') with check (bucket_id = 'avatars');
+drop policy if exists "Allow public select on task-evidence" on storage.objects;
+drop policy if exists "Allow public insert on task-evidence" on storage.objects;
+drop policy if exists "Allow public update on task-evidence" on storage.objects;
+drop policy if exists "Allow public delete on task-evidence" on storage.objects;
+
+drop policy if exists "Allow public select on avatars" on storage.objects;
+drop policy if exists "Allow public insert on avatars" on storage.objects;
+drop policy if exists "Allow public update on avatars" on storage.objects;
+drop policy if exists "Allow public delete on avatars" on storage.objects;
+
+-- SELECT
+create policy "Allow public select on task-evidence" on storage.objects
+  for select using (bucket_id = 'task-evidence');
+
+create policy "Allow public select on avatars" on storage.objects
+  for select using (bucket_id = 'avatars');
+
+-- INSERT
+create policy "Allow public insert on task-evidence" on storage.objects
+  for insert with check (bucket_id = 'task-evidence');
+
+create policy "Allow public insert on avatars" on storage.objects
+  for insert with check (bucket_id = 'avatars');
+
+-- UPDATE
+create policy "Allow public update on task-evidence" on storage.objects
+  for update using (bucket_id = 'task-evidence') with check (bucket_id = 'task-evidence');
+
+create policy "Allow public update on avatars" on storage.objects
+  for update using (bucket_id = 'avatars') with check (bucket_id = 'avatars');
+
+-- DELETE
+create policy "Allow public delete on task-evidence" on storage.objects
+  for delete using (bucket_id = 'task-evidence');
+
+create policy "Allow public delete on avatars" on storage.objects
+  for delete using (bucket_id = 'avatars');

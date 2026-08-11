@@ -323,8 +323,12 @@
         });
 
         async function uploadAvatar(file) {
-            const path = `pending/${Date.now()}-${file.name}`;
-            const { error } = await zamClient.storage.from('avatars').upload(path, file);
+            const ext = file.name.split('.').pop() || 'jpg';
+            const path = `pending/${Date.now()}.${ext}`;
+            const { error } = await zamClient.storage.from('avatars').upload(path, file, {
+                contentType: file.type || 'image/jpeg',
+                upsert: true
+            });
             if (error) throw error;
             const { data } = zamClient.storage.from('avatars').getPublicUrl(path);
             return data.publicUrl;
