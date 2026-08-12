@@ -217,7 +217,7 @@ async function loadTemplates() {
                                             ${t.target_time ? `<span class="inline-flex items-center gap-xs px-xs py-[2px] bg-warning-container text-on-warning text-[10px] font-bold rounded-full ml-sm">⏰ ${t.target_time.slice(0, 5)}</span>` : ''}
                                         </p>
                                         ${t.instructions ? `<p class="text-[12px] text-on-surface-variant">${t.instructions}</p>` : ''}
-                                        <span class="text-[11px] ${t.branch_id ? 'text-primary font-bold' : 'text-outline'}">${t.branch_id ? '📍 ' + (branchesCache.find(b => b.id === t.branch_id)?.name || 'عام (كل الفروع)') : 'عام (كل الفروع)'}</span>
+                                        <span class="text-[11px] ${t.branch_id ? 'text-primary font-bold' : 'text-outline'}">${t.branch_id ? '📍 ' + (branchesCache.find(b => b.id === t.branch_id)?.name || 'فرع غير معروف') : 'عام (كل الفروع)'}</span>
                                     </div>
                                     <div class="flex gap-sm shrink-0">
                                         <button class="edit-btn text-primary text-[12px] font-bold hover:underline" data-id="${t.id}">تعديل</button>

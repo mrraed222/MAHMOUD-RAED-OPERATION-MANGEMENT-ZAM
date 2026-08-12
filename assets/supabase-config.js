@@ -354,38 +354,11 @@ const ZamAPI = {
             }
             return data;
         } catch (err) {
-            console.warn('Edge Function send-resend-email failed, trying direct REST API...', err);
-            try {
-                const res = await fetch('https://api.resend.com/emails', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer re_your_verified_resend_key_here',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        from: 'ZAM Operations <operations@zam.sa>',
-                        to: Array.isArray(to) ? to : [to],
-                        subject: subject,
-                        html: html
-                    })
-                });
-
-                if (res.ok) {
-                    if (logEntry) {
-                        await zamClient.from('email_logs').update({ status: 'Sent' }).eq('id', logEntry.id);
-                    }
-                    return await res.json();
-                } else {
-                    const errJson = await res.json().catch(() => ({}));
-                    throw new Error(errJson.message || 'Resend REST API error');
-                }
-            } catch (restErr) {
-                console.error('Direct Resend REST API failed:', restErr);
-                if (logEntry) {
-                    await zamClient.from('email_logs').update({ status: 'Failed', error_message: restErr.message }).eq('id', logEntry.id);
-                }
-                throw restErr;
+            console.error('Edge Function send-resend-email failed:', err);
+            if (logEntry) {
+                await zamClient.from('email_logs').update({ status: 'Failed', error_message: err.message }).eq('id', logEntry.id);
             }
+            throw new Error('فشل إرسال الإيميل. تأكد من تشغيل Edge Function في Supabase.');
         }
     }
 };
