@@ -359,7 +359,7 @@ const ZamAPI = {
                 const res = await fetch('https://api.resend.com/emails', {
                     method: 'POST',
                     headers: {
-                        'Authorization': 'Bearer sb_publishable_YVOWppMk0W3Lyr925S0YYg_Kwk7U-f4',
+                        'Authorization': 'Bearer re_your_verified_resend_key_here',
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
