@@ -79,10 +79,16 @@
         <label class="text-body-sm text-on-surface-variant">تعليمات وملاحظات إضافية (تظهر للموظف عند التنفيذ)</label>
         <textarea id="f-instructions" rows="3" class="w-full border border-outline-variant rounded-lg p-sm mt-xs" placeholder="اختياري..."></textarea>
       </div>
-      <label class="flex items-center gap-sm mt-xs">
-        <input type="checkbox" id="f-requires-photo" class="w-5 h-5"/>
-        <span class="text-body-sm">تتطلب صورة إثبات عند التنفيذ</span>
-      </label>
+      <div class="grid grid-cols-2 gap-sm mt-xs">
+        <label class="flex items-center gap-sm cursor-pointer">
+          <input type="checkbox" id="f-requires-photo" class="w-5 h-5 text-primary"/>
+          <span class="text-body-sm">تتطلب صورة إثبات</span>
+        </label>
+        <div>
+          <label class="text-[11px] text-on-surface-variant block font-bold">⏰ وقت التنفيذ الأقصى (اختياري)</label>
+          <input type="time" id="f-target-time" class="border border-outline-variant rounded-lg p-xs w-full text-body-sm"/>
+        </div>
+      </div>
     </div>
     <div class="flex gap-sm justify-end mt-md">
       <button id="cancel-modal" class="px-md py-sm rounded-lg text-on-surface-variant">إلغاء</button>
@@ -120,6 +126,7 @@ function openModal(template = null) {
     document.getElementById('f-instructions').value = template?.instructions || '';
     document.getElementById('f-branch').value = template?.branch_id || '';
     document.getElementById('f-requires-photo').checked = !!template?.requires_photo;
+    document.getElementById('f-target-time').value = template?.target_time ? template.target_time.slice(0, 5) : '';
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 }
@@ -140,6 +147,7 @@ document.getElementById('save-template').addEventListener('click', async () => {
         instructions: document.getElementById('f-instructions').value.trim() || null,
         branch_id: document.getElementById('f-branch').value || null,
         requires_photo: document.getElementById('f-requires-photo').checked,
+        target_time: document.getElementById('f-target-time').value || null,
     };
     if (!payload.task_title || !payload.category) {
         alert('اسم المهمة والقائمة الرئيسية مطلوبين.');
@@ -203,7 +211,11 @@ async function loadTemplates() {
                             ${shifts[shift].map(t => `
                                 <div class="p-sm flex items-center justify-between gap-sm">
                                     <div>
-                                        <p class="font-bold text-on-surface text-body-sm">${t.task_title} ${t.requires_photo ? '<span class="material-symbols-outlined text-[14px] align-middle text-outline">photo_camera</span>' : ''}</p>
+                                        <p class="font-bold text-on-surface text-body-sm">
+                                            ${t.task_title}
+                                            ${t.requires_photo ? '<span class="material-symbols-outlined text-[14px] align-middle text-outline">photo_camera</span>' : ''}
+                                            ${t.target_time ? `<span class="inline-flex items-center gap-xs px-xs py-[2px] bg-warning-container text-on-warning text-[10px] font-bold rounded-full ml-sm">⏰ ${t.target_time.slice(0, 5)}</span>` : ''}
+                                        </p>
                                         ${t.instructions ? `<p class="text-[12px] text-on-surface-variant">${t.instructions}</p>` : ''}
                                         <span class="text-[11px] ${t.branch_id ? 'text-primary font-bold' : 'text-outline'}">${t.branch_id ? '📍 ' + (branchesCache.find(b => b.id === t.branch_id)?.name || 'عام (كل الفروع)') : 'عام (كل الفروع)'}</span>
                                     </div>

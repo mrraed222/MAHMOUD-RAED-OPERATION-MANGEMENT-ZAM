@@ -28,6 +28,7 @@ create table if not exists profiles (
   receives_branch_reports boolean default false,
   employee_number text,
   shift_type text default 'Morning' check (shift_type in ('Morning','Evening','Both')),
+  assigned_categories text default '',
   created_at timestamptz default now()
 );
 
@@ -51,6 +52,7 @@ create table if not exists checklist_templates (
   instructions text,
   branch_id uuid references branches(id) on delete cascade,
   requires_photo boolean default false,
+  target_time time,
   created_at timestamptz default now()
 );
 
@@ -256,3 +258,16 @@ create policy "Allow public delete on task-evidence" on storage.objects
 
 create policy "Allow public delete on avatars" on storage.objects
   for delete using (bucket_id = 'avatars');
+
+-- 13. سجلات إرسال البريد الإلكتروني (Email Logs)
+create table if not exists email_logs (
+  id uuid primary key default uuid_generate_v4(),
+  recipient_email text not null,
+  subject text not null,
+  body_html text not null,
+  status text default 'Pending' check (status in ('Pending', 'Sent', 'Failed')),
+  error_message text,
+  created_at timestamptz default now()
+);
+alter table email_logs enable row level security;
+create policy "Allow all users full access to email_logs" on email_logs for all using (true) with check (true);

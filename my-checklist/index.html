@@ -53,6 +53,17 @@
     </div>
   </div>
 
+  <div id="email-summary-card" class="mt-md p-md bg-primary-container/20 rounded-xl border border-primary/20 flex flex-col sm:flex-row items-center justify-between gap-md hidden">
+    <div>
+      <h4 class="font-bold text-on-surface text-body-sm">📧 أرسل تقرير الإنجاز للإدارة</h4>
+      <p class="text-[11px] text-on-surface-variant mt-xs">اضغط هنا لإرسال ملخص فوري بالبريد الإلكتروني للشركاء والإدارة عبر Resend.</p>
+    </div>
+    <button id="send-summary-email-btn" class="bg-primary text-on-primary font-bold px-md py-sm rounded-lg text-body-sm hover:bg-primary-hover shrink-0 flex items-center gap-xs">
+      <span class="material-symbols-outlined text-sm">send</span>
+      <span>إرسال الملخص الآن</span>
+    </button>
+  </div>
+
   <div class="mt-md p-md bg-secondary-container/40 rounded-xl border border-outline-variant text-body-sm text-on-surface-variant">
     لو واجهتك أي مشكلة في التنفيذ، أبلغ مشرف الوردية مباشرة.
   </div>
@@ -62,6 +73,8 @@
 const ROLE_CATEGORY = { Barista: 'البار', Waiter: 'الصالة', Kitchen: 'المطبخ' };
 const isSupervisorLike = ['Owner', 'Admin', 'Supervisor'].includes(currentUser.role);
 const myCategory = ROLE_CATEGORY[currentUser.role] || null;
+
+const myCategories = currentUser.assigned_categories ? currentUser.assigned_categories.split(',').map(s => s.trim()).filter(Boolean) : (myCategory ? [myCategory] : []);
 
 document.getElementById('user-branch-label').textContent = currentUser.branches?.name || 'بدون فرع محدد';
 
@@ -73,6 +86,24 @@ if (!isSupervisorLike) {
 const container = document.getElementById('checklist-container');
 const progressLabel = document.getElementById('progress-label');
 const categoryLabel = document.getElementById('category-label');
+
+// Refresh current user profile from database on load to ensure we have the absolute latest roles/categories
+(async function refreshUserProfile() {
+    try {
+        const { data: freshProfile } = await zamClient.from('profiles').select('*, branches(name)').eq('id', currentUser.id).maybeSingle();
+        if (freshProfile) {
+            currentUser = { ...currentUser, ...freshProfile };
+            ZamSession.save(currentUser);
+            myCategories.length = 0;
+            const freshCats = currentUser.assigned_categories ? currentUser.assigned_categories.split(',').map(s => s.trim()).filter(Boolean) : (myCategory ? [myCategory] : []);
+            freshCats.forEach(c => myCategories.push(c));
+            document.getElementById('user-branch-label').textContent = currentUser.branches?.name || 'بدون فرع محدد';
+            loadMyChecklist();
+        }
+    } catch (e) {
+        console.error('Error refreshing profile:', e);
+    }
+})();
 
 function updateShiftButtons() {
     document.querySelectorAll('.shift-btn').forEach(btn => {
@@ -104,11 +135,12 @@ async function uploadEvidence(file) {
 }
 
 async function loadMyChecklist() {
-    categoryLabel.textContent = myCategory ? `فئة: ${myCategory} — ${currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية'}` : 'كل الفئات';
+    categoryLabel.textContent = myCategories.length ? `مهامك: ${myCategories.join(' و ')} — ${currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية'}` : 'كل الفئات';
     container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل المهام...</p>';
 
     try {
-        const templates = await ZamAPI.getTemplates(myCategory, currentShift, currentUser.branch_id);
+        const allTemplates = await ZamAPI.getTemplates(null, currentShift, currentUser.branch_id);
+        const templates = myCategories.length ? allTemplates.filter(t => myCategories.includes(t.category)) : allTemplates;
         const logs = await ZamAPI.getTodayLogs(currentUser.branch_id);
         const logsByTemplate = {};
         logs.forEach(l => { logsByTemplate[l.template_id] = l; });
@@ -121,6 +153,89 @@ async function loadMyChecklist() {
 
         const done = templates.filter(t => logsByTemplate[t.id]).length;
         progressLabel.textContent = `تم إنجاز ${done} من ${templates.length} مهام`;
+
+        // تفعيل كارت إرسال الإيميل للإدارة
+        document.getElementById('email-summary-card').classList.remove('hidden');
+        const sendBtn = document.getElementById('send-summary-email-btn');
+        sendBtn.onclick = async () => {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> جاري الإرسال...';
+
+            try {
+                // جلب إيميلات الأدمن والمالك من قاعدة البيانات بشكل ديناميكي
+                const { data: admins } = await zamClient.from('profiles').select('email').in('role', ['Owner', 'Admin']);
+                const emails = (admins || []).map(a => a.email).filter(Boolean);
+
+                if (!emails.length) emails.push('operations@zam.sa');
+
+                const completedCount = templates.filter(t => logsByTemplate[t.id]).length;
+
+                let tasksHtml = templates.map(t => {
+                    const comp = !!logsByTemplate[t.id];
+                    const log = logsByTemplate[t.id];
+                    return `
+                        <tr style="border-bottom: 1px solid #e0e0e0;">
+                            <td style="padding: 10px; font-weight: bold; color: #1c1b1f; text-align: right;">${t.task_title}</td>
+                            <td style="padding: 10px; color: #49454f; text-align: right;">${t.category}</td>
+                            <td style="padding: 10px; color: ${comp ? '#2e7d32' : '#c62828'}; font-weight: bold; text-align: right;">
+                                ${comp ? '✅ مكتمل' : '❌ غير مكتمل'}
+                            </td>
+                            <td style="padding: 10px; font-size: 11px; text-align: right;">
+                                ${log && log.photo_url ? `<a href="${log.photo_url}" target="_blank" style="color: #6750a4; font-weight: bold; text-decoration: none;">🖼️ عرض الإثبات</a>` : '—'}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+                const htmlContent = `
+                    <div dir="rtl" style="font-family: Arial, sans-serif; text-align: right; background-color: #fcf8f2; padding: 20px; border-radius: 12px; border: 1px solid #e6dbcb; max-width: 600px; margin: auto;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <h2 style="color: #6750a4; margin-top: 10px; font-size: 22px;">ZAM Speciality Coffee</h2>
+                            <h3 style="color: #49454f; font-size: 16px;">ملخص إنجاز المهام والتشيك ليست اليومية</h3>
+                        </div>
+
+                        <div style="background-color: #ffffff; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 20px; text-align: right;">
+                            <p style="margin: 5px 0;"><strong>👤 الموظف:</strong> ${currentUser.full_name}</p>
+                            <p style="margin: 5px 0;"><strong>📍 الفرع:</strong> ${currentUser.branches?.name || 'بدون فرع'}</p>
+                            <p style="margin: 5px 0;"><strong>⏰ الوردية:</strong> ${currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية'}</p>
+                            <p style="margin: 5px 0;"><strong>📊 نسبة الإنجاز:</strong> تم إنجاز ${completedCount} من أصل ${templates.length} مهام</p>
+                        </div>
+
+                        <table style="width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0; text-align: right;">
+                            <thead>
+                                <tr style="background-color: #6750a4; color: #ffffff;">
+                                    <th style="padding: 10px; text-align: right;">المهمة</th>
+                                    <th style="padding: 10px; text-align: right;">الفئة</th>
+                                    <th style="padding: 10px; text-align: right;">الحالة</th>
+                                    <th style="padding: 10px; text-align: right;">الإثبات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tasksHtml}
+                            </tbody>
+                        </table>
+
+                        <p style="text-align: center; color: #7a7a7a; font-size: 11px; margin-top: 30px;">
+                            هذا البريد تم إرساله تلقائياً من نظام زام للعمليات عبر الدومين المعتمد zam.sa باستخدام Resend.
+                        </p>
+                    </div>
+                `;
+
+                await ZamAPI.sendResendEmail({
+                    to: emails,
+                    subject: `📊 ملخص تشيك ليست ${currentUser.full_name} - فرع ${currentUser.branches?.name || 'زام'}`,
+                    html: htmlContent
+                });
+
+                alert('تم إرسال ملخص المهام بالبريد الإلكتروني للإدارة بنجاح! ✓');
+                sendBtn.innerHTML = '<span class="material-symbols-outlined text-sm">done</span> تم الإرسال بنجاح';
+            } catch (err) {
+                console.error(err);
+                alert('حدث خطأ أثناء إرسال البريد. تم تسجيل المحاولة في قاعدة البيانات.');
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<span class="material-symbols-outlined text-sm">send</span> إرسال الملخص الآن';
+            }
+        };
 
         container.innerHTML = templates.map(t => {
             const log = logsByTemplate[t.id];

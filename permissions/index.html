@@ -146,43 +146,104 @@ function permsCellHTML(emp) {
     return `<button class="edit-perms-btn text-primary hover:underline text-[12px] font-bold" data-id="${emp.id}">تحديد الصلاحيات</button>`;
 }
 
-function openPermsEditor(empId, empName) {
+async function openPermsEditor(empId, empName) {
     const p = permsCache[empId] || {};
     const existing = document.getElementById('perms-modal');
     if (existing) existing.remove();
+
+    // Fetch profile's currently assigned categories
+    let currentAssigned = '';
+    try {
+        const { data: profile } = await zamClient.from('profiles').select('assigned_categories').eq('id', empId).maybeSingle();
+        if (profile) {
+            currentAssigned = profile.assigned_categories || '';
+        }
+    } catch (e) {
+        console.error('Error fetching profile categories:', e);
+    }
+    const activeCategories = currentAssigned.split(',').map(s => s.trim()).filter(Boolean);
+
+    // Fetch templates to extract unique categories dynamically
+    let dbCategories = [];
+    try {
+        const { data: templates } = await zamClient.from('checklist_templates').select('category');
+        dbCategories = [...new Set((templates || []).map(t => t.category).filter(Boolean))];
+    } catch (e) {
+        console.error('Error fetching template categories:', e);
+    }
+    const defaultCategories = ['البار', 'الصالة', 'المطبخ', 'مشرف الشفت'];
+    const allCategories = [...new Set([...defaultCategories, ...dbCategories])];
 
     const modal = document.createElement('div');
     modal.id = 'perms-modal';
     modal.className = 'fixed inset-0 bg-inverse-surface/40 flex items-center justify-center z-50 p-margin-mobile';
     modal.innerHTML = `
-        <div class="bg-surface-container-lowest rounded-xl p-md w-full max-w-sm">
-            <h3 class="font-title-md text-title-md text-primary mb-sm">صلاحيات ${empName}</h3>
-            <div class="flex flex-col gap-sm mb-md">
-                ${PERMS.map(perm => `
-                    <label class="flex items-center gap-sm">
-                        <input type="checkbox" class="perm-checkbox w-5 h-5" data-key="${perm.key}" ${p[perm.key] ? 'checked' : ''}/>
-                        <span class="text-body-sm">${perm.label}</span>
-                    </label>
-                `).join('')}
+        <div class="bg-surface-container-lowest rounded-xl p-md w-full max-w-sm max-h-[90vh] overflow-y-auto">
+            <h3 class="font-title-md text-title-md text-primary mb-xs">صلاحيات ${empName}</h3>
+            <p class="text-body-sm text-on-surface-variant mb-sm">حدد الأقسام/المهام والصلاحيات الإدارية الخاصة بالموظف.</p>
+
+            <div class="mb-md">
+                <h4 class="font-bold text-sm text-primary mb-xs border-b border-outline-variant pb-xs">📋 قوائم المهام المسندة (التحكم المتعدد)</h4>
+                <div class="flex flex-col gap-xs max-h-[150px] overflow-y-auto">
+                    ${allCategories.map(cat => {
+                        const checked = activeCategories.includes(cat);
+                        return `
+                            <label class="flex items-center gap-sm cursor-pointer hover:bg-surface-container p-1 rounded transition-colors">
+                                <input type="checkbox" class="category-checkbox w-5 h-5 text-primary" data-category="${cat}" ${checked ? 'checked' : ''}/>
+                                <span class="text-body-sm text-on-surface">${cat}</span>
+                            </label>
+                        `;
+                    }).join('')}
+                </div>
             </div>
-            <div class="flex gap-sm justify-end">
-                <button id="cancel-perms" class="px-md py-xs rounded-lg text-on-surface-variant">إلغاء</button>
-                <button id="save-perms" class="px-md py-xs bg-primary text-on-primary rounded-lg font-bold">حفظ الصلاحيات</button>
+
+            <div class="mb-md">
+                <h4 class="font-bold text-sm text-primary mb-xs border-b border-outline-variant pb-xs">🔐 الصلاحيات الإدارية (أدمن/مشرف)</h4>
+                <div class="flex flex-col gap-sm">
+                    ${PERMS.map(perm => `
+                        <label class="flex items-center gap-sm cursor-pointer hover:bg-surface-container p-1 rounded transition-colors">
+                            <input type="checkbox" class="perm-checkbox w-5 h-5 text-primary" data-key="${perm.key}" ${p[perm.key] ? 'checked' : ''}/>
+                            <span class="text-body-sm text-on-surface">${perm.label}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            </div>
+
+            <div class="flex gap-sm justify-end border-t border-outline-variant pt-sm">
+                <button id="cancel-perms" class="px-md py-xs rounded-lg text-on-surface-variant hover:bg-surface-container">إلغاء</button>
+                <button id="save-perms" class="px-md py-xs bg-primary text-on-primary rounded-lg font-bold hover:bg-primary-hover">حفظ التغييرات</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
 
     document.getElementById('cancel-perms').addEventListener('click', () => modal.remove());
     document.getElementById('save-perms').addEventListener('click', async () => {
+        // Collect selected admin permissions
         const payload = { profile_id: empId };
         modal.querySelectorAll('.perm-checkbox').forEach(cb => { payload[cb.dataset.key] = cb.checked; });
+
+        // Collect selected categories
+        const selectedCats = [];
+        modal.querySelectorAll('.category-checkbox').forEach(cb => {
+            if (cb.checked) selectedCats.push(cb.dataset.category);
+        });
+        const assigned_categories = selectedCats.join(',');
+
         try {
+            // Save admin permissions
             await zamClient.from('admin_permissions').upsert(payload);
             permsCache[empId] = payload;
+
+            // Save multiple categories to profiles table
+            await zamClient.from('profiles').update({ assigned_categories }).eq('id', empId);
+
             modal.remove();
+
+            // Reload list to reflect changes
+            await loadStaff();
         } catch (err) {
             console.error(err);
-            alert('حدث خطأ أثناء حفظ الصلاحيات.');
+            alert('حدث خطأ أثناء حفظ الصلاحيات والمهام.');
         }
     });
 }
