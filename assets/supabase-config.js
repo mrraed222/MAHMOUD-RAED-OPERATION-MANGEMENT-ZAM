@@ -320,7 +320,7 @@ const ZamAPI = {
         if (dateFrom) rows = rows.filter(r => r.daily_reports?.report_date >= dateFrom);
         if (dateTo) rows = rows.filter(r => r.daily_reports?.report_date <= dateTo);
         return rows;
-    }
+    },
 
     // إرسال بريد إلكتروني تلقائيًا عبر Resend باستخدام الدومين الموثق zam.sa
     async sendResendEmail({ to, subject, html }) {
@@ -359,7 +359,7 @@ const ZamAPI = {
                 const res = await fetch('https://api.resend.com/emails', {
                     method: 'POST',
                     headers: {
-                        'Authorization': 'Bearer re_your_verified_resend_key_here',
+                        'Authorization': 'Bearer sb_publishable_YVOWppMk0W3Lyr925S0YYg_Kwk7U-f4',
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
