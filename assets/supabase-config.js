@@ -69,6 +69,7 @@ function renderZamSidebar(activeKey, role, pathPrefix = '../') {
                 <h1 class="font-display-lg text-[24px] font-bold text-primary leading-none">ZAM Cafe</h1>
                 <p class="font-body-sm text-on-surface-variant">إدارة العمليات</p>
             </div>
+          </div>
           <img src="${userAvatar}" alt="صورتك الشخصية" class="w-10 h-10 rounded-full object-cover border-2 border-outline-variant"/>
         </div>
         <nav class="flex flex-col gap-xs flex-1 overflow-y-auto">${links}</nav>
