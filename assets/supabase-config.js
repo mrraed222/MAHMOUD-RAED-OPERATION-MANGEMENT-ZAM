@@ -46,6 +46,9 @@ const ZAM_NAV_ITEMS = [
 ];
 
 function renderZamSidebar(activeKey, role, pathPrefix = '../') {
+    const sessionProfile = ZamSession.get();
+    const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
+    const userAvatar = sessionProfile?.avatar_url || avatarFallback;
     const items = ZAM_NAV_ITEMS.filter(i => i.roles.includes(role));
     const links = items.map(i => {
         const active = i.key === activeKey;
@@ -59,12 +62,14 @@ function renderZamSidebar(activeKey, role, pathPrefix = '../') {
     }).join('');
 
     return `<aside class="fixed right-0 top-0 h-full w-[280px] bg-surface border-l border-outline-variant flex flex-col py-lg px-md gap-base z-50 hidden md:flex">
-        <div class="flex items-center gap-sm mb-lg px-xs">
+        <div class="flex items-center justify-between gap-sm mb-lg px-xs">
+          <div class="flex items-center gap-sm">
             <img alt="ZAM Logo" class="w-12 h-12 rounded-lg object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_zDG_2qTlgZVrmyvFCMa_dD5IoGrqsvbVTI6mxsY-OnPweUq0gZvzixXP3Zse-FdcbiNYODy_CxAbLQ9IadjolG5w9SSKCfjBqMNm_P23DjLPfnDXp6cKGNt3TbBvcMgQTeqkeI8SSdyXNhJe5L7MkTJVZRcACevAO-l4VTW24xTNj4ggA29CzBAhy5DvsT60jNbq4XKknpI7C9AEUPh5sBIF2UDfGqJMPsZ_H8BGCtApm83PY7XxoFrSDxWCCQUc-g"/>
             <div>
                 <h1 class="font-display-lg text-[24px] font-bold text-primary leading-none">ZAM Cafe</h1>
                 <p class="font-body-sm text-on-surface-variant">إدارة العمليات</p>
             </div>
+          <img src="${userAvatar}" alt="صورتك الشخصية" class="w-10 h-10 rounded-full object-cover border-2 border-outline-variant"/>
         </div>
         <nav class="flex flex-col gap-xs flex-1 overflow-y-auto">${links}</nav>
         <button onclick="ZamSession.clear(); zamClient.auth.signOut(); window.location.href='${pathPrefix}index.html';" class="flex items-center gap-sm p-sm rounded-lg text-error hover:bg-error-container/30 transition-colors">
@@ -176,6 +181,20 @@ const ZamAPI = {
         const { data, error } = await query.order('full_name');
         if (error) throw error;
         return data;
+    },
+
+    async getTaskCategories(profileId) {
+        const { data, error } = await zamClient.from('employee_task_categories').select('category').eq('profile_id', profileId);
+        if (error) throw error;
+        return data.map(row => row.category);
+    },
+
+    async replaceTaskCategories(profileId, categories) {
+        const { error: deleteError } = await zamClient.from('employee_task_categories').delete().eq('profile_id', profileId);
+        if (deleteError) throw deleteError;
+        if (!categories.length) return;
+        const { error } = await zamClient.from('employee_task_categories').insert(categories.map(category => ({ profile_id: profileId, category })));
+        if (error) throw error;
     },
 
     // إضافة قالب مهمة جديد لقائمة التحقق
@@ -297,6 +316,9 @@ const ZamAPI = {
             const { error: iErr } = await zamClient.from('shift_issues').insert(rows);
             if (iErr) throw iErr;
         }
+        // التقرير الصادر يرسل فوراً للمالك والمدير عبر Edge Function، ولا يمنع حفظ التقرير عند تعذّر البريد.
+        zamClient.functions.invoke('send-report-copy', { body: { report_id: report.id } })
+          .catch(err => console.warn('Immediate report email failed:', err));
         return report;
     },
 
