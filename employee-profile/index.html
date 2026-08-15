@@ -34,7 +34,13 @@
 <div class="max-w-3xl mx-auto p-margin-desktop">
 
   <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg flex items-center gap-md mb-lg">
-    <img id="avatar-img" alt="صورة شخصية" class="w-20 h-20 rounded-full object-cover border-4 border-surface-container bg-surface-container" src=""/>
+    <div class="relative shrink-0">
+      <img id="avatar-img" alt="صورة شخصية" class="w-20 h-20 rounded-full object-cover border-4 border-surface-container bg-surface-container" src=""/>
+      <button id="change-avatar-btn" title="تغيير الصورة الشخصية" class="absolute bottom-0 left-0 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg hover:bg-primary-container transition-colors">
+        <span class="material-symbols-outlined text-[18px]">photo_camera</span>
+      </button>
+      <input type="file" id="avatar-input" accept="image/*" class="hidden"/>
+    </div>
     <div>
       <h2 class="font-title-md text-title-md text-on-surface" id="p-name">—</h2>
       <p class="text-body-sm text-on-surface-variant" id="p-role-branch">—</p>
@@ -72,6 +78,35 @@ document.getElementById('p-number').textContent = currentUser.employee_number ? 
 document.getElementById('p-email').textContent = currentUser.email || '—';
 document.getElementById('p-whatsapp').textContent = currentUser.whatsapp_number || '—';
 document.getElementById('avatar-img').src = currentUser.avatar_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
+
+// تغيير الصورة الشخصية: رفع إلى bucket ثم تحديث profiles وتحديث الجلسة
+document.getElementById('change-avatar-btn')?.addEventListener('click', () => {
+    document.getElementById('avatar-input').click();
+});
+document.getElementById('avatar-input')?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const btn = document.getElementById('change-avatar-btn');
+    btn.disabled = true;
+    try {
+        const ext = file.name.split('.').pop() || 'jpg';
+        const path = `${currentUser.id}/${Date.now()}.${ext}`;
+        const { error: upErr } = await zamClient.storage.from('avatars').upload(path, file, { upsert: true });
+        if (upErr) throw upErr;
+        const { data } = zamClient.storage.from('avatars').getPublicUrl(path);
+        const { error: dbErr } = await zamClient.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', currentUser.id);
+        if (dbErr) throw dbErr;
+        currentUser.avatar_url = data.publicUrl;
+        ZamSession.save(currentUser);
+        document.getElementById('avatar-img').src = data.publicUrl + '?t=' + Date.now();
+    } catch (err) {
+        console.error(err);
+        alert('تعذّر تحديث الصورة الشخصية: ' + (err.message || 'خطأ غير معروف'));
+    } finally {
+        btn.disabled = false;
+        e.target.value = '';
+    }
+});
 
 async function loadPerformance() {
     try {
