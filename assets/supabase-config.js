@@ -1,6 +1,7 @@
 // ============================================
 // إعدادات الاتصال بـ Supabase - نظام زام للعمليات
 // ملف مشترك يتم تحميله في كل الشاشات
+// الإصدار: 2.0 (محدّث — فرع codex/operations-wiring)
 // ============================================
 
 const SUPABASE_URL = 'https://uuphgpncmiwyigtqhjmd.supabase.co';
@@ -9,40 +10,82 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const zamClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ============================================
-// إدارة جلسة المستخدم المسجل دخوله (محلياً في المتصفح)
+// إدارة جلسة المستخدم المسجل دخوله
 // ============================================
+const ZamSession = {
+    KEY: 'zam_session_profile',
+
+    save(profile) {
+        sessionStorage.setItem(this.KEY, JSON.stringify(profile));
+    },
+
+    get() {
+        const raw = sessionStorage.getItem(this.KEY);
+        return raw ? JSON.parse(raw) : null;
+    },
+
+    clear() {
+        sessionStorage.removeItem(this.KEY);
+    },
+
+    // يستخدم في بداية كل شاشة داخلية للتأكد إن فيه مستخدم مسجل دخوله
+    requireAuth(loginPath = '../index.html') {
+        const profile = this.get();
+        if (!profile) {
+            window.location.href = loginPath;
+            return null;
+        }
+        return profile;
+    }
+};
+
 // ============================================
-// توجيه المستخدم لصفحته الرئيسية المناسبة حسب دوره الوظيفي
+// توجيه المستخدم لصفحته الرئيسية المناسبة حسب دوره
 // ============================================
 function zamRoleHomePath(role) {
     if (role === 'Owner' || role === 'Admin' || role === 'Manager') {
-        return 'dashboard/index.html'; // داشبورد متابعة التشغيل (الإدارة/المالك)
+        return 'dashboard/index.html';
     }
     if (role === 'Supervisor') {
-        return 'supervisor-checklist/index.html'; // داشبورد مشرف الشفت
+        return 'supervisor-checklist/index.html';
     }
-    // Barista, Waiter, Kitchen وأي دور تشغيلي عادي
-    return 'my-checklist/index.html'; // شاشة تشيك ليست الموظف الخاصة به فقط (حسب فرعه ووردياته)
+    return 'my-checklist/index.html';
 }
 
 // ============================================
-// القائمة الجانبية الموحدة (نفس تصميم وألوان القالب الأصلي) — تُستخدم في كل الشاشات
+// مساعد فحص الصلاحيات في بداية كل صفحة
+// ============================================
+function requireRole(allowedRoles, redirectPath) {
+    const profile = ZamSession.get();
+    if (!profile) {
+        window.location.href = '../index.html';
+        return false;
+    }
+    if (!allowedRoles.includes(profile.role)) {
+        window.location.href = redirectPath || zamRoleHomePath(profile.role);
+        return false;
+    }
+    return true;
+}
+
+// ============================================
+// القائمة الجانبية الموحدة
 // ============================================
 const ZAM_NAV_ITEMS = [
-    { key: 'dashboard', label: 'لوحة التحكم', icon: 'dashboard', href: 'dashboard/index.html', roles: ['Owner', 'Admin'] },
+    { key: 'dashboard', label: 'لوحة التحكم', icon: 'dashboard', href: 'dashboard/index.html', roles: ['Owner', 'Admin', 'Manager'] },
     { key: 'branches', label: 'الفروع', icon: 'storefront', href: 'branches-checklists/index.html', roles: ['Owner', 'Admin', 'Supervisor'] },
     { key: 'my-checklist', label: 'مهامي اليومية', icon: 'task_alt', href: 'my-checklist/index.html', roles: ['Barista', 'Kitchen', 'Waiter'] },
-    { key: 'supervisor-checklist', label: 'قوائم المهام', icon: 'checklist', href: 'supervisor-checklist/index.html', roles: ['Owner', 'Admin', 'Supervisor'] },
+    { key: 'supervisor-checklist', label: 'قوائم المهام', icon: 'checklist', href: 'supervisor-checklist/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'] },
     { key: 'manage-templates', label: 'إدارة قوائم التحقق', icon: 'edit_note', href: 'manage-templates/index.html', roles: ['Owner', 'Admin'] },
-    { key: 'daily-report', label: 'التقارير اليومية', icon: 'assignment', href: 'daily-report/index.html', roles: ['Owner', 'Admin', 'Supervisor'] },
-    { key: 'reports-log', label: 'سجل التقارير', icon: 'assessment', href: 'reports-log/index.html', roles: ['Owner', 'Admin', 'Supervisor'] },
-    { key: 'checklist-logs', label: 'سجل التشيك ليست بالصور', icon: 'photo_library', href: 'checklist-logs/index.html', roles: ['Owner', 'Admin', 'Supervisor'] },
-    { key: 'reports-monitor', label: 'متابعة التقارير', icon: 'fact_check', href: 'reports-monitor/index.html', roles: ['Owner', 'Admin'] },
-    { key: 'analytics', label: 'داشبورد التحليلات', icon: 'insights', href: 'analytics/index.html', roles: ['Owner', 'Admin'] },
-    { key: 'staff-management', label: 'إدارة الطاقم', icon: 'groups', href: 'staff-management/index.html', roles: ['Owner', 'Admin'] },
-    { key: 'automation-settings', label: 'إعدادات الأتمتة', icon: 'settings', href: 'automation-settings/index.html', roles: ['Owner', 'Admin'] },
+    { key: 'daily-report', label: 'التقارير اليومية', icon: 'assignment', href: 'daily-report/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'] },
+    { key: 'reports-log', label: 'سجل التقارير', icon: 'assessment', href: 'reports-log/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'] },
+    { key: 'checklist-logs', label: 'سجل التشيك ليست بالصور', icon: 'photo_library', href: 'checklist-logs/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'] },
+    { key: 'reports-monitor', label: 'متابعة التقارير', icon: 'fact_check', href: 'reports-monitor/index.html', roles: ['Owner', 'Admin', 'Manager'] },
+    { key: 'analytics', label: 'داشبورد التحليلات', icon: 'insights', href: 'analytics/index.html', roles: ['Owner', 'Admin', 'Manager'] },
+    { key: 'staff-management', label: 'إدارة الطاقم', icon: 'groups', href: 'staff-management/index.html', roles: ['Owner', 'Admin', 'Manager'] },
+    { key: 'automation-settings', label: 'إعدادات الأتمتة', icon: 'settings', href: 'automation-settings/index.html', roles: ['Owner', 'Admin', 'Manager'] },
     { key: 'permissions', label: 'الأذونات والصلاحيات', icon: 'admin_panel_settings', href: 'permissions/index.html', roles: ['Owner'] },
-    { key: 'employee-profile', label: 'الملف الشخصي', icon: 'person', href: 'employee-profile/index.html', roles: ['Owner', 'Admin', 'Supervisor', 'Barista', 'Kitchen', 'Waiter'] },
+    { key: 'employee-profile', label: 'الملف الشخصي', icon: 'person', href: 'employee-profile/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor', 'Barista', 'Kitchen', 'Waiter'] },
 ];
 
 function renderZamSidebar(activeKey, role, pathPrefix = '../') {
@@ -80,46 +123,169 @@ function renderZamSidebar(activeKey, role, pathPrefix = '../') {
     </aside>`;
 }
 
-const ZamSession = {
-    KEY: 'zam_session_profile',
+// ============================================
+// جرس الإشعارات المشترك
+// ============================================
+async function renderNotificationBell() {
+    const profile = ZamSession.get();
+    if (!profile) return '';
 
-    save(profile) {
-        sessionStorage.setItem(this.KEY, JSON.stringify(profile));
-    },
+    let pendingCount = 0;
+    let overdueReportsCount = 0;
+    let pendingChecklistCount = 0;
 
-    get() {
-        const raw = sessionStorage.getItem(this.KEY);
-        return raw ? JSON.parse(raw) : null;
-    },
-
-    clear() {
-        sessionStorage.removeItem(this.KEY);
-    },
-
-    // يستخدم في بداية كل شاشة داخلية للتأكد إن فيه مستخدم مسجل دخوله
-    // وإلا يرجعه لصفحة الدخول
-    requireAuth(loginPath = '../index.html') {
-        const profile = this.get();
-        if (!profile) {
-            window.location.href = loginPath;
-            return null;
+    try {
+        if (['Owner', 'Admin', 'Manager'].includes(profile.role)) {
+            const { count: pending } = await zamClient
+                .from('profiles')
+                .select('id', { count: 'exact', head: true })
+                .eq('status', 'pending');
+            pendingCount = pending || 0;
         }
-        return profile;
+
+        const today = new Date().toISOString().split('T')[0];
+        const { count: overdue } = await zamClient
+            .from('daily_reports')
+            .select('id', { count: 'exact', head: true })
+            .neq('report_date', today);
+        overdueReportsCount = overdue || 0;
+
+        if (profile.branch_id) {
+            const { count: pendingTasks } = await zamClient
+                .from('checklist_logs')
+                .select('id, checklist_templates!inner(branch_id)', { count: 'exact', head: true })
+                .eq('execution_date', today)
+                .is('id', null);
+            pendingChecklistCount = pendingTasks || 0;
+        }
+    } catch (err) {
+        console.error('Notification bell fetch error:', err);
     }
-};
+
+    const totalCount = pendingCount + overdueReportsCount + pendingChecklistCount;
+    const badge = totalCount > 0
+        ? `<span class="absolute -top-1 -right-1 bg-error text-on-error text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">${totalCount}</span>`
+        : '';
+
+    return `
+        <div class="relative" id="zam-notif-wrapper">
+            <button id="zam-notif-btn" class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container transition-colors text-on-surface-variant relative">
+                <span class="material-symbols-outlined">notifications</span>
+                ${badge}
+            </button>
+            <div id="zam-notif-menu" class="hidden absolute left-0 mt-xs w-72 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg z-50 overflow-hidden">
+                <div class="p-sm bg-primary text-on-primary font-bold">الإشعارات</div>
+                <div class="max-h-80 overflow-y-auto">
+                    ${pendingCount > 0 ? `
+                        <a href="../permissions/index.html" class="flex items-start gap-sm p-sm hover:bg-surface-container border-b border-outline-variant">
+                            <span class="material-symbols-outlined text-error">person_add</span>
+                            <div>
+                                <p class="font-bold text-body-sm">${pendingCount} طلب تسجيل بانتظار الموافقة</p>
+                                <p class="text-[11px] text-on-surface-variant">راجعهم في شاشة الأذونات والصلاحيات</p>
+                            </div>
+                        </a>
+                    ` : ''}
+                    ${overdueReportsCount > 0 ? `
+                        <a href="../reports-monitor/index.html" class="flex items-start gap-sm p-sm hover:bg-surface-container border-b border-outline-variant">
+                            <span class="material-symbols-outlined text-primary">fact_check</span>
+                            <div>
+                                <p class="font-bold text-body-sm">${overdueReportsCount} تقرير من أيام سابقة</p>
+                                <p class="text-[11px] text-on-surface-variant">تابعها في متابعة التقارير</p>
+                            </div>
+                        </a>
+                    ` : ''}
+                    ${pendingChecklistCount > 0 ? `
+                        <a href="../my-checklist/index.html" class="flex items-start gap-sm p-sm hover:bg-surface-container">
+                            <span class="material-symbols-outlined text-tertiary">task_alt</span>
+                            <div>
+                                <p class="font-bold text-body-sm">مهام تشيك ليست لم تكتمل اليوم</p>
+                                <p class="text-[11px] text-on-surface-variant">سجّلها قبل نهاية الوردية</p>
+                            </div>
+                        </a>
+                    ` : ''}
+                    ${totalCount === 0 ? `
+                        <p class="p-md text-center text-on-surface-variant text-body-sm">لا توجد إشعارات جديدة 🎉</p>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function attachNotificationBellHandlers() {
+    const btn = document.getElementById('zam-notif-btn');
+    const menu = document.getElementById('zam-notif-menu');
+    if (!btn || !menu) return;
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.toggle('hidden');
+    });
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('zam-notif-wrapper')?.contains(e.target)) {
+            menu.classList.add('hidden');
+        }
+    });
+}
 
 // ============================================
-// دوال مساعدة عامة تستخدم في أكثر من شاشة
+// قوالب البريد الإلكتروني
+// ============================================
+function buildChecklistSummaryEmail({ employeeName, branchName, shiftLabel, completedCount, totalCount, tasks, categories }) {
+    const tasksHtml = tasks.map(t => `
+        <tr style="border-bottom: 1px solid #e0e0e0;">
+            <td style="padding: 10px; font-weight: bold; color: #1c1b1f; text-align: right;">${t.task_title}</td>
+            <td style="padding: 10px; color: #49454f; text-align: right;">${t.category}</td>
+            <td style="padding: 10px; color: ${t.completed ? '#2e7d32' : '#c62828'}; font-weight: bold; text-align: right;">
+                ${t.completed ? '✅ مكتمل' : '❌ غير مكتمل'}
+            </td>
+            <td style="padding: 10px; font-size: 11px; text-align: right;">
+                ${t.photo_url ? `<a href="${t.photo_url}" target="_blank" style="color: #6750a4; font-weight: bold; text-decoration: none;">🖼️ عرض الإثبات</a>` : '—'}
+            </td>
+        </tr>
+    `).join('');
+
+    return `
+        <div dir="rtl" style="font-family: Arial, sans-serif; text-align: right; background-color: #fcf8f2; padding: 20px; border-radius: 12px; border: 1px solid #e6dbcb; max-width: 600px; margin: auto;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #6750a4; margin-top: 10px; font-size: 22px;">ZAM Speciality Coffee</h2>
+                <h3 style="color: #49454f; font-size: 16px;">ملخص إنجاز المهام والتشيك ليست اليومية</h3>
+            </div>
+            <div style="background-color: #ffffff; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 20px; text-align: right;">
+                <p style="margin: 5px 0;"><strong>👤 الموظف:</strong> ${employeeName}</p>
+                <p style="margin: 5px 0;"><strong>📍 الفرع:</strong> ${branchName}</p>
+                <p style="margin: 5px 0;"><strong>⏰ الوردية:</strong> ${shiftLabel}</p>
+                <p style="margin: 5px 0;"><strong>📂 الفئات:</strong> ${categories.join(' + ')}</p>
+                <p style="margin: 5px 0;"><strong>📊 نسبة الإنجاز:</strong> تم إنجاز ${completedCount} من أصل ${totalCount} مهام</p>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0; text-align: right;">
+                <thead>
+                    <tr style="background-color: #6750a4; color: #ffffff;">
+                        <th style="padding: 10px; text-align: right;">المهمة</th>
+                        <th style="padding: 10px; text-align: right;">الفئة</th>
+                        <th style="padding: 10px; text-align: right;">الحالة</th>
+                        <th style="padding: 10px; text-align: right;">الإثبات</th>
+                    </tr>
+                </thead>
+                <tbody>${tasksHtml}</tbody>
+            </table>
+            <p style="text-align: center; color: #7a7a7a; font-size: 11px; margin-top: 30px;">
+                هذا البريد تم إرساله تلقائياً من نظام زام للعمليات عبر الدومين المعتمد zam.sa باستخدام Resend.
+            </p>
+        </div>
+    `;
+}
+
+// ============================================
+// دوال API مشتركة
 // ============================================
 const ZamAPI = {
-    // تسجيل الدخول برمز المرور عبر Edge Function آمنة (تنشئ جلسة Auth حقيقية)
+    // تسجيل الدخول برمز المرور عبر Edge Function
     async login(passcode) {
         const { data, error } = await zamClient.functions.invoke('login-with-passcode', {
             body: { passcode }
         });
 
         if (error) {
-            // استخراج رسالة الخطأ الحقيقية من جسم الاستجابة لو موجودة
             let msg = 'رمز المرور غير صحيح';
             try {
                 const ctx = await error.context?.json?.();
@@ -130,17 +296,21 @@ const ZamAPI = {
             throw e;
         }
 
-        // إنشاء جلسة Auth حقيقية على المتصفح باستخدام التوكن اللي رجعته الدالة
         const { error: otpError } = await zamClient.auth.verifyOtp({
             token_hash: data.token_hash,
             type: 'magiclink'
         });
         if (otpError) throw otpError;
 
+        // تسجيل وقت آخر دخول حقيقي (إن فشل — مثلاً لغياب العمود — لا نوقف الدخول)
+        try {
+            await zamClient.from('profiles').update({ last_login_at: new Date().toISOString() }).eq('id', data.profile.id);
+        } catch (_) {}
+
         return data.profile;
     },
 
-    // تسجيل موظف جديد عبر Edge Function آمنة (تتجاوز قيود RLS بأمان من السيرفر)
+    // تسجيل موظف جديد عبر Edge Function
     async registerEmployee(payload) {
         const { data, error } = await zamClient.functions.invoke('register-employee', {
             body: payload
@@ -158,9 +328,74 @@ const ZamAPI = {
         return data.profile;
     },
 
-    // جلب كل الفروع
     async getBranches() {
         const { data, error } = await zamClient.from('branches').select('*').order('name');
+        if (error) throw error;
+        return data;
+    },
+
+    async getStaff(branchId = null) {
+        let query = zamClient.from('profiles').select('*, branches(name)');
+        if (branchId) query = query.eq('branch_id', branchId);
+        const { data, error } = await query.order('full_name');
+        if (error) throw error;
+        return data;
+    },
+
+    // ============================================
+    // فئات المهام (مصدر الحقيقة = employee_task_categories)
+    // ============================================
+    async getTaskCategories(profileId) {
+        const { data, error } = await zamClient
+            .from('employee_task_categories')
+            .select('category')
+            .eq('profile_id', profileId);
+        if (error) throw error;
+        return (data || []).map(row => row.category);
+    },
+
+    async replaceTaskCategories(profileId, categories) {
+        const { error: deleteError } = await zamClient
+            .from('employee_task_categories')
+            .delete()
+            .eq('profile_id', profileId);
+        if (deleteError) throw deleteError;
+        if (!categories || !categories.length) return;
+        const rows = categories.map(category => ({ profile_id: profileId, category }));
+        const { error } = await zamClient.from('employee_task_categories').insert(rows);
+        if (error) throw error;
+    },
+
+    // ============================================
+    // قوالب قوائم التحقق
+    // ============================================
+    async createTemplate(payload) {
+        const { data, error } = await zamClient.from('checklist_templates').insert([payload]).select().single();
+        if (error) throw error;
+        return data;
+    },
+
+    async updateTemplate(id, payload) {
+        const { data, error } = await zamClient.from('checklist_templates').update(payload).eq('id', id).select().single();
+        if (error) throw error;
+        return data;
+    },
+
+    async deleteTemplate(id) {
+        const { error } = await zamClient.from('checklist_templates').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    async getTemplates(category = null, shiftType = null, branchId = null) {
+        let query = zamClient.from('checklist_templates').select('*');
+        if (category) query = query.eq('category', category);
+        if (shiftType) query = query.eq('shift_type', shiftType);
+        if (branchId) {
+            // استخدم or() للفلترة على مستوى DB بدل JS
+            query = query.or(`branch_id.is.null,branch_id.eq.${branchId}`);
+        }
+        query = query.order('category');
+        const { data, error } = await query;
         if (error) throw error;
         return data;
     },
@@ -175,61 +410,7 @@ const ZamAPI = {
         return shiftType ? data.filter(l => l.checklist_templates?.shift_type === shiftType) : data;
     },
 
-    // جلب موظفي فرع معين
-    async getStaff(branchId = null) {
-        let query = zamClient.from('profiles').select('*, branches(name)');
-        if (branchId) query = query.eq('branch_id', branchId);
-        const { data, error } = await query.order('full_name');
-        if (error) throw error;
-        return data;
-    },
-
-    async getTaskCategories(profileId) {
-        const { data, error } = await zamClient.from('employee_task_categories').select('category').eq('profile_id', profileId);
-        if (error) throw error;
-        return data.map(row => row.category);
-    },
-
-    async replaceTaskCategories(profileId, categories) {
-        const { error: deleteError } = await zamClient.from('employee_task_categories').delete().eq('profile_id', profileId);
-        if (deleteError) throw deleteError;
-        if (!categories.length) return;
-        const { error } = await zamClient.from('employee_task_categories').insert(categories.map(category => ({ profile_id: profileId, category })));
-        if (error) throw error;
-    },
-
-    // إضافة قالب مهمة جديد لقائمة التحقق
-    async createTemplate(payload) {
-        const { data, error } = await zamClient.from('checklist_templates').insert([payload]).select().single();
-        if (error) throw error;
-        return data;
-    },
-
-    // تعديل قالب مهمة موجود
-    async updateTemplate(id, payload) {
-        const { data, error } = await zamClient.from('checklist_templates').update(payload).eq('id', id).select().single();
-        if (error) throw error;
-        return data;
-    },
-
-    // حذف قالب مهمة
-    async deleteTemplate(id) {
-        const { error } = await zamClient.from('checklist_templates').delete().eq('id', id);
-        if (error) throw error;
-    },
-    // جلب قوالب المهام (فلترة اختيارية بالفئة والوردية والفرع)
-    // تُرجع القوالب العامة (بدون فرع محدد) + قوالب الفرع المحدد لو تم تمريره
-    async getTemplates(category = null, shiftType = null, branchId = null) {
-        let query = zamClient.from('checklist_templates').select('*');
-        if (category) query = query.eq('category', category);
-        if (shiftType) query = query.eq('shift_type', shiftType);
-        const { data, error } = await query.order('category');
-        if (error) throw error;
-        if (!branchId) return data;
-        return data.filter(t => !t.branch_id || t.branch_id === branchId);
-    },
-
-    // جلب سجلات التنفيذ الفعلية لليوم الحالي لفرع معين
+    // سجلات اليوم لفرع محدد
     async getTodayLogs(branchId) {
         const today = new Date().toISOString().split('T')[0];
         let query = zamClient.from('checklist_logs').select('*, profiles(full_name)').eq('execution_date', today);
@@ -239,7 +420,6 @@ const ZamAPI = {
         return data;
     },
 
-    // تسجيل تنفيذ مهمة (بمجرد وجود السجل = تم تنفيذها)
     async submitChecklistLog({ template_id, branch_id, executed_by, status = 'Completed', notes = null, photo_url = null }) {
         const { data, error } = await zamClient
             .from('checklist_logs')
@@ -250,20 +430,20 @@ const ZamAPI = {
         return data;
     },
 
-    // حذف سجل تنفيذ (لإلغاء تأشير مهمة بالخطأ)
     async deleteChecklistLog(logId) {
         const { error } = await zamClient.from('checklist_logs').delete().eq('id', logId);
         if (error) throw error;
     },
 
-    // إضافة تقرير يومي
+    // ============================================
+    // التقارير اليومية
+    // ============================================
     async addDailyReport(payload) {
         const { data, error } = await zamClient.from('daily_reports').insert([payload]).select().single();
         if (error) throw error;
         return data;
     },
 
-    // جلب التقارير اليومية
     async getDailyReports(branchId = null) {
         let query = zamClient.from('daily_reports').select('*, branches(name), profiles(full_name)');
         if (branchId) query = query.eq('branch_id', branchId);
@@ -272,7 +452,6 @@ const ZamAPI = {
         return data;
     },
 
-    // جلب تعريفات حقول قالب التقرير (النشطة فقط، مرتبة)
     async getReportFields(activeOnly = true) {
         let q = zamClient.from('report_field_definitions').select('*').order('display_order');
         if (activeOnly) q = q.eq('is_active', true);
@@ -298,7 +477,6 @@ const ZamAPI = {
         if (error) throw error;
     },
 
-    // إرسال تقرير يومي كامل: البيانات الأساسية + الهدر + المشاكل
     async submitDailyReport({ core, custom_fields = {}, waste = [], issues = [] }) {
         const { data: report, error } = await zamClient
             .from('daily_reports')
@@ -317,13 +495,12 @@ const ZamAPI = {
             const { error: iErr } = await zamClient.from('shift_issues').insert(rows);
             if (iErr) throw iErr;
         }
-        // التقرير الصادر يرسل فوراً للمالك والمدير عبر Edge Function، ولا يمنع حفظ التقرير عند تعذّر البريد.
+        // إرسال نسخة فورية للمالك والأدمن — لا يوقف العملية لو فشل
         zamClient.functions.invoke('send-report-copy', { body: { report_id: report.id } })
           .catch(err => console.warn('Immediate report email failed:', err));
         return report;
     },
 
-    // جلب الهدر مع فلاتر (فرع/تاريخ من-إلى)
     async getWasteLogs({ branchId = null, dateFrom = null, dateTo = null } = {}) {
         const { data, error } = await zamClient.from('waste_logs').select('*, daily_reports(branch_id, report_date, branches(name))');
         if (error) throw error;
@@ -334,7 +511,6 @@ const ZamAPI = {
         return rows;
     },
 
-    // جلب مشاكل الشفت مع فلاتر
     async getShiftIssues({ branchId = null, dateFrom = null, dateTo = null } = {}) {
         const { data, error } = await zamClient.from('shift_issues').select('*, daily_reports(branch_id, report_date, branches(name))');
         if (error) throw error;
@@ -345,13 +521,74 @@ const ZamAPI = {
         return rows;
     },
 
-    // إرسال بريد إلكتروني تلقائيًا عبر Resend باستخدام الدومين الموثق zam.sa
+    // ============================================
+    // إحصائيات سريعة لـ staff-management
+    // ============================================
+    async getStaffStats() {
+        // آخر تسجيل دخول حقيقي من عمود last_login_at (وليس created_at)
+        const lastLogin = await zamClient.from('profiles')
+            .select('full_name, last_login_at')
+            .not('last_login_at', 'is', null)
+            .order('last_login_at', { ascending: false }).limit(1).maybeSingle()
+            .catch(() => null);
+        const lastPermUpdate = await zamClient.from('admin_permissions')
+            .select('profile_id, updated_at').order('updated_at', { ascending: false }).limit(1).maybeSingle()
+            .catch(() => null);
+        // قد لا يكون العمود مضافاً بعد في قاعدة البيانات — نُرجع null بدل رقم مضلل
+        const pendingReset = await zamClient.from('profiles')
+            .select('id', { count: 'exact', head: true }).eq('passcode_reset_requested', true)
+            .catch(() => null);
+        return {
+            lastLogin,
+            lastPermUpdate,
+            pendingResetCount: pendingReset?.count,
+            resetTrackingAvailable: pendingReset !== null
+        };
+    },
+
+    // ============================================
+    // تصدير بيانات الطاقم إلى CSV
+    // ============================================
+    async exportStaffToCSV() {
+        const staff = await this.getStaff();
+        const headers = ['الاسم', 'البريد', 'الرقم الوظيفي', 'الدور', 'الفرع', 'الوردية', 'الحالة', 'الواتساب'];
+        const rows = staff.map(emp => [
+            emp.full_name || '',
+            emp.email || '',
+            emp.employee_number || '',
+            emp.role || '',
+            emp.branches?.name || '',
+            emp.shift_type || '',
+            emp.status || '',
+            emp.whatsapp_number || ''
+        ]);
+        const csvContent = '\ufeff' + [headers, ...rows]
+            .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+            .join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `zam-staff-${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    },
+
+    // ============================================
+    // إرسال بريد إلكتروني عبر Edge Function فقط
+    // (لا تستدعي Resend REST مباشرة من الواجهة لأسباب أمنية)
+    // ============================================
     async sendResendEmail({ to, subject, html }) {
         let logEntry = null;
         try {
             const { data, error } = await zamClient
                 .from('email_logs')
-                .insert([{ recipient_email: Array.isArray(to) ? to.join(',') : to, subject, body_html: html, status: 'Pending' }])
+                .insert([{
+                    recipient_email: Array.isArray(to) ? to.join(',') : to,
+                    subject,
+                    body_html: html,
+                    status: 'Pending'
+                }])
                 .select()
                 .single();
             if (!error) logEntry = data;
@@ -360,7 +597,6 @@ const ZamAPI = {
         }
 
         try {
-            // محاولة استدعاء الـ Edge Function
             const { data, error } = await zamClient.functions.invoke('send-resend-email', {
                 body: {
                     from: 'ZAM Operations <operations@zam.sa>',
@@ -377,38 +613,14 @@ const ZamAPI = {
             }
             return data;
         } catch (err) {
-            console.warn('Edge Function send-resend-email failed, trying direct REST API...', err);
-            try {
-                const res = await fetch('https://api.resend.com/emails', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer sb_publishable_YVOWppMk0W3Lyr925S0YYg_Kwk7U-f4',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        from: 'ZAM Operations <operations@zam.sa>',
-                        to: Array.isArray(to) ? to : [to],
-                        subject: subject,
-                        html: html
-                    })
-                });
-
-                if (res.ok) {
-                    if (logEntry) {
-                        await zamClient.from('email_logs').update({ status: 'Sent' }).eq('id', logEntry.id);
-                    }
-                    return await res.json();
-                } else {
-                    const errJson = await res.json().catch(() => ({}));
-                    throw new Error(errJson.message || 'Resend REST API error');
-                }
-            } catch (restErr) {
-                console.error('Direct Resend REST API failed:', restErr);
-                if (logEntry) {
-                    await zamClient.from('email_logs').update({ status: 'Failed', error_message: restErr.message }).eq('id', logEntry.id);
-                }
-                throw restErr;
+            console.error('Edge Function send-resend-email failed:', err);
+            if (logEntry) {
+                await zamClient.from('email_logs').update({
+                    status: 'Failed',
+                    error_message: err.message || 'unknown'
+                }).eq('id', logEntry.id);
             }
+            throw err;
         }
     }
 };

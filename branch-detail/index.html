@@ -1,19 +1,106 @@
-<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>ZAM Operations - تفاصيل الفرع</title><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+<!DOCTYPE html>
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ZAM Operations - تفاصيل الفرع</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
         tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "colors": {
-                        "on-primary-container": "#bd9f83","primary-fixed": "#fedcbe","on-error-container": "#93000a","on-surface-variant": "#4e453d","on-primary-fixed": "#291806","on-tertiary": "#ffffff","surface-bright": "#fcf9f8","on-error": "#ffffff","error": "#ba1a1a","secondary-fixed": "#e4e4cc","on-primary-fixed-variant": "#59422c","primary-container": "#4b3621","on-secondary-fixed-variant": "#474836","tertiary-fixed": "#94f990","tertiary-fixed-dim": "#78dc77","on-secondary-container": "#636451","secondary-container": "#e1e1c9","outline-variant": "#d2c4ba","surface-container-highest": "#e4e2e1","background": "#fcf9f8","on-primary": "#ffffff","on-secondary-fixed": "#1b1d0e","inverse-surface": "#303030","inverse-primary": "#e1c1a4","on-surface": "#1b1c1c","tertiary": "#002c06","primary": "#33210d","surface-container": "#f0eded","primary-fixed-dim": "#e1c1a4","on-background": "#1b1c1c","on-secondary": "#ffffff","inverse-on-surface": "#f3f0f0","surface-tint": "#725a42","secondary-fixed-dim": "#c8c8b0","outline": "#80756c","on-tertiary-container": "#56b958","surface-container-high": "#eae7e7","secondary": "#5e604d","error-container": "#ffdad6","tertiary-container": "#00450e","surface-container-lowest": "#ffffff","surface": "#fcf9f8","surface-variant": "#e4e2e1","surface-container-low": "#f6f3f2","on-tertiary-fixed-variant": "#005313","surface-dim": "#dcd9d9","on-tertiary-fixed": "#002204"
-                    },
-                    "borderRadius": {"DEFAULT": "0.125rem","lg": "0.25rem","xl": "0.5rem","full": "0.75rem"},
-                    "spacing": {"margin-mobile": "16px","xl": "64px","sm": "12px","margin-desktop": "32px","lg": "40px","gutter": "24px","base": "8px","xs": "4px","md": "24px"},
-                    "fontFamily": {"title-md": ["Montserrat", "Noto Sans Arabic"],"headline-lg": ["Montserrat", "Noto Sans Arabic"],"label-bold": ["Montserrat", "Noto Sans Arabic"],"display-lg": ["Montserrat", "Noto Sans Arabic"],"body-lg": ["Montserrat", "Noto Sans Arabic"],"body-sm": ["Montserrat", "Noto Sans Arabic"]},
-                    "fontSize": {"title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],"headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],"label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],"display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],"body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],"body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]}
-                }
-            }
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "inverse-surface": "#303030",
+                      "primary-fixed-dim": "#e1c1a4",
+                      "secondary-fixed-dim": "#c8c8b0",
+                      "outline-variant": "#d2c4ba",
+                      "on-tertiary-container": "#56b958",
+                      "on-primary": "#ffffff",
+                      "tertiary-container": "#00450e",
+                      "on-tertiary": "#ffffff",
+                      "primary-container": "#4b3621",
+                      "on-primary-fixed-variant": "#59422c",
+                      "surface-tint": "#725a42",
+                      "error-container": "#ffdad6",
+                      "secondary": "#5e604d",
+                      "error": "#ba1a1a",
+                      "secondary-container": "#e1e1c9",
+                      "surface": "#fcf9f8",
+                      "on-secondary": "#ffffff",
+                      "on-primary-fixed": "#291806",
+                      "on-error-container": "#93000a",
+                      "on-tertiary-fixed-variant": "#005313",
+                      "inverse-on-surface": "#f3f0f0",
+                      "surface-container": "#f0eded",
+                      "on-tertiary-fixed": "#002204",
+                      "outline": "#80756c",
+                      "on-surface-variant": "#4e453d",
+                      "on-secondary-fixed-variant": "#474836",
+                      "inverse-primary": "#e1c1a4",
+                      "background": "#fcf9f8",
+                      "tertiary": "#002c06",
+                      "tertiary-fixed-dim": "#78dc77",
+                      "surface-variant": "#e4e2e1",
+                      "on-secondary-container": "#636451",
+                      "on-background": "#1b1c1c",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-fixed": "#e4e4cc",
+                      "surface-dim": "#dcd9d9",
+                      "on-primary-container": "#bd9f83",
+                      "on-surface": "#1b1c1c",
+                      "surface-container-high": "#eae7e7",
+                      "surface-bright": "#fcf9f8",
+                      "on-error": "#ffffff",
+                      "tertiary-fixed": "#94f990",
+                      "primary-fixed": "#fedcbe",
+                      "surface-container-low": "#f6f3f2",
+                      "on-secondary-fixed": "#1b1d0e",
+                      "surface-container-highest": "#e4e2e1",
+                      "primary": "#33210d"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "xs": "4px",
+                      "md": "24px",
+                      "gutter": "24px",
+                      "margin-desktop": "32px",
+                      "xl": "64px",
+                      "sm": "12px",
+                      "lg": "40px",
+                      "base": "8px",
+                      "margin-mobile": "16px"
+              },
+              "fontFamily": {
+                      "title-md": ["Montserrat"],
+                      "label-bold": ["Montserrat"],
+                      "display-lg": ["Montserrat"],
+                      "body-lg": ["Montserrat"],
+                      "body-sm": ["Montserrat"],
+                      "headline-lg-mobile": ["Montserrat"],
+                      "headline-lg": ["Montserrat"]
+              },
+              "fontSize": {
+                      "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}]
+              }
+            },
+          },
         }
-    }catch(_e){}</script>
+    </script>
+</head>
+<body class="bg-background text-on-surface overflow-x-hidden">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js"></script>
 <script>
@@ -27,10 +114,7 @@
       window.location.href = `index.html?branch=${currentUser.branch_id}&name=${encodeURIComponent(currentUser.branches?.name || 'فرعي')}`;
   }
 </script>
-</head>
-<body class="bg-background text-on-surface overflow-x-hidden">
 <script>document.write(renderZamSidebar('branches', currentUser.role));</script>
-
 <header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
   <div class="flex items-center gap-md">
     <a href="../dashboard/index.html" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">arrow_forward</span></a>
@@ -39,9 +123,11 @@
       <p class="text-body-sm text-on-surface-variant">سجل تدقيق التنفيذ اليومي بالصور</p>
     </div>
   </div>
-  <input type="date" id="date-filter" class="border border-outline-variant rounded-lg px-sm py-xs text-body-sm"/>
+  <div class="flex items-center gap-md">
+    <input type="date" id="date-filter" class="border border-outline-variant rounded-lg px-sm py-xs text-body-sm"/>
+    <div id="notif-bell-slot"></div>
+  </div>
 </header>
-
 <main class="md:pr-[280px] pt-20 min-h-screen"><div class="max-w-4xl mx-auto p-margin-desktop">
   <section class="grid grid-cols-3 gap-md mb-lg">
     <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
@@ -57,16 +143,16 @@
       <p class="text-2xl font-bold text-primary" id="branch-photos">—</p>
     </div>
   </section>
-
   <h2 class="font-title-md text-title-md text-primary mb-sm">سجل التنفيذ</h2>
   <div class="bg-surface-container-lowest rounded-xl border border-outline-variant divide-y divide-outline-variant" id="log-list">
     <p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>
   </div>
 </div></main>
-
+<div id="image-modal" class="fixed inset-0 bg-inverse-surface/90 hidden items-center justify-center z-50 p-margin-mobile">
+  <button id="close-image" class="absolute top-4 right-4 text-white hover:text-primary transition-colors"><span class="material-symbols-outlined text-4xl">close</span></button>
+  <img id="modal-img" src="" class="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"/>
+</div>
 <script>
-const params = new URLSearchParams(window.location.search);
-const branchId = params.get('branch');
 const branchName = params.get('name') || 'الفرع';
 document.getElementById('branch-title').textContent = decodeURIComponent(branchName);
 
@@ -74,53 +160,105 @@ const dateFilter = document.getElementById('date-filter');
 dateFilter.value = new Date().toISOString().split('T')[0];
 dateFilter.addEventListener('change', loadBranchDetail);
 
+/**
+ * تم إصلاح تحميل البيانات: بدل select(*) مع علاقات قد تفشل
+ * في Supabase إذا لم تكن FK relationships مُعلنة، نفصل الاستعلامات
+ * ونُغني السجلات يدوياً. هذا أكثر مرونة وأقل عرضة للأخطاء.
+ */
 async function loadBranchDetail() {
     if (!branchId) return;
     const date = dateFilter.value;
-
-    const [logsRes, templatesRes, reportsRes] = await Promise.all([
-        zamClient.from('checklist_logs').select('*, checklist_templates(task_title, category), profiles(full_name)').eq('branch_id', branchId).eq('execution_date', date).order('created_at', { ascending: false }),
-        ZamAPI.getTemplates(null, null, branchId),
-        zamClient.from('daily_reports').select('total_sales').eq('branch_id', branchId).eq('report_date', date)
-    ]);
-
-    const logs = logsRes.data || [];
-    const templates = templatesRes || [];
-    const reports = reportsRes.data || [];
-
-    const totalSales = reports.reduce((s, r) => s + (Number(r.total_sales) || 0), 0);
-    const doneCount = new Set(logs.map(l => l.template_id)).size;
-    const pct = templates.length ? Math.round((doneCount / templates.length) * 100) : 0;
-    const withPhotos = logs.filter(l => l.photo_url).length;
-
-    document.getElementById('branch-pct').textContent = pct + '%';
-    document.getElementById('branch-sales').textContent = totalSales.toLocaleString('ar-EG') + ' ر.س';
-    document.getElementById('branch-photos').textContent = withPhotos;
-
     const listEl = document.getElementById('log-list');
-    if (!logs.length) {
-        listEl.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">لا توجد سجلات تنفيذ في هذا التاريخ.</p>';
-        return;
-    }
+    listEl.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
 
-    listEl.innerHTML = logs.map(log => `
-        <div class="p-md flex items-center justify-between gap-md">
-            <div class="flex items-center gap-md">
-                ${log.photo_url ? `<img src="${log.photo_url}" class="w-14 h-14 rounded-lg object-cover border border-outline-variant"/>` : '<div class="w-14 h-14 rounded-lg bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined text-outline">check_circle</span></div>'}
-                <div>
-                    <h4 class="font-bold text-on-surface">${log.checklist_templates?.task_title || 'مهمة'}</h4>
-                    <p class="text-body-sm text-on-surface-variant">${log.checklist_templates?.category || ''} • نفّذها: ${log.profiles?.full_name || '—'} • ${new Date(log.created_at).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'})}</p>
-                    ${log.notes ? `<p class="text-body-sm text-on-surface-variant italic">"${log.notes}"</p>` : ''}
+    try {
+        // استعلامات منفصلة لتفادي مشاكل العلاقات (FK) في Supabase
+        const [logsRes, templates, reportsRes, branchRes] = await Promise.all([
+            zamClient.from('checklist_logs').select('*')
+                .eq('branch_id', branchId).eq('execution_date', date)
+                .order('created_at', { ascending: false }),
+            ZamAPI.getTemplates(null, null, branchId),
+            zamClient.from('daily_reports').select('total_sales')
+                .eq('branch_id', branchId).eq('report_date', date),
+            zamClient.from('branches').select('name').eq('id', branchId).maybeSingle()
+        ]);
+
+        if (logsRes.error) throw logsRes.error;
+        const logs = logsRes.data || [];
+        const reports = reportsRes.data || [];
+
+        // خرائط للتغنية اليدوية
+        const templateMap = Object.fromEntries(templates.map(t => [t.id, t]));
+
+        // جلب أسماء منفذي المهام (دفعة واحدة لتحسين الأداء)
+        const executorIds = [...new Set(logs.map(l => l.executed_by).filter(Boolean))];
+        const executorMap = {};
+        if (executorIds.length) {
+            const { data: executors } = await zamClient
+                .from('profiles')
+                .select('id, full_name')
+                .in('id', executorIds);
+            (executors || []).forEach(p => { executorMap[p.id] = p.full_name; });
+        }
+
+        const totalSales = reports.reduce((s, r) => s + (Number(r.total_sales) || 0), 0);
+        const doneCount = new Set(logs.map(l => l.template_id)).size;
+        const pct = templates.length ? Math.round((doneCount / templates.length) * 100) : 0;
+        const withPhotos = logs.filter(l => l.photo_url).length;
+
+        document.getElementById('branch-pct').textContent = pct + '%';
+        document.getElementById('branch-sales').textContent = totalSales.toLocaleString('ar-EG') + ' ر.س';
+        document.getElementById('branch-photos').textContent = withPhotos;
+
+        if (!logs.length) {
+            listEl.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">لا توجد سجلات تنفيذ في هذا التاريخ.</p>';
+            return;
+        }
+
+        listEl.innerHTML = logs.map(log => {
+            const template = templateMap[log.template_id] || {};
+            const executorName = executorMap[log.executed_by] || '—';
+            return `
+            <div class="p-md flex items-center justify-between gap-md">
+                <div class="flex items-center gap-md">
+                    ${log.photo_url ? `<img src="${log.photo_url}" class="w-14 h-14 rounded-lg object-cover border border-outline-variant cursor-pointer zoomable-img" data-src="${log.photo_url}"/>` : '<div class="w-14 h-14 rounded-lg bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined text-outline">check_circle</span></div>'}
+                    <div>
+                        <h4 class="font-bold text-on-surface">${template.task_title || 'مهمة'}</h4>
+                        <p class="text-body-sm text-on-surface-variant">${template.category || ''} • نفّذها: ${executorName} • ${new Date(log.created_at).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'})}</p>
+                        ${log.notes ? `<p class="text-body-sm text-on-surface-variant italic">"${log.notes}"</p>` : ''}
+                    </div>
                 </div>
-            </div>
-            <span class="text-[11px] font-bold px-sm py-xs rounded-full ${log.status === 'Flagged' ? 'bg-error-container text-on-error-container' : 'bg-tertiary-fixed/20 text-tertiary-container'}">${log.status}</span>
-        </div>
-    `).join('');
+                <span class="text-[11px] font-bold px-sm py-xs rounded-full ${log.status === 'Flagged' ? 'bg-error-container text-on-error-container' : 'bg-tertiary-fixed/20 text-tertiary-container'}">${log.status}</span>
+            </div>`;
+        }).join('');
+
+        // ربط مستمعي تكبير الصور
+        listEl.querySelectorAll('.zoomable-img').forEach(img => {
+            img.addEventListener('click', () => {
+                document.getElementById('modal-img').src = img.dataset.src;
+                document.getElementById('image-modal').classList.remove('hidden');
+                document.getElementById('image-modal').classList.add('flex');
+            });
+        });
+    } catch (err) {
+        console.error(err);
+        listEl.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل السجل: ' + (err.message || 'خطأ غير معروف') + '</p>';
+    }
 }
 
-loadBranchDetail().catch(err => {
-    console.error(err);
-    document.getElementById('log-list').innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل السجل.</p>';
+document.getElementById('close-image')?.addEventListener('click', () => {
+    document.getElementById('image-modal').classList.add('hidden');
+    document.getElementById('image-modal').classList.remove('flex');
 });
+
+loadBranchDetail().catch(err => console.error(err));
+
+// تركيب جرس الإشعارات
+(async function mountNotifBell() {
+    const slot = document.getElementById('notif-bell-slot');
+    if (!slot) return;
+    slot.innerHTML = await renderNotificationBell();
+    attachNotificationBellHandlers();
+})();
 </script>
 </body></html>

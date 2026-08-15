@@ -74,7 +74,7 @@ const ROLE_CATEGORY = { Barista: 'البار', Waiter: 'الصالة', Kitchen: 
 const isSupervisorLike = ['Owner', 'Admin', 'Supervisor'].includes(currentUser.role);
 const myCategory = ROLE_CATEGORY[currentUser.role] || null;
 
-const myCategories = currentUser.assigned_categories ? currentUser.assigned_categories.split(',').map(s => s.trim()).filter(Boolean) : (myCategory ? [myCategory] : []);
+const myCategories = myCategory ? [myCategory] : []; // تُستبدل بالفئات الفعلية من employee_task_categories بعد التحميل
 
 document.getElementById('user-branch-label').textContent = currentUser.branches?.name || 'بدون فرع محدد';
 
@@ -95,7 +95,14 @@ const categoryLabel = document.getElementById('category-label');
             currentUser = { ...currentUser, ...freshProfile };
             ZamSession.save(currentUser);
             myCategories.length = 0;
-            const freshCats = currentUser.assigned_categories ? currentUser.assigned_categories.split(',').map(s => s.trim()).filter(Boolean) : (myCategory ? [myCategory] : []);
+            // الفئات تُقرأ من جدول employee_task_categories (يدعم تعدد الفئات)
+            let freshCats = [];
+            try {
+                freshCats = await ZamAPI.getTaskCategories(currentUser.id);
+            } catch (e) {
+                console.error('Error fetching task categories:', e);
+            }
+            if (!freshCats.length && myCategory) freshCats = [myCategory];
             freshCats.forEach(c => myCategories.push(c));
             document.getElementById('user-branch-label').textContent = currentUser.branches?.name || 'بدون فرع محدد';
             loadMyChecklist();

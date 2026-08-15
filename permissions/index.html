@@ -151,17 +151,13 @@ async function openPermsEditor(empId, empName) {
     const existing = document.getElementById('perms-modal');
     if (existing) existing.remove();
 
-    // Fetch profile's currently assigned categories
-    let currentAssigned = '';
+    // جلب الفئات المسندة من جدول employee_task_categories (يدعم تعدد الفئات)
+    let activeCategories = [];
     try {
-        const { data: profile } = await zamClient.from('profiles').select('assigned_categories').eq('id', empId).maybeSingle();
-        if (profile) {
-            currentAssigned = profile.assigned_categories || '';
-        }
+        activeCategories = await ZamAPI.getTaskCategories(empId);
     } catch (e) {
         console.error('Error fetching profile categories:', e);
     }
-    const activeCategories = currentAssigned.split(',').map(s => s.trim()).filter(Boolean);
 
     // Fetch templates to extract unique categories dynamically
     let dbCategories = [];
@@ -227,15 +223,14 @@ async function openPermsEditor(empId, empName) {
         modal.querySelectorAll('.category-checkbox').forEach(cb => {
             if (cb.checked) selectedCats.push(cb.dataset.category);
         });
-        const assigned_categories = selectedCats.join(',');
 
         try {
             // Save admin permissions
             await zamClient.from('admin_permissions').upsert(payload);
             permsCache[empId] = payload;
 
-            // Save multiple categories to profiles table
-            await zamClient.from('profiles').update({ assigned_categories }).eq('id', empId);
+            // حفظ الفئات المتعددة في جدول employee_task_categories المخصص
+            await ZamAPI.replaceTaskCategories(empId, selectedCats);
 
             modal.remove();
 

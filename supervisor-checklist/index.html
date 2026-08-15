@@ -1,124 +1,118 @@
 <!DOCTYPE html>
-
-<html dir="rtl" lang="ar"><head>
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js"></script>
 <script>
-  // حماية الشاشة: لازم تسجيل دخول قبل الوصول
   const currentUser = ZamSession.requireAuth('../index.html');
 </script>
-
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ZAM Operations - قوائم مهام المشرف</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&amp;family=Noto+Sans+Arabic:wght@400;600;700;900&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<style>
-        :root {
-            font-family: 'Noto Sans Arabic', 'Montserrat', sans-serif;
-        }
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-            vertical-align: middle;
-        }
-        .checklist-item:has(input:checked) {
-            background-color: rgba(0, 44, 6, 0.05);
-            text-decoration: line-through;
-            opacity: 0.7;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-    </style>
 <script id="tailwind-config">
         tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "colors": {
-                        "surface-container": "#f0eded",
-                        "secondary-container": "#e1e1c9",
-                        "error-container": "#ffdad6",
-                        "on-primary": "#ffffff",
-                        "surface-container-highest": "#e4e2e1",
-                        "on-surface-variant": "#4e453d",
-                        "on-primary-container": "#bd9f83",
-                        "on-primary-fixed-variant": "#59422c",
-                        "on-secondary": "#ffffff",
-                        "surface-tint": "#725a42",
-                        "on-background": "#1b1c1c",
-                        "tertiary-fixed-dim": "#78dc77",
-                        "tertiary-fixed": "#94f990",
-                        "on-tertiary-fixed": "#002204",
-                        "on-error": "#ffffff",
-                        "inverse-on-surface": "#f3f0f0",
-                        "outline-variant": "#d2c4ba",
-                        "on-tertiary-container": "#56b958",
-                        "secondary-fixed": "#e4e4cc",
-                        "outline": "#80756c",
-                        "surface-container-high": "#eae7e7",
-                        "on-secondary-container": "#636451",
-                        "on-secondary-fixed-variant": "#474836",
-                        "inverse-surface": "#303030",
-                        "primary-container": "#4b3621",
-                        "surface": "#fcf9f8",
-                        "surface-variant": "#e4e2e1",
-                        "secondary": "#5e604d",
-                        "inverse-primary": "#e1c1a4",
-                        "on-primary-fixed": "#291806",
-                        "surface-dim": "#dcd9d9",
-                        "primary-fixed": "#fedcbe",
-                        "on-tertiary-fixed-variant": "#005313",
-                        "background": "#fcf9f8",
-                        "primary": "#33210d",
-                        "surface-bright": "#fcf9f8",
-                        "error": "#ba1a1a",
-                        "on-error-container": "#93000a",
-                        "surface-container-low": "#f6f3f2",
-                        "surface-container-lowest": "#ffffff",
-                        "on-secondary-fixed": "#1b1d0e",
-                        "tertiary-container": "#00450e",
-                        "on-tertiary": "#ffffff",
-                        "on-surface": "#1b1c1c",
-                        "tertiary": "#002c06",
-                        "primary-fixed-dim": "#e1c1a4",
-                        "secondary-fixed-dim": "#c8c8b0"
-                    },
-                    "borderRadius": {
-                        "DEFAULT": "0.125rem",
-                        "lg": "0.25rem",
-                        "xl": "0.5rem",
-                        "full": "0.75rem"
-                    },
-                    "spacing": {
-                        "md": "24px",
-                        "lg": "40px",
-                        "gutter": "24px",
-                        "base": "8px",
-                        "xs": "4px",
-                        "margin-desktop": "32px",
-                        "sm": "12px",
-                        "margin-mobile": "16px",
-                        "xl": "64px"
-                    },
-                    "fontFamily": {
-                        "headline-lg": ["Noto Sans Arabic", "Montserrat"],
-                        "body-lg": ["Noto Sans Arabic", "Montserrat"],
-                        "body-sm": ["Noto Sans Arabic", "Montserrat"],
-                        "title-md": ["Noto Sans Arabic", "Montserrat"],
-                        "display-lg": ["Noto Sans Arabic", "Montserrat"],
-                        "label-bold": ["Noto Sans Arabic", "Montserrat"]
-                    }
-                }
-            }
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "inverse-surface": "#303030",
+                      "primary-fixed-dim": "#e1c1a4",
+                      "secondary-fixed-dim": "#c8c8b0",
+                      "outline-variant": "#d2c4ba",
+                      "on-tertiary-container": "#56b958",
+                      "on-primary": "#ffffff",
+                      "tertiary-container": "#00450e",
+                      "on-tertiary": "#ffffff",
+                      "primary-container": "#4b3621",
+                      "on-primary-fixed-variant": "#59422c",
+                      "surface-tint": "#725a42",
+                      "error-container": "#ffdad6",
+                      "secondary": "#5e604d",
+                      "error": "#ba1a1a",
+                      "secondary-container": "#e1e1c9",
+                      "surface": "#fcf9f8",
+                      "on-secondary": "#ffffff",
+                      "on-primary-fixed": "#291806",
+                      "on-error-container": "#93000a",
+                      "on-tertiary-fixed-variant": "#005313",
+                      "inverse-on-surface": "#f3f0f0",
+                      "surface-container": "#f0eded",
+                      "on-tertiary-fixed": "#002204",
+                      "outline": "#80756c",
+                      "on-surface-variant": "#4e453d",
+                      "on-secondary-fixed-variant": "#474836",
+                      "inverse-primary": "#e1c1a4",
+                      "background": "#fcf9f8",
+                      "tertiary": "#002c06",
+                      "tertiary-fixed-dim": "#78dc77",
+                      "surface-variant": "#e4e2e1",
+                      "on-secondary-container": "#636451",
+                      "on-background": "#1b1c1c",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-fixed": "#e4e4cc",
+                      "surface-dim": "#dcd9d9",
+                      "on-primary-container": "#bd9f83",
+                      "on-surface": "#1b1c1c",
+                      "surface-container-high": "#eae7e7",
+                      "surface-bright": "#fcf9f8",
+                      "on-error": "#ffffff",
+                      "tertiary-fixed": "#94f990",
+                      "primary-fixed": "#fedcbe",
+                      "surface-container-low": "#f6f3f2",
+                      "on-secondary-fixed": "#1b1d0e",
+                      "surface-container-highest": "#e4e2e1",
+                      "primary": "#33210d"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "xs": "4px",
+                      "md": "24px",
+                      "gutter": "24px",
+                      "margin-desktop": "32px",
+                      "xl": "64px",
+                      "sm": "12px",
+                      "lg": "40px",
+                      "base": "8px",
+                      "margin-mobile": "16px"
+              },
+              "fontFamily": {
+                      "title-md": ["Montserrat"],
+                      "label-bold": ["Montserrat"],
+                      "display-lg": ["Montserrat"],
+                      "body-lg": ["Montserrat"],
+                      "body-sm": ["Montserrat"],
+                      "headline-lg-mobile": ["Montserrat"],
+                      "headline-lg": ["Montserrat"]
+              },
+              "fontSize": {
+                      "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}]
+              }
+            },
+          },
         }
     </script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&amp;family=Noto+Sans+Arabic:wght@400;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    :root { font-family: 'Noto Sans Arabic', 'Montserrat', sans-serif; }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+    .checklist-item:has(input:checked) { background-color: rgba(0, 44, 6, 0.05); text-decoration: line-through; opacity: 0.7; }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+</style>
 </head>
 <body class="bg-background text-on-surface overflow-x-hidden">
-<!-- Side Navigation Shell -->
 <script>document.write(renderZamSidebar('supervisor-checklist', currentUser.role));</script>
-<!-- Top App Bar Shell -->
 <header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline shadow-sm z-40 flex justify-between items-center px-margin-desktop">
 <div class="flex items-center gap-md">
 <h2 class="font-headline-lg text-headline-lg font-black text-primary">ZAM Operations</h2>
@@ -132,18 +126,18 @@
 <button class="shift-btn px-md py-xs rounded-full font-label-bold transition-all" data-shift="Morning">الشفت الصباحي</button>
 <button class="shift-btn px-md py-xs rounded-full font-label-bold transition-all" data-shift="Evening">الشفت المسائي</button>
 </div>
+<!-- جرس الإشعارات الموحد -->
+<div id="notif-bell-slot"></div>
 <div class="flex items-center gap-sm border-r border-outline-variant pr-md mr-base">
-<button class="text-on-surface-variant hover:text-primary transition-colors">
-<span class="material-symbols-outlined">notifications</span>
-</button>
-<img class="w-10 h-10 rounded-full border border-outline" data-alt="A professional headshot of a cafe operations manager, smiling warmly, wearing a neat espresso-colored apron, set against a blurred high-end cafe interior with warm lighting and wooden textures." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQ3DqSL5h4-Hi-2QrjsKQ91_0gbzBCe0nc7bqYUZjSnuj98so231lg1Ex71d6qMl7PSPSdgllahJGU8BDZjVFGocXhFEe03rcp_E9zIEJPJqMM0LK4UAuwHBIIObv7EeeeVxV2mQyejGGSGv6gflCcoeRgTcz651lKQYPb8pQ1zLc69nPQi1IEr-bcRcrJulObCfiSNdlANEzVobRnB6Tj88Bvkf28ksGGsXmPIx_5RdV0P0vcUBfv"/>
+<a href="../employee-profile/index.html" class="block">
+<img class="w-10 h-10 rounded-full border border-outline object-cover" id="header-avatar" alt="حسابي"
+     src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>"/>
+</a>
 </div>
 </div>
 </header>
-<!-- Main Content Area -->
 <main class="md:pr-[280px] pt-20 min-h-screen">
 <div class="p-margin-desktop max-w-5xl mx-auto space-y-md">
-<!-- Page Header & Metadata -->
 <section class="flex flex-col md:flex-row md:items-end justify-between gap-base border-b border-outline-variant pb-md">
 <div>
 <h1 class="font-display-lg text-primary text-[32px] font-black">دليل المهام اليومية</h1>
@@ -154,7 +148,6 @@
 <span class="font-title-md text-secondary" id="today-date-label">—</span>
 </div>
 </section>
-<!-- Role Selection (Bento Style) -->
 <section class="grid grid-cols-2 md:grid-cols-4 gap-base" id="category-cards">
 <button class="role-card flex flex-col items-center justify-center p-md bg-surface-container-lowest border-2 border-primary rounded-xl transition-all shadow-sm" data-category="">
 <span class="material-symbols-outlined text-[32px] text-primary mb-xs" style="font-variation-settings: 'FILL' 1;">admin_panel_settings</span>
@@ -173,11 +166,12 @@
 <span class="font-label-bold text-on-surface-variant">الخدمة (Waiter)</span>
 </button>
 </section>
-<!-- Checklist Section -->
 <section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
 <div class="bg-primary text-on-primary px-md py-base flex flex-col md:flex-row justify-between items-center gap-sm">
   <div class="flex gap-md">
+    <!-- "مهامي اليومية" مخصص للمشرف — مخفي عن المالك (ليس لديه مهام إشرافية شخصية) -->
     <button id="subtab-my-tasks" class="font-bold border-b-2 border-white pb-xs text-body-sm text-white">📋 مهامي اليومية</button>
+    <!-- "متابعة أداء الفريق" يظهر للجميع بما فيهم المالك (الاستفادة الأساسية للمالك من الصفحة) -->
     <button id="subtab-team-tasks" class="pb-xs text-white/70 hover:text-white text-body-sm transition-colors">👥 متابعة أداء الفريق</button>
   </div>
   <span class="text-xs opacity-80" id="progress-label">جارِ التحميل...</span>
@@ -186,7 +180,6 @@
 <p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل المهام من قاعدة البيانات...</p>
 </div>
 </section>
-<!-- Notes & Final Action -->
 <section class="grid grid-cols-1 md:grid-cols-3 gap-md">
 <div class="md:col-span-2">
 <label class="font-label-bold text-on-surface-variant block mb-base">ملاحظات إضافية (اختياري)</label>
@@ -195,22 +188,20 @@
 <div class="flex flex-col justify-end gap-base">
 <div class="bg-secondary-container/30 p-md rounded-xl border border-secondary-container">
 <p class="text-body-sm text-secondary font-bold mb-xs flex items-center gap-xs">
-<span class="material-symbols-outlined text-sm">info</span>
-                            تنبيه النظام
-                        </p>
+<span class="material-symbols-outlined text-sm">info</span> تنبيه النظام
+</p>
 <p class="text-xs text-on-surface-variant leading-relaxed">
-                            بإرسال هذا التقرير، أنت تؤكد التزامك بكافة معايير الجودة والسلامة المهنية في ZAM Cafe.
-                        </p>
+    بإرسال هذا التقرير، أنت تؤكد التزامك بكافة معايير الجودة والسلامة المهنية في ZAM Cafe.
+</p>
 </div>
 <button class="w-full bg-primary text-on-primary py-md rounded-xl font-bold text-lg flex items-center justify-center gap-sm shadow-lg hover:bg-primary-container active:scale-[0.99] transition-all" id="send-report-btn">
-<span class="material-symbols-outlined">send</span>
-                        إرسال التقرير النهائي
-                    </button>
+<span class="material-symbols-outlined">send</span> إرسال التقرير النهائي
+</button>
 </div>
 </section>
 </div>
 </main>
-<!-- Mobile Navigation Shell -->
+<!-- تم إصلاح mobile nav: "حسابي" يوجه إلى employee-profile بدلاً من automation-settings -->
 <nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface border-t border-outline-variant px-md py-base flex justify-around items-center z-50">
 <a class="flex flex-col items-center gap-xs text-on-surface-variant" href="../dashboard/index.html">
 <span class="material-symbols-outlined">dashboard</span>
@@ -221,291 +212,294 @@
 <span class="text-[10px] font-bold">المهام</span>
 </a>
 <div class="relative -top-6">
-<button class="bg-primary text-on-primary p-md rounded-full shadow-xl">
-<span class="material-symbols-outlined">add</span>
-</button>
+    <!-- زر (+) يفتح صفحة التقرير السريع -->
+    <button id="fab-quick-report" class="bg-primary text-on-primary p-md rounded-full shadow-xl" aria-label="تقرير سريع">
+        <span class="material-symbols-outlined">add</span>
+    </button>
 </div>
 <a class="flex flex-col items-center gap-xs text-on-surface-variant" href="../reports-log/index.html">
 <span class="material-symbols-outlined">assessment</span>
 <span class="text-[10px] font-bold">تقارير</span>
 </a>
-<a class="flex flex-col items-center gap-xs text-on-surface-variant" href="../automation-settings/index.html">
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" href="../employee-profile/index.html">
 <span class="material-symbols-outlined">person</span>
 <span class="text-[10px] font-bold">حسابي</span>
 </a>
 </nav>
-
-<!-- Modal تكبير الصورة -->
 <div id="image-modal" class="fixed inset-0 bg-inverse-surface/90 hidden items-center justify-center z-50 p-margin-mobile">
   <button id="close-image" class="absolute top-4 right-4 text-white hover:text-primary transition-colors"><span class="material-symbols-outlined text-4xl">close</span></button>
   <img id="modal-img" src="" class="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"/>
 </div>
-
 <script>
-        // ============================================
-        // فلاتر الوردية والفئة + تحميل قوائم التحقق الحقيقية
-        // ============================================
-        let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : 'Morning';
-        let currentCategory = ''; // فاضي = كل الفئات
-        let activeSubTab = 'my-tasks'; // my-tasks (مهامي الإشرافية) أو team-tasks (متابعة الفريق)
+let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : 'Morning';
+let currentCategory = '';
+let activeSubTab = 'my-tasks';
 
-        const container = document.getElementById('checklist-container');
-        const progressLabel = document.getElementById('progress-label');
+const container = document.getElementById('checklist-container');
+const progressLabel = document.getElementById('progress-label');
+const subtabMyTasks = document.getElementById('subtab-my-tasks');
+const subtabTeamTasks = document.getElementById('subtab-team-tasks');
 
-        const subtabMyTasks = document.getElementById('subtab-my-tasks');
-        const subtabTeamTasks = document.getElementById('subtab-team-tasks');
+// للمالك: إخفاء "مهامي اليومية" والبدء بتبويب "متابعة أداء الفريق" مباشرة
+if (currentUser.role === 'Owner') {
+    if (subtabMyTasks) subtabMyTasks.remove();
+    activeSubTab = 'team-tasks';
+    subtabTeamTasks.className = "font-bold border-b-2 border-white pb-xs text-body-sm text-white";
+}
 
-        subtabMyTasks.addEventListener('click', () => {
-            activeSubTab = 'my-tasks';
-            subtabMyTasks.className = "font-bold border-b-2 border-white pb-xs text-body-sm text-white";
-            subtabTeamTasks.className = "pb-xs text-white/70 hover:text-white text-body-sm transition-colors";
-            document.getElementById('category-cards').classList.add('hidden');
-            loadChecklist();
-        });
+if (subtabMyTasks) subtabMyTasks.addEventListener('click', () => {
+    activeSubTab = 'my-tasks';
+    subtabMyTasks.className = "font-bold border-b-2 border-white pb-xs text-body-sm text-white";
+    if (subtabTeamTasks) {
+        subtabTeamTasks.className = "pb-xs text-white/70 hover:text-white text-body-sm transition-colors";
+    }
+    document.getElementById('category-cards').classList.add('hidden');
+    loadChecklist();
+});
 
-        subtabTeamTasks.addEventListener('click', () => {
-            activeSubTab = 'team-tasks';
-            subtabTeamTasks.className = "font-bold border-b-2 border-white pb-xs text-body-sm text-white";
+if (subtabTeamTasks) {
+    subtabTeamTasks.addEventListener('click', () => {
+        activeSubTab = 'team-tasks';
+        subtabTeamTasks.className = "font-bold border-b-2 border-white pb-xs text-body-sm text-white";
+        if (subtabMyTasks) {
             subtabMyTasks.className = "pb-xs text-white/70 hover:text-white text-body-sm transition-colors";
-            document.getElementById('category-cards').classList.remove('hidden');
-            loadChecklist();
-        });
-
-        function setActiveShiftButton() {
-            document.querySelectorAll('.shift-btn').forEach(btn => {
-                const active = btn.dataset.shift === currentShift;
-                btn.classList.toggle('bg-primary', active);
-                btn.classList.toggle('text-on-primary', active);
-                btn.classList.toggle('text-on-surface-variant', !active);
-            });
         }
-
-        document.querySelectorAll('.shift-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                currentShift = btn.dataset.shift;
-                setActiveShiftButton();
-                loadChecklist();
-            });
-        });
-
-        // قفل أزرار الورديات حسب وردية المشرف المسجل
-        if (currentUser.shift_type && currentUser.shift_type !== 'Both') {
-            currentShift = currentUser.shift_type;
-            document.querySelectorAll('.shift-btn').forEach(btn => {
-                if (btn.dataset.shift !== currentShift) {
-                    btn.style.display = 'none';
-                }
-            });
-        }
-
-        document.querySelectorAll('.role-card').forEach(card => {
-            card.addEventListener('click', () => {
-                document.querySelectorAll('.role-card').forEach(c => {
-                    c.classList.remove('border-primary', 'bg-surface-container-lowest', 'opacity-100');
-                    c.classList.add('border-outline-variant', 'bg-surface', 'opacity-70');
-                    c.querySelector('span:last-child').classList.replace('text-primary', 'text-on-surface-variant');
-                });
-                card.classList.remove('border-outline-variant', 'bg-surface', 'opacity-70');
-                card.classList.add('border-primary', 'bg-surface-container-lowest', 'opacity-100');
-                card.querySelector('span:last-child').classList.replace('text-on-surface-variant', 'text-primary');
-
-                currentCategory = card.dataset.category || '';
-                loadChecklist();
-            });
-        });
-
-        async function uploadEvidence(file) {
-            const ext = file.name.split('.').pop() || 'jpg';
-            const path = `${currentUser.id}/${Date.now()}.${ext}`;
-            const { error } = await zamClient.storage.from('task-evidence').upload(path, file, {
-                contentType: file.type || 'image/jpeg',
-                upsert: true
-            });
-            if (error) throw error;
-            const { data } = zamClient.storage.from('task-evidence').getPublicUrl(path);
-            return data.publicUrl;
-        }
-
-        function renderChecklist(templates, logsByTemplate) {
-            let filteredTemplates = templates;
-
-            if (activeSubTab === 'my-tasks') {
-                // مهامي كـ مشرف
-                filteredTemplates = templates.filter(t => t.category === 'المشرف' || t.category === 'إشراف');
-            } else {
-                // متابعة الفريق
-                filteredTemplates = templates.filter(t => t.category !== 'المشرف' && t.category !== 'إشراف');
-            }
-
-            if (!filteredTemplates.length) {
-                container.innerHTML = `<p class="p-md text-on-surface-variant text-body-sm text-center">لا توجد مهام ${activeSubTab === 'my-tasks' ? 'إشرافية خاصة بك' : 'للفريق لربطها بمتابعتك'} مسندة في هذه الوردية حالياً.</p>`;
-                progressLabel.textContent = 'لا توجد مهام';
-                return;
-            }
-
-            const done = filteredTemplates.filter(t => logsByTemplate[t.id]).length;
-            progressLabel.textContent = `تم إنجاز ${done} من ${filteredTemplates.length} مهام`;
-
-            container.innerHTML = filteredTemplates.map(item => {
-                const log = logsByTemplate[item.id];
-                const completed = !!log;
-
-                // لو كنا في "مهامي الإشرافية"، نعرض تشيك بوكس وزر الرفع التفاعلي
-                if (activeSubTab === 'my-tasks') {
-                    return `
-                    <div class="checklist-item p-md ${completed ? 'bg-tertiary-fixed/10' : ''}">
-                        <div class="flex items-center justify-between gap-md">
-                            <div class="flex items-center gap-md flex-1">
-                                <input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${item.id}" ${completed ? 'checked disabled' : ''}/>
-                                <div class="flex-1">
-                                    <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${item.task_title}</h4>
-                                    ${item.requires_photo ? '<p class="text-body-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-sm">photo_camera</span> يتطلب صورة إثبات</p>' : ''}
-                                </div>
-                            </div>
-                        </div>
-                        ${!completed ? `
-                        <div class="mt-xs pr-10 flex items-center gap-sm flex-wrap task-actions" data-id="${item.id}" data-requires-photo="${item.requires_photo}">
-                            ${item.requires_photo ? `
-                                <label class="flex items-center gap-xs cursor-pointer px-sm py-1 bg-surface-container border border-outline rounded-lg text-[12px] font-bold text-primary hover:bg-surface-container-high transition-all">
-                                    <span class="material-symbols-outlined text-[16px]">photo_camera</span>
-                                    <span>ارفق صورة الإثبات</span>
-                                    <input type="file" accept="image/*" capture="environment" class="hidden evidence-input"/>
-                                </label>
-                            ` : ''}
-                            <span class="task-status text-error text-[11px]"></span>
-                            <span class="loading-indicator text-primary text-[11px] font-bold hidden"><span class="material-symbols-outlined animate-spin text-sm">sync</span> جارِ رفع الصورة والحفظ...</span>
-                        </div>` : ''}
-                    </div>`;
-                } else {
-                    // شاشة متابعة الفريق (تأشير ورؤية فقط)
-                    return `
-                    <div class="checklist-item group flex items-center justify-between p-md hover:bg-surface-container-low transition-all">
-                        <div class="flex items-center gap-md">
-                            <span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-outline'}">${completed ? 'check_circle' : 'radio_button_unchecked'}</span>
-                            <div>
-                                <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${item.task_title}</h4>
-                                <p class="text-body-sm text-on-surface-variant">${item.category}${completed && log.profiles ? ' • نفّذها: ' + log.profiles.full_name : ''}</p>
-                            </div>
-                        </div>
-                        ${log && log.photo_url ? `<button class="text-primary hover:underline zoomable-btn flex items-center gap-1" data-src="${log.photo_url}"><span class="material-symbols-outlined">image</span> عرض الصورة</button>` : ''}
-                    </div>`;
-                }
-            }).join('');
-
-            // تفعيل مستمعين التشيك بوكس والرفع في مهامي الإشرافية
-            if (activeSubTab === 'my-tasks') {
-                container.querySelectorAll('.task-checkbox').forEach(cb => {
-                    cb.addEventListener('change', async () => {
-                        if (!cb.checked) return;
-                        const wrap = container.querySelector(`.task-actions[data-id="${cb.dataset.id}"]`);
-                        if (wrap && wrap.dataset.requiresPhoto === 'true') {
-                            cb.checked = false;
-                            wrap.querySelector('.evidence-input')?.click();
-                            return;
-                        }
-                        cb.disabled = true;
-                        try {
-                            await ZamAPI.submitChecklistLog({
-                                template_id: cb.dataset.id,
-                                branch_id: currentUser.branch_id,
-                                executed_by: currentUser.id,
-                                status: 'Completed'
-                            });
-                            await loadChecklist();
-                        } catch (err) {
-                            console.error(err);
-                            cb.disabled = false;
-                            cb.checked = false;
-                        }
-                    });
-                });
-
-                container.querySelectorAll('.evidence-input').forEach(input => {
-                    input.addEventListener('change', async () => {
-                        const file = input.files[0];
-                        if (!file) return;
-
-                        const wrap = input.closest('.task-actions');
-                        const templateId = wrap.dataset.id;
-                        const statusSpan = wrap.querySelector('.task-status');
-                        const loader = wrap.querySelector('.loading-indicator');
-                        const label = wrap.querySelector('label');
-                        const checkbox = container.querySelector(`.task-checkbox[data-id="${templateId}"]`);
-
-                        if (checkbox) checkbox.disabled = true;
-                        if (label) label.classList.add('hidden');
-                        if (loader) loader.classList.remove('hidden');
-                        if (statusSpan) statusSpan.textContent = '';
-
-                        try {
-                            const photo_url = await uploadEvidence(file);
-                            await ZamAPI.submitChecklistLog({
-                                template_id: templateId,
-                                branch_id: currentUser.branch_id,
-                                executed_by: currentUser.id,
-                                status: 'Completed',
-                                photo_url
-                            });
-                            await loadChecklist();
-                        } catch (err) {
-                            console.error(err);
-                            if (statusSpan) statusSpan.textContent = 'حدث خطأ أثناء رفع الصورة، حاول مرة أخرى.';
-                            if (checkbox) {
-                                checkbox.disabled = false;
-                                checkbox.checked = false;
-                            }
-                            if (label) label.classList.remove('hidden');
-                            if (loader) loader.classList.add('hidden');
-                        }
-                    });
-                });
-            } else {
-                // مستمعي التكبير في متابعة الفريق
-                document.querySelectorAll('.zoomable-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        document.getElementById('modal-img').src = btn.dataset.src;
-                        document.getElementById('image-modal').classList.remove('hidden');
-                        document.getElementById('image-modal').classList.add('flex');
-                    });
-                });
-            }
-        }
-
-        async function loadChecklist() {
-            container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
-            try {
-                const categoryFilter = activeSubTab === 'my-tasks' ? null : (currentCategory || null);
-                const templates = await ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id);
-                const logs = await ZamAPI.getTodayLogs(currentUser.branch_id);
-                const logsByTemplate = {};
-                logs.forEach(l => { logsByTemplate[l.template_id] = l; });
-                renderChecklist(templates, logsByTemplate);
-            } catch (err) {
-                console.error(err);
-                container.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل المهام من قاعدة البيانات.</p>';
-            }
-        }
-
-        setActiveShiftButton();
-        document.getElementById('category-cards').classList.add('hidden');
+        document.getElementById('category-cards').classList.remove('hidden');
         loadChecklist();
+    });
+}
 
-        document.getElementById('send-report-btn')?.addEventListener('click', () => {
-            window.location.href = '../daily-report/index.html';
+function setActiveShiftButton() {
+    document.querySelectorAll('.shift-btn').forEach(btn => {
+        const active = btn.dataset.shift === currentShift;
+        btn.classList.toggle('bg-primary', active);
+        btn.classList.toggle('text-on-primary', active);
+        btn.classList.toggle('text-on-surface-variant', !active);
+    });
+}
+
+document.querySelectorAll('.shift-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        currentShift = btn.dataset.shift;
+        setActiveShiftButton();
+        loadChecklist();
+    });
+});
+
+if (currentUser.shift_type && currentUser.shift_type !== 'Both') {
+    currentShift = currentUser.shift_type;
+    document.querySelectorAll('.shift-btn').forEach(btn => {
+        if (btn.dataset.shift !== currentShift) btn.style.display = 'none';
+    });
+}
+
+document.querySelectorAll('.role-card').forEach(card => {
+    card.addEventListener('click', () => {
+        document.querySelectorAll('.role-card').forEach(c => {
+            c.classList.remove('border-primary', 'bg-surface-container-lowest', 'opacity-100');
+            c.classList.add('border-outline-variant', 'bg-surface', 'opacity-70');
+            c.querySelector('span:last-child').classList.replace('text-primary', 'text-on-surface-variant');
         });
+        card.classList.remove('border-outline-variant', 'bg-surface', 'opacity-70');
+        card.classList.add('border-primary', 'bg-surface-container-lowest', 'opacity-100');
+        card.querySelector('span:last-child').classList.replace('text-on-surface-variant', 'text-primary');
+        currentCategory = card.dataset.category || '';
+        loadChecklist();
+    });
+});
 
-        document.getElementById('close-image')?.addEventListener('click', () => {
-            document.getElementById('image-modal').classList.add('hidden');
-            document.getElementById('image-modal').classList.remove('flex');
-        });
+async function uploadEvidence(file) {
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `${currentUser.id}/${Date.now()}.${ext}`;
+    const { error } = await zamClient.storage.from('task-evidence').upload(path, file, {
+        contentType: file.type || 'image/jpeg',
+        upsert: true
+    });
+    if (error) throw error;
+    const { data } = zamClient.storage.from('task-evidence').getPublicUrl(path);
+    return data.publicUrl;
+}
 
-        try {
-            document.getElementById('today-date-label').textContent = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
-            document.getElementById('branch-sub-label').textContent = currentUser.branches?.name || 'فرعي';
-            document.getElementById('branch-badge').textContent = currentUser.branches?.name?.slice(0, 5) || 'ZAM';
-            document.getElementById('branch-name-label').textContent = currentUser.branches?.name || 'بدون فرع حدد';
-        } catch (e) {
-            console.error('Error populating dynamic header labels:', e);
+function renderChecklist(templates, logsByTemplate) {
+    let filteredTemplates = templates;
+    if (activeSubTab === 'my-tasks') {
+        filteredTemplates = templates.filter(t => t.category === 'المشرف' || t.category === 'إشراف');
+    } else {
+        filteredTemplates = templates.filter(t => t.category !== 'المشرف' && t.category !== 'إشراف');
+    }
+    if (!filteredTemplates.length) {
+        container.innerHTML = `<p class="p-md text-on-surface-variant text-body-sm text-center">لا توجد مهام ${activeSubTab === 'my-tasks' ? 'إشرافية خاصة بك' : 'للفريق لربطها بمتابعتك'} مسندة في هذه الوردية حالياً.</p>`;
+        progressLabel.textContent = 'لا توجد مهام';
+        return;
+    }
+    const done = filteredTemplates.filter(t => logsByTemplate[t.id]).length;
+    progressLabel.textContent = `تم إنجاز ${done} من ${filteredTemplates.length} مهام`;
+    container.innerHTML = filteredTemplates.map(item => {
+        const log = logsByTemplate[item.id];
+        const completed = !!log;
+        if (activeSubTab === 'my-tasks') {
+            return `
+            <div class="checklist-item p-md ${completed ? 'bg-tertiary-fixed/10' : ''}">
+                <div class="flex items-center justify-between gap-md">
+                    <div class="flex items-center gap-md flex-1">
+                        <input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${item.id}" ${completed ? 'checked disabled' : ''}/>
+                        <div class="flex-1">
+                            <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${item.task_title}</h4>
+                            ${item.requires_photo ? '<p class="text-body-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-sm">photo_camera</span> يتطلب صورة إثبات</p>' : ''}
+                        </div>
+                    </div>
+                </div>
+                ${!completed ? `
+                <div class="mt-xs pr-10 flex items-center gap-sm flex-wrap task-actions" data-id="${item.id}" data-requires-photo="${item.requires_photo}">
+                    ${item.requires_photo ? `
+                        <label class="flex items-center gap-xs cursor-pointer px-sm py-1 bg-surface-container border border-outline rounded-lg text-[12px] font-bold text-primary hover:bg-surface-container-high transition-all">
+                            <span class="material-symbols-outlined text-[16px]">photo_camera</span>
+                            <span>ارفق صورة الإثبات</span>
+                            <input type="file" accept="image/*" capture="environment" class="hidden evidence-input"/>
+                        </label>
+                    ` : ''}
+                    <span class="task-status text-error text-[11px]"></span>
+                    <span class="loading-indicator text-primary text-[11px] font-bold hidden"><span class="material-symbols-outlined animate-spin text-sm">sync</span> جارِ رفع الصورة والحفظ...</span>
+                </div>` : ''}
+            </div>`;
+        } else {
+            return `
+            <div class="checklist-item group flex items-center justify-between p-md hover:bg-surface-container-low transition-all">
+                <div class="flex items-center gap-md">
+                    <span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-outline'}">${completed ? 'check_circle' : 'radio_button_unchecked'}</span>
+                    <div>
+                        <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${item.task_title}</h4>
+                        <p class="text-body-sm text-on-surface-variant">${item.category}${completed && log.profiles ? ' • نفّذها: ' + log.profiles.full_name : ''}</p>
+                    </div>
+                </div>
+                ${log && log.photo_url ? `<button class="text-primary hover:underline zoomable-btn flex items-center gap-1" data-src="${log.photo_url}"><span class="material-symbols-outlined">image</span> عرض الصورة</button>` : ''}
+            </div>`;
         }
-    </script>
+    }).join('');
+
+    if (activeSubTab === 'my-tasks') {
+        container.querySelectorAll('.task-checkbox').forEach(cb => {
+            cb.addEventListener('change', async () => {
+                if (!cb.checked) return;
+                const wrap = container.querySelector(`.task-actions[data-id="${cb.dataset.id}"]`);
+                if (wrap && wrap.dataset.requiresPhoto === 'true') {
+                    cb.checked = false;
+                    wrap.querySelector('.evidence-input')?.click();
+                    return;
+                }
+                cb.disabled = true;
+                try {
+                    await ZamAPI.submitChecklistLog({
+                        template_id: cb.dataset.id,
+                        branch_id: currentUser.branch_id,
+                        executed_by: currentUser.id,
+                        status: 'Completed'
+                    });
+                    await loadChecklist();
+                } catch (err) {
+                    console.error(err);
+                    cb.disabled = false;
+                    cb.checked = false;
+                }
+            });
+        });
+        container.querySelectorAll('.evidence-input').forEach(input => {
+            input.addEventListener('change', async () => {
+                const file = input.files[0];
+                if (!file) return;
+                const wrap = input.closest('.task-actions');
+                const templateId = wrap.dataset.id;
+                const statusSpan = wrap.querySelector('.task-status');
+                const loader = wrap.querySelector('.loading-indicator');
+                const label = wrap.querySelector('label');
+                const checkbox = container.querySelector(`.task-checkbox[data-id="${templateId}"]`);
+                if (checkbox) checkbox.disabled = true;
+                if (label) label.classList.add('hidden');
+                if (loader) loader.classList.remove('hidden');
+                if (statusSpan) statusSpan.textContent = '';
+                try {
+                    const photo_url = await uploadEvidence(file);
+                    await ZamAPI.submitChecklistLog({
+                        template_id: templateId,
+                        branch_id: currentUser.branch_id,
+                        executed_by: currentUser.id,
+                        status: 'Completed',
+                        photo_url
+                    });
+                    await loadChecklist();
+                } catch (err) {
+                    console.error(err);
+                    if (statusSpan) statusSpan.textContent = 'حدث خطأ أثناء رفع الصورة، حاول مرة أخرى.';
+                    if (checkbox) { checkbox.disabled = false; checkbox.checked = false; }
+                    if (label) label.classList.remove('hidden');
+                    if (loader) loader.classList.add('hidden');
+                }
+            });
+        });
+    } else {
+        document.querySelectorAll('.zoomable-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('modal-img').src = btn.dataset.src;
+                document.getElementById('image-modal').classList.remove('hidden');
+                document.getElementById('image-modal').classList.add('flex');
+            });
+        });
+    }
+}
+
+async function loadChecklist() {
+    container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
+    try {
+        const categoryFilter = activeSubTab === 'my-tasks' ? null : (currentCategory || null);
+        const templates = await ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id);
+        const logs = await ZamAPI.getTodayLogs(currentUser.branch_id);
+        const logsByTemplate = {};
+        logs.forEach(l => { logsByTemplate[l.template_id] = l; });
+        renderChecklist(templates, logsByTemplate);
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل المهام من قاعدة البيانات.</p>';
+    }
+}
+
+setActiveShiftButton();
+document.getElementById('category-cards').classList.toggle('hidden', activeSubTab !== 'team-tasks');
+loadChecklist();
+
+document.getElementById('send-report-btn')?.addEventListener('click', () => {
+    window.location.href = '../daily-report/index.html';
+});
+
+document.getElementById('close-image')?.addEventListener('click', () => {
+    document.getElementById('image-modal').classList.add('hidden');
+    document.getElementById('image-modal').classList.remove('flex');
+});
+
+// ربط زر (+) في الموبايل بفتح التقرير السريع
+document.getElementById('fab-quick-report')?.addEventListener('click', () => {
+    window.location.href = '../daily-report/index.html';
+});
+
+try {
+    document.getElementById('today-date-label').textContent = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+    document.getElementById('branch-sub-label').textContent = currentUser.branches?.name || 'فرعي';
+    document.getElementById('branch-badge').textContent = currentUser.branches?.name?.slice(0, 5) || 'ZAM';
+    document.getElementById('branch-name-label').textContent = currentUser.branches?.name || 'بدون فرع حدد';
+    // عرض الصورة الرمزية للمستخدم في الـ header
+    const headerAvatar = document.getElementById('header-avatar');
+    if (headerAvatar && currentUser.avatar_url) {
+        headerAvatar.src = currentUser.avatar_url;
+    }
+} catch (e) {
+    console.error('Error populating dynamic header labels:', e);
+}
+
+// تركيب جرس الإشعارات
+(async function mountNotifBell() {
+    const slot = document.getElementById('notif-bell-slot');
+    if (!slot) return;
+    slot.innerHTML = await renderNotificationBell();
+    attachNotificationBellHandlers();
+})();
+</script>
 </body></html>

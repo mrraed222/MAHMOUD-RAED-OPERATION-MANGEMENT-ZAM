@@ -1,6 +1,8 @@
 -- ============================================================
 -- مخطط قاعدة بيانات نظام "زام" للعمليات (ZAM Operations)
--- نسخة موحدة ومحدثة بالكامل لضمان تشغيل كافة وظائف النظام
+-- نسخة محدّثة — فرع codex/operations-wiring
+-- يضيف: جدول employee_task_categories لإسناد فئات مهام متعددة
+--        لكل موظف (البار + المطبخ + الصالة + مشرف) بشكل نظيف.
 -- نفّذ هذا الملف بالكامل في Supabase -> SQL Editor
 -- ============================================================
 
@@ -29,7 +31,24 @@ create table if not exists profiles (
   employee_number text,
   shift_type text default 'Morning' check (shift_type in ('Morning','Evening','Both')),
   assigned_categories text default '',
+  last_login_at timestamptz,
+  passcode_reset_requested boolean default false,
   created_at timestamptz default now()
+);
+
+-- ترقية قواعد موجودة مسبقاً: أعمدة تتبع تسجيل الدخول وطلبات تغيير الرمز
+alter table profiles add column if not exists last_login_at timestamptz;
+alter table profiles add column if not exists passcode_reset_requested boolean default false;
+
+-- 13. فئات المهام المتعددة لكل موظف (Employee Task Categories)
+-- جدول منفصل يتيح إسناد أكثر من فئة (البار، المطبخ، الصالة، مشرف) لنفس الموظف
+-- مع منع التكرار عبر القيد unique.
+create table if not exists employee_task_categories (
+  id uuid primary key default uuid_generate_v4(),
+  profile_id uuid not null references profiles(id) on delete cascade,
+  category text not null,
+  created_at timestamptz default now(),
+  unique (profile_id, category)
 );
 
 -- 3. صلاحيات الأدمن المتقدمة (Admin Permissions)
@@ -107,7 +126,7 @@ create table if not exists shift_issues (
   created_at timestamptz default now()
 );
 
--- 9. تقييمات جوجل المضافة بالتقارير (Negative Reviews)
+-- 9. تقييمات جوجل المضافة بالتقارير (Reviews)
 create table if not exists negative_reviews (
   id uuid primary key default uuid_generate_v4(),
   report_id uuid references daily_reports(id) on delete cascade,
@@ -129,9 +148,12 @@ create table if not exists automation_schedules (
   report_type text not null,
   branch_id uuid references branches(id) on delete cascade,
   send_time time not null,
+  shift_type text check (shift_type in ('Morning','Evening')),
   is_active boolean default true,
   created_at timestamptz default now()
 );
+
+alter table automation_schedules add column if not exists shift_type text check (shift_type in ('Morning','Evening'));
 
 -- 12. تعريفات حقول التقارير الإضافية (Report Field Definitions)
 create table if not exists report_field_definitions (
@@ -143,8 +165,22 @@ create table if not exists report_field_definitions (
   created_at timestamptz default now()
 );
 
+-- 14. سجلات إرسال البريد الإلكتروني (Email Logs)
+create table if not exists email_logs (
+  id uuid primary key default uuid_generate_v4(),
+  recipient_email text not null,
+  subject text not null,
+  body_html text not null,
+  status text default 'Pending' check (status in ('Pending', 'Sent', 'Failed')),
+  error_message text,
+  created_at timestamptz default now()
+);
+
 -- ============================================================
 -- Row Level Security (تفعيل إلزامي قبل النشر الفعلي)
+-- ملاحظة: السياسات دي أساسية للبدء فقط. قبل الإنتاج الحقيقي
+-- لازم تشدد صلاحيات الكتابة (خاصة على storage) كما هو موضح
+-- في نهاية الملف.
 -- ============================================================
 alter table branches enable row level security;
 alter table profiles enable row level security;
@@ -158,10 +194,8 @@ alter table negative_reviews enable row level security;
 alter table automation_settings enable row level security;
 alter table automation_schedules enable row level security;
 alter table report_field_definitions enable row level security;
-
--- ملاحظة مهمة: السياسات دي أساسية للبدء فقط (تسمح بالقراءة للجميع
--- عبر مفتاح anon اللازم لتسجيل الدخول بالباسكود). لازم تُراجع
--- وتُشدّد الصلاحيات (خصوصاً الكتابة) قبل الإطلاق الفعلي للعملاء.
+alter table employee_task_categories enable row level security;
+alter table email_logs enable row level security;
 
 create policy "allow all branches" on branches for all using (true) with check (true);
 create policy "allow all profiles" on profiles for all using (true) with check (true);
@@ -175,6 +209,8 @@ create policy "allow all negative_reviews" on negative_reviews for all using (tr
 create policy "allow all automation_settings" on automation_settings for all using (true) with check (true);
 create policy "allow all automation_schedules" on automation_schedules for all using (true) with check (true);
 create policy "allow all report_field_definitions" on report_field_definitions for all using (true) with check (true);
+create policy "allow all employee_task_categories" on employee_task_categories for all using (true) with check (true);
+create policy "Allow all users full access to email_logs" on email_logs for all using (true) with check (true);
 
 -- ============================================================
 -- بيانات أولية تجريبية (يمكن تعديلها أو حذفها لاحقاً)
@@ -195,79 +231,97 @@ values ('مدير النظام', 'Manager', '1234', 'active')
 on conflict (passcode) do nothing;
 
 -- ============================================================
--- عمليات تنظيف وجدولة التذكيرات (أمثلة وتعليمات إضافية)
--- ============================================================
--- 1. حذف النماذج التجريبية غير المرتبطة بفرع
--- DELETE FROM checklist_templates WHERE branch_id IS NULL AND task_title ILIKE '%تجريبي%';
-
--- 2. إعداد التذكيرات وتفعيل cron (نفذه يدويًا في SQL Editor بـ Supabase بعد استبدال المعاملات)
--- SELECT cron.schedule('zam-reminders','* * * * *',
---   $$SELECT net.http_post(
---     url := 'https://<project-ref>.functions.supabase.co/send-reminders',
---     headers := '{"Authorization":"Bearer <ANON_KEY>"}'::jsonb
---   )$$);
-
--- ============================================================
 -- إعداد مخازن الملفات (Storage Buckets) وصلاحياتها في Supabase
 -- ============================================================
--- 1. إنشاء باكيت task-evidence وصور الآفاتار
 insert into storage.buckets (id, name, public)
 values
   ('task-evidence', 'task-evidence', true),
   ('avatars', 'avatars', true)
 on conflict (id) do nothing;
 
--- 2. السماح بالرفع والوصول العام لكافة الملفات والصور في الباكيتس بمرونة تامة
+-- مسح أي سياسات قديمة مكررة
 drop policy if exists "Allow public access to task-evidence" on storage.objects;
 drop policy if exists "Allow public access to avatars" on storage.objects;
-
 drop policy if exists "Allow public select on task-evidence" on storage.objects;
 drop policy if exists "Allow public insert on task-evidence" on storage.objects;
 drop policy if exists "Allow public update on task-evidence" on storage.objects;
 drop policy if exists "Allow public delete on task-evidence" on storage.objects;
-
 drop policy if exists "Allow public select on avatars" on storage.objects;
 drop policy if exists "Allow public insert on avatars" on storage.objects;
 drop policy if exists "Allow public update on avatars" on storage.objects;
 drop policy if exists "Allow public delete on avatars" on storage.objects;
 
+-- سياسات مرنة للتجريب (تسمح للجميع). للإنتاج، استبدلها بالسياسات
+-- المقيّدة في الأسفل (Users upload their own evidence) وقم بإلغاء
+-- تفعيل الـ public policies أدناه.
+
 -- SELECT
 create policy "Allow public select on task-evidence" on storage.objects
   for select using (bucket_id = 'task-evidence');
-
 create policy "Allow public select on avatars" on storage.objects
   for select using (bucket_id = 'avatars');
 
 -- INSERT
 create policy "Allow public insert on task-evidence" on storage.objects
   for insert with check (bucket_id = 'task-evidence');
-
 create policy "Allow public insert on avatars" on storage.objects
   for insert with check (bucket_id = 'avatars');
 
 -- UPDATE
 create policy "Allow public update on task-evidence" on storage.objects
   for update using (bucket_id = 'task-evidence') with check (bucket_id = 'task-evidence');
-
 create policy "Allow public update on avatars" on storage.objects
   for update using (bucket_id = 'avatars') with check (bucket_id = 'avatars');
 
 -- DELETE
 create policy "Allow public delete on task-evidence" on storage.objects
   for delete using (bucket_id = 'task-evidence');
-
 create policy "Allow public delete on avatars" on storage.objects
   for delete using (bucket_id = 'avatars');
 
--- 13. سجلات إرسال البريد الإلكتروني (Email Logs)
-create table if not exists email_logs (
-  id uuid primary key default uuid_generate_v4(),
-  recipient_email text not null,
-  subject text not null,
-  body_html text not null,
-  status text default 'Pending' check (status in ('Pending', 'Sent', 'Failed')),
-  error_message text,
-  created_at timestamptz default now()
-);
-alter table email_logs enable row level security;
-create policy "Allow all users full access to email_logs" on email_logs for all using (true) with check (true);
+-- ============================================================
+-- (اختياري) سياسات Storage أكثر صرامة — للإنتاج الحقيقي
+-- ============================================================
+-- قبل النشر، فعّل هذه السياسات وألّق تعليق على الـ public policies
+-- أعلاه. الـ public policies تسمح لأي مستخدم (حتى بدون تسجيل دخول)
+-- برفع/حذف أي ملف، وهذا غير آمن في الإنتاج.
+--
+-- create policy "Users upload their own evidence" on storage.objects
+--   for insert with check (
+--     bucket_id = 'task-evidence'
+--     AND (storage.foldername(name))[1] = auth.uid()::text
+--   );
+--
+-- create policy "Users update their own evidence" on storage.objects
+--   for update using (
+--     bucket_id = 'task-evidence'
+--     AND (storage.foldername(name))[1] = auth.uid()::text
+--   );
+--
+-- create policy "Users delete their own evidence" on storage.objects
+--   for delete using (
+--     bucket_id = 'task-evidence'
+--     AND (storage.foldername(name))[1] = auth.uid()::text
+--   );
+--
+-- create policy "Users upload their own avatar" on storage.objects
+--   for insert with check (
+--     bucket_id = 'avatars'
+--     AND (storage.foldername(name))[1] = auth.uid()::text
+--   );
+--
+-- create policy "Users update their own avatar" on storage.objects
+--   for update using (
+--     bucket_id = 'avatars'
+--     AND (storage.foldername(name))[1] = auth.uid()::text
+--   );
+
+-- ============================================================
+-- (اختياري) أمثلة لإعداد cron jobs لـ Resend / الأتمتة
+-- ============================================================
+-- 1. إعداد تذكير يومي يحاكي الفكرة المطلوبة (نفّذه يدوياً في SQL Editor):
+-- SELECT cron.schedule('zam-daily-reminders', '0 9 * * *',
+--   $$SELECT net.http_post(
+--     url := 'https://<project-ref>.functions.supabase.co/send-daily-reminders',
+--     headers := '{"Authorization":"Bearer <ANON_KEY>"}'::jsonb
+--   )$$);
