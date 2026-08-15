@@ -1,4 +1,4 @@
-// ============================================
+﻿// ============================================
 // إعدادات الاتصال بـ Supabase - نظام زام للعمليات
 // ملف مشترك يتم تحميله في كل الشاشات
 // الإصدار: 2.0 (محدّث — فرع codex/operations-wiring)
@@ -384,6 +384,19 @@ const ZamAPI = {
     async deleteTemplate(id) {
         const { error } = await zamClient.from('checklist_templates').delete().eq('id', id);
         if (error) throw error;
+    },
+
+    // هل المهمة مستحقة اليوم؟ (يومية دايمًا، أسبوعية في يومها من الأسبوع، شهرية في يومها من الشهر)
+    isTaskDueToday(t, date = new Date()) {
+        const freq = t.frequency || 'daily';
+        if (freq === 'daily') return true;
+        if (freq === 'weekly') return t.day_of_week === date.getDay();
+        if (freq === 'monthly') {
+            // لو الشهر أقصر من اليوم المحدد (31 في شهر 30 يوم) نطبّقه في آخر يوم بالشهر
+            const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+            return date.getDate() === Math.min(t.day_of_month, lastDay);
+        }
+        return true;
     },
 
     async getTemplates(category = null, shiftType = null, branchId = null) {

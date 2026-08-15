@@ -451,7 +451,7 @@ async function loadChecklist() {
     container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
     try {
         const categoryFilter = activeSubTab === 'my-tasks' ? null : (currentCategory || null);
-        const templates = await ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id);
+        const templates = (await ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id)).filter(t => ZamAPI.isTaskDueToday(t));
         const logs = await ZamAPI.getTodayLogs(currentUser.branch_id);
         const logsByTemplate = {};
         logs.forEach(l => { logsByTemplate[l.template_id] = l; });

@@ -336,3 +336,8 @@ create table if not exists task_reminder_logs (
 );
 alter table task_reminder_logs enable row level security;
 create policy "allow all task_reminder_logs" on task_reminder_logs for all using (true) with check (true);
+
+-- 15. تكرار المهام: يومي / أسبوعي (يوم محدد من الأسبوع) / شهري (يوم محدد من الشهر)
+alter table checklist_templates add column if not exists frequency text default 'daily' check (frequency in ('daily','weekly','monthly'));
+alter table checklist_templates add column if not exists day_of_week int check (day_of_week between 0 and 6); -- 0=الأحد .. 6=السبت
+alter table checklist_templates add column if not exists day_of_month int check (day_of_month between 1 and 31);

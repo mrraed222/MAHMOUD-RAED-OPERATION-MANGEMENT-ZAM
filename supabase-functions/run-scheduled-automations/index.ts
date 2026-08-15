@@ -131,6 +131,17 @@ Deno.serve(async (req: Request) => {
     function fmtTime(t: any): string {
       return t ? ` (⏰ ${String(t).slice(0, 5)})` : ''
     }
+    // هل المهمة مستحقة اليوم؟ (يومية دايمًا / أسبوعية في يومها / شهرية في يومها من الشهر)
+    function isDueToday(t: any): boolean {
+      const freq = t.frequency || 'daily'
+      if (freq === 'daily') return true
+      if (freq === 'weekly') return t.day_of_week === now.getDay()
+      if (freq === 'monthly') {
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+        return now.getDate() === Math.min(t.day_of_month, lastDay)
+      }
+      return true
+    }
 
     let ranCount = 0
 
@@ -140,7 +151,7 @@ Deno.serve(async (req: Request) => {
     // ================================================================
     {
       const { data: allTemplates } = await supabase.from('checklist_templates').select('*').not('target_time', 'is', null)
-      const dueTemplates = (allTemplates || []).filter((t: any) => timeMatches(t.target_time, now))
+      const dueTemplates = (allTemplates || []).filter((t: any) => timeMatches(t.target_time, now) && isDueToday(t))
       if (dueTemplates.length) {
         const { data: logs } = await supabase.from('checklist_logs').select('branch_id, template_id, executed_by').eq('execution_date', today)
         const donePairs = new Set((logs || []).map((l: any) => `${l.executed_by}|${l.template_id}`))
@@ -177,7 +188,7 @@ Deno.serve(async (req: Request) => {
 
         let body = sectionTitle(`ملخص تنفيذ التشيك ليست - ${today}`)
         for (const b of branches || []) {
-          const branchTemplates = (templates || []).filter((t: any) => !t.branch_id || t.branch_id === b.id)
+          const branchTemplates = (templates || []).filter((t: any) => (!t.branch_id || t.branch_id === b.id) && isDueToday(t))
           const byCategory: Record<string, { done: number; total: number }> = {}
           branchTemplates.forEach((t: any) => { byCategory[t.category] = byCategory[t.category] || { done: 0, total: 0 }; byCategory[t.category].total++ })
           const doneIds = new Set((logs || []).filter((l: any) => l.branch_id === b.id).map((l: any) => l.template_id))
@@ -234,7 +245,7 @@ Deno.serve(async (req: Request) => {
 
         for (const emp of staff) {
           const donePairs = new Set((logs || []).filter((l: any) => l.executed_by === emp.id).map((l: any) => l.template_id))
-          const pending = (templates || []).filter((t: any) => taskFitsEmployee(t, emp) && !donePairs.has(t.id))
+          const pending = (templates || []).filter((t: any) => taskFitsEmployee(t, emp) && isDueToday(t) && !donePairs.has(t.id))
           if (!pending.length) continue
 
           const shiftLabel = emp.shift_type === 'Both' ? 'الصباحية والمسائية' : (emp.shift_type === 'Morning' ? 'الصباحية' : 'المسائية')
@@ -261,7 +272,7 @@ Deno.serve(async (req: Request) => {
         const reportedBranches = new Set((reports || []).map((r: any) => `${r.branch_id}|${r.shift_type}`))
 
         for (const sup of supervisors) {
-          const branchTemplates = (templates || []).filter((t: any) => !t.branch_id || t.branch_id === sup.branch_id)
+          const branchTemplates = (templates || []).filter((t: any) => (!t.branch_id || t.branch_id === sup.branch_id) && isDueToday(t))
           const doneIds = new Set((logs || []).filter((l: any) => l.branch_id === sup.branch_id).map((l: any) => l.template_id))
           const pending = branchTemplates.filter((t: any) => !doneIds.has(t.id))
           const myShift = sup.shift_type === 'Both' ? null : sup.shift_type

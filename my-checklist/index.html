@@ -146,7 +146,7 @@ async function loadMyChecklist() {
     container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل المهام...</p>';
 
     try {
-        const allTemplates = await ZamAPI.getTemplates(null, currentShift, currentUser.branch_id);
+        const allTemplates = (await ZamAPI.getTemplates(null, currentShift, currentUser.branch_id)).filter(t => ZamAPI.isTaskDueToday(t));
         const templates = myCategories.length ? allTemplates.filter(t => myCategories.includes(t.category)) : allTemplates;
         const logs = await ZamAPI.getTodayLogs(currentUser.branch_id);
         const logsByTemplate = {};
