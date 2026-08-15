@@ -325,3 +325,14 @@ create policy "Allow public delete on avatars" on storage.objects
 --     url := 'https://<project-ref>.functions.supabase.co/send-daily-reminders',
 --     headers := '{"Authorization":"Bearer <ANON_KEY>"}'::jsonb
 --   )$$);
+
+-- 14. وقت تنفيذ المهام والتذكير اللحظي
+alter table checklist_templates add column if not exists target_time time;
+create table if not exists task_reminder_logs (
+  template_id uuid references checklist_templates(id) on delete cascade,
+  log_date date not null,
+  sent_at timestamptz default now(),
+  primary key (template_id, log_date)
+);
+alter table task_reminder_logs enable row level security;
+create policy "allow all task_reminder_logs" on task_reminder_logs for all using (true) with check (true);
