@@ -3,7 +3,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20260816"></script>
+<script src="../assets/supabase-config.js?v=20260817"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // صفحة قوائم المهام مخصصة للمشرفين — المالك/الأدمن يتابعان الأداء من الداشبورد
@@ -174,12 +174,11 @@
 <div class="bg-primary text-on-primary px-md py-base flex flex-col md:flex-row justify-between items-center gap-sm">
   <div class="flex gap-md">
     <button id="subtab-my-tasks" class="font-bold border-b-2 border-white pb-xs text-body-sm text-white">📋 مهامي اليومية</button>
-    <button id="subtab-team-tasks" class="pb-xs text-white/70 hover:text-white text-body-sm transition-colors">👥 داشبورد الفريق</button>
+    <button id="subtab-team-tasks" class="pb-xs text-white/70 hover:text-white text-body-sm transition-colors">👥 متابعة أداء الفريق</button>
   </div>
   <span class="text-xs opacity-80" id="progress-label">جارِ التحميل...</span>
 </div>
 <!-- داشبورد الفريق: من المسؤول عن ماذا في هذه الوردية -->
-<div id="team-roster" class="hidden bg-surface-container-low px-md py-sm"></div>
 <div class="divide-y divide-outline-variant" id="checklist-container">
 <p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل المهام من قاعدة البيانات...</p>
 </div>
@@ -251,7 +250,6 @@ if (subtabMyTasks) subtabMyTasks.addEventListener('click', () => {
         subtabTeamTasks.className = "pb-xs text-white/70 hover:text-white text-body-sm transition-colors";
     }
     document.getElementById('category-cards').classList.add('hidden');
-    document.getElementById('team-roster').classList.add('hidden');
     loadChecklist();
 });
 
@@ -454,67 +452,9 @@ async function loadChecklist() {
         const logsByTemplate = {};
         logs.forEach(l => { logsByTemplate[l.template_id] = l; });
         renderChecklist(templates, logsByTemplate);
-        if (activeSubTab === 'team-tasks') await renderTeamRoster(templates, logs);
     } catch (err) {
         console.error(err);
         container.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل المهام من قاعدة البيانات.</p>';
-    }
-}
-
-// داشبورد الفريق: يعرض موظفي الفرع في الوردية الحالية ومهام كل موظف (بفئاته المتعددة) وحالته اليوم
-async function renderTeamRoster(templates, logs) {
-    const rosterEl = document.getElementById('team-roster');
-    rosterEl.classList.remove('hidden');
-    rosterEl.innerHTML = '<p class="text-body-sm text-on-surface-variant py-xs">جارِ تحميل فريق الوردية...</p>';
-    try {
-        const ROLE_CATEGORY = { Barista: 'البار', Waiter: 'الصالة', Kitchen: 'المطبخ' };
-        const { data: staff } = await zamClient.from('profiles')
-            .select('id, full_name, role, shift_type, avatar_url')
-            .eq('branch_id', currentUser.branch_id)
-            .eq('status', 'active')
-            .in('role', ['Barista', 'Waiter', 'Kitchen']);
-        if (!staff || !staff.length) {
-            rosterEl.innerHTML = '<p class="text-body-sm text-on-surface-variant py-xs">لا يوجد موظفون تشغيليون في هذا الفرع بعد.</p>';
-            return;
-        }
-        const ids = staff.map(s => s.id);
-        const { data: catRows } = await zamClient.from('employee_task_categories').select('profile_id, category').in('profile_id', ids);
-        const catsBy = {};
-        (catRows || []).forEach(r => { (catsBy[r.profile_id] = catsBy[r.profile_id] || []).push(r.category); });
-
-        const shiftLabel = currentShift === 'Morning' ? 'الصباحية' : 'المسائية';
-        let html = `<p class="text-label-bold text-on-surface-variant py-xs">👥 فريق الوردية ${shiftLabel} — من المسؤول عن ماذا:</p><div class="flex gap-sm overflow-x-auto pb-xs">`;
-        for (const emp of staff) {
-            // موظفو هذه الوردية فقط: وردية الموظف مطابقة أو "الاثنين"
-            if (emp.shift_type && emp.shift_type !== 'Both' && emp.shift_type !== currentShift) continue;
-            const cats = (catsBy[emp.id] && catsBy[emp.id].length) ? catsBy[emp.id] : (ROLE_CATEGORY[emp.role] ? [ROLE_CATEGORY[emp.role]] : []);
-            if (!cats.length) continue;
-            const myTemplates = templates.filter(t => cats.includes(t.category) && (!t.branch_id || t.branch_id === currentUser.branch_id));
-            const done = myTemplates.filter(t => logs.some(l => l.template_id === t.id && l.executed_by === emp.id)).length;
-            const pct = myTemplates.length ? Math.round(done / myTemplates.length * 100) : 0;
-            const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
-            html += `
-            <div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-sm min-w-[220px]">
-                <div class="flex items-center gap-sm mb-xs">
-                    <img src="${emp.avatar_url || avatarFallback}" class="w-9 h-9 rounded-full object-cover border-2 border-primary"/>
-                    <div>
-                        <p class="font-bold text-body-sm text-on-surface">${emp.full_name}</p>
-                        <p class="text-[11px] text-on-surface-variant">${done} من ${myTemplates.length} منجزة اليوم</p>
-                    </div>
-                </div>
-                <div class="flex flex-wrap gap-xs mb-xs">
-                    ${cats.map(c => `<span class="px-xs py-[2px] rounded-full text-[10px] font-bold ${c === (ROLE_CATEGORY[emp.role] || '') ? 'bg-primary-fixed text-on-primary-fixed' : 'bg-secondary-container text-on-secondary-container'}">${c}${c !== (ROLE_CATEGORY[emp.role] || '') ? ' (إسناد إضافي)' : ''}</span>`).join('')}
-                </div>
-                <div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
-                    <div class="h-full ${pct === 100 ? 'bg-tertiary' : 'bg-primary'}" style="width:${pct}%"></div>
-                </div>
-            </div>`;
-        }
-        html += '</div>';
-        rosterEl.innerHTML = html;
-    } catch (err) {
-        console.error(err);
-        rosterEl.innerHTML = '<p class="text-body-sm text-on-surface-variant py-xs">تعذّر تحميل فريق الوردية.</p>';
     }
 }
 

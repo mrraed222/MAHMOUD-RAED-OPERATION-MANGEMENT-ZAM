@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ZAM Operations - داشبورد الفرع</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../assets/supabase-config.js?v=20260817"></script>
+<script>
+  let currentUser = ZamSession.requireAuth('../index.html');
+  if (!['Supervisor', 'Manager'].includes(currentUser.role)) {
+      window.location.href = zamRoleHomePath(currentUser.role);
+  }
+</script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "inverse-surface": "#303030",
+                      "primary-fixed-dim": "#e1c1a4",
+                      "secondary-fixed-dim": "#c8c8b0",
+                      "outline-variant": "#d2c4ba",
+                      "on-tertiary-container": "#56b958",
+                      "on-primary": "#ffffff",
+                      "tertiary-container": "#00450e",
+                      "on-tertiary": "#ffffff",
+                      "primary-container": "#4b3621",
+                      "on-primary-fixed-variant": "#59422c",
+                      "surface-tint": "#725a42",
+                      "error-container": "#ffdad6",
+                      "secondary": "#5e604d",
+                      "error": "#ba1a1a",
+                      "secondary-container": "#e1e1c9",
+                      "surface": "#fcf9f8",
+                      "on-secondary": "#ffffff",
+                      "on-primary-fixed": "#291806",
+                      "on-error-container": "#93000a",
+                      "on-tertiary-fixed-variant": "#005313",
+                      "inverse-on-surface": "#f3f0f0",
+                      "surface-container": "#f0eded",
+                      "on-tertiary-fixed": "#002204",
+                      "outline": "#80756c",
+                      "on-surface-variant": "#4e453d",
+                      "on-secondary-fixed-variant": "#474836",
+                      "inverse-primary": "#e1c1a4",
+                      "background": "#fcf9f8",
+                      "tertiary": "#002c06",
+                      "tertiary-fixed-dim": "#78dc77",
+                      "surface-variant": "#e4e2e1",
+                      "on-secondary-container": "#636451",
+                      "on-background": "#1b1c1c",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-fixed": "#e4e4cc",
+                      "surface-dim": "#dcd9d9",
+                      "on-primary-container": "#bd9f83",
+                      "on-surface": "#1b1c1c",
+                      "surface-container-high": "#eae7e7",
+                      "surface-bright": "#fcf9f8",
+                      "on-error": "#ffffff",
+                      "tertiary-fixed": "#94f990",
+                      "primary-fixed": "#fedcbe",
+                      "surface-container-low": "#f6f3f2",
+                      "on-secondary-fixed": "#1b1d0e",
+                      "surface-container-highest": "#e4e2e1",
+                      "primary": "#33210d"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "xs": "4px",
+                      "md": "24px",
+                      "gutter": "24px",
+                      "margin-desktop": "32px",
+                      "xl": "64px",
+                      "sm": "12px",
+                      "lg": "40px",
+                      "base": "8px",
+                      "margin-mobile": "16px"
+              },
+              "fontFamily": {
+                      "title-md": ["Montserrat"],
+                      "label-bold": ["Montserrat"],
+                      "display-lg": ["Montserrat"],
+                      "body-lg": ["Montserrat"],
+                      "body-sm": ["Montserrat"],
+                      "headline-lg-mobile": ["Montserrat"],
+                      "headline-lg": ["Montserrat"]
+              },
+              "fontSize": {
+                      "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}]
+              }
+            },
+          },
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&amp;family=Noto+Sans+Arabic:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    body { font-family: 'Noto Sans Arabic', 'Montserrat', sans-serif; background-color: #fcf9f8; }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+</style>
+</head>
+<body class="bg-background text-on-surface overflow-x-hidden">
+<script>document.write(renderZamSidebar('supervisor-dashboard', currentUser.role));</script>
+
+<header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
+  <div class="flex items-center gap-md">
+    <div>
+      <h1 class="font-title-md text-title-md text-primary">داشبورد الفرع</h1>
+      <p class="text-body-sm text-on-surface-variant"><span id="branch-name">—</span> · متابعة فريقك ومهام الوردية</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-md">
+    <div class="flex bg-surface-container rounded-full p-xs border border-outline-variant">
+      <button class="shift-toggle px-md py-xs rounded-full text-body-sm font-bold" data-shift="Morning">الصباحية</button>
+      <button class="shift-toggle px-md py-xs rounded-full text-body-sm font-bold" data-shift="Evening">المسائية</button>
+    </div>
+    <div id="notif-bell-slot"></div>
+  </div>
+</header>
+
+<main class="md:pr-[280px] pt-20 min-h-screen">
+<div class="max-w-6xl mx-auto p-margin-desktop">
+
+  <!-- الإحصائيات -->
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-md mb-lg">
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
+      <span class="material-symbols-outlined text-tertiary mb-xs">groups</span>
+      <p class="text-2xl font-bold text-primary" id="stat-team">—</p>
+      <p class="text-body-sm text-on-surface-variant">موظف وردية</p>
+    </div>
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
+      <span class="material-symbols-outlined text-primary mb-xs">checklist</span>
+      <p class="text-2xl font-bold text-primary" id="stat-tasks">—</p>
+      <p class="text-body-sm text-on-surface-variant">مهمة مستحقة اليوم</p>
+    </div>
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
+      <span class="material-symbols-outlined text-tertiary mb-xs">task_alt</span>
+      <p class="text-2xl font-bold text-tertiary" id="stat-done">—</p>
+      <p class="text-body-sm text-on-surface-variant">منجزة الآن</p>
+    </div>
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
+      <span class="material-symbols-outlined text-primary mb-xs">percent</span>
+      <p class="text-2xl font-bold text-primary" id="stat-pct">—</p>
+      <p class="text-body-sm text-on-surface-variant">نسبة إنجاز الوردية</p>
+    </div>
+  </section>
+
+  <!-- حالة تقرير الشفت -->
+  <section id="report-status" class="rounded-xl p-md mb-lg flex items-center justify-between gap-md border">
+    <p class="text-body-sm"><span id="report-text">جارِ فحص تقرير الشفت...</span></p>
+    <a href="../daily-report/index.html" class="shrink-0 bg-primary text-on-primary px-md py-xs rounded-lg font-label-bold hover:bg-primary-container transition-colors">إرسال/تعديل التقرير</a>
+  </section>
+
+  <!-- فريق الوردية -->
+  <section class="mb-lg">
+    <div class="flex items-center justify-between mb-sm">
+      <h2 class="font-title-md text-title-md text-primary flex items-center gap-xs"><span class="material-symbols-outlined">groups</span> فريق <span id="team-shift-label">الوردية</span></h2>
+      <p class="text-[11px] text-on-surface-variant">الفئات ذات اللون المميز = إسناد إضافي خارج دور الموظف الأساسي</p>
+    </div>
+    <div id="team-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md">
+      <p class="text-on-surface-variant text-body-sm">جارِ التحميل...</p>
+    </div>
+  </section>
+
+  <!-- توزيع المهام بالفئات -->
+  <section class="mb-lg">
+    <h2 class="font-title-md text-title-md text-primary mb-sm flex items-center gap-xs"><span class="material-symbols-outlined">category</span> توزيع المهام بالفئات</h2>
+    <div id="category-grid" class="grid grid-cols-1 md:grid-cols-2 gap-md">
+      <p class="text-on-surface-variant text-body-sm">جارِ التحميل...</p>
+    </div>
+  </section>
+
+  <!-- اختصارات -->
+  <section class="grid grid-cols-2 md:grid-cols-3 gap-md">
+    <a href="../supervisor-checklist/index.html" class="bg-primary text-on-primary rounded-xl p-md flex items-center gap-sm hover:opacity-95 transition-opacity">
+      <span class="material-symbols-outlined">checklist</span>
+      <div><p class="font-bold">قوائم المهام</p><p class="text-[11px] opacity-80">تتبع وتنفيذ تفصيلي</p></div>
+    </a>
+    <a href="../checklist-logs/index.html" class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex items-center gap-sm hover:bg-surface-container transition-colors">
+      <span class="material-symbols-outlined text-primary">photo_library</span>
+      <div><p class="font-bold text-on-surface">سجل التنفيذ بالصور</p><p class="text-[11px] text-on-surface-variant">أدلة التنفيذ اليومية</p></div>
+    </a>
+    <a href="../reports-log/index.html" class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex items-center gap-sm hover:bg-surface-container transition-colors">
+      <span class="material-symbols-outlined text-primary">assessment</span>
+      <div><p class="font-bold text-on-surface">سجل التقارير</p><p class="text-[11px] text-on-surface-variant">تقارير الشفتات السابقة</p></div>
+    </a>
+  </section>
+
+</div>
+</main>
+
+<script>
+const ROLE_LABELS = { Barista: 'باريستا', Waiter: 'خدمة صالة', Kitchen: 'مطبخ', Supervisor: 'مشرف وردية' };
+const ROLE_CATEGORY = { Barista: 'البار', Waiter: 'الصالة', Kitchen: 'المطبخ' };
+const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
+
+let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : 'Morning';
+let cache = { staff: [], catsBy: {}, templates: [], logs: [] };
+
+function setActiveShiftButtons() {
+    document.querySelectorAll('.shift-toggle').forEach(b => {
+        const active = b.dataset.shift === currentShift;
+        b.classList.toggle('bg-primary', active);
+        b.classList.toggle('text-on-primary', active);
+        b.classList.toggle('text-on-surface-variant', !active);
+    });
+}
+
+document.querySelectorAll('.shift-toggle').forEach(b => {
+    b.addEventListener('click', () => {
+        currentShift = b.dataset.shift;
+        setActiveShiftButtons();
+        render();
+    });
+});
+
+function empCategories(emp) {
+    if (cache.catsBy[emp.id]?.length) return cache.catsBy[emp.id];
+    return ROLE_CATEGORY[emp.role] ? [ROLE_CATEGORY[emp.role]] : [];
+}
+
+function tasksFor(emp) {
+    return cache.templates.filter(t =>
+        empCategories(emp).includes(t.category) &&
+        (!t.branch_id || t.branch_id === emp.branch_id)
+    );
+}
+
+async function loadAll() {
+    await zamClient.auth.getSession();
+    const branchId = currentUser.branch_id;
+    const [staffRes, catRes, templates, logs, reportsRes, branchRes] = await Promise.all([
+        zamClient.from('profiles').select('id, full_name, role, shift_type, avatar_url, employee_number')
+            .eq('branch_id', branchId).eq('status', 'active')
+            .in('role', ['Barista', 'Waiter', 'Kitchen']),
+        zamClient.from('employee_task_categories').select('profile_id, category'),
+        ZamAPI.getTemplates(null, null, branchId),
+        zamClient.from('checklist_logs').select('template_id, executed_by, execution_date').eq('branch_id', branchId),
+        zamClient.from('daily_reports').select('id, shift_type, report_date').eq('branch_id', branchId),
+        zamClient.from('branches').select('name').eq('id', branchId).maybeSingle(),
+    ]);
+    const today = new Date().toISOString().split('T')[0];
+    cache.staff = staffRes.data || [];
+    cache.catsBy = {};
+    (catRes.data || []).forEach(r => { (cache.catsBy[r.profile_id] = cache.catsBy[r.profile_id] || []).push(r.category); });
+    cache.templates = (templates || []).filter(t => ZamAPI.isTaskDueToday(t));
+    cache.logs = (logs || []).filter(l => l.execution_date === today);
+    cache.reports = (reportsRes.data || []).filter(r => r.report_date === today);
+    document.getElementById('branch-name').textContent = branchRes.data?.name || 'الفرع';
+    render();
+}
+
+function render() {
+    const shiftTemplates = cache.templates.filter(t => t.shift_type === currentShift);
+    const shiftStaff = cache.staff.filter(e => !e.shift_type || e.shift_type === 'Both' || e.shift_type === currentShift);
+    document.getElementById('team-shift-label').textContent = currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية';
+
+    // توزيع المنجز: أي موظف من الفريق نفذ المهمة
+    const doneIds = new Set(shiftTemplates.filter(t => cache.logs.some(l => l.template_id === t.id)).map(t => t.id));
+    const totalTasks = shiftTemplates.length;
+    const doneCount = doneIds.size;
+    const pct = totalTasks ? Math.round(doneCount / totalTasks * 100) : 0;
+    document.getElementById('stat-team').textContent = shiftStaff.length;
+    document.getElementById('stat-tasks').textContent = totalTasks;
+    document.getElementById('stat-done').textContent = doneCount;
+    document.getElementById('stat-pct').textContent = pct + '%';
+
+    // حالة تقرير الشفت
+    const reportOk = cache.reports.some(r => r.shift_type === currentShift);
+    const rs = document.getElementById('report-status');
+    rs.className = 'rounded-xl p-md mb-lg flex items-center justify-between gap-md border ' +
+        (reportOk ? 'bg-tertiary-fixed/40 border-tertiary text-on-surface' : 'bg-error-container/40 border-error');
+    document.getElementById('report-text').innerHTML = reportOk
+        ? '✅ تقرير <b>' + (currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية') + '</b> مسلَّم اليوم'
+        : '⚠️ تقرير <b>' + (currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية') + '</b> لم يُسلَّم بعد';
+
+    // كروت الفريق
+    const grid = document.getElementById('team-grid');
+    if (!shiftStaff.length) {
+        grid.innerHTML = '<p class="text-on-surface-variant text-body-sm col-span-full">لا يوجد موظفون تشغيليون في هذه الوردية بعد.</p>';
+    } else {
+        grid.innerHTML = shiftStaff.map(emp => {
+            const mine = tasksFor(emp).filter(t => t.shift_type === currentShift);
+            const myDone = mine.filter(t => cache.logs.some(l => l.template_id === t.id && l.executed_by === emp.id)).length;
+            const p = mine.length ? Math.round(myDone / mine.length * 100) : 0;
+            const cats = empCategories(emp);
+            return `
+            <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
+                <div class="flex items-center gap-sm mb-sm">
+                    <img src="${emp.avatar_url || avatarFallback}" class="w-12 h-12 rounded-full object-cover border-2 border-primary"/>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-bold text-on-surface truncate">${emp.full_name}</p>
+                        <p class="text-[11px] text-on-surface-variant">${ROLE_LABELS[emp.role] || emp.role}${emp.employee_number ? ' · ' + emp.employee_number : ''}</p>
+                    </div>
+                    <span class="text-[11px] font-bold px-xs py-[2px] rounded-full ${p === 100 ? 'bg-tertiary text-on-tertiary' : 'bg-surface-container text-on-surface-variant'}">${myDone}/${mine.length}</span>
+                </div>
+                <div class="flex flex-wrap gap-xs mb-sm">
+                    ${cats.map(c => {
+                        const isExtra = c !== (ROLE_CATEGORY[emp.role] || '');
+                        return `<span class="px-xs py-[2px] rounded-full text-[10px] font-bold ${isExtra ? 'bg-primary-fixed text-on-primary-fixed' : 'bg-secondary-container text-on-secondary-container'}">${c}${isExtra ? ' +إسناد' : ''}</span>`;
+                    }).join('')}
+                </div>
+                <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden">
+                    <div class="h-full ${p === 100 ? 'bg-tertiary' : 'bg-primary'} transition-all" style="width:${p}%"></div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // توزيع الفئات
+    const catGrid = document.getElementById('category-grid');
+    const byCat = {};
+    shiftTemplates.forEach(t => {
+        byCat[t.category] = byCat[t.category] || { total: 0, done: 0, owners: new Set() };
+        byCat[t.category].total++;
+        if (doneIds.has(t.id)) byCat[t.category].done++;
+    });
+    shiftStaff.forEach(e => empCategories(e).forEach(c => { if (byCat[c]) byCat[c].owners.add(e.full_name); }));
+    const catNames = Object.keys(byCat);
+    catGrid.innerHTML = catNames.length ? catNames.map(c => {
+        const v = byCat[c];
+        const p = v.total ? Math.round(v.done / v.total * 100) : 0;
+        return `
+        <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
+            <div class="flex items-center justify-between mb-xs">
+                <p class="font-bold text-on-surface">${c}</p>
+                <span class="text-[11px] text-on-surface-variant">${v.done} من ${v.total} منجزة</span>
+            </div>
+            <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden mb-sm">
+                <div class="h-full ${p === 100 ? 'bg-tertiary' : 'bg-primary'}" style="width:${p}%"></div>
+            </div>
+            <p class="text-[11px] text-on-surface-variant leading-relaxed">
+                <span class="font-bold text-on-surface">المسؤولون:</span>
+                ${[...v.owners].join('، ') || 'لا يوجد موظف مسند لهذه الفئة في هذه الوردية'}
+            </p>
+        </div>`;
+    }).join('') : '<p class="text-on-surface-variant text-body-sm col-span-full">لا توجد مهام مستحقة في هذه الوردية اليوم.</p>';
+}
+
+(async function init() {
+    const headerAvatar = document.getElementById('header-avatar');
+    setActiveShiftButtons();
+    try {
+        await loadAll();
+    } catch (err) {
+        console.error(err);
+        document.getElementById('team-grid').innerHTML = '<p class="text-error text-body-sm col-span-full">تعذّر تحميل بيانات الداشبورد.</p>';
+    }
+    const slot = document.getElementById('notif-bell-slot');
+    if (slot) {
+        slot.innerHTML = await renderNotificationBell();
+        attachNotificationBellHandlers();
+    }
+})();
+</script>
+</body></html>
