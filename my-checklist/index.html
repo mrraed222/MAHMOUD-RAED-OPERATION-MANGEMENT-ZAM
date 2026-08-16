@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js?v=20260816"></script>
 <script>
-  const currentUser = ZamSession.requireAuth('../index.html');
+  let currentUser = ZamSession.requireAuth('../index.html');
 </script>
 </head>
 <body class="bg-background text-on-surface overflow-x-hidden">
@@ -105,14 +105,12 @@ const categoryLabel = document.getElementById('category-label');
             } catch (e) {
                 console.error('Error fetching task categories:', e);
             }
-            window.__dbg = window.__dbg || []; window.__dbg.push('freshCats=' + JSON.stringify(freshCats));
             if (!freshCats.length && myCategory) freshCats = [myCategory];
             freshCats.forEach(c => myCategories.push(c));
             document.getElementById('user-branch-label').textContent = currentUser.branches?.name || 'بدون فرع محدد';
             loadMyChecklist();
         }
     } catch (e) {
-        window.__dbg = window.__dbg || []; window.__dbg.push('refresh ERR: ' + String(e) + ' | ' + (e && e.message));
         console.error('Error refreshing profile:', e);
     }
 })();
@@ -153,7 +151,6 @@ async function loadMyChecklist() {
     try {
         const allTemplates = (await ZamAPI.getTemplates(null, currentShift, currentUser.branch_id)).filter(t => ZamAPI.isTaskDueToday(t));
         const templates = myCategories.length ? allTemplates.filter(t => myCategories.includes(t.category)) : allTemplates;
-        window.__dbg = window.__dbg || []; window.__dbg.push('load: all=' + allTemplates.length + ' final=' + templates.length + ' myCategories=' + JSON.stringify(myCategories));
         const logs = await ZamAPI.getTodayLogs(currentUser.branch_id);
         const logsByTemplate = {};
         logs.forEach(l => { logsByTemplate[l.template_id] = l; });
@@ -355,6 +352,5 @@ async function loadMyChecklist() {
 
 updateShiftButtons();
 loadMyChecklist();
-setInterval(() => { const el = document.getElementById('category-label'); if (window.__dbg && el) el.textContent = el.textContent.split(' [dbg]')[0] + ' [dbg] ' + window.__dbg.join(' ; '); }, 1500);
 </script>
 </body></html>
