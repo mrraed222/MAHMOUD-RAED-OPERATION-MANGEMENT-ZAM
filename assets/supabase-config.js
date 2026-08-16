@@ -104,9 +104,10 @@ async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
     }
 
     // فلترة: المالك يرى كل شيء، غيره يفحص الدور + الصلاحية المطلوبة
-    const items = ZAM_NAV_ITEMS.filter(i => {
+   const items = ZAM_NAV_ITEMS.filter(i => {
+        if (role === 'Owner') return true;
         if (!i.roles.includes(role)) return false;
-        if (i.perm && role !== 'Owner') {
+        if (i.perm) {
             return !!(permsRow && permsRow[i.perm]);
         }
         return true;
