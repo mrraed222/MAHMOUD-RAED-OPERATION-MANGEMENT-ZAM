@@ -248,7 +248,7 @@ async function loadAll() {
             .in('role', ['Barista', 'Waiter', 'Kitchen']),
         zamClient.from('employee_task_categories').select('profile_id, category'),
         ZamAPI.getTemplates(null, null, branchId),
-        zamClient.from('checklist_logs').select('template_id, executed_by, execution_date').eq('branch_id', branchId),
+        zamClient.from('checklist_logs').select('template_id, executed_by, execution_date').eq('branch_id', branchId).then(r => r.data || []),
         zamClient.from('daily_reports').select('id, shift_type, report_date').eq('branch_id', branchId),
         zamClient.from('branches').select('name').eq('id', branchId).maybeSingle(),
     ]);
@@ -257,7 +257,7 @@ async function loadAll() {
     cache.catsBy = {};
     (catRes.data || []).forEach(r => { (cache.catsBy[r.profile_id] = cache.catsBy[r.profile_id] || []).push(r.category); });
     cache.templates = (templates || []).filter(t => ZamAPI.isTaskDueToday(t));
-    cache.logs = (logs || []).filter(l => l.execution_date === today);
+    cache.logs = logs.filter(l => l.execution_date === today);
     cache.reports = (reportsRes.data || []).filter(r => r.report_date === today);
     document.getElementById('branch-name').textContent = branchRes.data?.name || 'الفرع';
     render();
