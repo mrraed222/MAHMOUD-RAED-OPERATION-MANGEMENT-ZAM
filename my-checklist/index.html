@@ -90,6 +90,9 @@ const categoryLabel = document.getElementById('category-label');
 // Refresh current user profile from database on load to ensure we have the absolute latest roles/categories
 (async function refreshUserProfile() {
     try {
+        // wait for the auth session to be restored before any query,
+        // otherwise queries run as anon and multi-category fetch silently fails
+        await zamClient.auth.getSession();
         const { data: freshProfile } = await zamClient.from('profiles').select('*, branches(name)').eq('id', currentUser.id).maybeSingle();
         if (freshProfile) {
             currentUser = { ...currentUser, ...freshProfile };
