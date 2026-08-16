@@ -15,7 +15,7 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20260817"></script>
+<script src="../assets/supabase-config.js?v=20260818"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (currentUser.role !== 'Owner') {
@@ -167,7 +167,7 @@ async function openPermsEditor(empId, empName) {
     } catch (e) {
         console.error('Error fetching template categories:', e);
     }
-    const defaultCategories = ['البار', 'الصالة', 'المطبخ', 'مشرف الشفت'];
+    const defaultCategories = ['البار', 'الصالة', 'المطبخ', 'مهام المشرفين'];
     const allCategories = [...new Set([...defaultCategories, ...dbCategories])];
 
     const modal = document.createElement('div');

@@ -4,7 +4,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>ZAM Operations - داشبورد الفرع</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20260817"></script>
+<script src="../assets/supabase-config.js?v=20260818"></script>
 <script>
   let currentUser = ZamSession.requireAuth('../index.html');
   if (!['Supervisor', 'Manager'].includes(currentUser.role)) {
@@ -123,7 +123,8 @@
     </div>
   </div>
   <div class="flex items-center gap-md">
-    <div class="flex bg-surface-container rounded-full p-xs border border-outline-variant">
+    <!-- مبدّل الورديتين يظهر فقط لمن يغطي الورديتين: مشرف "كلا الورديتين" أو مدير -->
+    <div id="shift-toggle-wrap" class="hidden bg-surface-container rounded-full p-xs border border-outline-variant">
       <button class="shift-toggle px-md py-xs rounded-full text-body-sm font-bold" data-shift="Morning">الصباحية</button>
       <button class="shift-toggle px-md py-xs rounded-full text-body-sm font-bold" data-shift="Evening">المسائية</button>
     </div>
@@ -209,6 +210,13 @@ const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/20
 
 let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : 'Morning';
 let cache = { staff: [], catsBy: {}, templates: [], logs: [] };
+
+// زر الورديتين يظهر فقط لمن يغطي الورديتين فعليًا
+if (currentUser.role === 'Manager' || currentUser.shift_type === 'Both') {
+    const w = document.getElementById('shift-toggle-wrap');
+    w.classList.remove('hidden');
+    w.classList.add('flex');
+}
 
 function setActiveShiftButtons() {
     document.querySelectorAll('.shift-toggle').forEach(b => {

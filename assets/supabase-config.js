@@ -492,9 +492,11 @@ const ZamAPI = {
     },
 
     async submitDailyReport({ core, custom_fields = {}, waste = [], issues = [] }) {
+        // submitted_by يربط التقرير بمقدّمه الفعلي — عليه يقوم تقييد رؤية المشرف لتقاريره فقط
+        const me = ZamSession.get();
         const { data: report, error } = await zamClient
             .from('daily_reports')
-            .insert([{ ...core, custom_fields }])
+            .insert([{ ...core, custom_fields, submitted_by: me ? me.id : null }])
             .select()
             .single();
         if (error) throw error;
