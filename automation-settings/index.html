@@ -118,7 +118,7 @@
 </style>
 </head>
 <body class="bg-background text-on-surface overflow-x-hidden">
-<script>document.write(renderZamSidebar('automation-settings', currentUser.role));</script>
+<div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('automation-settings', currentUser.role);})();</script>
 <main class="mr-[280px] min-h-screen">
 <header class="flex justify-between items-center w-full h-20 px-margin-desktop sticky top-0 bg-surface dark:bg-surface-dim z-40 border-b border-outline-variant shadow-sm">
 <div class="flex items-center gap-lg">

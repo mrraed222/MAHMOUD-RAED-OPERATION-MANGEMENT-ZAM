@@ -117,7 +117,7 @@
 </style>
 </head>
 <body class="bg-surface selection:bg-primary-fixed">
-<script>document.write(renderZamSidebar('staff-management', currentUser.role));</script>
+<div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('staff-management', currentUser.role);})();</script>
 <header class="fixed top-0 left-0 right-0 h-20 bg-surface border-b border-outline-variant flex justify-between items-center px-margin-desktop md:mr-[280px] z-40">
 <div class="flex items-center gap-lg">
 <div class="flex items-center gap-sm">

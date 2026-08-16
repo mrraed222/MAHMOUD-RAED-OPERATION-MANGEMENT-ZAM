@@ -114,7 +114,7 @@
 </head>
 <body class="bg-background text-on-surface">
 <!-- Sidebar Navigation (Predicted Component) -->
-<script>document.write(renderZamSidebar('daily-report', currentUser.role));</script>
+<div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('daily-report', currentUser.role);})();</script>
 <!-- Top AppBar (Predicted Component) -->
 <header class="fixed top-0 left-0 right-0 mr-[280px] h-20 bg-surface shadow-sm z-40 flex justify-between items-center px-margin-desktop border-b border-outline-variant">
 <div class="flex items-center gap-md">

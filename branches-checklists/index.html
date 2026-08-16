@@ -26,7 +26,7 @@
 </script>
 </head>
 <body class="bg-background text-on-surface overflow-x-hidden">
-<script>document.write(renderZamSidebar('branches', currentUser.role));</script>
+<div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('branches', currentUser.role);})();</script>
 
 <header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
   <div>

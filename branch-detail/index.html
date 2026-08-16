@@ -114,7 +114,7 @@
       window.location.href = `index.html?branch=${currentUser.branch_id}&name=${encodeURIComponent(currentUser.branches?.name || 'فرعي')}`;
   }
 </script>
-<script>document.write(renderZamSidebar('branches', currentUser.role));</script>
+<div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('branches', currentUser.role);})();</script>
 <header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
   <div class="flex items-center gap-md">
     <a href="../dashboard/index.html" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">arrow_forward</span></a>

@@ -71,29 +71,47 @@ function requireRole(allowedRoles, redirectPath) {
 // ============================================
 // القائمة الجانبية الموحدة
 // ============================================
+// perm: مفتاح الصلاحية المطلوب من admin_permissions (null = صفحة أساسية دائماً ظاهرة)
 const ZAM_NAV_ITEMS = [
-    { key: 'dashboard', label: 'لوحة التحكم', icon: 'dashboard', href: 'dashboard/index.html', roles: ['Owner', 'Admin', 'Manager'] },
-    { key: 'branches', label: 'الفروع', icon: 'storefront', href: 'branches-checklists/index.html', roles: ['Owner', 'Admin', 'Supervisor'] },
-    { key: 'my-checklist', label: 'مهامي اليومية', icon: 'task_alt', href: 'my-checklist/index.html', roles: ['Barista', 'Kitchen', 'Waiter'] },
-    { key: 'supervisor-checklist', label: 'قوائم المهام', icon: 'checklist', href: 'supervisor-checklist/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'] },
-    { key: 'supervisor-dashboard', label: 'داشبورد الفرع', icon: 'space_dashboard', href: 'supervisor-dashboard/index.html', roles: ['Supervisor', 'Manager'] },
-    { key: 'manage-templates', label: 'إدارة قوائم التحقق', icon: 'edit_note', href: 'manage-templates/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'] },
-    { key: 'daily-report', label: 'التقارير اليومية', icon: 'assignment', href: 'daily-report/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'] },
-    { key: 'reports-log', label: 'سجل التقارير', icon: 'assessment', href: 'reports-log/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'] },
-    { key: 'checklist-logs', label: 'سجل التشيك ليست بالصور', icon: 'photo_library', href: 'checklist-logs/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'] },
-    { key: 'reports-monitor', label: 'متابعة التقارير', icon: 'fact_check', href: 'reports-monitor/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'] },
-    { key: 'analytics', label: 'داشبورد التحليلات', icon: 'insights', href: 'analytics/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'] },
-    { key: 'staff-management', label: 'إدارة الطاقم', icon: 'groups', href: 'staff-management/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'] },
-    { key: 'automation-settings', label: 'إعدادات الأتمتة', icon: 'settings', href: 'automation-settings/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'] },
-    { key: 'permissions', label: 'الأذونات والصلاحيات', icon: 'admin_panel_settings', href: 'permissions/index.html', roles: ['Owner'] },
-    { key: 'employee-profile', label: 'الملف الشخصي', icon: 'person', href: 'employee-profile/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor', 'Barista', 'Kitchen', 'Waiter'] },
+    { key: 'dashboard', label: 'لوحة التحكم', icon: 'dashboard', href: 'dashboard/index.html', roles: ['Owner', 'Admin', 'Manager'], perm: null },
+    { key: 'branches', label: 'الفروع', icon: 'storefront', href: 'branches-checklists/index.html', roles: ['Owner', 'Admin', 'Supervisor'], perm: 'can_manage_branches' },
+    { key: 'my-checklist', label: 'مهامي اليومية', icon: 'task_alt', href: 'my-checklist/index.html', roles: ['Barista', 'Kitchen', 'Waiter'], perm: null },
+    { key: 'supervisor-checklist', label: 'قوائم المهام', icon: 'checklist', href: 'supervisor-checklist/index.html', roles: ['Admin', 'Manager', 'Supervisor'], perm: null },
+    { key: 'supervisor-dashboard', label: 'داشبورد الفرع', icon: 'space_dashboard', href: 'supervisor-dashboard/index.html', roles: ['Supervisor', 'Manager'], perm: null },
+    { key: 'manage-templates', label: 'إدارة قوائم التحقق', icon: 'edit_note', href: 'manage-templates/index.html', roles: ['Admin', 'Manager', 'Supervisor'], perm: 'can_manage_templates' },
+    { key: 'daily-report', label: 'التقارير اليومية', icon: 'assignment', href: 'daily-report/index.html', roles: ['Admin', 'Manager', 'Supervisor'], perm: null },
+    { key: 'reports-log', label: 'سجل التقارير', icon: 'assessment', href: 'reports-log/index.html', roles: ['Admin', 'Manager', 'Supervisor'], perm: null },
+    { key: 'checklist-logs', label: 'سجل التشيك ليست بالصور', icon: 'photo_library', href: 'checklist-logs/index.html', roles: ['Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports' },
+    { key: 'reports-monitor', label: 'متابعة التقارير', icon: 'fact_check', href: 'reports-monitor/index.html', roles: ['Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports' },
+    { key: 'analytics', label: 'داشبورد التحليلات', icon: 'insights', href: 'analytics/index.html', roles: ['Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports' },
+    { key: 'staff-management', label: 'إدارة الطاقم', icon: 'groups', href: 'staff-management/index.html', roles: ['Admin', 'Supervisor'], perm: 'can_manage_staff' },
+    { key: 'automation-settings', label: 'إعدادات الأتمتة', icon: 'settings', href: 'automation-settings/index.html', roles: ['Admin', 'Manager', 'Supervisor'], perm: 'can_manage_automations' },
+    { key: 'permissions', label: 'الأذونات والصلاحيات', icon: 'admin_panel_settings', href: 'permissions/index.html', roles: ['Owner'], perm: null },
+    { key: 'employee-profile', label: 'الملف الشخصي', icon: 'person', href: 'employee-profile/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor', 'Barista', 'Kitchen', 'Waiter'], perm: null },
 ];
 
-function renderZamSidebar(activeKey, role, pathPrefix = '../') {
+async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
     const sessionProfile = ZamSession.get();
     const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
     const userAvatar = sessionProfile?.avatar_url || avatarFallback;
-    const items = ZAM_NAV_ITEMS.filter(i => i.roles.includes(role));
+
+    // جلب صلاحيات المستخدم لمرة واحدة لفلترة القائمة الجانبية
+    let permsRow = null;
+    if (role !== 'Owner') {
+        await zamClient.auth.getSession();
+        const { data } = await zamClient.from('admin_permissions').select('*').eq('profile_id', sessionProfile.id).maybeSingle();
+        permsRow = data || {};
+    }
+
+    // فلترة: المالك يرى كل شيء، غيره يفحص الدور + الصلاحية المطلوبة
+    const items = ZAM_NAV_ITEMS.filter(i => {
+        if (!i.roles.includes(role)) return false;
+        if (i.perm && role !== 'Owner') {
+            return !!(permsRow && permsRow[i.perm]);
+        }
+        return true;
+    });
+
     const links = items.map(i => {
         const active = i.key === activeKey;
         const cls = active
