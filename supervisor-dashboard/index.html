@@ -357,7 +357,7 @@ function render() {
         await loadAll();
     } catch (err) {
         console.error(err);
-        document.getElementById('team-grid').innerHTML = '<p class="text-error text-body-sm col-span-full">تعذّر تحميل بيانات الداشبورد.</p>';
+        document.getElementById('team-grid').innerHTML = '<p class="text-error text-body-sm col-span-full">تعذّر تحميل بيانات الداشبورد: ' + (err && err.message ? err.message : String(err)) + '</p>';
     }
     const slot = document.getElementById('notif-bell-slot');
     if (slot) {
