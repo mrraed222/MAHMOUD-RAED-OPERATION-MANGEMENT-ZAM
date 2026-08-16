@@ -18,9 +18,8 @@
 <script src="../assets/supabase-config.js?v=20260818"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
-  if (!['Owner','Admin'].includes(currentUser.role)) {
-      window.location.href = zamRoleHomePath(currentUser.role);
-  }
+  // real permission gate: anyone without this permission is sent home
+  (async () => { if (!(await ZamAPI.requireAdminPerm('can_manage_templates'))) window.location.href = zamRoleHomePath(currentUser.role); })();
 </script>
 </head>
 <body class="bg-background text-on-surface overflow-x-hidden">

@@ -152,30 +152,12 @@
 <span class="font-title-md text-secondary" id="today-date-label">—</span>
 </div>
 </section>
-<section class="grid grid-cols-2 md:grid-cols-4 gap-base" id="category-cards">
-<button class="role-card flex flex-col items-center justify-center p-md bg-surface-container-lowest border-2 border-primary rounded-xl transition-all shadow-sm" data-category="">
-<span class="material-symbols-outlined text-[32px] text-primary mb-xs" style="font-variation-settings: 'FILL' 1;">admin_panel_settings</span>
-<span class="font-label-bold text-primary">كل الفروع/الفئات</span>
-</button>
-<button class="role-card flex flex-col items-center justify-center p-md bg-surface border border-outline-variant rounded-xl hover:border-primary transition-all opacity-70" data-category="البار">
-<span class="material-symbols-outlined text-[32px] text-on-surface-variant mb-xs">local_cafe</span>
-<span class="font-label-bold text-on-surface-variant">البار (Barista)</span>
-</button>
-<button class="role-card flex flex-col items-center justify-center p-md bg-surface border border-outline-variant rounded-xl hover:border-primary transition-all opacity-70" data-category="المطبخ">
-<span class="material-symbols-outlined text-[32px] text-on-surface-variant mb-xs">restaurant</span>
-<span class="font-label-bold text-on-surface-variant">المطبخ</span>
-</button>
-<button class="role-card flex flex-col items-center justify-center p-md bg-surface border border-outline-variant rounded-xl hover:border-primary transition-all opacity-70" data-category="الصالة">
-<span class="material-symbols-outlined text-[32px] text-on-surface-variant mb-xs">person_pin</span>
-<span class="font-label-bold text-on-surface-variant">الخدمة (Waiter)</span>
-</button>
-</section>
+
 <section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
 <div class="bg-primary text-on-primary px-md py-base flex flex-col md:flex-row justify-between items-center gap-sm">
-  <div class="flex gap-md">
-    <button id="subtab-my-tasks" class="font-bold border-b-2 border-white pb-xs text-body-sm text-white">📋 مهامي اليومية</button>
-    <button id="subtab-team-tasks" class="pb-xs text-white/70 hover:text-white text-body-sm transition-colors">👥 متابعة أداء الفريق</button>
-  </div>
+	  <div class="flex gap-md items-center">
+	    <span class="font-bold border-b-2 border-white pb-xs text-body-sm text-white">📋 مهامي اليومية</span>
+	  </div>
   <span class="text-xs opacity-80" id="progress-label">جارِ التحميل...</span>
 </div>
 <!-- داشبورد الفريق: من المسؤول عن ماذا في هذه الوردية -->
@@ -186,7 +168,19 @@
 <section class="grid grid-cols-1 md:grid-cols-3 gap-md">
 <div class="md:col-span-2">
 <label class="font-label-bold text-on-surface-variant block mb-base">ملاحظات إضافية (اختياري)</label>
-<textarea class="w-full bg-surface border border-outline-variant rounded-xl p-md focus:border-primary focus:ring-1 focus:ring-primary h-32" placeholder="اكتب أي ملاحظات تتعلق بسير العمل هنا..."></textarea>
+<textarea id="team-note-input" class="w-full bg-surface border border-outline-variant rounded-xl p-md focus:border-primary focus:ring-1 focus:ring-primary h-32" placeholder="اكتب أي ملاحظات تتعلق بسير العمل هنا..."></textarea>
+<button id="save-note-btn" class="mt-xs px-md py-xs rounded-lg bg-secondary-container text-on-secondary-container font-label-bold hover:opacity-90 transition-opacity">حفظ الملاحظة</button>
+<span id="note-saved-msg" class="text-tertiary text-body-sm hidden mr-sm">✓ تم حفظ الملاحظة — ستظهر في داشبورد الفرع</span>
+
+<!-- عرض ملاحظات الفريق السابقة -->
+<div id="recent-notes-section" class="mt-md">
+  <h3 class="font-bold text-sm text-primary mb-sm flex items-center gap-xs">
+    <span class="material-symbols-outlined text-base">sticky_note_2</span> ملاحظات الفريق اليومية
+  </h3>
+  <div id="recent-notes-list" class="bg-surface-container-lowest border border-outline-variant rounded-xl divide-y divide-outline-variant max-h-64 overflow-y-auto">
+    <p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>
+  </div>
+</div>
 </div>
 <div class="flex flex-col justify-end gap-base">
 <div class="bg-secondary-container/30 p-md rounded-xl border border-secondary-container">
@@ -236,34 +230,10 @@
 <script>
 let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : 'Morning';
 let currentCategory = '';
-let activeSubTab = 'my-tasks';
+let activeSubTab = 'my-tasks'; // الصفحة الآن لمهام المشرف فقط — متابعة الفريق في داشبورد الفرع
 
 const container = document.getElementById('checklist-container');
 const progressLabel = document.getElementById('progress-label');
-const subtabMyTasks = document.getElementById('subtab-my-tasks');
-const subtabTeamTasks = document.getElementById('subtab-team-tasks');
-
-if (subtabMyTasks) subtabMyTasks.addEventListener('click', () => {
-    activeSubTab = 'my-tasks';
-    subtabMyTasks.className = "font-bold border-b-2 border-white pb-xs text-body-sm text-white";
-    if (subtabTeamTasks) {
-        subtabTeamTasks.className = "pb-xs text-white/70 hover:text-white text-body-sm transition-colors";
-    }
-    document.getElementById('category-cards').classList.add('hidden');
-    loadChecklist();
-});
-
-if (subtabTeamTasks) {
-    subtabTeamTasks.addEventListener('click', () => {
-        activeSubTab = 'team-tasks';
-        subtabTeamTasks.className = "font-bold border-b-2 border-white pb-xs text-body-sm text-white";
-        if (subtabMyTasks) {
-            subtabMyTasks.className = "pb-xs text-white/70 hover:text-white text-body-sm transition-colors";
-        }
-        document.getElementById('category-cards').classList.remove('hidden');
-        loadChecklist();
-    });
-}
 
 function setActiveShiftButton() {
     document.querySelectorAll('.shift-btn').forEach(btn => {
@@ -289,20 +259,7 @@ if (currentUser.shift_type && currentUser.shift_type !== 'Both') {
     });
 }
 
-document.querySelectorAll('.role-card').forEach(card => {
-    card.addEventListener('click', () => {
-        document.querySelectorAll('.role-card').forEach(c => {
-            c.classList.remove('border-primary', 'bg-surface-container-lowest', 'opacity-100');
-            c.classList.add('border-outline-variant', 'bg-surface', 'opacity-70');
-            c.querySelector('span:last-child').classList.replace('text-primary', 'text-on-surface-variant');
-        });
-        card.classList.remove('border-outline-variant', 'bg-surface', 'opacity-70');
-        card.classList.add('border-primary', 'bg-surface-container-lowest', 'opacity-100');
-        card.querySelector('span:last-child').classList.replace('text-on-surface-variant', 'text-primary');
-        currentCategory = card.dataset.category || '';
-        loadChecklist();
-    });
-});
+
 
 async function uploadEvidence(file) {
     const ext = file.name.split('.').pop() || 'jpg';
@@ -446,7 +403,7 @@ function renderChecklist(templates, logsByTemplate) {
 async function loadChecklist() {
     container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
     try {
-        const categoryFilter = activeSubTab === 'my-tasks' ? null : (currentCategory || null);
+        const categoryFilter = null;
         const templates = (await ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id)).filter(t => ZamAPI.isTaskDueToday(t));
         const logs = await ZamAPI.getTodayLogs(currentUser.branch_id);
         const logsByTemplate = {};
@@ -459,12 +416,81 @@ async function loadChecklist() {
 }
 
 setActiveShiftButton();
-document.getElementById('category-cards').classList.toggle('hidden', activeSubTab !== 'team-tasks');
 loadChecklist();
+loadRecentNotes();
 
 document.getElementById('send-report-btn')?.addEventListener('click', () => {
     window.location.href = '../daily-report/index.html';
 });
+
+// حفظ ملاحظات سير العمل — تُعرض في داشبورد الفرع للإدارة
+document.getElementById('save-note-btn')?.addEventListener('click', async () => {
+    const input = document.getElementById('team-note-input');
+    const note = (input.value || '').trim();
+    if (!note) { alert('اكتب الملاحظة أولاً.'); return; }
+    const btn = document.getElementById('save-note-btn');
+    btn.disabled = true;
+    try {
+        await zamClient.auth.getSession();
+        const { error } = await zamClient.from('team_notes').insert([{
+            profile_id: currentUser.id,
+            branch_id: currentUser.branch_id,
+            note,
+        }]);
+        if (error) throw error;
+        input.value = '';
+        const msg = document.getElementById('note-saved-msg');
+        msg.classList.remove('hidden');
+        setTimeout(() => msg.classList.add('hidden'), 4000);
+        loadRecentNotes();
+    } catch (err) {
+        console.error(err);
+        alert('تعذّر حفظ الملاحظة: ' + (err.message || 'خطأ غير معروف'));
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// عرض ملاحظات الفريق الحديثة
+async function loadRecentNotes() {
+    const listEl = document.getElementById('recent-notes-list');
+    if (!listEl) return;
+    try {
+        await zamClient.auth.getSession();
+        const { data: notes, error } = await zamClient
+            .from('team_notes')
+            .select('id, profile_id, note, created_at, profiles(full_name, avatar_url)')
+            .eq('branch_id', currentUser.branch_id)
+            .order('created_at', { ascending: false })
+            .limit(20);
+        if (error) throw error;
+        if (!notes || !notes.length) {
+            listEl.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">لا توجد ملاحظات حتى الآن.</p>';
+            return;
+        }
+        const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
+        listEl.innerHTML = notes.map(n => {
+            const time = n.created_at ? new Date(n.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '';
+            const date = n.created_at ? new Date(n.created_at).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }) : '';
+            const avatar = n.profiles?.avatar_url || avatarFallback;
+            const name = n.profiles?.full_name || '—';
+            return `
+            <div class="p-sm flex gap-sm hover:bg-surface-container-low transition-colors">
+                <img src="${avatar}" class="w-8 h-8 rounded-full object-cover border border-outline-variant shrink-0"/>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-sm mb-xs">
+                        <span class="font-bold text-on-surface text-[12px]">${name}</span>
+                        <span class="text-[10px] text-on-surface-variant">${date} · ${time}</span>
+                    </div>
+                    <p class="text-body-sm text-on-surface-variant">${n.note}</p>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (err) {
+        console.error(err);
+        listEl.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل الملاحظات.</p>';
+    }
+}
 
 document.getElementById('close-image')?.addEventListener('click', () => {
     document.getElementById('image-modal').classList.add('hidden');

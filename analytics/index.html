@@ -19,9 +19,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
-  if (!['Owner','Admin'].includes(currentUser.role)) {
+  if (!['Owner','Admin','Manager'].includes(currentUser.role)) {
       window.location.href = zamRoleHomePath(currentUser.role);
   }
+  // real permission gate: admin/manager without this permission is sent home
+  (async () => { if (!(await ZamAPI.requireAdminPerm('can_view_all_reports'))) window.location.href = zamRoleHomePath(currentUser.role); })();
 </script>
 </head>
 <body class="bg-background text-on-surface overflow-x-hidden">

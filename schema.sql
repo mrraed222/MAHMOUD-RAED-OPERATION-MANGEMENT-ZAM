@@ -341,3 +341,15 @@ create policy "allow all task_reminder_logs" on task_reminder_logs for all using
 alter table checklist_templates add column if not exists frequency text default 'daily' check (frequency in ('daily','weekly','monthly'));
 alter table checklist_templates add column if not exists day_of_week int check (day_of_week between 0 and 6); -- 0=الأحد .. 6=السبت
 alter table checklist_templates add column if not exists day_of_month int check (day_of_month between 1 and 31);
+
+-- 16. ملاحظات الفريق أثناء التشغيل (تُعرض في داشبورد الفرع)
+create table if not exists team_notes (
+  id uuid primary key default uuid_generate_v4(),
+  profile_id uuid not null references profiles(id) on delete cascade,
+  branch_id uuid references branches(id) on delete set null,
+  note text not null,
+  created_at timestamptz default now()
+);
+alter table team_notes enable row level security;
+create policy "Owner Admin read all notes" on team_notes for select to authenticated using (true);
+create policy "Supervisors and managers insert notes" on team_notes for insert to authenticated with check (true);

@@ -184,6 +184,14 @@
     </div>
   </section>
 
+  <!-- ملاحظات الفريق أثناء التشغيل -->
+  <section class="mb-lg">
+    <h2 class="font-title-md text-title-md text-primary mb-sm flex items-center gap-xs"><span class="material-symbols-outlined">sticky_note_2</span> ملاحظات الفريق</h2>
+    <div id="notes-list" class="bg-surface-container-lowest border border-outline-variant rounded-xl divide-y divide-outline-variant">
+      <p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>
+    </div>
+  </section>
+
   <!-- اختصارات -->
   <section class="grid grid-cols-2 md:grid-cols-3 gap-md">
     <a href="../supervisor-checklist/index.html" class="bg-primary text-on-primary rounded-xl p-md flex items-center gap-sm hover:opacity-95 transition-opacity">
@@ -250,7 +258,7 @@ function tasksFor(emp) {
 async function loadAll() {
     await zamClient.auth.getSession();
     const branchId = currentUser.branch_id;
-    const [staffRes, catRes, templates, logs, reportsRes, branchRes] = await Promise.all([
+    const [staffRes, catRes, templates, logs, reportsRes, branchRes, notesRes] = await Promise.all([
         zamClient.from('profiles').select('id, full_name, role, shift_type, avatar_url, employee_number')
             .eq('branch_id', branchId).eq('status', 'active')
             .in('role', ['Barista', 'Waiter', 'Kitchen']),
@@ -259,6 +267,8 @@ async function loadAll() {
         zamClient.from('checklist_logs').select('template_id, executed_by, execution_date').eq('branch_id', branchId).then(r => r.data || []),
         zamClient.from('daily_reports').select('id, shift_type, report_date').eq('branch_id', branchId),
         zamClient.from('branches').select('name').eq('id', branchId).maybeSingle(),
+        zamClient.from('team_notes').select('id, profile_id, note, created_at, profiles(full_name, avatar_url)')
+            .eq('branch_id', branchId).order('created_at', { ascending: false }).limit(30),
     ]);
     const today = new Date().toISOString().split('T')[0];
     cache.staff = staffRes.data || [];
@@ -267,6 +277,11 @@ async function loadAll() {
     cache.templates = (templates || []).filter(t => ZamAPI.isTaskDueToday(t));
     cache.logs = logs.filter(l => l.execution_date === today);
     cache.reports = (reportsRes.data || []).filter(r => r.report_date === today);
+    cache.notes = (notesRes.data || []).map(n => ({
+        ...n,
+        authorName: n.profiles?.full_name || '—',
+        authorAvatar: n.profiles?.avatar_url || avatarFallback,
+    }));
     document.getElementById('branch-name').textContent = branchRes.data?.name || 'الفرع';
     render();
 }
@@ -356,6 +371,48 @@ function render() {
             </p>
         </div>`;
     }).join('') : '<p class="text-on-surface-variant text-body-sm col-span-full">لا توجد مهام مستحقة في هذه الوردية اليوم.</p>';
+
+    // ملاحظات الفريق
+    renderNotes();
+}
+
+function renderNotes() {
+    const notesList = document.getElementById('notes-list');
+    const notes = cache.notes || [];
+    if (!notes.length) {
+        notesList.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">لا توجد ملاحظات من الفريق حتى الآن.</p>';
+        return;
+    }
+    const today = new Date().toISOString().split('T')[0];
+    const todayNotes = notes.filter(n => n.created_at?.startsWith(today));
+    const olderNotes = notes.filter(n => !n.created_at?.startsWith(today));
+
+    let html = '';
+    if (todayNotes.length) {
+        html += `<div class="px-md py-xs bg-primary/5 text-[11px] font-bold text-primary">ملاحظات اليوم (${todayNotes.length})</div>`;
+        html += todayNotes.map(n => noteCardHTML(n)).join('');
+    }
+    if (olderNotes.length) {
+        html += `<div class="px-md py-xs bg-surface-container text-[11px] font-bold text-on-surface-variant">ملاحظات سابقة</div>`;
+        html += olderNotes.map(n => noteCardHTML(n)).join('');
+    }
+    notesList.innerHTML = html;
+}
+
+function noteCardHTML(n) {
+    const time = n.created_at ? new Date(n.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '';
+    const date = n.created_at ? new Date(n.created_at).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }) : '';
+    return `
+    <div class="p-md flex gap-sm hover:bg-surface-container-low transition-colors">
+        <img src="${n.authorAvatar}" class="w-9 h-9 rounded-full object-cover border border-outline-variant shrink-0 mt-xs"/>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-sm mb-xs">
+                <span class="font-bold text-on-surface text-body-sm">${n.authorName}</span>
+                <span class="text-[10px] text-on-surface-variant">${date} · ${time}</span>
+            </div>
+            <p class="text-body-sm text-on-surface-variant leading-relaxed">${n.note}</p>
+        </div>
+    </div>`;
 }
 
 (async function init() {

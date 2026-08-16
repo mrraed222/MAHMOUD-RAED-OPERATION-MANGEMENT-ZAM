@@ -4,10 +4,8 @@
 <script src="../assets/supabase-config.js?v=20260818"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
-  // فحص صلاحية: فقط المالك/الأدمن/المدير
-  if (!['Owner', 'Admin', 'Manager'].includes(currentUser.role)) {
-      window.location.href = zamRoleHomePath(currentUser.role);
-  }
+  // real permission gate: anyone without this permission is sent home
+  (async () => { if (!(await ZamAPI.requireAdminPerm('can_manage_automations'))) window.location.href = zamRoleHomePath(currentUser.role); })();
 </script>
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
