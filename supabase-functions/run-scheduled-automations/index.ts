@@ -1,4 +1,5 @@
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+// نسخة بدون أي استيراد خارجي (تعمل حتى لو خدمة تجميع الوحدات متعطلة)
+// كل الاستعلامات عبر REST مباشرة بمفتاح service_role
 
 function riyadhNow() {
   const now = new Date()
@@ -14,7 +15,42 @@ function timeMatches(sendTime: string, current: Date) {
   return diff <= 7
 }
 
-// قالب الإيميل الاحترافي الموحد (هوية زام)
+// ============ وصول قاعدة البيانات عبر REST ============
+const SB_URL = Deno.env.get('SUPABASE_URL') || ''
+const SR_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+
+function sbHeaders(prefer?: string): Record<string, string> {
+  const h: Record<string, string> = {
+    apikey: SR_KEY,
+    Authorization: `Bearer ${SR_KEY}`,
+    'Content-Type': 'application/json',
+  }
+  if (prefer) h['Prefer'] = prefer
+  return h
+}
+
+async function sbGet(table: string): Promise<any[]> {
+  const res = await fetch(`${SB_URL}/rest/v1/${table}?select=*&limit=10000`, { headers: sbHeaders() })
+  if (!res.ok) { console.error(`sbGet ${table} failed:`, res.status, await res.text()); return [] }
+  return await res.json()
+}
+
+async function sbGetFiltered(table: string, filter: string): Promise<any[]> {
+  const res = await fetch(`${SB_URL}/rest/v1/${table}?select=*&${filter}&limit=10000`, { headers: sbHeaders() })
+  if (!res.ok) { console.error(`sbGet ${table} failed:`, res.status, await res.text()); return [] }
+  return await res.json()
+}
+
+async function sbPatch(table: string, filter: string, body: any) {
+  await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'PATCH', headers: sbHeaders('return=minimal'), body: JSON.stringify(body) })
+}
+
+async function sbInsert(table: string, body: any, mergeDuplicates = false) {
+  const prefer = mergeDuplicates ? 'return=minimal,resolution=merge-duplicates' : 'return=minimal'
+  await fetch(`${SB_URL}/rest/v1/${table}`, { method: 'POST', headers: sbHeaders(prefer), body: JSON.stringify(body) })
+}
+
+// ============ قوالب الإيميل (هوية زام) ============
 function emailShell(titleAr: string, bodyHtml: string, accentColor = '#33210d') {
   return `
   <div dir="rtl" style="font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:#f6f3f2;padding:32px 16px;">
@@ -47,8 +83,8 @@ function listBlock(items: string[]) {
   return `<ul style="margin:0;padding-right:20px;color:#1b1c1c;">${items.map(i => `<li style="margin-bottom:6px;">${i}</li>`).join('')}</ul>`
 }
 
-// الإرسال من دومين زام المعتمد + تسجيل كل محاولة في email_logs
-async function sendEmail(supabase: any, resendKey: string, to: string[], subject: string, html: string) {
+// الإرسال عبر Resend من دومين زام + تسجيل كل محاولة في email_logs
+async function sendEmail(resendKey: string, to: string[], subject: string, html: string) {
   if (!to.length) return
   const from = Deno.env.get('RESEND_FROM') || 'ZAM Operations <operations@zam.sa>'
   const recipients = to.join(',')
@@ -64,7 +100,7 @@ async function sendEmail(supabase: any, resendKey: string, to: string[], subject
       errorMsg = `Resend ${res.status}: ${await res.text()}`
       console.error('Resend error:', errorMsg)
     }
-    await supabase.from('email_logs').insert({
+    await sbInsert('email_logs', {
       recipient_email: recipients,
       subject,
       status: ok ? 'Sent' : 'Failed',
@@ -72,7 +108,7 @@ async function sendEmail(supabase: any, resendKey: string, to: string[], subject
     })
   } catch (e) {
     console.error('Resend error:', e)
-    await supabase.from('email_logs').insert({
+    await sbInsert('email_logs', {
       recipient_email: recipients,
       subject,
       status: 'Failed',
@@ -81,26 +117,31 @@ async function sendEmail(supabase: any, resendKey: string, to: string[], subject
   }
 }
 
-Deno.serve(async (req: Request) => {
+Deno.serve(async () => {
   try {
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const resendKey = Deno.env.get('RESEND_API_KEY')
     const now = riyadhNow()
     const today = now.toISOString().split('T')[0]
 
-    const { data: schedules } = await supabase.from('automation_schedules').select('*, branches(name)').eq('is_active', true)
-    if (!schedules || !schedules.length || !resendKey) {
+    if (!resendKey || !SB_URL || !SR_KEY) {
       return new Response(JSON.stringify({ ok: true, ran: 0, hasKey: !!resendKey }), { headers: { 'Content-Type': 'application/json' } })
     }
 
-    // ⬇️ بنجيب وردية كل موظف (shift_type) لأن التذكير الموجّه بيبقى حسب وردية الموظف نفسه
-    const { data: allProfiles } = await supabase.from('profiles').select('id, full_name, email, role, branch_id, shift_type, receives_branch_reports').eq('status', 'active').not('email', 'is', null)
-    const ownerAdminEmails = (allProfiles || []).filter((r: any) => r.role === 'Owner' || r.role === 'Admin').map((r: any) => r.email)
+    const [schedules, allProfiles, taskCategoryRows, allTemplates] = await Promise.all([
+      sbGetFiltered('automation_schedules', 'is_active=eq.true'),
+      sbGetFiltered('profiles', 'status=eq.active'),
+      sbGet('employee_task_categories'),
+      sbGet('checklist_templates'),
+    ])
+    if (!schedules.length) {
+      return new Response(JSON.stringify({ ok: true, ran: 0 }), { headers: { 'Content-Type': 'application/json' } })
+    }
 
-    // فئات المهام الحقيقية لكل موظف (تدعم تعدد الفئات)
-    const { data: taskCategoryRows } = await supabase.from('employee_task_categories').select('profile_id, category')
+    const staffProfiles = allProfiles.filter((p: any) => p.email)
+    const ownerAdminEmails = staffProfiles.filter((r: any) => r.role === 'Owner' || r.role === 'Admin').map((r: any) => r.email)
+
     const categoriesByProfile: Record<string, string[]> = {}
-    for (const row of taskCategoryRows || []) {
+    for (const row of taskCategoryRows) {
       categoriesByProfile[row.profile_id] = categoriesByProfile[row.profile_id] || []
       categoriesByProfile[row.profile_id].push(row.category)
     }
@@ -109,13 +150,12 @@ Deno.serve(async (req: Request) => {
       if (sch.recipient_emails && sch.recipient_emails.length) return [...new Set(sch.recipient_emails)]
       let list = [...ownerAdminEmails]
       if (sch.branch_id) {
-        const branchExtra = (allProfiles || []).filter((r: any) => r.branch_id === sch.branch_id && r.receives_branch_reports).map((r: any) => r.email)
+        const branchExtra = staffProfiles.filter((r: any) => r.branch_id === sch.branch_id && r.receives_branch_reports).map((r: any) => r.email)
         list = [...new Set([...list, ...branchExtra])]
       }
       return list
     }
 
-    // هل المهمة تخص موظفًا معينًا؟ (فئاته + فرعه + وردية الموظف تشمل وردية المهمة)
     const ROLE_CATEGORY: Record<string, string> = { Barista: 'البار', Waiter: 'الصالة', Kitchen: 'المطبخ' }
     function employeeCategories(emp: any): string[] {
       if (categoriesByProfile[emp.id]?.length) return categoriesByProfile[emp.id]
@@ -124,14 +164,12 @@ Deno.serve(async (req: Request) => {
     function taskFitsEmployee(t: any, emp: any): boolean {
       if (!employeeCategories(emp).includes(t.category)) return false
       if (t.branch_id && t.branch_id !== emp.branch_id) return false
-      // وردية الموظف: لو Both يشيل الورديتين، غير كده لازم تطابق وردية المهمة
       if (emp.shift_type && emp.shift_type !== 'Both' && t.shift_type !== emp.shift_type) return false
       return true
     }
     function fmtTime(t: any): string {
       return t ? ` (⏰ ${String(t).slice(0, 5)})` : ''
     }
-    // هل المهمة مستحقة اليوم؟ (يومية دايمًا / أسبوعية في يومها / شهرية في يومها من الشهر)
     function isDueToday(t: any): boolean {
       const freq = t.frequency || 'daily'
       if (freq === 'daily') return true
@@ -143,36 +181,35 @@ Deno.serve(async (req: Request) => {
       return true
     }
 
+    const logsToday = await sbGetFiltered('checklist_logs', `execution_date=eq.${today}`)
+
     let ranCount = 0
 
-    // ================================================================
-    // ⬇️ جديد: تذكير لحظي عند وقت المهمة المحدد عند تصميمها (target_time)
-    // يشتغل مع كل استدعاء للدالة (كل 10 دقايق من الـ cron) من غير جدول مواعيد
-    // ================================================================
+    // ============ تذكير لحظي عند وقت المهمة (target_time) ============
     {
-      const { data: allTemplates } = await supabase.from('checklist_templates').select('*').not('target_time', 'is', null)
-      const dueTemplates = (allTemplates || []).filter((t: any) => timeMatches(t.target_time, now) && isDueToday(t))
+      const dueTemplates = allTemplates.filter((t: any) => t.target_time && timeMatches(t.target_time, now) && isDueToday(t))
       if (dueTemplates.length) {
-        const { data: logs } = await supabase.from('checklist_logs').select('branch_id, template_id, executed_by').eq('execution_date', today)
-        const donePairs = new Set((logs || []).map((l: any) => `${l.executed_by}|${l.template_id}`))
-        // سجل التذكيرات عشان نفس المهمة ما تتكررش في نفس اليوم
-        const { data: alreadySent } = await supabase.from('task_reminder_logs').select('template_id').eq('log_date', today)
-        const sentIds = new Set((alreadySent || []).map((r: any) => r.template_id))
+        const alreadySent = await sbGetFiltered('task_reminder_logs', `log_date=eq.${today}`)
+        const sentIds = new Set(alreadySent.map((r: any) => r.template_id))
+        const donePairs = new Set(logsToday.map((l: any) => `${l.executed_by}|${l.template_id}`))
+        const staff = staffProfiles.filter((p: any) => ['Barista', 'Waiter', 'Kitchen'].includes(p.role))
 
         for (const t of dueTemplates) {
           if (sentIds.has(t.id)) continue
-          const staff = (allProfiles || []).filter((p: any) => ['Barista', 'Waiter', 'Kitchen'].includes(p.role))
           const targets = staff.filter((emp: any) => taskFitsEmployee(t, emp) && !donePairs.has(`${emp.id}|${t.id}`))
           if (targets.length) {
             const body = `<p>وصل وقت تنفيذ المهمة التالية:</p>` +
               `<p style="font-size:16px;font-weight:700;color:#33210d;">${t.task_title} ⏰ ${String(t.target_time).slice(0, 5)}</p>` +
               (t.instructions ? `<p style="color:#4e453d;">${t.instructions}</p>` : '')
-            await sendEmail(supabase, resendKey, targets.map((e: any) => e.email), `⏰ حان وقت مهمة: ${t.task_title}`, emailShell('تذكير بوقت المهمة', body, '#ba1a1a'))
+            await sendEmail(resendKey, targets.map((e: any) => e.email), `⏰ حان وقت مهمة: ${t.task_title}`, emailShell('تذكير بوقت المهمة', body, '#ba1a1a'))
           }
-          await supabase.from('task_reminder_logs').upsert({ template_id: t.id, log_date: today })
+          await sbInsert('task_reminder_logs', { template_id: t.id, log_date: today }, true)
         }
       }
     }
+
+    const branches = await sbGet('branches')
+    const reportsToday = await sbGetFiltered('daily_reports', `report_date=eq.${today}`)
 
     for (const sch of schedules) {
       if (sch.last_run_date === today) continue
@@ -180,116 +217,89 @@ Deno.serve(async (req: Request) => {
 
       // ============ ملخص تشيك ليست بالفئات ============
       if (sch.report_type === 'checklist_summary') {
-        let branchQuery = supabase.from('branches').select('*')
-        if (sch.branch_id) branchQuery = branchQuery.eq('id', sch.branch_id)
-        const { data: branches } = await branchQuery
-        const { data: templates } = await supabase.from('checklist_templates').select('*')
-        const { data: logs } = await supabase.from('checklist_logs').select('branch_id, template_id').eq('execution_date', today)
-
+        const scopeBranches = sch.branch_id ? branches.filter((b: any) => b.id === sch.branch_id) : branches
         let body = sectionTitle(`ملخص تنفيذ التشيك ليست - ${today}`)
-        for (const b of branches || []) {
-          const branchTemplates = (templates || []).filter((t: any) => (!t.branch_id || t.branch_id === b.id) && isDueToday(t))
+        for (const b of scopeBranches) {
+          const branchTemplates = allTemplates.filter((t: any) => (!t.branch_id || t.branch_id === b.id) && isDueToday(t))
           const byCategory: Record<string, { done: number; total: number }> = {}
           branchTemplates.forEach((t: any) => { byCategory[t.category] = byCategory[t.category] || { done: 0, total: 0 }; byCategory[t.category].total++ })
-          const doneIds = new Set((logs || []).filter((l: any) => l.branch_id === b.id).map((l: any) => l.template_id))
+          const doneIds = new Set(logsToday.filter((l: any) => l.branch_id === b.id).map((l: any) => l.template_id))
           branchTemplates.forEach((t: any) => { if (doneIds.has(t.id)) byCategory[t.category].done++ })
-
           body += `<div style="margin-bottom:16px;"><div style="font-weight:700;color:#33210d;margin-bottom:6px;">${b.name}</div>`
           body += listBlock(Object.entries(byCategory).map(([cat, v]: any) => `${cat}: <b>${v.done}</b> من ${v.total}`))
           body += '</div>'
         }
-        await sendEmail(supabase, resendKey, resolveRecipients(sch), `ملخص تشيك ليست - ${today}`, emailShell('ملخص قوائم التحقق اليومية', body))
+        await sendEmail(resendKey, resolveRecipients(sch), `ملخص تشيك ليست - ${today}`, emailShell('ملخص قوائم التحقق اليومية', body))
       }
 
       // ============ ملخص أداء التقارير ============
       if (sch.report_type === 'manager_reports_summary') {
-        let reportsQuery = supabase.from('daily_reports').select('*, branches(name)').eq('report_date', today)
-        if (sch.branch_id) reportsQuery = reportsQuery.eq('branch_id', sch.branch_id)
-        const { data: reports } = await reportsQuery
-        const totalSales = (reports || []).reduce((s: number, r: any) => s + (Number(r.total_sales) || 0), 0)
-        const reportIds = (reports || []).map((r: any) => r.id)
-        const { data: waste } = reportIds.length ? await supabase.from('waste_logs').select('id').in('report_id', reportIds) : { data: [] }
-        const { data: issues } = reportIds.length ? await supabase.from('shift_issues').select('id').in('report_id', reportIds) : { data: [] }
-
+        const scopeReports = sch.branch_id ? reportsToday.filter((r: any) => r.branch_id === sch.branch_id) : reportsToday
+        const totalSales = scopeReports.reduce((s: number, r: any) => s + (Number(r.total_sales) || 0), 0)
+        const reportIds = scopeReports.map((r: any) => r.id)
+        const waste = reportIds.length ? await sbGetFiltered('waste_logs', `report_id=in.(${reportIds.join(',')})`) : []
+        const issues = reportIds.length ? await sbGetFiltered('shift_issues', `report_id=in.(${reportIds.join(',')})`) : []
         let body = sectionTitle(`ملخص أداء الفروع - ${today}`)
-        body += `<div style="text-align:center;">${statPill('تقارير مستلمة', (reports || []).length)}${statPill('إجمالي المبيعات', totalSales.toLocaleString() + ' ر.س', '#56b958')}${statPill('سجلات هدر', (waste || []).length, '#ba1a1a')}${statPill('مشاكل شفت', (issues || []).length, '#ba1a1a')}</div>`
+        body += `<div style="text-align:center;">${statPill('تقارير مستلمة', scopeReports.length)}${statPill('إجمالي المبيعات', totalSales.toLocaleString() + ' ر.س', '#56b958')}${statPill('سجلات هدر', waste.length, '#ba1a1a')}${statPill('مشاكل شفت', issues.length, '#ba1a1a')}</div>`
         body += sectionTitle('تفاصيل الفروع')
-        body += listBlock((reports || []).map((r: any) => `${r.branches?.name || ''}: ${r.total_sales} ر.س (${r.orders_count} طلب) - ${r.team_status || ''}`))
-        await sendEmail(supabase, resendKey, resolveRecipients(sch), `ملخص أداء الفروع - ${today}`, emailShell('ملخص أداء التقارير', body, '#4b3621'))
+        body += listBlock(scopeReports.map((r: any) => `${branches.find((b: any) => b.id === r.branch_id)?.name || ''}: ${r.total_sales} ر.س (${r.orders_count} طلب) - ${r.team_status || ''}`))
+        await sendEmail(resendKey, resolveRecipients(sch), `ملخص أداء الفروع - ${today}`, emailShell('ملخص أداء التقارير', body, '#4b3621'))
       }
 
       // ============ تنبيه تأخر تسليم التقارير ============
       if (sch.report_type === 'missed_report_alert') {
-        let branchQuery = supabase.from('branches').select('*')
-        if (sch.branch_id) branchQuery = branchQuery.eq('id', sch.branch_id)
-        const { data: branches } = await branchQuery
-        const { data: reports } = await supabase.from('daily_reports').select('branch_id').eq('report_date', today)
-        const reportedBranchIds = new Set((reports || []).map((r: any) => r.branch_id))
-        const missing = (branches || []).filter((b: any) => !reportedBranchIds.has(b.id))
+        const scopeBranches = sch.branch_id ? branches.filter((b: any) => b.id === sch.branch_id) : branches
+        const reportedBranchIds = new Set(reportsToday.map((r: any) => r.branch_id))
+        const missing = scopeBranches.filter((b: any) => !reportedBranchIds.has(b.id))
         if (missing.length) {
           const body = sectionTitle('⚠️ فروع لم ترسل تقريرها اليوم') + listBlock(missing.map((b: any) => b.name))
-          await sendEmail(supabase, resendKey, resolveRecipients(sch), `⚠️ فروع لم ترسل تقريرها - ${today}`, emailShell('تنبيه تأخر التقارير', body, '#ba1a1a'))
+          await sendEmail(resendKey, resolveRecipients(sch), `⚠️ فروع لم ترسل تقريرها - ${today}`, emailShell('تنبيه تأخر التقارير', body, '#ba1a1a'))
         }
       }
 
-      // ============ تذكير الموظف بمهامه غير المنفذة (موجّه لكل موظف) ============
-      // ⬇️ التوجيه الكامل: فرع الموظف + فئاته + وردية الموظف نفسه (وليس ساعة التشغيل)
-      // ولو المالك حدد وردية في إعدادات الأتمتة، يتبعت بس لموظفي تلك الوردية
+      // ============ تذكير الموظف بمهامه غير المنفذة (موجّه: فرعه + فئاته + وردية الموظف) ============
       if (sch.report_type === 'employee_task_reminder') {
-        const { data: templates } = await supabase.from('checklist_templates').select('*')
-        const { data: logs } = await supabase.from('checklist_logs').select('executed_by, template_id').eq('execution_date', today)
-
-        let staff = (allProfiles || []).filter((p: any) => ['Barista', 'Waiter', 'Kitchen'].includes(p.role))
-        if (sch.branch_id) staff = staff.filter((p: any) => p.branch_id === sch.branch_id)      // تقييد بالفرع من الإعدادات
-        if (sch.shift_type) staff = staff.filter((p: any) => p.shift_type === 'Both' || p.shift_type === sch.shift_type) // تقييد بالوردية المختارة
+        let staff = staffProfiles.filter((p: any) => ['Barista', 'Waiter', 'Kitchen'].includes(p.role))
+        if (sch.branch_id) staff = staff.filter((p: any) => p.branch_id === sch.branch_id)
+        if (sch.shift_type) staff = staff.filter((p: any) => p.shift_type === 'Both' || p.shift_type === sch.shift_type)
 
         for (const emp of staff) {
-          const donePairs = new Set((logs || []).filter((l: any) => l.executed_by === emp.id).map((l: any) => l.template_id))
-          const pending = (templates || []).filter((t: any) => taskFitsEmployee(t, emp) && isDueToday(t) && !donePairs.has(t.id))
+          const doneIds = new Set(logsToday.filter((l: any) => l.executed_by === emp.id).map((l: any) => l.template_id))
+          const pending = allTemplates.filter((t: any) => taskFitsEmployee(t, emp) && isDueToday(t) && !doneIds.has(t.id))
           if (!pending.length) continue
 
           const shiftLabel = emp.shift_type === 'Both' ? 'الصباحية والمسائية' : (emp.shift_type === 'Morning' ? 'الصباحية' : 'المسائية')
           const body = `<p>مرحباً <b>${emp.full_name}</b>، عندك ${pending.length} مهمة لسه مانفّذتهاش النهاردة (وردية ${shiftLabel}):</p>` +
             listBlock(pending.map((t: any) => `${t.task_title}${fmtTime(t.target_time)}`))
-          await sendEmail(supabase, resendKey, [emp.email], `⏰ تذكير: مهام لم تُنفَّذ بعد`, emailShell('تذكير بتنفيذ التشيك ليست', body, '#ba1a1a'))
+          await sendEmail(resendKey, [emp.email], `⏰ تذكير: مهام لم تُنفَّذ بعد`, emailShell('تذكير بتنفيذ التشيك ليست', body, '#ba1a1a'))
         }
       }
 
       // ============ تذكير المشرف بمهامه وتقريره ============
       if (sch.report_type === 'supervisor_task_reminder') {
-        let supervisors = (sch.branch_id
-          ? (allProfiles || []).filter((p: any) => p.branch_id === sch.branch_id)
-          : (allProfiles || [])
-        ).filter((p: any) => p.role === 'Supervisor')
-        if (sch.shift_type) {
-          // لو الموعد مخصص لوردية معينة، يتبعت بس لمشرفي تلك الوردية
-          supervisors = supervisors.filter((p: any) => p.shift_type === 'Both' || p.shift_type === sch.shift_type)
-        }
+        let supervisors = staffProfiles.filter((p: any) => p.role === 'Supervisor')
+        if (sch.branch_id) supervisors = supervisors.filter((p: any) => p.branch_id === sch.branch_id)
+        if (sch.shift_type) supervisors = supervisors.filter((p: any) => p.shift_type === 'Both' || p.shift_type === sch.shift_type)
 
-        const { data: templates } = await supabase.from('checklist_templates').select('*')
-        const { data: logs } = await supabase.from('checklist_logs').select('branch_id, template_id').eq('execution_date', today)
-        const { data: reports } = await supabase.from('daily_reports').select('branch_id, shift_type').eq('report_date', today)
-        const reportedBranches = new Set((reports || []).map((r: any) => `${r.branch_id}|${r.shift_type}`))
-
+        const reportedBranches = new Set(reportsToday.map((r: any) => `${r.branch_id}|${r.shift_type}`))
         for (const sup of supervisors) {
-          const branchTemplates = (templates || []).filter((t: any) => (!t.branch_id || t.branch_id === sup.branch_id) && isDueToday(t))
-          const doneIds = new Set((logs || []).filter((l: any) => l.branch_id === sup.branch_id).map((l: any) => l.template_id))
+          const branchTemplates = allTemplates.filter((t: any) => (!t.branch_id || t.branch_id === sup.branch_id) && isDueToday(t))
+          const doneIds = new Set(logsToday.filter((l: any) => l.branch_id === sup.branch_id).map((l: any) => l.template_id))
           const pending = branchTemplates.filter((t: any) => !doneIds.has(t.id))
           const myShift = sup.shift_type === 'Both' ? null : sup.shift_type
           const reportSubmitted = myShift
             ? reportedBranches.has(`${sup.branch_id}|${myShift}`)
             : [...reportedBranches].some((k: any) => k.startsWith(`${sup.branch_id}|`))
-
           if (!pending.length && reportSubmitted) continue
 
           let body = `<p>مرحباً <b>${sup.full_name}</b>،</p>`
           if (pending.length) { body += sectionTitle(`${pending.length} مهمة لسه معلّقة في فرعك`); body += listBlock(pending.map((t: any) => `${t.task_title}${fmtTime(t.target_time)}`)) }
           if (!reportSubmitted) body += `<p style="color:#ba1a1a;font-weight:700;margin-top:12px;">⚠️ لسه ماأرسلتش تقرير الشفت النهاردة.</p>`
-          await sendEmail(supabase, resendKey, [sup.email], `⏰ تذكير مهام وتقرير الشفت`, emailShell('تذكير المشرف', body, '#ba1a1a'))
+          await sendEmail(resendKey, [sup.email], `⏰ تذكير مهام وتقرير الشفت`, emailShell('تذكير المشرف', body, '#ba1a1a'))
         }
       }
 
-      await supabase.from('automation_schedules').update({ last_run_date: today }).eq('id', sch.id)
+      await sbPatch('automation_schedules', `id=eq.${sch.id}`, { last_run_date: today })
       ranCount++
     }
 
