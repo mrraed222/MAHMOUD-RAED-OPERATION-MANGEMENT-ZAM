@@ -7,7 +7,10 @@
 <script src="../assets/supabase-config.js?v=20260818"></script>
 <script>
   let currentUser = ZamSession.requireAuth('../index.html');
-  if (!['Supervisor', 'Manager'].includes(currentUser.role)) {
+  // المالك/الأدمن يدخلان فقط لفرع محدد (?branch=) من لوحة التحكم — أداة تشغيلية للمشرف/المدير بفرعهم
+  const urlBranchId = new URLSearchParams(window.location.search).get('branch');
+  const canBrowseBranches = ['Owner', 'Admin'].includes(currentUser.role) && urlBranchId;
+  if (!['Supervisor', 'Manager'].includes(currentUser.role) && !canBrowseBranches) {
       window.location.href = zamRoleHomePath(currentUser.role);
   }
 </script>
@@ -251,13 +254,14 @@ function empCategories(emp) {
 function tasksFor(emp) {
     return cache.templates.filter(t =>
         empCategories(emp).includes(t.category) &&
-        (!t.branch_id || t.branch_id === emp.branch_id)
+        (!t.branch_id || t.branch_id === (urlBranchId || currentUser.branch_id))
     );
 }
 
 async function loadAll() {
     await zamClient.auth.getSession();
-    const branchId = currentUser.branch_id;
+    // فرع الملاحظة: باراميتر ?branch= (للمالك/الأدمن من لوحة التحكم) أو فرع المستخدم نفسه
+    const branchId = urlBranchId || currentUser.branch_id;
     const [staffRes, catRes, templates, logs, reportsRes, branchRes, notesRes] = await Promise.all([
         zamClient.from('profiles').select('id, full_name, role, shift_type, avatar_url, employee_number')
             .eq('branch_id', branchId).eq('status', 'active')
