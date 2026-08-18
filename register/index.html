@@ -1,9 +1,7 @@
 <!DOCTYPE html><html class="light" lang="en"><head>
-<meta charset="utf-8">
-<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>ZAM Specialty Coffee - Employee Registration</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&amp;display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
 <script id="tailwind-config">
         tailwind.config = {
@@ -76,15 +74,7 @@
                       "base": "8px",
                       "margin-mobile": "16px"
               },
-              "fontFamily": {
-                      "title-md": ["Montserrat"],
-                      "label-bold": ["Montserrat"],
-                      "display-lg": ["Montserrat"],
-                      "body-lg": ["Montserrat"],
-                      "body-sm": ["Montserrat"],
-                      "headline-lg-mobile": ["Montserrat"],
-                      "headline-lg": ["Montserrat"]
-              },
+              "fontFamily": {"title-md": ["Tajawal", "sans-serif"], "headline-lg": ["Tajawal", "sans-serif"], "label-bold": ["Tajawal", "sans-serif"], "display-lg": ["Tajawal", "sans-serif"], "body-lg": ["Tajawal", "sans-serif"], "body-sm": ["Tajawal", "sans-serif"]},
               "fontSize": {
                       "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
                       "label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
@@ -129,15 +119,40 @@
     </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js?v=20260818"></script>
+<style id="zam-design-system">
+:root {
+  --zam-coffee: #33210d;
+  --zam-coffee-light: #4b3621;
+  --zam-focus: #c0583a;
+  --zam-surface: #fcf9f8;
+}
+body.zam-page {
+  font-family: "Tajawal", sans-serif;
+  text-rendering: optimizeLegibility;
+}
+@keyframes zamFadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes zamLogoGlow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(192, 88, 58, .20)); } 50% { filter: drop-shadow(0 0 12px rgba(192, 88, 58, .48)); } }
+@keyframes zamSoftPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(192, 88, 58, .22); } 50% { box-shadow: 0 0 0 7px rgba(192, 88, 58, 0); } }
+.zam-logo { animation: zamFadeInUp .65s ease-out both, zamLogoGlow 3.2s ease-in-out infinite .7s; }
+body.zam-page main { animation: zamFadeInUp .46s ease-out both; }
+.zam-card { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
+.zam-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(51, 33, 13, .12); border-color: var(--zam-focus) !important; }
+.zam-btn, button, [role="button"] { transition: transform .15s ease, box-shadow .18s ease, background-color .18s ease; }
+.zam-btn:hover, button:hover, [role="button"]:hover { box-shadow: 0 4px 14px rgba(51, 33, 13, .15); }
+.zam-btn:active, button:active, [role="button"]:active { transform: scale(.98); }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .42); outline-offset: 2px; }
+.zam-loading { animation: zamSoftPulse 1.7s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+</style>
 </head>
-<body class="min-h-screen relative overflow-x-hidden">
+<body class="zam-page min-h-screen relative overflow-x-hidden">
 <!-- Background Elements -->
 <div class="fixed inset-0 travertine-texture z-0"></div>
 <div class="fixed top-[-10%] right-[-5%] w-96 h-96 bg-primary-fixed opacity-20 blur-3xl rounded-full z-0"></div>
 <!-- Top Bar Navigation (Based on Shared Components - Transactional Context) -->
 <header class="sticky top-0 z-40 bg-surface/80 backdrop-blur-xl border-b border-outline-variant flex items-center justify-between px-margin-desktop h-20 w-full">
 <div class="flex items-center gap-4">
-<img alt="ZAM Specialty Coffee Logo" class="h-10 object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCntwwDSIpTp0o3QO1FpuuI3MaGFDME-CA8BoWj2SdnP4eHXrVAZnZiaXD2DbxAGNJHdEokVqsPEHj5DVJnbJmwFvkxAHtfXF9dN7JIe2Mt7WfuXaqud6tXKEp2ChwIfAedaOLVba58l4RZl9d0mX54v_lhPQj0Sv8-zuyMz0jrpjXf0in0BpT8fbT_yaYJxADPDeT0klUGQtQVNiqpYWXcHH_Epw79KzKgCpHbS_h_08Rv4WFvoIqdp9FaLI9oAjcklw">
+<img alt="ZAM Specialty Coffee Logo" class="h-10 object-contain" src="../assets/logo/zam-logo.png">
 </div>
 <div class="flex items-center gap-6">
 <button class="text-on-surface-variant hover:text-primary transition-all">

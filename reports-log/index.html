@@ -1,4 +1,4 @@
-<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>ZAM Operations - سجل التقارير</title><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>ZAM Operations - سجل التقارير</title><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
         tailwind.config = {
             darkMode: "class",
             theme: {
@@ -8,7 +8,7 @@
                     },
                     "borderRadius": {"DEFAULT": "0.125rem","lg": "0.25rem","xl": "0.5rem","full": "0.75rem"},
                     "spacing": {"margin-mobile": "16px","xl": "64px","sm": "12px","margin-desktop": "32px","lg": "40px","gutter": "24px","base": "8px","xs": "4px","md": "24px"},
-                    "fontFamily": {"title-md": ["Montserrat", "Noto Sans Arabic"],"headline-lg": ["Montserrat", "Noto Sans Arabic"],"label-bold": ["Montserrat", "Noto Sans Arabic"],"display-lg": ["Montserrat", "Noto Sans Arabic"],"body-lg": ["Montserrat", "Noto Sans Arabic"],"body-sm": ["Montserrat", "Noto Sans Arabic"]},
+                    "fontFamily": {"title-md": ["Tajawal", "sans-serif"], "headline-lg": ["Tajawal", "sans-serif"], "label-bold": ["Tajawal", "sans-serif"], "display-lg": ["Tajawal", "sans-serif"], "body-lg": ["Tajawal", "sans-serif"], "body-sm": ["Tajawal", "sans-serif"]},
                     "fontSize": {"title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],"headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],"label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],"display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],"body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],"body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]}
                 }
             }
@@ -20,8 +20,33 @@
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
 </script>
+<style id="zam-design-system">
+:root {
+  --zam-coffee: #33210d;
+  --zam-coffee-light: #4b3621;
+  --zam-focus: #c0583a;
+  --zam-surface: #fcf9f8;
+}
+body.zam-page {
+  font-family: "Tajawal", sans-serif;
+  text-rendering: optimizeLegibility;
+}
+@keyframes zamFadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes zamLogoGlow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(192, 88, 58, .20)); } 50% { filter: drop-shadow(0 0 12px rgba(192, 88, 58, .48)); } }
+@keyframes zamSoftPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(192, 88, 58, .22); } 50% { box-shadow: 0 0 0 7px rgba(192, 88, 58, 0); } }
+.zam-logo { animation: zamFadeInUp .65s ease-out both, zamLogoGlow 3.2s ease-in-out infinite .7s; }
+body.zam-page main { animation: zamFadeInUp .46s ease-out both; }
+.zam-card { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
+.zam-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(51, 33, 13, .12); border-color: var(--zam-focus) !important; }
+.zam-btn, button, [role="button"] { transition: transform .15s ease, box-shadow .18s ease, background-color .18s ease; }
+.zam-btn:hover, button:hover, [role="button"]:hover { box-shadow: 0 4px 14px rgba(51, 33, 13, .15); }
+.zam-btn:active, button:active, [role="button"]:active { transform: scale(.98); }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .42); outline-offset: 2px; }
+.zam-loading { animation: zamSoftPulse 1.7s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+</style>
 </head>
-<body class="bg-background text-on-surface overflow-x-hidden">
+<body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('reports-log', currentUser.role);})();</script>
 
 <header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">

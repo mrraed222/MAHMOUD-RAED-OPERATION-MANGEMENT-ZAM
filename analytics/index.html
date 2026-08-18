@@ -1,4 +1,4 @@
-<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>ZAM Operations - داشبورد التحليلات</title><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>ZAM Operations - داشبورد التحليلات</title><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
         tailwind.config = {
             darkMode: "class",
             theme: {
@@ -8,7 +8,7 @@
                     },
                     "borderRadius": {"DEFAULT": "0.125rem","lg": "0.25rem","xl": "0.5rem","full": "0.75rem"},
                     "spacing": {"margin-mobile": "16px","xl": "64px","sm": "12px","margin-desktop": "32px","lg": "40px","gutter": "24px","base": "8px","xs": "4px","md": "24px"},
-                    "fontFamily": {"title-md": ["Montserrat", "Noto Sans Arabic"],"headline-lg": ["Montserrat", "Noto Sans Arabic"],"label-bold": ["Montserrat", "Noto Sans Arabic"],"display-lg": ["Montserrat", "Noto Sans Arabic"],"body-lg": ["Montserrat", "Noto Sans Arabic"],"body-sm": ["Montserrat", "Noto Sans Arabic"]},
+                    "fontFamily": {"title-md": ["Tajawal", "sans-serif"], "headline-lg": ["Tajawal", "sans-serif"], "label-bold": ["Tajawal", "sans-serif"], "display-lg": ["Tajawal", "sans-serif"], "body-lg": ["Tajawal", "sans-serif"], "body-sm": ["Tajawal", "sans-serif"]},
                     "fontSize": {"title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],"headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],"label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],"display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],"body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],"body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]}
                 }
             }
@@ -25,8 +25,33 @@
   // real permission gate: admin/manager without this permission is sent home
   (async () => { if (!(await ZamAPI.requireAdminPerm('can_view_all_reports'))) window.location.href = zamRoleHomePath(currentUser.role); })();
 </script>
+<style id="zam-design-system">
+:root {
+  --zam-coffee: #33210d;
+  --zam-coffee-light: #4b3621;
+  --zam-focus: #c0583a;
+  --zam-surface: #fcf9f8;
+}
+body.zam-page {
+  font-family: "Tajawal", sans-serif;
+  text-rendering: optimizeLegibility;
+}
+@keyframes zamFadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes zamLogoGlow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(192, 88, 58, .20)); } 50% { filter: drop-shadow(0 0 12px rgba(192, 88, 58, .48)); } }
+@keyframes zamSoftPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(192, 88, 58, .22); } 50% { box-shadow: 0 0 0 7px rgba(192, 88, 58, 0); } }
+.zam-logo { animation: zamFadeInUp .65s ease-out both, zamLogoGlow 3.2s ease-in-out infinite .7s; }
+body.zam-page main { animation: zamFadeInUp .46s ease-out both; }
+.zam-card { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
+.zam-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(51, 33, 13, .12); border-color: var(--zam-focus) !important; }
+.zam-btn, button, [role="button"] { transition: transform .15s ease, box-shadow .18s ease, background-color .18s ease; }
+.zam-btn:hover, button:hover, [role="button"]:hover { box-shadow: 0 4px 14px rgba(51, 33, 13, .15); }
+.zam-btn:active, button:active, [role="button"]:active { transform: scale(.98); }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .42); outline-offset: 2px; }
+.zam-loading { animation: zamSoftPulse 1.7s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+</style>
 </head>
-<body class="bg-background text-on-surface overflow-x-hidden">
+<body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('analytics', currentUser.role);})();</script>
 
 <header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
@@ -40,7 +65,7 @@
 <div class="max-w-6xl mx-auto p-margin-desktop">
 
   <!-- الفلاتر -->
-  <section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md mb-lg grid grid-cols-1 md:grid-cols-5 gap-sm items-end">
+  <section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md mb-lg grid grid-cols-1 md:grid-cols-6 gap-sm items-end">
     <div>
       <label class="text-body-sm text-on-surface-variant">الفرع</label>
       <select id="f-branch" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
@@ -54,8 +79,13 @@
         <option value="30" selected>آخر 30 يوم</option>
         <option value="90">آخر 3 شهور</option>
         <option value="365">آخر سنة</option>
+        <option value="month">شهر محدد</option>
         <option value="custom">فترة مخصصة</option>
       </select>
+    </div>
+    <div id="month-wrap" class="hidden">
+      <label class="text-body-sm text-on-surface-variant">اختر الشهر</label>
+      <input type="month" id="f-month" class="w-full border border-outline-variant rounded-lg p-sm mt-xs"/>
     </div>
     <div id="custom-from-wrap" class="hidden">
       <label class="text-body-sm text-on-surface-variant">من تاريخ</label>
@@ -76,7 +106,7 @@
         <span class="material-symbols-outlined text-base">download</span> تصدير Excel
       </button>
     </div>
-    <div id="waste-summary" class="grid grid-cols-2 md:grid-cols-4 gap-md mb-sm"></div>
+    <div id="waste-summary" class="grid grid-cols-2 md:grid-cols-5 gap-md mb-sm"></div>
     <div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-x-auto">
       <table class="w-full text-body-sm">
         <thead class="bg-surface-container text-on-surface-variant">
@@ -84,6 +114,27 @@
         </thead>
         <tbody id="waste-tbody"><tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody>
       </table>
+    </div>
+
+    <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-md mt-md">
+      <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-sm mb-sm">
+        <div>
+          <h3 class="font-title-md text-title-md text-primary">تجميع الهدر حسب الصنف والوحدة</h3>
+          <p class="text-body-sm text-on-surface-variant">يعكس الفرع والفترة المحددين أعلاه؛ افلتر داخل الجدول بالصنف أو السبب.</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-xs">
+          <input id="f-waste-table" type="search" placeholder="بحث بالصنف أو السبب" class="border border-outline-variant rounded-lg p-sm text-body-sm" aria-label="فلتر جدول تجميع الهدر"/>
+          <button id="apply-waste-table-filter" class="bg-primary text-on-primary rounded-lg px-md py-sm text-body-sm font-bold">فلتر الجدول</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-body-sm">
+          <thead class="bg-surface-container text-on-surface-variant">
+            <tr><th class="p-sm text-right">الفرع</th><th class="p-sm text-right">نوع / سبب الهدر</th><th class="p-sm text-right">الصنف</th><th class="p-sm text-right">الوحدة</th><th class="p-sm text-right">إجمالي الكمية</th><th class="p-sm text-right">عدد السجلات</th></tr>
+          </thead>
+          <tbody id="waste-grouped-tbody"><tr><td colspan="6" class="p-md text-center text-on-surface-variant">طبّق الفلاتر لعرض التجميع.</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -111,15 +162,26 @@
 <script>
 let wasteData = [];
 let issuesData = [];
+let wasteTableSearch = '';
 
 document.getElementById('f-preset').addEventListener('change', (e) => {
-    const isCustom = e.target.value === 'custom';
-    document.getElementById('custom-from-wrap').classList.toggle('hidden', !isCustom);
-    document.getElementById('custom-to-wrap').classList.toggle('hidden', !isCustom);
+    const mode = e.target.value;
+    document.getElementById('month-wrap').classList.toggle('hidden', mode !== 'month');
+    document.getElementById('custom-from-wrap').classList.toggle('hidden', mode !== 'custom');
+    document.getElementById('custom-to-wrap').classList.toggle('hidden', mode !== 'custom');
 });
+
+document.getElementById('f-month').value = new Date().toISOString().slice(0, 7);
 
 function getDateRange() {
     const preset = document.getElementById('f-preset').value;
+    if (preset === 'month') {
+        const value = document.getElementById('f-month').value;
+        if (!value) return { from: null, to: null };
+        const [year, month] = value.split('-').map(Number);
+        const lastDay = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+        return { from: `${value}-01`, to: lastDay };
+    }
     if (preset === 'custom') {
         return { from: document.getElementById('f-from').value || null, to: document.getElementById('f-to').value || null };
     }
@@ -139,6 +201,34 @@ async function loadBranches() {
     });
 }
 
+function renderWasteAggregation() {
+    const keyword = wasteTableSearch.trim().toLocaleLowerCase('ar');
+    const groups = new Map();
+    wasteData.forEach(waste => {
+        const branch = waste.daily_reports?.branches?.name || '—';
+        const reason = waste.reason || 'غير محدد';
+        const item = waste.item_name || 'غير محدد';
+        const unit = waste.unit || 'بدون وحدة';
+        const searchable = `${branch} ${reason} ${item} ${unit}`.toLocaleLowerCase('ar');
+        if (keyword && !searchable.includes(keyword)) return;
+        const key = [branch, reason, item, unit].join('\u0000');
+        const current = groups.get(key) || { branch, reason, item, unit, quantity: 0, records: 0 };
+        current.quantity += Number(waste.quantity || 0);
+        current.records += 1;
+        groups.set(key, current);
+    });
+    const rows = [...groups.values()].sort((a, b) => b.quantity - a.quantity || a.item.localeCompare(b.item, 'ar'));
+    document.getElementById('waste-grouped-tbody').innerHTML = rows.length ? rows.map(row => `
+        <tr class="border-t border-outline-variant">
+          <td class="p-sm">${row.branch}</td>
+          <td class="p-sm text-on-surface-variant">${row.reason}</td>
+          <td class="p-sm font-bold">${row.item}</td>
+          <td class="p-sm">${row.unit}</td>
+          <td class="p-sm font-bold text-primary">${Number.isInteger(row.quantity) ? row.quantity : row.quantity.toFixed(2)}</td>
+          <td class="p-sm">${row.records}</td>
+        </tr>`).join('') : '<tr><td colspan="6" class="p-md text-center text-on-surface-variant">لا توجد نتائج مطابقة للفلاتر الحالية.</td></tr>';
+}
+
 async function applyFilters() {
     const branchId = document.getElementById('f-branch').value || null;
     const { from, to } = getDateRange();
@@ -153,17 +243,30 @@ async function applyFilters() {
     wasteData = waste;
     issuesData = issues;
 
-    // ملخص الهدر: إجمالي عدد الأصناف المهدرة + أكثر صنف تكرارًا
+    // ملخص الهدر بحسب الفلتر الحالي؛ الكمية تفصل بالوحدة حتى لا نجمع ml مع القطع أو الأكواب.
     const totalItems = waste.length;
     const byItem = {};
-    waste.forEach(w => { byItem[w.item_name] = (byItem[w.item_name] || 0) + Number(w.quantity || 0); });
+    const quantityByUnit = {};
+    waste.forEach(w => {
+        byItem[w.item_name] = (byItem[w.item_name] || 0) + Number(w.quantity || 0);
+        const unit = w.unit || 'بدون وحدة';
+        quantityByUnit[unit] = (quantityByUnit[unit] || 0) + Number(w.quantity || 0);
+    });
     const topItem = Object.entries(byItem).sort((a, b) => b[1] - a[1])[0];
+    const quantitySummary = Object.entries(quantityByUnit)
+        .sort((a, b) => b[1] - a[1])
+        .map(([unit, quantity]) => `${Number.isInteger(quantity) ? quantity : quantity.toFixed(2)} ${unit}`)
+        .join(' · ') || '—';
     const byBranchCount = new Set(waste.map(w => w.daily_reports?.branch_id)).size;
 
     document.getElementById('waste-summary').innerHTML = `
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
-            <p class="text-body-sm text-on-surface-variant">عدد سجلات الهدر</p>
+            <p class="text-body-sm text-on-surface-variant">سجلات الهدر</p>
             <p class="text-xl font-bold text-primary">${totalItems}</p>
+        </div>
+        <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
+            <p class="text-body-sm text-on-surface-variant">إجمالي الكمية حسب الوحدة</p>
+            <p class="text-body-sm font-bold text-error break-words">${quantitySummary}</p>
         </div>
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
             <p class="text-body-sm text-on-surface-variant">الأكثر هدرًا</p>
@@ -179,7 +282,7 @@ async function applyFilters() {
         </div>
     `;
 
-    document.getElementById('waste-tbody').innerHTML = waste.length ? waste.slice(0, 200).map(w => `
+    document.getElementById('waste-tbody').innerHTML = waste.length ? waste.map(w => `
         <tr class="border-t border-outline-variant">
             <td class="p-sm">${w.daily_reports?.report_date || '—'}</td>
             <td class="p-sm">${w.daily_reports?.branches?.name || '—'}</td>
@@ -189,7 +292,9 @@ async function applyFilters() {
         </tr>`).join('') : '<tr><td colspan="5" class="p-md text-center text-on-surface-variant">لا توجد بيانات في الفترة المحددة.</td></tr>';
 
     const PRIORITY_COLOR = { 'عالية': 'text-error', 'متوسطة': 'text-primary', 'منخفضة': 'text-on-surface-variant' };
-    document.getElementById('issues-tbody').innerHTML = issues.length ? issues.slice(0, 200).map(i => `
+    renderWasteAggregation();
+
+    document.getElementById('issues-tbody').innerHTML = issues.length ? issues.map(i => `
         <tr class="border-t border-outline-variant">
             <td class="p-sm">${i.daily_reports?.report_date || '—'}</td>
             <td class="p-sm">${i.daily_reports?.branches?.name || '—'}</td>
@@ -200,6 +305,16 @@ async function applyFilters() {
 }
 
 document.getElementById('apply-filters').addEventListener('click', applyFilters);
+document.getElementById('apply-waste-table-filter').addEventListener('click', () => {
+    wasteTableSearch = document.getElementById('f-waste-table').value;
+    renderWasteAggregation();
+});
+document.getElementById('f-waste-table').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        document.getElementById('apply-waste-table-filter').click();
+    }
+});
 
 document.getElementById('export-waste').addEventListener('click', () => {
     const rows = wasteData.map(w => ({

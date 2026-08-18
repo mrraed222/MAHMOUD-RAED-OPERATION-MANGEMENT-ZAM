@@ -90,6 +90,21 @@ const ZAM_NAV_ITEMS = [
     { key: 'employee-profile', label: 'الملف الشخصي', icon: 'person', href: 'employee-profile/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor', 'Barista', 'Kitchen', 'Waiter'], perm: null },
 ];
 
+// قائمة المالك النهائية: متابعة وإدارة فقط، بلا مهام تشغيل يومية أو تنفيذ مباشر.
+const ZAM_OWNER_NAV_KEYS = new Set([
+    'dashboard',
+    'branches',
+    'checklist-logs',
+    'reports-log',
+    'reports-monitor',
+    'analytics',
+    'staff-management',
+    'automation-settings',
+    'manage-templates',
+    'permissions',
+    'employee-profile',
+]);
+
 async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
     const sessionProfile = ZamSession.get();
     const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
@@ -105,7 +120,7 @@ async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
 
     // فلترة: المالك يرى كل شيء، غيره يفحص الدور + الصلاحية المطلوبة
     const items = ZAM_NAV_ITEMS.filter(i => {
-        if (role === 'Owner') return true;
+        if (role === 'Owner') return ZAM_OWNER_NAV_KEYS.has(i.key);
         if (!i.roles.includes(role)) return false;
         if (i.perm) {
             return !!(permsRow && permsRow[i.perm]);
@@ -127,9 +142,9 @@ async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
     return `<aside class="fixed right-0 top-0 h-full w-[280px] bg-surface border-l border-outline-variant flex flex-col py-lg px-md gap-base z-50 hidden md:flex">
         <div class="flex items-center justify-between gap-sm mb-lg px-xs">
           <div class="flex items-center gap-sm">
-            <img alt="ZAM Logo" class="w-12 h-12 rounded-lg object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_zDG_2qTlgZVrmyvFCMa_dD5IoGrqsvbVTI6mxsY-OnPweUq0gZvzixXP3Zse-FdcbiNYODy_CxAbLQ9IadjolG5w9SSKCfjBqMNm_P23DjLPfnDXp6cKGNt3TbBvcMgQTeqkeI8SSdyXNhJe5L7MkTJVZRcACevAO-l4VTW24xTNj4ggA29CzBAhy5DvsT60jNbq4XKknpI7C9AEUPh5sBIF2UDfGqJMPsZ_H8BGCtApm83PY7XxoFrSDxWCCQUc-g"/>
+            <img alt="ZAM Operations System" class="w-12 h-12 rounded-lg object-cover zam-logo" src="${pathPrefix}assets/logo/zam-logo.png"/>
             <div>
-                <h1 class="font-display-lg text-[24px] font-bold text-primary leading-none">ZAM Cafe</h1>
+                <h1 class="font-display-lg text-[24px] font-bold text-primary leading-none">ZAM Operations System</h1>
                 <p class="font-body-sm text-on-surface-variant">إدارة العمليات</p>
             </div>
           </div>
@@ -267,7 +282,7 @@ function buildChecklistSummaryEmail({ employeeName, branchName, shiftLabel, comp
     return `
         <div dir="rtl" style="font-family: Arial, sans-serif; text-align: right; background-color: #fcf8f2; padding: 20px; border-radius: 12px; border: 1px solid #e6dbcb; max-width: 600px; margin: auto;">
             <div style="text-align: center; margin-bottom: 20px;">
-                <h2 style="color: #6750a4; margin-top: 10px; font-size: 22px;">ZAM Speciality Coffee</h2>
+                <h2 style="color: #6750a4; margin-top: 10px; font-size: 22px;">ZAM Operations System</h2>
                 <h3 style="color: #49454f; font-size: 16px;">ملخص إنجاز المهام والتشيك ليست اليومية</h3>
             </div>
             <div style="background-color: #ffffff; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 20px; text-align: right;">
@@ -537,23 +552,31 @@ const ZamAPI = {
     },
 
     async getWasteLogs({ branchId = null, dateFrom = null, dateTo = null } = {}) {
-        const { data, error } = await zamClient.from('waste_logs').select('*, daily_reports(branch_id, report_date, branches(name))');
+        // الربط الداخلي مع daily_reports يجعل الفرع والتاريخ مصدرهما سجل التقرير نفسه.
+        let query = zamClient
+            .from('waste_logs')
+            .select('*, daily_reports!inner(branch_id, report_date, branches(name))')
+            .order('created_at', { ascending: false });
+        if (branchId) query = query.eq('daily_reports.branch_id', branchId);
+        if (dateFrom) query = query.gte('daily_reports.report_date', dateFrom);
+        if (dateTo) query = query.lte('daily_reports.report_date', dateTo);
+        const { data, error } = await query;
         if (error) throw error;
-        let rows = data;
-        if (branchId) rows = rows.filter(r => r.daily_reports?.branch_id === branchId);
-        if (dateFrom) rows = rows.filter(r => r.daily_reports?.report_date >= dateFrom);
-        if (dateTo) rows = rows.filter(r => r.daily_reports?.report_date <= dateTo);
-        return rows;
+        return data || [];
     },
 
     async getShiftIssues({ branchId = null, dateFrom = null, dateTo = null } = {}) {
-        const { data, error } = await zamClient.from('shift_issues').select('*, daily_reports(branch_id, report_date, branches(name))');
+        // لا تعتمد التحليلات على إدخال حر؛ جميع الفلاتر مرتبطة بتاريخ وفرع daily_reports.
+        let query = zamClient
+            .from('shift_issues')
+            .select('*, daily_reports!inner(branch_id, report_date, branches(name))')
+            .order('created_at', { ascending: false });
+        if (branchId) query = query.eq('daily_reports.branch_id', branchId);
+        if (dateFrom) query = query.gte('daily_reports.report_date', dateFrom);
+        if (dateTo) query = query.lte('daily_reports.report_date', dateTo);
+        const { data, error } = await query;
         if (error) throw error;
-        let rows = data;
-        if (branchId) rows = rows.filter(r => r.daily_reports?.branch_id === branchId);
-        if (dateFrom) rows = rows.filter(r => r.daily_reports?.report_date >= dateFrom);
-        if (dateTo) rows = rows.filter(r => r.daily_reports?.report_date <= dateTo);
-        return rows;
+        return data || [];
     },
 
     // ============================================
