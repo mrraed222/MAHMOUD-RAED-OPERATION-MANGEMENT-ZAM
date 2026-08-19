@@ -34,10 +34,10 @@ body.zam-page {
 @keyframes zamFadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes zamLogoGlow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(192, 88, 58, .20)); } 50% { filter: drop-shadow(0 0 12px rgba(192, 88, 58, .48)); } }
 @keyframes zamSoftPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(192, 88, 58, .22); } 50% { box-shadow: 0 0 0 7px rgba(192, 88, 58, 0); } }
-.zam-logo { filter: none; }
-body.zam-page main { animation: none; }
-.zam-card { transition: border-color .14s ease, background-color .14s ease; }
-.zam-card:hover { border-color: var(--zam-focus) !important; }
+.zam-logo { animation: zamFadeInUp .32s cubic-bezier(.2,.7,.3,1) both; }
+body.zam-page main { animation: zamFadeInUp .28s cubic-bezier(.2,.7,.3,1) both; }
+.zam-card { transition: transform .16s ease, border-color .16s ease, background-color .16s ease; }
+.zam-card:hover { transform: translateY(-1px); border-color: var(--zam-focus) !important; }
 .zam-btn, button, [role="button"] { transition: background-color .14s ease, border-color .14s ease; }
 .zam-btn:hover, button:hover, [role="button"]:hover { filter: brightness(.98); }
 .zam-btn:active, button:active, [role="button"]:active { filter: brightness(.95); }
@@ -49,7 +49,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('reports-log', currentUser.role);})();</script>
 
-<header class="fixed top-0 left-0 w-full md:pr-[280px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
+<header class="fixed top-0 left-0 w-full md:pr-[312px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
   <div>
     <h1 class="font-title-md text-title-md text-primary">سجل التقارير</h1>
     <p class="text-body-sm text-on-surface-variant">كل التقارير اليومية المرسلة من المشرفين</p>
@@ -134,20 +134,21 @@ async function loadReports() {
 
         const { data, error } = await query;
         if (error) throw error;
-        reportsData = data;
+        // روابط الفلترة الداخلية لا تمثل تقرير مبيعات فعلياً؛ إخفاؤها يمنع ظهور مبيعات صفرية مضللة.
+        reportsData = (data || []).filter(report => !report.custom_fields?.technical_parent);
 
-        if (!data.length) {
+        if (!reportsData.length) {
             tbody.innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">لا توجد تقارير مطابقة.</td></tr>';
             return;
         }
 
-        tbody.innerHTML = data.map(r => `
+        tbody.innerHTML = reportsData.map(r => `
             <tr class="border-t border-outline-variant hover:bg-surface-container-low cursor-pointer view-detail-row" data-id="${r.id}">
                 <td class="p-sm">${r.report_date}</td>
                 <td class="p-sm">${r.branches?.name || '—'}</td>
                 <td class="p-sm">${r.supervisor_name}</td>
                 <td class="p-sm">${r.shift_type === 'Morning' ? 'صباحي' : 'مسائي'}</td>
-                <td class="p-sm">${r.total_sales} ر.س</td>
+                <td class="p-sm font-bold text-primary">${Number(r.total_sales || 0).toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</td>
                 <td class="p-sm">${r.team_status || '—'}</td>
                 <td class="p-sm"><span class="material-symbols-outlined text-primary text-[18px]">visibility</span></td>
             </tr>
@@ -180,7 +181,7 @@ async function openDetail(id) {
 
         body.innerHTML = `
             <div class="grid grid-cols-3 gap-sm mb-md text-center">
-                <div class="bg-surface-container rounded-lg p-sm"><p class="text-[11px] text-on-surface-variant">المبيعات</p><p class="font-bold">${report.total_sales} ر.س</p></div>
+                <div class="bg-surface-container rounded-lg p-sm"><p class="text-[11px] text-on-surface-variant">المبيعات</p><p class="font-bold">${Number(report.total_sales || 0).toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p></div>
                 <div class="bg-surface-container rounded-lg p-sm"><p class="text-[11px] text-on-surface-variant">الطلبات</p><p class="font-bold">${report.orders_count}</p></div>
                 <div class="bg-surface-container rounded-lg p-sm"><p class="text-[11px] text-on-surface-variant">متوسط الفاتورة</p><p class="font-bold">${Number(report.avg_ticket || 0).toFixed(2)}</p></div>
             </div>
