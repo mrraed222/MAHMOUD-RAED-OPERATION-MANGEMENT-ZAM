@@ -500,6 +500,21 @@ const ZamAPI = {
         return data;
     },
 
+    async getAnalyticsReports({ branchId = null, dateFrom = null, dateTo = null } = {}) {
+        // جدول التقارير في التحليلات يقرأ بيانات التقرير الأصلية نفسها، لا ملخصاً مشتقاً من الهدر.
+        let query = zamClient
+            .from('daily_reports')
+            .select('id, branch_id, supervisor_name, report_date, entry_time, shift_type, total_sales, orders_count, avg_ticket, team_status, positive_reviews, custom_fields, branches(name)')
+            .order('report_date', { ascending: false })
+            .order('entry_time', { ascending: false });
+        if (branchId) query = query.eq('branch_id', branchId);
+        if (dateFrom) query = query.gte('report_date', dateFrom);
+        if (dateTo) query = query.lte('report_date', dateTo);
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+    },
+
     async getReportFields(activeOnly = true) {
         let q = zamClient.from('report_field_definitions').select('*').order('display_order');
         if (activeOnly) q = q.eq('is_active', true);

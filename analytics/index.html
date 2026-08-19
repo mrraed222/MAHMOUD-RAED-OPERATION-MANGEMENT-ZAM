@@ -39,15 +39,15 @@ body.zam-page {
 @keyframes zamFadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes zamLogoGlow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(192, 88, 58, .20)); } 50% { filter: drop-shadow(0 0 12px rgba(192, 88, 58, .48)); } }
 @keyframes zamSoftPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(192, 88, 58, .22); } 50% { box-shadow: 0 0 0 7px rgba(192, 88, 58, 0); } }
-.zam-logo { animation: zamFadeInUp .65s ease-out both, zamLogoGlow 3.2s ease-in-out infinite .7s; }
-body.zam-page main { animation: zamFadeInUp .46s ease-out both; }
-.zam-card { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
-.zam-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(51, 33, 13, .12); border-color: var(--zam-focus) !important; }
-.zam-btn, button, [role="button"] { transition: transform .15s ease, box-shadow .18s ease, background-color .18s ease; }
-.zam-btn:hover, button:hover, [role="button"]:hover { box-shadow: 0 4px 14px rgba(51, 33, 13, .15); }
-.zam-btn:active, button:active, [role="button"]:active { transform: scale(.98); }
+.zam-logo { filter: none; }
+body.zam-page main { animation: none; }
+.zam-card { transition: border-color .14s ease, background-color .14s ease; }
+.zam-card:hover { border-color: var(--zam-focus) !important; }
+.zam-btn, button, [role="button"] { transition: background-color .14s ease, border-color .14s ease; }
+.zam-btn:hover, button:hover, [role="button"]:hover { filter: brightness(.98); }
+.zam-btn:active, button:active, [role="button"]:active { filter: brightness(.95); }
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .42); outline-offset: 2px; }
-.zam-loading { animation: zamSoftPulse 1.7s ease-in-out infinite; }
+.zam-loading { opacity: .82; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 </style>
 </head>
@@ -75,8 +75,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     <div>
       <label class="text-body-sm text-on-surface-variant">الفترة</label>
       <select id="f-preset" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
+        <option value="all" selected>كل البيانات</option>
         <option value="7">آخر 7 أيام</option>
-        <option value="30" selected>آخر 30 يوم</option>
+        <option value="30">آخر 30 يوم</option>
         <option value="90">آخر 3 شهور</option>
         <option value="365">آخر سنة</option>
         <option value="month">شهر محدد</option>
@@ -98,8 +99,27 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     <button id="apply-filters" class="bg-primary text-on-primary rounded-lg p-sm font-bold">تطبيق الفلتر</button>
   </section>
 
+  <!-- بيانات التقارير الأصلية -->
+  <section class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md">
+    <div class="flex justify-between items-center gap-sm mb-sm">
+      <div>
+        <h2 class="font-title-md text-title-md text-primary">بيانات التقارير</h2>
+        <p class="text-body-sm text-on-surface-variant">الفرع والمشرف والوردية والمبيعات كما وردت في سجل التقرير.</p>
+      </div>
+      <span id="reports-count" class="text-body-sm font-bold text-primary">—</span>
+    </div>
+    <div class="max-h-[52vh] overflow-auto rounded-lg border border-outline-variant">
+      <table class="w-full text-body-sm min-w-[920px]">
+        <thead class="bg-surface-container text-on-surface-variant sticky top-0 z-10">
+          <tr><th class="p-sm text-right">التاريخ</th><th class="p-sm text-right">الفرع</th><th class="p-sm text-right">المشرف</th><th class="p-sm text-right">الوردية</th><th class="p-sm text-right">المبيعات</th><th class="p-sm text-right">الطلبات</th><th class="p-sm text-right">متوسط الفاتورة</th><th class="p-sm text-right">حالة الفريق</th></tr>
+        </thead>
+        <tbody id="reports-tbody"><tr><td colspan="8" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
   <!-- ملخص الهدر -->
-  <section class="mb-lg">
+  <section class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md">
     <div class="flex justify-between items-center mb-sm">
       <h2 class="font-title-md text-title-md text-primary">الهدر</h2>
       <button id="export-waste" class="text-body-sm font-bold text-primary hover:underline flex items-center gap-1">
@@ -107,9 +127,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
       </button>
     </div>
     <div id="waste-summary" class="grid grid-cols-2 md:grid-cols-5 gap-md mb-sm"></div>
-    <div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-x-auto">
-      <table class="w-full text-body-sm">
-        <thead class="bg-surface-container text-on-surface-variant">
+    <div class="max-h-[38vh] overflow-auto rounded-lg border border-outline-variant">
+      <table class="w-full text-body-sm min-w-[720px]">
+        <thead class="bg-surface-container text-on-surface-variant sticky top-0 z-10">
           <tr><th class="p-sm text-right">التاريخ</th><th class="p-sm text-right">الفرع</th><th class="p-sm text-right">الصنف</th><th class="p-sm text-right">الكمية</th><th class="p-sm text-right">السبب</th></tr>
         </thead>
         <tbody id="waste-tbody"><tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody>
@@ -127,9 +147,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
           <button id="apply-waste-table-filter" class="bg-primary text-on-primary rounded-lg px-md py-sm text-body-sm font-bold">فلتر الجدول</button>
         </div>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-body-sm">
-          <thead class="bg-surface-container text-on-surface-variant">
+      <div class="max-h-[28vh] overflow-auto rounded-lg border border-outline-variant">
+        <table class="w-full text-body-sm min-w-[860px]">
+          <thead class="bg-surface-container text-on-surface-variant sticky top-0 z-10">
             <tr><th class="p-sm text-right">الفرع</th><th class="p-sm text-right">نوع / سبب الهدر</th><th class="p-sm text-right">الصنف</th><th class="p-sm text-right">الوحدة</th><th class="p-sm text-right">إجمالي الكمية</th><th class="p-sm text-right">عدد السجلات</th></tr>
           </thead>
           <tbody id="waste-grouped-tbody"><tr><td colspan="6" class="p-md text-center text-on-surface-variant">طبّق الفلاتر لعرض التجميع.</td></tr></tbody>
@@ -139,16 +159,16 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   </section>
 
   <!-- مشاكل الشفت -->
-  <section class="mb-lg">
+  <section class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md">
     <div class="flex justify-between items-center mb-sm">
       <h2 class="font-title-md text-title-md text-primary">مشاكل الشفت</h2>
       <button id="export-issues" class="text-body-sm font-bold text-primary hover:underline flex items-center gap-1">
         <span class="material-symbols-outlined text-base">download</span> تصدير Excel
       </button>
     </div>
-    <div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-x-auto">
-      <table class="w-full text-body-sm">
-        <thead class="bg-surface-container text-on-surface-variant">
+    <div class="max-h-[52vh] overflow-auto rounded-lg border border-outline-variant">
+      <table class="w-full text-body-sm min-w-[780px]">
+        <thead class="bg-surface-container text-on-surface-variant sticky top-0 z-10">
           <tr><th class="p-sm text-right">التاريخ</th><th class="p-sm text-right">الفرع</th><th class="p-sm text-right">النوع</th><th class="p-sm text-right">الوصف</th><th class="p-sm text-right">الأولوية</th></tr>
         </thead>
         <tbody id="issues-tbody"><tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody>
@@ -160,6 +180,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </main>
 
 <script>
+let reportsData = [];
 let wasteData = [];
 let issuesData = [];
 let wasteTableSearch = '';
@@ -185,6 +206,7 @@ function getDateRange() {
     if (preset === 'custom') {
         return { from: document.getElementById('f-from').value || null, to: document.getElementById('f-to').value || null };
     }
+    if (preset === 'all') return { from: null, to: null };
     const to = new Date();
     const from = new Date();
     from.setDate(from.getDate() - parseInt(preset));
@@ -233,15 +255,32 @@ async function applyFilters() {
     const branchId = document.getElementById('f-branch').value || null;
     const { from, to } = getDateRange();
 
+    document.getElementById('reports-tbody').innerHTML = '<tr><td colspan="8" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
     document.getElementById('waste-tbody').innerHTML = '<tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
     document.getElementById('issues-tbody').innerHTML = '<tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
 
-    const [waste, issues] = await Promise.all([
+    const [reports, waste, issues] = await Promise.all([
+        ZamAPI.getAnalyticsReports({ branchId, dateFrom: from, dateTo: to }),
         ZamAPI.getWasteLogs({ branchId, dateFrom: from, dateTo: to }),
         ZamAPI.getShiftIssues({ branchId, dateFrom: from, dateTo: to }),
     ]);
+    // الروابط الداخلية تُستخدم فقط لحفظ فرع وتاريخ سجلات الهدر والمشاكل غير المنسوبة لوردية محددة.
+    // لا نعرضها كتقارير تشغيلية للمستخدم؛ الجدول يعرض التقارير الأصلية الكاملة فقط.
+    reportsData = reports.filter(report => !report.custom_fields?.technical_parent);
     wasteData = waste;
     issuesData = issues;
+    document.getElementById('reports-count').textContent = `${reportsData.length} تقرير`;
+    document.getElementById('reports-tbody').innerHTML = reportsData.length ? reportsData.map(report => `
+        <tr class="border-t border-outline-variant">
+            <td class="p-sm">${report.report_date || '—'}</td>
+            <td class="p-sm">${report.branches?.name || '—'}</td>
+            <td class="p-sm font-bold">${report.supervisor_name || '—'}</td>
+            <td class="p-sm">${report.shift_type || '—'}</td>
+            <td class="p-sm">${Number(report.total_sales || 0).toLocaleString('ar-SA')}</td>
+            <td class="p-sm">${report.orders_count || 0}</td>
+            <td class="p-sm">${Number(report.avg_ticket || 0).toLocaleString('ar-SA')}</td>
+            <td class="p-sm text-on-surface-variant">${report.team_status || '—'}</td>
+        </tr>`).join('') : '<tr><td colspan="8" class="p-md text-center text-on-surface-variant">لا توجد تقارير مطابقة للفلاتر الحالية.</td></tr>';
 
     // ملخص الهدر بحسب الفلتر الحالي؛ الكمية تفصل بالوحدة حتى لا نجمع ml مع القطع أو الأكواب.
     const totalItems = waste.length;
