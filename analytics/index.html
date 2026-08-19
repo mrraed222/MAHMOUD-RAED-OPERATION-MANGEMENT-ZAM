@@ -120,15 +120,27 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     <div class="bg-surface-container rounded-xl border border-outline-variant p-md mt-md">
       <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-sm mb-sm">
         <div>
-          <h3 class="font-title-md text-title-md text-primary">الأصناف الأكثر هدراً</h3>
-          <p class="text-body-sm text-on-surface-variant">كل بطاقة تمثل صنفاً ووحدة قياس واحدة ضمن الفرع والفترة المحددين.</p>
+          <h3 class="font-title-md text-title-md text-primary">ترتيب الهدر حسب الفرع</h3>
+          <p class="text-body-sm text-on-surface-variant">كل فرع في صف واحد. الجرام والمليلتر مفصولان ولا يجري جمعهما في رقم واحد.</p>
         </div>
         <div class="flex flex-col sm:flex-row gap-xs">
-          <input id="f-waste-table" type="search" placeholder="ابحث عن صنف أو سبب" class="border border-outline-variant rounded-lg p-sm text-body-sm" aria-label="فلتر بطاقات الهدر"/>
-          <button id="apply-waste-table-filter" class="bg-primary text-on-primary rounded-lg px-md py-sm text-body-sm font-bold">فلتر البطاقات</button>
+          <input id="f-waste-table" type="search" placeholder="ابحث بفرع أو صنف أو سبب" class="border border-outline-variant rounded-lg p-sm text-body-sm" aria-label="فلتر جدول الهدر حسب الفرع"/>
+          <select id="waste-branch-sort" class="border border-outline-variant rounded-lg p-sm text-body-sm" aria-label="ترتيب جدول الهدر">
+            <option value="grams">الأعلى بالجرام</option>
+            <option value="milliliters">الأعلى بالمليلتر</option>
+            <option value="records">الأعلى بعدد السجلات</option>
+          </select>
+          <button id="apply-waste-table-filter" class="bg-primary text-on-primary rounded-lg px-md py-sm text-body-sm font-bold">تطبيق</button>
         </div>
       </div>
-      <div id="waste-grouped-cards" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-sm max-h-[34vh] overflow-y-auto pl-xs"></div>
+      <div class="max-h-[34vh] overflow-auto rounded-lg border border-outline-variant">
+        <table class="w-full text-body-sm min-w-[980px]">
+          <thead class="bg-surface-container-high text-on-surface-variant sticky top-0 z-10">
+            <tr><th class="p-sm text-right">#</th><th class="p-sm text-right">الفرع</th><th class="p-sm text-right">إجمالي الجرام</th><th class="p-sm text-right">إجمالي المليلتر</th><th class="p-sm text-right">أعلى صنف بالجرام</th><th class="p-sm text-right">أعلى صنف بالمليلتر</th><th class="p-sm text-right">عدد السجلات</th></tr>
+          </thead>
+          <tbody id="waste-branch-ranking-tbody"><tr><td colspan="7" class="p-md text-center text-on-surface-variant">طبّق الفلاتر لعرض الترتيب.</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -156,7 +168,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <script>
 let wasteData = [];
 let issuesData = [];
+let branchesData = [];
 let wasteTableSearch = '';
+let wasteBranchSort = 'grams';
 
 document.getElementById('f-preset').addEventListener('change', (e) => {
     const mode = e.target.value;
@@ -188,6 +202,7 @@ function getDateRange() {
 
 async function loadBranches() {
     const branches = await ZamAPI.getBranches();
+    branchesData = branches;
     const sel = document.getElementById('f-branch');
     branches.forEach(b => {
         const opt = document.createElement('option');
@@ -196,32 +211,61 @@ async function loadBranches() {
     });
 }
 
+function normalizeWasteUnit(unit) {
+    const value = String(unit || '').trim().toLocaleLowerCase('ar').replace(/\s+/g, ' ');
+    if (['g', 'gm', 'gms', 'غ', 'ج', 'غرام', 'جرام'].includes(value)) return 'grams';
+    if (['ml', 'mil', 'milli', 'ملي', 'مليلتر', 'ملي لتر', 'ماي'].includes(value)) return 'milliliters';
+    return 'other';
+}
+
+function formatWasteNumber(value) {
+    return Number.isInteger(value) ? value.toLocaleString('ar-SA') : value.toLocaleString('ar-SA', { maximumFractionDigits: 2 });
+}
+
 function renderWasteAggregation() {
     const keyword = wasteTableSearch.trim().toLocaleLowerCase('ar');
-    const groups = new Map();
+    const rowsByBranch = new Map();
+    const activeBranches = document.getElementById('f-branch').value
+        ? branchesData.filter(branch => branch.id === document.getElementById('f-branch').value)
+        : branchesData;
+    activeBranches.forEach(branch => rowsByBranch.set(branch.id, {
+        branch: branch.name, grams: 0, milliliters: 0, records: 0, gramItems: new Map(), milliliterItems: new Map(), searchable: branch.name.toLocaleLowerCase('ar')
+    }));
     wasteData.forEach(waste => {
-        const reason = waste.reason || 'غير محدد';
+        const branchId = waste.daily_reports?.branch_id;
+        if (!rowsByBranch.has(branchId)) return;
+        const row = rowsByBranch.get(branchId);
         const item = waste.item_name || 'غير محدد';
-        const unit = waste.unit || 'بدون وحدة';
-        const searchable = `${reason} ${item} ${unit}`.toLocaleLowerCase('ar');
-        if (keyword && !searchable.includes(keyword)) return;
-        const key = [reason, item, unit].join('\u0000');
-        const current = groups.get(key) || { reason, item, unit, quantity: 0, records: 0 };
-        current.quantity += Number(waste.quantity || 0);
-        current.records += 1;
-        groups.set(key, current);
+        const reason = waste.reason || 'غير محدد';
+        const family = normalizeWasteUnit(waste.unit);
+        const quantity = Number(waste.quantity || 0);
+        row.records += 1;
+        row.searchable += ` ${item} ${reason} ${waste.unit || ''}`.toLocaleLowerCase('ar');
+        if (family === 'grams') {
+            row.grams += quantity;
+            row.gramItems.set(item, (row.gramItems.get(item) || 0) + quantity);
+        } else if (family === 'milliliters') {
+            row.milliliters += quantity;
+            row.milliliterItems.set(item, (row.milliliterItems.get(item) || 0) + quantity);
+        }
     });
-    const cards = [...groups.values()].sort((a, b) => b.quantity - a.quantity || a.item.localeCompare(b.item, 'ar'));
-    const maxQuantity = cards[0]?.quantity || 1;
-    document.getElementById('waste-grouped-cards').innerHTML = cards.length ? cards.map(card => {
-        const quantity = Number.isInteger(card.quantity) ? card.quantity : card.quantity.toFixed(2);
-        const width = Math.max(6, Math.round((card.quantity / maxQuantity) * 100));
-        return `<article class="bg-surface-container-lowest border border-outline-variant rounded-lg p-sm">
-          <div class="flex items-start justify-between gap-sm"><div><p class="font-bold text-on-surface">${card.item}</p><p class="text-[11px] text-on-surface-variant">${card.reason}</p></div><span class="text-body-sm font-bold text-primary whitespace-nowrap">${quantity} ${card.unit}</span></div>
-          <div class="h-2 bg-surface-container-high rounded-full mt-sm overflow-hidden"><div class="h-full bg-primary rounded-full" style="width:${width}%"></div></div>
-          <p class="text-[11px] text-on-surface-variant mt-xs">${card.records} سجل</p>
-        </article>`;
-    }).join('') : '<p class="col-span-full p-md text-center text-on-surface-variant">لا توجد أصناف مطابقة للفلاتر الحالية.</p>';
+    const topItem = (items, unit) => {
+        const entry = [...items.entries()].sort((a, b) => b[1] - a[1])[0];
+        return entry ? `${entry[0]} (${formatWasteNumber(entry[1])} ${unit})` : '—';
+    };
+    const rows = [...rowsByBranch.values()]
+        .filter(row => !keyword || row.searchable.includes(keyword))
+        .sort((a, b) => b[wasteBranchSort] - a[wasteBranchSort] || b.records - a.records || a.branch.localeCompare(b.branch, 'ar'));
+    document.getElementById('waste-branch-ranking-tbody').innerHTML = rows.length ? rows.map((row, index) => `
+        <tr class="border-t border-outline-variant">
+          <td class="p-sm font-bold text-primary">${index + 1}</td>
+          <td class="p-sm font-bold">${row.branch}</td>
+          <td class="p-sm">${formatWasteNumber(row.grams)} <span class="text-on-surface-variant">جرام</span></td>
+          <td class="p-sm">${formatWasteNumber(row.milliliters)} <span class="text-on-surface-variant">مل</span></td>
+          <td class="p-sm text-on-surface-variant">${topItem(row.gramItems, 'جرام')}</td>
+          <td class="p-sm text-on-surface-variant">${topItem(row.milliliterItems, 'مل')}</td>
+          <td class="p-sm">${row.records}</td>
+        </tr>`).join('') : '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">لا توجد بيانات مطابقة للفلاتر الحالية.</td></tr>';
 }
 
 async function applyFilters() {
@@ -299,6 +343,11 @@ async function applyFilters() {
 document.getElementById('apply-filters').addEventListener('click', applyFilters);
 document.getElementById('apply-waste-table-filter').addEventListener('click', () => {
     wasteTableSearch = document.getElementById('f-waste-table').value;
+    wasteBranchSort = document.getElementById('waste-branch-sort').value;
+    renderWasteAggregation();
+});
+document.getElementById('waste-branch-sort').addEventListener('change', () => {
+    wasteBranchSort = document.getElementById('waste-branch-sort').value;
     renderWasteAggregation();
 });
 document.getElementById('f-waste-table').addEventListener('keydown', (event) => {
