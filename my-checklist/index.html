@@ -124,7 +124,7 @@ const categoryLabel = document.getElementById('category-label');
         await zamClient.auth.getSession();
         const { data: freshProfile } = await zamClient.from('profiles').select('*, branches(name)').eq('id', currentUser.id).maybeSingle();
         if (freshProfile) {
-            currentUser = { ...currentUser, ...freshProfile };
+            Object.assign(currentUser, freshProfile);
             ZamSession.save(currentUser);
             myCategories.length = 0;
             // الفئات تُقرأ من جدول employee_task_categories (يدعم تعدد الفئات)
