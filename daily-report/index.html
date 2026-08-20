@@ -153,9 +153,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <span class="px-sm py-xs bg-surface-container-highest text-on-surface-variant rounded-full text-label-bold font-label-bold">الوردية المسائية</span>
 </div>
 <div class="flex gap-sm border-r border-outline-variant pr-md mr-md">
-<button class="w-10 h-10 rounded-full hover:bg-surface-container-high flex items-center justify-center transition-all">
-<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
-</button>
+<div id="notif-bell-slot"></div>
 <button class="w-10 h-10 rounded-full hover:bg-surface-container-high flex items-center justify-center transition-all">
 <span class="material-symbols-outlined text-on-surface-variant">help</span>
 </button>
@@ -452,5 +450,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
                 btn.textContent = 'إرسال التقرير';
             }
         });
+
+        (async function mountNotificationBell() {
+            const notificationSlot = document.getElementById('notif-bell-slot');
+            if (!notificationSlot) return;
+            notificationSlot.innerHTML = await renderNotificationBell();
+            attachNotificationBellHandlers();
+        })();
     </script>
 </body></html>

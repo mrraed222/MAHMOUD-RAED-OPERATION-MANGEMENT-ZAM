@@ -159,107 +159,213 @@ async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
 }
 
 // ============================================
-// جرس الإشعارات المشترك
+// جرس الإشعارات التشغيلي المشترك
 // ============================================
+const ZAM_NOTIFICATION_PAGE_SIZE = 12;
+
+function escapeNotificationText(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function notificationIcon(notificationType) {
+    const icons = {
+        new_daily_report: 'assignment_turned_in',
+        new_shift_issue: 'warning',
+        negative_review: 'rate_review',
+        pending_registration: 'person_add',
+    };
+    return icons[notificationType] || 'notifications';
+}
+
+function notificationTone(priority) {
+    if (priority === 'critical') return 'text-error bg-error-container';
+    if (priority === 'high') return 'text-primary bg-primary-container/30';
+    return 'text-tertiary bg-tertiary-fixed/40';
+}
+
+function formatNotificationTime(value) {
+    const date = new Date(value);
+    const elapsedMinutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+    if (elapsedMinutes < 1) return 'الآن';
+    if (elapsedMinutes < 60) return `منذ ${elapsedMinutes} د`;
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+    if (elapsedHours < 24) return `منذ ${elapsedHours} س`;
+    const elapsedDays = Math.floor(elapsedHours / 24);
+    if (elapsedDays <= 7) return `منذ ${elapsedDays} ي`;
+    return new Intl.DateTimeFormat('ar-EG', { day: 'numeric', month: 'short' }).format(date);
+}
+
+function safeNotificationPath(path) {
+    return typeof path === 'string' && path.startsWith('../') ? path : '../dashboard/index.html';
+}
+
+async function getLiveNotifications(profile) {
+    const { data, error } = await zamClient
+        .from('notifications')
+        .select('id, notification_type, title, body, priority, link_path, is_read, created_at')
+        .eq('user_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(ZAM_NOTIFICATION_PAGE_SIZE);
+    if (error) throw error;
+    return data || [];
+}
+
 async function renderNotificationBell() {
     const profile = ZamSession.get();
     if (!profile) return '';
 
-    let pendingCount = 0;
-    let overdueReportsCount = 0;
-    let pendingChecklistCount = 0;
-
+    let notifications = [];
     try {
-        if (['Owner', 'Admin', 'Manager'].includes(profile.role)) {
-            const { count: pending } = await zamClient
-                .from('profiles')
-                .select('id', { count: 'exact', head: true })
-                .eq('status', 'pending');
-            pendingCount = pending || 0;
-        }
-
-        const today = new Date().toISOString().split('T')[0];
-        const { count: overdue } = await zamClient
-            .from('daily_reports')
-            .select('id', { count: 'exact', head: true })
-            .neq('report_date', today);
-        overdueReportsCount = overdue || 0;
-
-        if (profile.branch_id) {
-            const { count: pendingTasks } = await zamClient
-                .from('checklist_logs')
-                .select('id, checklist_templates!inner(branch_id)', { count: 'exact', head: true })
-                .eq('execution_date', today)
-                .is('id', null);
-            pendingChecklistCount = pendingTasks || 0;
-        }
+        notifications = await getLiveNotifications(profile);
     } catch (err) {
         console.error('Notification bell fetch error:', err);
     }
 
-    const totalCount = pendingCount + overdueReportsCount + pendingChecklistCount;
-    const badge = totalCount > 0
-        ? `<span class="absolute -top-1 -right-1 bg-error text-on-error text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">${totalCount}</span>`
+    const unreadCount = notifications.filter(notification => !notification.is_read).length;
+    const badgeLabel = unreadCount > 99 ? '99+' : unreadCount;
+    const badge = unreadCount > 0
+        ? `<span class="absolute -top-1 -right-1 bg-error text-on-error text-[10px] font-bold rounded-full min-w-5 h-5 px-[3px] flex items-center justify-center">${badgeLabel}</span>`
         : '';
+    const notificationItems = notifications.map(notification => {
+        const unreadStyle = notification.is_read ? '' : 'bg-primary-container/10';
+        const titleWeight = notification.is_read ? 'font-body-lg' : 'font-bold';
+        const path = safeNotificationPath(notification.link_path);
+        return `
+            <a href="${path}" data-notification-link data-notification-id="${notification.id}"
+               class="flex items-start gap-sm p-sm hover:bg-surface-container border-b border-outline-variant transition-colors ${unreadStyle}">
+                <span class="material-symbols-outlined shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[18px] ${notificationTone(notification.priority)}">${notificationIcon(notification.notification_type)}</span>
+                <span class="min-w-0 flex-1">
+                    <span class="flex items-center justify-between gap-xs">
+                        <span class="${titleWeight} text-body-sm text-on-surface truncate">${escapeNotificationText(notification.title)}</span>
+                        ${notification.is_read ? '' : '<span class="w-2 h-2 rounded-full bg-primary shrink-0" aria-label="غير مقروء"></span>'}
+                    </span>
+                    <span class="block text-[11px] leading-relaxed text-on-surface-variant mt-[2px]">${escapeNotificationText(notification.body)}</span>
+                    <span class="block text-[10px] text-on-surface-variant mt-[3px]">${formatNotificationTime(notification.created_at)}</span>
+                </span>
+            </a>`;
+    }).join('');
 
     return `
         <div class="relative" id="zam-notif-wrapper">
-            <button id="zam-notif-btn" class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container transition-colors text-on-surface-variant relative">
+            <button id="zam-notif-btn" type="button" aria-label="فتح الإشعارات" aria-expanded="false"
+                class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container active:scale-95 transition-[transform,background-color] text-on-surface-variant relative">
                 <span class="material-symbols-outlined">notifications</span>
                 ${badge}
             </button>
-            <div id="zam-notif-menu" class="hidden absolute left-0 mt-xs w-72 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg z-50 overflow-hidden">
-                <div class="p-sm bg-primary text-on-primary font-bold">الإشعارات</div>
+            <div id="zam-notif-menu" class="hidden absolute left-0 mt-xs w-80 max-w-[calc(100vw-2rem)] bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg z-50 overflow-hidden" role="menu">
+                <div class="p-sm bg-primary text-on-primary flex items-center justify-between gap-sm">
+                    <div>
+                        <p class="font-bold text-body-sm">الإشعارات التشغيلية</p>
+                        <p class="text-[10px] opacity-80">${unreadCount ? `${unreadCount} غير مقروء` : 'أنت على اطلاع'}</p>
+                    </div>
+                    ${unreadCount ? '<button id="zam-mark-all-notifications" type="button" class="text-[11px] font-bold underline underline-offset-2">تحديد الكل كمقروء</button>' : ''}
+                </div>
                 <div class="max-h-80 overflow-y-auto">
-                    ${pendingCount > 0 ? `
-                        <a href="../permissions/index.html" class="flex items-start gap-sm p-sm hover:bg-surface-container border-b border-outline-variant">
-                            <span class="material-symbols-outlined text-error">person_add</span>
-                            <div>
-                                <p class="font-bold text-body-sm">${pendingCount} طلب تسجيل بانتظار الموافقة</p>
-                                <p class="text-[11px] text-on-surface-variant">راجعهم في شاشة الأذونات والصلاحيات</p>
-                            </div>
-                        </a>
-                    ` : ''}
-                    ${overdueReportsCount > 0 ? `
-                        <a href="../reports-monitor/index.html" class="flex items-start gap-sm p-sm hover:bg-surface-container border-b border-outline-variant">
-                            <span class="material-symbols-outlined text-primary">fact_check</span>
-                            <div>
-                                <p class="font-bold text-body-sm">${overdueReportsCount} تقرير من أيام سابقة</p>
-                                <p class="text-[11px] text-on-surface-variant">تابعها في متابعة التقارير</p>
-                            </div>
-                        </a>
-                    ` : ''}
-                    ${pendingChecklistCount > 0 ? `
-                        <a href="../my-checklist/index.html" class="flex items-start gap-sm p-sm hover:bg-surface-container">
-                            <span class="material-symbols-outlined text-tertiary">task_alt</span>
-                            <div>
-                                <p class="font-bold text-body-sm">مهام تشيك ليست لم تكتمل اليوم</p>
-                                <p class="text-[11px] text-on-surface-variant">سجّلها قبل نهاية الوردية</p>
-                            </div>
-                        </a>
-                    ` : ''}
-                    ${totalCount === 0 ? `
-                        <p class="p-md text-center text-on-surface-variant text-body-sm">لا توجد إشعارات جديدة 🎉</p>
-                    ` : ''}
+                    ${notificationItems || '<p class="p-md text-center text-on-surface-variant text-body-sm">لا توجد إشعارات تشغيلية حالياً.</p>'}
                 </div>
             </div>
         </div>
     `;
 }
 
+async function markNotificationRead(notificationId) {
+    const profile = ZamSession.get();
+    if (!profile || !notificationId) return;
+    const { error } = await zamClient
+        .from('notifications')
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq('id', notificationId)
+        .eq('user_id', profile.id)
+        .eq('is_read', false);
+    if (error) throw error;
+}
+
+async function markAllNotificationsRead() {
+    const profile = ZamSession.get();
+    if (!profile) return;
+    const { error } = await zamClient
+        .from('notifications')
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq('user_id', profile.id)
+        .eq('is_read', false);
+    if (error) throw error;
+}
+
+async function refreshNotificationBell() {
+    const slot = document.getElementById('notif-bell-slot');
+    if (!slot) return;
+    slot.innerHTML = await renderNotificationBell();
+    attachNotificationBellHandlers();
+}
+
+function subscribeNotificationBell(profile) {
+    if (window.__zamNotificationProfileId === profile.id && window.__zamNotificationChannel) return;
+    if (window.__zamNotificationChannel) zamClient.removeChannel(window.__zamNotificationChannel);
+
+    window.__zamNotificationProfileId = profile.id;
+    window.__zamNotificationChannel = zamClient
+        .channel(`zam-notifications-${profile.id}`)
+        .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile.id}`
+        }, () => {
+            window.clearTimeout(window.__zamNotificationRefreshTimer);
+            window.__zamNotificationRefreshTimer = window.setTimeout(() => {
+                refreshNotificationBell().catch(err => console.error('Notification refresh error:', err));
+            }, 120);
+        })
+        .subscribe();
+}
+
 function attachNotificationBellHandlers() {
+    const profile = ZamSession.get();
     const btn = document.getElementById('zam-notif-btn');
     const menu = document.getElementById('zam-notif-menu');
-    if (!btn || !menu) return;
-    btn.addEventListener('click', (e) => {
-        e.stopPropagation();
+    if (!profile || !btn || !menu) return;
+
+    btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const willOpen = menu.classList.contains('hidden');
         menu.classList.toggle('hidden');
+        btn.setAttribute('aria-expanded', String(willOpen));
     });
-    document.addEventListener('click', (e) => {
-        if (!document.getElementById('zam-notif-wrapper')?.contains(e.target)) {
-            menu.classList.add('hidden');
+
+    document.querySelectorAll('[data-notification-link]').forEach(link => {
+        link.addEventListener('click', async (event) => {
+            event.preventDefault();
+            const destination = link.getAttribute('href') || '../dashboard/index.html';
+            try {
+                await markNotificationRead(link.dataset.notificationId);
+            } catch (err) {
+                console.error('Notification read update error:', err);
+            }
+            window.location.href = destination;
+        });
+    });
+
+    document.getElementById('zam-mark-all-notifications')?.addEventListener('click', async () => {
+        try {
+            await markAllNotificationsRead();
+            await refreshNotificationBell();
+        } catch (err) {
+            console.error('Mark all notifications read error:', err);
         }
     });
+
+    if (!window.__zamNotificationDocumentCloseBound) {
+        document.addEventListener('click', (event) => {
+            if (!document.getElementById('zam-notif-wrapper')?.contains(event.target)) {
+                document.getElementById('zam-notif-menu')?.classList.add('hidden');
+                document.getElementById('zam-notif-btn')?.setAttribute('aria-expanded', 'false');
+            }
+        });
+        window.__zamNotificationDocumentCloseBound = true;
+    }
+    subscribeNotificationBell(profile);
 }
 
 // ============================================
