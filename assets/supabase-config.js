@@ -7,7 +7,27 @@
 const SUPABASE_URL = 'https://uuphgpncmiwyigtqhjmd.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1cGhncG5jbWl3eWlndHFoam1kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MjIzMzEsImV4cCI6MjEwMDM5ODMzMX0.R0ACUbjGYk22VljDl7z8c_kW9Mk7P3MmenbmBXcqWH4';
 
-const zamClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// The CDN exposes the Supabase library as window.supabase. Some deployments
+// may provide an already-created client instead, so support both shapes and
+// fail loudly instead of letting every query fail later with .from errors.
+const supabaseApi = window.supabase;
+if (!supabaseApi) {
+    throw new Error('Supabase library is not loaded before supabase-config.js');
+}
+
+const zamClient = typeof supabaseApi.from === 'function'
+    ? supabaseApi
+    : typeof supabaseApi.createClient === 'function'
+        ? supabaseApi.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        : null;
+
+if (!zamClient || typeof zamClient.from !== 'function') {
+    throw new Error('Invalid Supabase object: expected a client or createClient library');
+}
+
+// Keep an explicit property for diagnostics and modules that access the client
+// through window, while preserving the existing global `zamClient` binding.
+window.zamClient = zamClient;
 
 // ============================================
 // إدارة جلسة المستخدم المسجل دخوله
