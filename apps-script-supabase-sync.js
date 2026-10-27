@@ -173,10 +173,12 @@ function readSheet() {
     var isNeg    = /(تعليق|negative|review|comment)/i.test(joined) && !/(مشكل|problem)/i.test(joined);
     var isIssues = /(مشكل|issue|problem|أحداث)/i.test(joined);
 
-    if (isWaste)       out.waste = out.waste.concat(rows);
-    else if (isNeg)    out.negatives = out.negatives.concat(rows);
-    else if (isIssues) out.issues = out.issues.concat(rows);
-    else               out.reports = out.reports.concat(rows);
+    // التبويب العام يحتوي أيضاً على عمود «تعليقات سلبية»، لذلك يجب تصنيفه كتقرير أولاً.
+    var isReport = /(مبيعات|total_sales|طلبات|orders)/i.test(joined) && /(التاريخ|date)/i.test(joined) && /(الفرع|branch)/i.test(joined);
+    if (isReport)       out.reports = out.reports.concat(rows);
+    else if (isWaste)   out.waste = out.waste.concat(rows);
+    else if (isNeg)     out.negatives = out.negatives.concat(rows);
+    else if (isIssues)  out.issues = out.issues.concat(rows);
   });
 
   return out;
