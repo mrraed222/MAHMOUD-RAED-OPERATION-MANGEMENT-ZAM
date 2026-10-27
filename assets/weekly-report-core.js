@@ -524,7 +524,7 @@
   /* ══════════ الرسوم ══════════ */
   function svgEl(w, h, inner) {
     return '<svg viewBox="0 0 ' + w + ' ' + h + '" width="100%" height="' + h +
-      '" preserveAspectRatio="xMidYMid meet" style="overflow:visible">' + inner + '</svg>';
+      '" preserveAspectRatio="xMidYMid meet" style="overflow:visible;font-family:Noto Sans Arabic,Montserrat,sans-serif">' + inner + '</svg>';
   }
   function lineChart(el, days, cur, prev) {
     var W = 760, H = 250, PL = 56, PR = 14, PT = 16, PB = 34;
