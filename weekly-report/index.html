@@ -270,8 +270,8 @@ var printName = document.getElementById("printManagerName");
 var printEmail = document.getElementById("printManagerEmail");
 var printPhone = document.getElementById("printManagerPhone");
 if (printName) printName.textContent = printProfile.full_name || printProfile.name || "مدير التشغيل";
-if (printEmail) printEmail.textContent = printProfile.email || "—";
-if (printPhone) printPhone.textContent = printProfile.whatsapp_number || printProfile.phone || "—";
+if (printEmail) printEmail.textContent = printProfile.email || "operations@zam.sa";
+if (printPhone) printPhone.textContent = printProfile.whatsapp_number || printProfile.phone || "0563505653";
 ZamWeeklyReport.init({
   client: ZAM_WEEKLY_CLIENT,
   user: currentUser
