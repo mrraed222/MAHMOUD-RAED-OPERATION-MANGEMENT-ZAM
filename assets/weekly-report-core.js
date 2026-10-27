@@ -1363,7 +1363,7 @@
     if (pb) pb.addEventListener('click', function () {
       var restore = function () {};
       try {
-        restore = renderAllPanesForPrint();
+        try { restore = renderAllPanesForPrint(); } catch (renderErr) { restore = function () {}; }
         function done() {
           global.removeEventListener('afterprint', done);
           restore();
