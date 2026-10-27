@@ -1151,15 +1151,19 @@
     if (!el) return function () {};
     var originalTab = state.tab;
     var originalHTML = el.innerHTML;
+    var titles = ['', '1. أداء الفروع والمبيعات', '2. الرقابة التشغيلية', '3. شكاوى العملاء', '4. الهدر والمخزون', '5. الموظفون والمعدات', '6. خطة الأسبوع القادم'];
     el.innerHTML = '';
     for (var tab = 1; tab <= 6; tab++) {
       var pane = document.createElement('section');
-      pane.className = 'print-pane';
+      pane.className = 'print-pane print-section-' + tab;
+      pane.setAttribute('data-print-section', String(tab));
+      var heading = '<div class="print-section-heading"><span>المحور ' + tab + ' من 6</span><strong>' + titles[tab] + '</strong></div>';
       try {
-        pane.innerHTML = PANES[tab]();
+        var content = PANES[tab]();
+        pane.innerHTML = heading + (content || '<div class="card p-md">لا توجد بيانات لهذا المحور في الفترة المحددة.</div>');
         decoratePane(pane, tab);
       } catch (err) {
-        pane.innerHTML = '<div class="card p-md text-body-sm text-on-surface-variant">تعذر تجهيز هذا المحور للطباعة.</div>';
+        pane.innerHTML = heading + '<div class="card p-md text-body-sm text-on-surface-variant">لا توجد بيانات قابلة للعرض لهذا المحور في الفترة المحددة.</div>';
       }
       el.appendChild(pane);
     }
