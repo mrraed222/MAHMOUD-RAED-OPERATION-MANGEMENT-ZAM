@@ -107,12 +107,12 @@
 <main class="mr-[280px] min-h-screen">
 
   <!-- ================= HEADER ================= -->
-  <div class="print-brand"><img src="../assets/logo/zam-logo.png" alt="شعار زام"><div><h1>التقرير التشغيلي الأسبوعي</h1><p>نظام زام للعمليات · تقرير إداري معتمد للطباعة</p></div></div>
+  <div class="print-brand"><img src="../assets/logo/zam-logo.png" alt="شعار زام"><div><h1>التقرير الأسبوعي لإدارة التشغيل</h1><p>نظام زام للعمليات · تقرير إداري معتمد للطباعة</p><p>مدير التشغيل: <span id="printManagerName">مدير التشغيل</span> · البريد: <span id="printManagerEmail">—</span> · الهاتف: <span id="printManagerPhone">—</span></p></div></div>
   <header class="no-print sticky top-0 z-40 report-header shadow-sm">
     <div class="header-inner px-margin-desktop py-3 flex items-center justify-between gap-4 flex-wrap">
       <div class="flex items-center gap-md">
         <img class="report-logo" src="../assets/logo/zam-logo.png" alt="شعار زام">
-        <div><h2 class="font-headline-lg text-on-primary">التقرير التشغيلي الأسبوعي</h2>
+        <div><h2 class="font-headline-lg text-on-primary">التقرير الأسبوعي لإدارة التشغيل</h2>
         <p class="text-body-sm text-on-surface-variant">مقهى زام المختص — ينبع &nbsp;·&nbsp; <span dir="ltr">operations@zam.sa</span> &nbsp;·&nbsp; <span dir="ltr">0563505653</span></p></div>
       </div>
       <div class="flex items-center gap-sm flex-wrap">
@@ -245,6 +245,13 @@
 <div id="toast" class="no-print fixed bottom-md left-md z-50 px-md py-sm rounded-lg text-body-sm font-semibold shadow-lg" style="display:none"></div>
 
 <script>
+var printProfile = currentUser || {};
+var printName = document.getElementById("printManagerName");
+var printEmail = document.getElementById("printManagerEmail");
+var printPhone = document.getElementById("printManagerPhone");
+if (printName) printName.textContent = printProfile.full_name || printProfile.name || "مدير التشغيل";
+if (printEmail) printEmail.textContent = printProfile.email || "—";
+if (printPhone) printPhone.textContent = printProfile.whatsapp_number || printProfile.phone || "—";
 ZamWeeklyReport.init({
   client: ZAM_WEEKLY_CLIENT,
   user: currentUser
