@@ -1173,19 +1173,54 @@
 
   var PANES = { 1: pane1, 2: pane2, 3: pane3, 4: pane4, 5: pane5, 6: pane6 };
 
+  function decoratePane(el, tab) {
+    $('[data-edit]', el).forEach(function (node) {
+      node.setAttribute('contenteditable', 'true');
+      node.setAttribute('spellcheck', 'true');
+    });
+    var managerNote = document.createElement('div');
+    managerNote.className = 'bg-surface-container rounded-lg p-md mt-md manager-note';
+    managerNote.innerHTML = '<label class="font-label-bold text-on-surface-variant">ملاحظة مدير التشغيل لهذا المحور</label>' +
+      '<div class="text-body-sm mt-xs" contenteditable="true" spellcheck="true" data-edit="managerNote-' + tab + '">—</div>';
+    el.appendChild(managerNote);
+    if (tab === 2) {
+      var checks = el.querySelector('#paneChecks');
+      if (checks) {
+        var tpl = complianceByTemplate(resolveRange());
+        bars(checks, tpl.map(function (t) {
+          return { label: t.title, done: t.done, total: t.total };
+        }));
+      }
+    }
+    restoreEdits();
+    bindPlanSaves();
+  }
+
   function renderPanes() {
     var el = $('#panes');
     if (!el) return;
     el.innerHTML = PANES[state.tab]();
-    if (state.tab === 2) {
-      var tpl = complianceByTemplate(resolveRange());
-      var cur = agg(SRC.reports, resolveRange());
-      bars($('#paneChecks'), tpl.map(function (t) {
-        return { label: t.title, done: t.done, total: t.total };
-      }));
+    decoratePane(el, state.tab);
+  }
+
+  function renderAllPanesForPrint() {
+    var el = $('#panes');
+    if (!el) return function () {};
+    var originalTab = state.tab;
+    var originalHTML = el.innerHTML;
+    el.innerHTML = '';
+    for (var tab = 1; tab <= 6; tab++) {
+      var pane = document.createElement('section');
+      pane.className = 'print-pane';
+      pane.innerHTML = PANES[tab]();
+      decoratePane(pane, tab);
+      el.appendChild(pane);
     }
-    restoreEdits();
-    bindPlanSaves();
+    return function () {
+      el.innerHTML = originalHTML;
+      state.tab = originalTab;
+      renderPanes();
+    };
   }
 
   /* ══════════ الحقول القابلة للتحرير + الملاحظات ══════════ */
@@ -1304,7 +1339,15 @@
     var rb = document.getElementById('reloadBtn');
     if (rb) rb.addEventListener('click', function () { boot(); });
     var pb = document.getElementById('printBtn');
-    if (pb) pb.addEventListener('click', function () { global.print(); });
+    if (pb) pb.addEventListener('click', function () {
+      var restore = renderAllPanesForPrint();
+      function done() {
+        global.removeEventListener('afterprint', done);
+        restore();
+      }
+      global.addEventListener('afterprint', done);
+      global.print();
+    });
     var ssb = document.getElementById('saveSnapshotBtn');
     if (ssb) ssb.addEventListener('click', saveSnapshot);
 
@@ -1357,5 +1400,6 @@
   };
 
 })(window);
+
 
 
