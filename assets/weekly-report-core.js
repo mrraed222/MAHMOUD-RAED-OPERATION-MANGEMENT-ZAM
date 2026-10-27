@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 23156)
-Total output lines: 1360
-
 /* =====================================================================
  * weekly-report-core.js  —  v3
  * محرك «التقرير التشغيلي الأسبوعي» — نظام زام للعمليات
@@ -670,7 +667,165 @@ Total output lines: 1360
     }
     var sc = $('#shiftChips');
     if (sc) {
-      sc.innerHTML = [['all', 'كل الشفتات'], ['Morning', 'صباحي'], ['Even…3156 tokens truncated… +
+      sc.innerHTML = [['all', 'كل الشفتات'], ['Morning', 'صباحي'], ['Evening', 'مسائي']].map(function (x) {
+        return '<button class="slicer px-sm py-xs rounded-full border border-outline-variant text-body-sm ' +
+          (state.shift === x[0] ? 'on' : '') + '" data-shift="' + x[0] + '">' + x[1] + '</button>';
+      }).join('');
+      $$('.slicer[data-shift]', sc).forEach(function (b) {
+        b.addEventListener('click', function () { state.shift = b.getAttribute('data-shift'); renderAll(); });
+      });
+    }
+    var r = resolveRange();
+    var df = $('#dFrom'), dt = $('#dTo');
+    if (df) df.value = r.from;
+    if (dt) dt.value = r.to;
+  }
+
+  function renderKpis() {
+    var r = resolveRange(), p = prevRange(r);
+    var cur = agg(SRC.reports, r), prv = agg(SRC.reports, p);
+    var curW = filterRows(SRC.waste, r, true, false);
+    var prvW = filterRows(SRC.waste, p, true, false);
+    var negsCur = filterRows(SRC.negs, r, true, false);
+    var comp = compliance(r), compPrev = compliance(p);
+    var att = filterRows(SRC.attendance, r, true, false);
+    var visits = filterRows(SRC.visits, r, true, false);
+
+    var cards = [
+      { l: 'إجمالي المبيعات', i: 'payments', v: nf(cur.sales) + ' ر.س', p: nf(prv.sales) + ' ر.س', d: dlt(cur.sales, prv.sales), g: 'up', z: !prv.sales },
+      { l: 'عدد الفواتير', i: 'receipt_long', v: nf(cur.orders), p: nf(prv.orders), d: dlt(cur.orders, prv.orders), g: 'up', z: !prv.orders },
+      { l: 'متوسط الفاتورة', i: 'calculate', v: nf1(cur.avg) + ' ر.س', p: nf1(prv.avg) + ' ر.س', d: dlt(cur.avg, prv.avg), g: 'up', z: !prv.avg },
+      { l: 'نسبة الالتزام بالتشيكلست', i: 'fact_check',
+        v: comp ? comp.pct + '%' : '—', p: compPrev ? compPrev.pct + '%' : '—',
+        d: comp && compPrev ? dlt(comp.pct, compPrev.pct) : null, g: 'up', z: false },
+      { l: 'عدد الشكاوى', i: 'sentiment_dissatisfied', v: String(negsCur.length), p: '—', d: null, g: 'down', z: false },
+      { l: 'سجلات الهدر', i: 'delete_sweep', v: curW.length + ' سجل', p: prvW.length + ' سجل', d: dlt(curW.length, prvW.length), g: 'down', z: !prvW.length },
+      { l: 'الزيارات الإشرافية', i: 'travel_explore', v: String(visits.length), p: '—', d: null, g: 'up', z: false },
+      { l: 'سجلات الحضور', i: 'how_to_reg', v: String(att.length), p: '—', d: null, g: 'up', z: false }
+    ];
+    var el = $('#kpis');
+    if (!el) return;
+    el.innerHTML = cards.map(function (c) {
+      return '<div class="card p-md"><div class="flex items-center gap-xs text-body-sm text-on-surface-variant">' +
+        '<span class="material-symbols-outlined text-[18px]">' + c.i + '</span>' + c.l + '</div>' +
+        '<div class="font-display-lg text-primary mt-xs leading-none">' + c.v + '</div>' +
+        '<div class="flex items-center justify-between mt-sm"><span class="text-body-sm text-on-surface-variant">السابق: ' + c.p + '</span>' +
+        (c.d == null ? '' : deltaChip(c.d, c.g, c.z)) + '</div></div>';
+    }).join('');
+  }
+
+  function renderCharts() {
+    var r = resolveRange(), p = prevRange(r), days = dayList(r);
+    var cur = days.map(function (d) {
+      var rows = SRC.reports.filter(function (x) { return x.date === d && state.branches.has(x.branch) && (state.shift === 'all' || x.shiftType === state.shift); });
+      return { d: d, v: rows.reduce(function (a, x) { return a + x.sales; }, 0) };
+    });
+    var prev = days.map(function (d) {
+      var dp = dstr(new Date(parseD(d).getTime() - 7 * 86400000));
+      var rows = SRC.reports.filter(function (x) { return x.date === dp && state.branches.has(x.branch) && (state.shift === 'all' || x.shiftType === state.shift); });
+      return { d: dp, v: rows.reduce(function (a, x) { return a + x.sales; }, 0) };
+    });
+    if ($('#chartTrend')) lineChart($('#chartTrend'), cur.map(function (c) { return c.d; }), cur, prev);
+
+    var wrows = filterRows(SRC.waste, r, true, false);
+    /* الدائري يحسب عدد السجلات لكل سبب (بدون خلط وحدات القياس) —
+       الكميات لكل وحدة تظهر مفصولة في محور 4. */
+    var byReason = {};
+    wrows.forEach(function (x) { var k = x.reason || 'غير محدد'; byReason[k] = (byReason[k] || 0) + 1; });
+    if ($('#chartWaste')) donut($('#chartWaste'), Object.keys(byReason).map(function (k) {
+      return { label: k, v: byReason[k] };
+    }).sort(function (a, b) { return b.v - a.v; }));
+
+    var bb = byBranch(SRC.reports, r), pb = byBranch(SRC.reports, p);
+    var pmap = {}; pb.forEach(function (x) { pmap[x.id] = x.sales; });
+    if ($('#chartBranch')) barCompare($('#chartBranch'), bb.map(function (b) {
+      return { label: b.name, v: b.sales, p: pmap[b.id] || 0, key: b.id };
+    }), function (k) { state.drill = k; state.tab = 1; renderTabs(); renderPanes();
+      var pn = $('#panes'); if (pn) global.scrollTo({ top: pn.offsetTop - 80, behavior: 'smooth' }); });
+
+    var tpl = complianceByTemplate(r);
+    if ($('#chartChecks')) {
+      bars($('#chartChecks'), tpl.map(function (t) {
+        return { label: t.title, done: t.done, total: t.total };
+      }));
+    }
+  }
+
+  /* ══════════ التبويبات ══════════ */
+  var TAB_NAMES = ['1. أداء الفروع والمبيعات', '2. الرقابة التشغيلية', '3. شكاوى العملاء',
+                   '4. الهدر والمخزون', '5. الموظفون والمعدات', '6. خطة الأسبوع القادم'];
+
+  function renderTabs() {
+    var t = $('#tabs');
+    if (!t) return;
+    t.innerHTML = TAB_NAMES.map(function (n, i) {
+      return '<button class="tabbtn px-md py-xs rounded-full border border-outline-variant text-body-sm ' +
+        (state.tab === i + 1 ? 'on' : '') + '" data-tab="' + (i + 1) + '">' + n + '</button>';
+    }).join('');
+    $$('.tabbtn', t).forEach(function (b) {
+      b.addEventListener('click', function () { state.tab = +b.getAttribute('data-tab'); renderTabs(); renderPanes(); });
+    });
+  }
+
+  /* ───────── محور 1 ───────── */
+  function pane1() {
+    var r = resolveRange(), p = prevRange(r);
+    var cur = byBranch(SRC.reports, r), prv = byBranch(SRC.reports, p);
+    var pmap = {}; prv.forEach(function (x) { pmap[x.id] = x; });
+    var totals = { sales: 0, orders: 0, psales: 0, porders: 0 };
+    cur.forEach(function (b) { totals.sales += b.sales; totals.orders += b.orders; });
+    prv.forEach(function (b) { totals.psales += b.sales; totals.porders += b.orders; });
+    var best = cur.slice().sort(function (a, b) { return b.sales - a.sales; })[0];
+    var worst = cur.filter(function (b) { return b.shifts > 0; }).sort(function (a, b) { return a.sales - b.sales; })[0];
+    var drill = state.drill ? cur.filter(function (b) { return b.id === state.drill; })[0] : null;
+
+    var rows = cur.map(function (b) {
+      var pb = pmap[b.id] || { sales: 0, orders: 0, avg: 0 };
+      return '<tr class="border-b border-outline-variant ' + (state.drill === b.id ? 'bg-secondary-container' : '') + '">' +
+        '<td class="px-md py-sm font-semibold">' + esc(b.name) + '</td>' +
+        '<td class="px-md py-sm">' + nf(b.orders) + '</td>' +
+        '<td class="px-md py-sm">' + (b.orders ? deltaChip(dlt(b.orders, pb.orders), 'up') : '<span class="text-on-surface-variant">—</span>') + '</td>' +
+        '<td class="px-md py-sm">' + nf(b.sales) + '</td>' +
+        '<td class="px-md py-sm">' + (pb.sales ? deltaChip(dlt(b.sales, pb.sales), 'up') : '<span class="text-on-surface-variant">—</span>') + '</td>' +
+        '<td class="px-md py-sm">' + nf1(b.avg) + '</td>' +
+        '<td class="px-md py-sm">' + (pb.avg ? deltaChip(dlt(b.avg, pb.avg), 'up') : '<span class="text-on-surface-variant">—</span>') + '</td>' +
+        '<td class="px-md py-sm text-on-surface-variant">' + b.shifts + ' شفت</td></tr>';
+    }).join('');
+
+    var detail = '';
+    if (drill) {
+      var lines = SRC.reports.filter(function (x) { return inRange(x.date, r) && x.branch === drill.id; })
+        .map(function (x) { return x.date + ' — ' + (x.shiftType === 'Morning' ? 'صباحي' : 'مسائي') + ' — ' + nf(x.orders) + ' فاتورة — ' + nf(x.sales) + ' ر.س — ' + esc(x.supervisor); }).join('<br>');
+      detail = '<div class="bg-surface-container rounded-lg p-md"><div class="font-label-bold text-on-surface-variant">تفصيل الفرع — ' + esc(drill.name) + '</div>' +
+        '<div class="text-body-sm mt-1">' + (lines || 'لا توجد صفوف') + '</div></div>';
+    }
+
+    return '<div class="card overflow-hidden fadein"><div class="bg-primary text-on-primary px-md py-sm font-title-md">1. أداء الفروع والمبيعات</div>' +
+      '<div class="p-md space-y-md"><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
+      '<thead><tr class="bg-surface-container text-on-surface-variant">' +
+      '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">عدد الفواتير</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">المقارنة</th><th class="text-right px-md py-sm font-label-bold">المبيعات ر.س</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">المقارنة</th><th class="text-right px-md py-sm font-label-bold">متوسط الفاتورة</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">المقارنة</th><th class="text-right px-md py-sm font-label-bold">عدد الشفتات</th>' +
+      '</tr></thead><tbody>' + (rows || '<tr><td colspan="8" class="px-md py-lg text-center text-on-surface-variant">لا توجد بيانات</td></tr>') + '</tbody>' +
+      '<tfoot class="bg-surface-container font-bold"><tr><td class="px-md py-sm">الإجمالي</td>' +
+      '<td class="px-md py-sm">' + nf(totals.orders) + '</td><td class="px-md py-sm">' + deltaChip(dlt(totals.orders, totals.porders), 'up') + '</td>' +
+      '<td class="px-md py-sm">' + nf(totals.sales) + '</td><td class="px-md py-sm">' + deltaChip(dlt(totals.sales, totals.psales), 'up') + '</td>' +
+      '<td class="px-md py-sm">' + nf1(totals.orders ? totals.sales / totals.orders : 0) + '</td><td class="px-md py-sm">—</td>' +
+      '<td class="px-md py-sm"></td></tr></tfoot></table></div>' +
+      '<div class="grid md:grid-cols-2 gap-md">' +
+      '<div class="border-2 border-tertiary-container rounded-lg p-md bg-tertiary-container/5"><div class="font-title-md text-tertiary-container flex items-center gap-xs"><span class="material-symbols-outlined">trending_up</span> أفضل فرع أداءً</div>' +
+      '<div class="font-title-md text-primary mt-xs">' + (best ? esc(best.name) : '—') + '</div>' +
+      '<div class="mt-sm"><label class="font-label-bold text-on-surface-variant">سبب التميز</label><div class="text-body-sm mt-1" data-edit="bestReason">' +
+      (best ? 'إجمالي مبيعات ' + nf(best.sales) + ' ر.س على ' + nf(best.orders) + ' فاتورة، بمتوسط ' + nf1(best.avg) + ' ر.س — أعلى نسبة بين الفروع في الفترة.' : 'لا توجد بيانات كافية.') +
+      '</div></div></div>' +
+      '<div class="border-2 border-error-container rounded-lg p-md bg-error-container/20"><div class="font-title-md text-error flex items-center gap-xs"><span class="material-symbols-outlined">trending_down</span> أقل فرع أداءً + خطة التحسين</div>' +
+      '<div class="font-title-md text-primary mt-xs">' + (worst ? esc(worst.name) : '—') + '</div>' +
+      '<div class="mt-sm"><label class="font-label-bold text-on-surface-variant">سبب القصور</label><div class="text-body-sm mt-1" data-edit="worstReason">' +
+      (worst ? 'مبيعات ' + nf(worst.sales) + ' ر.س على ' + nf(worst.orders) + ' فاتورة (' + worst.shifts + ' شفت مسجلة فقط) — راجع تغطية الورديات أولاً قبل الحكم على الأداء.' : 'لا توجد بيانات كافية.') +
+      '</div></div><div class="grid grid-cols-3 gap-sm mt-sm">' +
+      '<div><label class="font-label-bold text-on-surface-variant">الإجراء التصحيحي</label><div class="text-body-sm mt-1" data-edit="worstAction">—</div></div>' +
+      '<div><label class="font-label-bold text-on-surface-variant">المسؤول</label><div class="text-body-sm mt-1" data-edit="worstOwner">—</div></div>' +
       '<div><label class="font-label-bold text-on-surface-variant">الموعد</label><div class="text-body-sm mt-1" data-edit="worstDue">—</div></div>' +
       '</div></div></div>' + detail + '</div></div>';
   }
