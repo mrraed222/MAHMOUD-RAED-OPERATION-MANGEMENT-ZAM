@@ -16,7 +16,8 @@
  *        negative_reviews→ التعليقات السلبية (شكاوى العملاء)
  *   3) يمنع التكرار: كل سطر له مفتاح ثابت (sheet_key) مخزّن في
  *      custom_fields، فلو تكرر التشغيل ما هينزلش نفس البيانات مرتين.
- *   4) يحفظ داخل custom_fields نسخة كاملة من الهدر والمشاكل والتعليقات
+ *   4) يعيد معرفات التقارير الجديدة فور الإدخال حتى تُربط بها سجلات الهدر والمشاكل والتعليقات في نفس التشغيل.
+ *   5) يحفظ داخل custom_fields نسخة كاملة من الهدر والمشاكل والتعليقات
  *      الخاصة بالتقرير — عشان الداشبورد يقرأها حتى لو ربط الجداول الفرعية اتغيّر.
  *
  * ---------------------------------------------------------------------
@@ -53,7 +54,7 @@ function supa(method, path, body) {
       'apikey': key,
       'Authorization': 'Bearer ' + key,
       'Content-Type': 'application/json',
-      'Prefer': 'return=minimal'
+      'Prefer': 'return=representation'
     },
     muteHttpExceptions: true
   };
@@ -364,7 +365,11 @@ function syncToSupabase() {
       } catch (e) { return false; }
     }
     // إن كان ملف SQL المرفق قد نُفّذ، نستخدم sheet_key لمنع التكرار بأمان
-    var USE_CHILD_KEY = hasColumn('waste_logs', 'sheet_key');
+    var USE_CHILD_KEY = {
+      waste: hasColumn('waste_logs', 'sheet_key'),
+      issues: hasColumn('shift_issues', 'sheet_key'),
+      negatives: hasColumn('negative_reviews', 'sheet_key')
+    };
 
     // الهدر
     data.waste.forEach(function (r) {
@@ -374,7 +379,7 @@ function syncToSupabase() {
       if (!rep || !rep.id) { summary.skipped++; return; }
       var key = sheetKey([rep.key, 'W', w.item_name, w.quantity, w.unit, w.reason]);
       try {
-        if (USE_CHILD_KEY) {
+        if (USE_CHILD_KEY.waste) {
           supa('POST', '/rest/v1/waste_logs?on_conflict=sheet_key', [{
             report_id: rep.id, item_name: w.item_name, quantity: w.quantity,
             unit: w.unit, reason: w.reason, sheet_key: key,
@@ -402,7 +407,7 @@ function syncToSupabase() {
       if (!rep || !rep.id) { summary.skipped++; return; }
       var key = sheetKey([rep.key, 'I', i.description]);
       try {
-        if (USE_CHILD_KEY) {
+        if (USE_CHILD_KEY.issues) {
           supa('POST', '/rest/v1/shift_issues?on_conflict=sheet_key', [{
             report_id: rep.id, description: i.description, action_taken: i.action_taken,
             priority: i.priority, issue_type: i.type, sheet_key: key
@@ -426,7 +431,7 @@ function syncToSupabase() {
       if (!rep || !rep.id) { summary.skipped++; return; }
       var key = sheetKey([rep.key, 'N', n.comment_text]);
       try {
-        if (USE_CHILD_KEY) {
+        if (USE_CHILD_KEY.negatives) {
           supa('POST', '/rest/v1/negative_reviews?on_conflict=sheet_key', [{
             report_id: rep.id, comment_text: n.comment_text,
             review_type: n.review_type, sheet_key: key,
