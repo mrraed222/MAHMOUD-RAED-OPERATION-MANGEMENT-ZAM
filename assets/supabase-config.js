@@ -166,7 +166,7 @@ async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
     return `<aside class="fixed right-0 top-0 h-full w-[280px] bg-surface border-l border-outline-variant flex flex-col py-lg px-md gap-base z-50 hidden md:flex">
         <div class="flex items-center justify-between gap-sm mb-lg px-xs">
           <div class="flex items-center gap-sm">
-            <img alt="ZAM Operations System" class="w-12 h-12 rounded-lg object-cover zam-logo" src="${pathPrefix}assets/logo/zam-logo.png"/>
+            <img alt="ZAM Operations System" class="w-14 h-14 rounded-xl object-contain bg-white p-1 zam-logo" src="${pathPrefix}assets/logo/zam-logo.png"/>
             <div>
                 <h1 class="font-display-lg text-[24px] font-bold text-primary leading-none">ZAM Operations System</h1>
                 <p class="font-body-sm text-on-surface-variant">إدارة العمليات</p>
