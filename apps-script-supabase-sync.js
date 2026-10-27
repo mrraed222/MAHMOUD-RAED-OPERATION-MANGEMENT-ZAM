@@ -428,6 +428,9 @@ function syncToSupabase() {
       if (issuePayload.length) summary.children += supaBatch('shift_issues', issuePayload, USE_CHILD_KEY.issues ? 'sheet_key' : null);
     } catch (e) { summary.errors.push('shift_issues: ' + e.message); }
 
+    // Google Map مستبعدة من هذه المزامنة بناءً على طلب المستخدم.
+    data.negatives = [];
+
     // التعليقات السلبية — تجهيز ثم إرسال على دفعات
     var negativePayload = [];
     data.negatives.forEach(function (r) {
