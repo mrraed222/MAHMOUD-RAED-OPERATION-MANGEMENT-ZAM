@@ -728,13 +728,24 @@
     if ($('#chartTrend')) lineChart($('#chartTrend'), cur.map(function (c) { return c.d; }), cur, prev);
 
     var wrows = filterRows(SRC.waste, r, true, false);
+    var wasteNotice = '';
+    if (!wrows.length && SRC.waste.length) {
+      /* لا نترك الرسم فارغاً عندما تكون آخر مزامنة للهدر أقدم من تقارير المبيعات. */
+      wrows = SRC.waste.slice();
+      var lastWasteDate = SRC.waste.map(function (x) { return x.date; }).filter(Boolean).sort().pop();
+      wasteNotice = '<div class="text-body-sm text-on-surface-variant mb-sm">لا توجد سجلات هدر في الفترة المحددة؛ المعروض آخر أسباب هدر متاحة حتى ' + esc(lastWasteDate || '—') + '.</div>';
+    }
     /* الدائري يحسب عدد السجلات لكل سبب (بدون خلط وحدات القياس) —
        الكميات لكل وحدة تظهر مفصولة في محور 4. */
     var byReason = {};
     wrows.forEach(function (x) { var k = x.reason || 'غير محدد'; byReason[k] = (byReason[k] || 0) + 1; });
-    if ($('#chartWaste')) donut($('#chartWaste'), Object.keys(byReason).map(function (k) {
-      return { label: k, v: byReason[k] };
-    }).sort(function (a, b) { return b.v - a.v; }));
+    if ($('#chartWaste')) {
+      var wasteEl = $('#chartWaste');
+      wasteEl.innerHTML = wasteNotice + '<div id="chartWasteDonut"></div>';
+      donut(document.getElementById('chartWasteDonut'), Object.keys(byReason).map(function (k) {
+        return { label: k, v: byReason[k] };
+      }).sort(function (a, b) { return b.v - a.v; }));
+    }
 
     var bb = byBranch(SRC.reports, r), pb = byBranch(SRC.reports, p);
     var pmap = {}; pb.forEach(function (x) { pmap[x.id] = x.sales; });
@@ -1340,13 +1351,19 @@
     if (rb) rb.addEventListener('click', function () { boot(); });
     var pb = document.getElementById('printBtn');
     if (pb) pb.addEventListener('click', function () {
-      var restore = renderAllPanesForPrint();
-      function done() {
-        global.removeEventListener('afterprint', done);
-        restore();
+      var restore = function () {};
+      try {
+        restore = renderAllPanesForPrint();
+        function done() {
+          global.removeEventListener('afterprint', done);
+          restore();
+        }
+        global.addEventListener('afterprint', done);
+        global.print();
+      } catch (err) {
+        try { restore(); } catch (_) {}
+        notify('تعذر تجهيز التقرير للطباعة: ' + (err && err.message ? err.message : 'خطأ غير معروف'), 'error');
       }
-      global.addEventListener('afterprint', done);
-      global.print();
     });
     var ssb = document.getElementById('saveSnapshotBtn');
     if (ssb) ssb.addEventListener('click', saveSnapshot);
