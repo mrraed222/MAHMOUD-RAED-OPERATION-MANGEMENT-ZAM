@@ -54,7 +54,7 @@ function supa(method, path, body) {
       'apikey': key,
       'Authorization': 'Bearer ' + key,
       'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
+      'Prefer': String(path).indexOf('on_conflict=') >= 0 ? 'resolution=merge-duplicates,return=representation' : 'return=representation'
     },
     muteHttpExceptions: true
   };
@@ -282,11 +282,11 @@ function toIssueRow(r) {
 
 /** يحوّل صف تعليق سلبي إلى negative_reviews */
 function toNegRow(r) {
-  var c = txt(val(r, ['التعليق', 'التعليق السلبي', 'neg_comment', 'comment', 'comment_text']));
+  var c = txt(val(r, ['التعليقات السلبية', 'التعليق السلبي', 'neg_comment', 'comment_text', 'comment']));
   if (!c) return null;
   return {
     comment_text: c,
-    review_type: txt(val(r, ['النوع', 'type', 'review_type'])) || 'Google Review',
+    review_type: 'negative',
     rating: num(val(r, ['تقييم العميل', 'customer_rating', 'التقييم', 'rating'])),
     status: txt(val(r, ['الحالة', 'status'])) || 'معلقة',
     owner: txt(val(r, ['المسؤول', 'owner'])),
