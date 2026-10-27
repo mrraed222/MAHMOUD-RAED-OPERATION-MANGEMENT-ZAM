@@ -54,9 +54,13 @@
   })();
 </script>
 <style>
-  body { font-family:'Noto Sans Arabic','Montserrat',sans-serif; }
+  body { font-family:'Noto Sans Arabic','Montserrat',sans-serif; background:#f5f1ed; }
   .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; vertical-align:middle; }
-  .card { background:#fff; border:1px solid #d2c4ba; border-radius:.5rem; }
+  .card { background:#fff; border:1px solid #d2c4ba; border-radius:.75rem; box-shadow:0 8px 24px rgba(51,33,13,.06); }
+  .report-header { background:linear-gradient(135deg,#33210d 0%,#4b3621 62%,#725a42 100%); color:#fff; }
+  .report-header .text-on-surface-variant { color:#f4e8dc; }
+  .report-logo { width:48px; height:48px; object-fit:cover; border-radius:12px; background:#fff; padding:4px; }
+  .print-brand { display:none; }
   .slicer { transition:all .15s; }
   .slicer:hover { background:#f6f3f2; }
   .slicer.on { background:#4b3621; color:#fff; border-color:#4b3621; }
@@ -66,13 +70,33 @@
   [contenteditable="true"]:focus { background:#fff; box-shadow:0 0 0 2px #bd9f83; }
   .fadein { animation:f .3s ease; }
   @keyframes f { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
-  @media print {
-    @page { size:A4; margin:10mm 8mm; }
-    body { background:#fff; }
-    .no-print { display:none !important; }
-    .card { break-inside:avoid; box-shadow:none !important; border:1px solid #ccc !important; }
+  @media (max-width: 900px) {
     main { margin-right:0 !important; }
-    header { position:static !important; box-shadow:none !important; }
+    .report-header .header-inner { padding-left:16px; padding-right:16px; }
+  }
+  @media print {
+    @page { size:A4 portrait; margin:12mm 10mm 14mm; }
+    html, body { background:#fff !important; color:#1b1c1c; }
+    body { font-size:10pt; }
+    .no-print, aside, #notification-bell-container { display:none !important; }
+    .print-brand { display:flex; align-items:center; gap:12px; padding:0 0 8mm; border-bottom:2px solid #33210d; margin-bottom:6mm; }
+    .print-brand img { width:22mm; height:22mm; object-fit:contain; }
+    .print-brand h1 { margin:0; color:#33210d; font-size:18pt; }
+    .print-brand p { margin:2mm 0 0; color:#5e604d; font-size:9pt; }
+    main { margin-right:0 !important; min-height:0 !important; }
+    .card { break-inside:avoid; box-shadow:none !important; border:1px solid #b9afa7 !important; border-radius:4px; }
+    .report-header { background:#fff !important; color:#33210d !important; border-bottom:1px solid #b9afa7; box-shadow:none !important; }
+    .report-header .text-on-surface-variant { color:#5e604d !important; }
+    .report-header .report-logo { display:none; }
+    #panes > * { break-inside:auto; }
+    #panes .card { margin-bottom:5mm; }
+    table { width:100% !important; font-size:8pt; }
+    th, td { padding:2.5mm 2mm !important; }
+    .overflow-x-auto { overflow:visible !important; }
+    svg { max-width:100%; }
+    .grid { break-inside:avoid; }
+    .bg-primary { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+    .bg-surface-container, .bg-surface-container-lowest { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
   }
 </style>
 </head>
@@ -83,11 +107,13 @@
 <main class="mr-[280px] min-h-screen">
 
   <!-- ================= HEADER ================= -->
-  <header class="no-print sticky top-0 z-40 bg-surface border-b border-outline-variant shadow-sm">
-    <div class="px-margin-desktop py-3 flex items-center justify-between gap-4 flex-wrap">
+  <div class="print-brand"><img src="../assets/logo/zam-logo.png" alt="شعار زام"><div><h1>التقرير التشغيلي الأسبوعي</h1><p>نظام زام للعمليات · تقرير إداري معتمد للطباعة</p></div></div>
+  <header class="no-print sticky top-0 z-40 report-header shadow-sm">
+    <div class="header-inner px-margin-desktop py-3 flex items-center justify-between gap-4 flex-wrap">
       <div class="flex items-center gap-md">
-        <h2 class="font-headline-lg text-primary">التقرير التشغيلي الأسبوعي</h2>
-        <p class="text-body-sm text-on-surface-variant">مقهى زام المختص — ينبع &nbsp;·&nbsp; <span dir="ltr">operations@zam.sa</span> &nbsp;·&nbsp; <span dir="ltr">0563505653</span></p>
+        <img class="report-logo" src="../assets/logo/zam-logo.png" alt="شعار زام">
+        <div><h2 class="font-headline-lg text-on-primary">التقرير التشغيلي الأسبوعي</h2>
+        <p class="text-body-sm text-on-surface-variant">مقهى زام المختص — ينبع &nbsp;·&nbsp; <span dir="ltr">operations@zam.sa</span> &nbsp;·&nbsp; <span dir="ltr">0563505653</span></p></div>
       </div>
       <div class="flex items-center gap-sm flex-wrap">
         <div id="srcChip" class="flex items-center gap-xs bg-surface-container-low px-md py-xs rounded-full border border-outline-variant text-body-sm">
@@ -152,12 +178,8 @@
       <h3 class="font-title-md text-primary mt-sm">لا توجد بيانات مسجلة في هذه الفترة</h3>
       <p class="text-body-sm text-on-surface-variant mt-xs max-w-2xl mx-auto" id="emptyMsg"></p>
       <div class="mt-md bg-surface-container rounded-lg p-md text-right max-w-2xl mx-auto">
-        <div class="font-label-bold text-on-surface-variant mb-xs">لتشغيل المزامنة من داخل الصفحة:</div>
-        <ol class="text-body-sm space-y-xs list-decimal list-inside">
-          <li>شغّل <code>runSyncNow()</code> من محرر Google Apps Script.</li>
-          <li>أو فعّل المشغل اليومي <code>installDailySync()</code>.</li>
-          <li>بعد اكتمال المزامنة اضغط «تحديث» في هذه الصفحة.</li>
-        </ol>
+        <div class="font-label-bold text-on-surface-variant mb-xs">مصدر البيانات</div>
+        <p class="text-body-sm">يُعرض التقرير من بيانات Supabase المتاحة للمستخدم المالك. عند عدم وجود بيانات، شغّل المزامنة من Google Apps Script ثم اضغط «تحديث».</p>
       </div>
     </section>
 
@@ -211,7 +233,7 @@
         <span class="material-symbols-outlined">history</span> النسخ المحفوظة من التقارير
       </h3>
       <p class="text-body-sm text-on-surface-variant mb-sm">
-        كل ضغطة على «حفظ نسخة التقرير» ت��فظ الأرقام والتعليقات كما هي في جدول
+        كل ضغطة على «حفظ نسخة التقرير» تحفظ الأرقام والتعليقات كما هي في جدول
         <b>weekly_reports</b> داخل Supabase، لتبقى مرجعاً تاريخياً عند اعتماد التقرير.
       </p>
       <div id="snapshotsList"></div>
@@ -230,4 +252,7 @@ ZamWeeklyReport.init({
 </script>
 </body>
 </html>
+
+
+
 
