@@ -66,6 +66,18 @@ function supa(method, path, body) {
   return txt ? JSON.parse(txt) : null;
 }
 
+
+/** يرسل سجلات Supabase على دفعات لتجنب تجاوز مهلة Apps Script */
+function supaBatch(table, rows, conflictColumn) {
+  var size = 250;
+  for (var start = 0; start < rows.length; start += size) {
+    var path = '/rest/v1/' + table;
+    if (conflictColumn) path += '?on_conflict=' + conflictColumn;
+    supa('POST', path, rows.slice(start, start + size));
+  }
+  return rows.length;
+}
+
 /** تطبيع التاريخ إلى yyyy-MM-dd */
 function toISO(v) {
   if (!v) return '';
@@ -378,84 +390,61 @@ function syncToSupabase() {
       negatives: hasColumn('negative_reviews', 'sheet_key')
     };
 
-    // الهدر
+    // الهدر — تجهيز ثم إرسال على دفعات
+    var wastePayload = [];
     data.waste.forEach(function (r) {
       var w = toWasteRow(r);
       if (!w) return;
       var rep = findReport(w.date, w.branchRaw, w.sheet_row);
       if (!rep || !rep.id) { summary.skipped++; return; }
       var key = sheetKey([rep.key, 'W', w.item_name, w.quantity, w.unit, w.reason]);
-      try {
-        if (USE_CHILD_KEY.waste) {
-          supa('POST', '/rest/v1/waste_logs?on_conflict=sheet_key', [{
-            report_id: rep.id, item_name: w.item_name, quantity: w.quantity,
-            unit: w.unit, reason: w.reason, sheet_key: key,
-            root_cause: w.root_cause || null,
-            corrective_action: w.corrective_action || null,
-            owner: w.owner || null,
-            unit_cost: w.unit_cost || null
-          }]);
-        } else {
-          supa('DELETE', '/rest/v1/waste_logs?report_id=eq.' + rep.id + '&item_name=eq.' + encodeURIComponent(w.item_name));
-          supa('POST', '/rest/v1/waste_logs', [{
-            report_id: rep.id, item_name: w.item_name,
-            quantity: w.quantity, unit: w.unit, reason: w.reason
-          }]);
-        }
-        summary.children++;
-      } catch (e) { summary.errors.push('waste_logs: ' + e.message); }
+      wastePayload.push({
+        report_id: rep.id, item_name: w.item_name, quantity: w.quantity,
+        unit: w.unit, reason: w.reason, sheet_key: key,
+        root_cause: w.root_cause || null, corrective_action: w.corrective_action || null,
+        owner: w.owner || null, unit_cost: w.unit_cost || null
+      });
     });
+    try {
+      if (wastePayload.length) summary.children += supaBatch('waste_logs', wastePayload, USE_CHILD_KEY.waste ? 'sheet_key' : null);
+    } catch (e) { summary.errors.push('waste_logs: ' + e.message); }
 
-    // مشاكل الشفت
+    // مشاكل الشفت — تجهيز ثم إرسال على دفعات
+    var issuePayload = [];
     data.issues.forEach(function (r) {
       var i = toIssueRow(r);
       if (!i) return;
       var rep = findReport(i.date, i.branchRaw, i.sheet_row);
       if (!rep || !rep.id) { summary.skipped++; return; }
       var key = sheetKey([rep.key, 'I', i.description]);
-      try {
-        if (USE_CHILD_KEY.issues) {
-          supa('POST', '/rest/v1/shift_issues?on_conflict=sheet_key', [{
-            report_id: rep.id, description: i.description, action_taken: i.action_taken,
-            priority: i.priority, issue_type: i.type, sheet_key: key
-          }]);
-        } else {
-          supa('DELETE', '/rest/v1/shift_issues?report_id=eq.' + rep.id + '&description=eq.' + encodeURIComponent(i.description));
-          supa('POST', '/rest/v1/shift_issues', [{
-            report_id: rep.id, description: i.description,
-            action_taken: i.action_taken, priority: i.priority
-          }]);
-        }
-        summary.children++;
-      } catch (e) { summary.errors.push('shift_issues: ' + e.message); }
+      issuePayload.push({
+        report_id: rep.id, description: i.description, action_taken: i.action_taken,
+        priority: i.priority, issue_type: i.type, sheet_key: key
+      });
     });
+    try {
+      if (issuePayload.length) summary.children += supaBatch('shift_issues', issuePayload, USE_CHILD_KEY.issues ? 'sheet_key' : null);
+    } catch (e) { summary.errors.push('shift_issues: ' + e.message); }
 
-    // التعليقات السلبية
+    // التعليقات السلبية — تجهيز ثم إرسال على دفعات
+    var negativePayload = [];
     data.negatives.forEach(function (r) {
       var n = toNegRow(r);
       if (!n) return;
       var rep = findReport(n.date, n.branchRaw, n.sheet_row);
       if (!rep || !rep.id) { summary.skipped++; return; }
       var key = sheetKey([rep.key, 'N', n.comment_text]);
-      try {
-        if (USE_CHILD_KEY.negatives) {
-          supa('POST', '/rest/v1/negative_reviews?on_conflict=sheet_key', [{
-            report_id: rep.id, comment_text: n.comment_text,
-            review_type: n.review_type, sheet_key: key,
-            status: n.status || 'معلقة',
-            owner: n.owner || null,
-            action_taken: n.action_taken || null,
-            customer_rating: n.rating || null
-          }]);
-        } else {
-          supa('DELETE', '/rest/v1/negative_reviews?report_id=eq.' + rep.id + '&comment_text=eq.' + encodeURIComponent(n.comment_text));
-          supa('POST', '/rest/v1/negative_reviews', [{
-            report_id: rep.id, comment_text: n.comment_text, review_type: n.review_type
-          }]);
-        }
-        summary.children++;
-      } catch (e) { summary.errors.push('negative_reviews: ' + e.message); }
+      negativePayload.push({
+        report_id: rep.id, comment_text: n.comment_text,
+        review_type: n.review_type, sheet_key: key,
+        status: n.status || 'معلقة', owner: n.owner || null,
+        action_taken: n.action_taken || null, customer_rating: n.rating || null
+      });
     });
+    try {
+      if (negativePayload.length) summary.children += supaBatch('negative_reviews', negativePayload, USE_CHILD_KEY.negatives ? 'sheet_key' : null);
+    } catch (e) { summary.errors.push('negative_reviews: ' + e.message); }
+
 
     summary.finishedAt = new Date().toISOString();
     summary.ok = true;
