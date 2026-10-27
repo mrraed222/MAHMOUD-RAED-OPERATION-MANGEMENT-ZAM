@@ -334,7 +334,12 @@ function syncToSupabase() {
       var inserted = supa('POST', '/rest/v1/daily_reports', toInsert);
       (inserted || []).forEach(function (r) {
         var cf = r.custom_fields || {};
-        if (cf.sheet_key) byKey[cf.sheet_key] = r.id;
+        if (cf.sheet_key) {
+          byKey[cf.sheet_key] = r.id;
+          prepared.forEach(function (p) {
+            if (p.key === cf.sheet_key) p.id = r.id;
+          });
+        }
       });
       summary.inserted = toInsert.length;
     }
