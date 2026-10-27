@@ -406,6 +406,7 @@ function syncToSupabase() {
       });
     });
     try {
+      if (!USE_CHILD_KEY.waste) wastePayload.forEach(function (x) { delete x.sheet_key; delete x.root_cause; delete x.corrective_action; delete x.owner; delete x.unit_cost; });
       if (wastePayload.length) summary.children += supaBatch('waste_logs', wastePayload, USE_CHILD_KEY.waste ? 'sheet_key' : null);
     } catch (e) { summary.errors.push('waste_logs: ' + e.message); }
 
@@ -423,6 +424,7 @@ function syncToSupabase() {
       });
     });
     try {
+      if (!USE_CHILD_KEY.issues) issuePayload.forEach(function (x) { delete x.sheet_key; delete x.issue_type; });
       if (issuePayload.length) summary.children += supaBatch('shift_issues', issuePayload, USE_CHILD_KEY.issues ? 'sheet_key' : null);
     } catch (e) { summary.errors.push('shift_issues: ' + e.message); }
 
@@ -442,6 +444,7 @@ function syncToSupabase() {
       });
     });
     try {
+      if (!USE_CHILD_KEY.negatives) negativePayload.forEach(function (x) { delete x.sheet_key; delete x.status; delete x.owner; delete x.action_taken; delete x.customer_rating; });
       if (negativePayload.length) summary.children += supaBatch('negative_reviews', negativePayload, USE_CHILD_KEY.negatives ? 'sheet_key' : null);
     } catch (e) { summary.errors.push('negative_reviews: ' + e.message); }
 
