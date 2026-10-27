@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZAM Operations - زيارات الفروع</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../assets/supabase-config.js"></script>
+<style>
+  body{font-family:'Noto Sans Arabic','Montserrat',sans-serif;background:#f5f1ed;color:#1b1c1c}
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:middle}
+  .card{background:#fff;border:1px solid #d2c4ba;border-radius:12px;box-shadow:0 8px 24px rgba(51,33,13,.06)}
+  .brand{background:linear-gradient(135deg,#33210d,#4b3621 65%,#725a42);color:#fff}
+  .logo{width:48px;height:48px;object-fit:cover;border-radius:12px;background:#fff;padding:4px}
+  @media print{ @page{size:A4 portrait;margin:12mm 10mm} body{background:#fff}.no-print,aside{display:none!important}main{margin-right:0!important}.brand{background:#fff!important;color:#33210d!important;border-bottom:2px solid #33210d;box-shadow:none!important}.card{box-shadow:none!important;break-inside:avoid;border-color:#aaa}.logo{display:block}table{font-size:8pt} }
+</style>
+</head>
+<body>
+<script>
+const currentUser=ZamSession.requireAuth('../index.html');
+if(!currentUser || currentUser.role!=='Owner'){window.location.href=zamRoleHomePath(currentUser&&currentUser.role);}
+</script>
+<script>document.write(renderZamSidebar('branch-visits', currentUser.role));</script>
+<main class="mr-[280px] min-h-screen">
+<header class="brand px-6 py-4"><div class="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap"><div class="flex items-center gap-3"><img class="logo" src="../assets/logo/zam-logo.png" alt="شعار زام"><div><h1 class="text-2xl font-bold">زيارات الفروع</h1><p class="text-sm opacity-85">تسجيل الزيارات والملاحظات والإجراءات التصحيحية</p></div></div><div class="no-print flex gap-2"><button id="reload" class="px-4 py-2 rounded-full bg-white/15 border border-white/40">تحديث</button><button id="print" class="px-4 py-2 rounded-full bg-white text-[#33210d] font-bold">طباعة</button></div></div></header>
+<section class="max-w-7xl mx-auto p-6 space-y-6">
+<div id="toast" class="hidden rounded-lg p-3"></div>
+<div class="card p-5 no-print"><div class="flex items-center justify-between mb-4"><div><h2 class="text-xl font-bold text-[#33210d]">تسجيل زيارة جديدة</h2><p class="text-sm text-[#5e604d]">تُحفظ مباشرة في جدول <code>supervisory_visits</code> وتظهر في التقرير الأسبوعي.</p></div><span class="material-symbols-outlined text-4xl text-[#725a42]">fact_check</span></div>
+<form id="visitForm" class="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+<label>التاريخ<input required id="visit_date" type="date" class="mt-1 w-full rounded-lg border p-2"></label>
+<label>الفرع<select required id="branch_id" class="mt-1 w-full rounded-lg border p-2"><option value="">جارٍ التحميل…</option></select></label>
+<label>الشفت<select id="shift_type" class="mt-1 w-full rounded-lg border p-2"><option value="Morning">صباحي</option><option value="Evening">مسائي</option></select></label>
+<label>اسم الزائر<input required id="visitor_name" class="mt-1 w-full rounded-lg border p-2" placeholder="اسم المشرف"></label>
+<label>نسبة التقييم<input id="score" type="number" min="0" max="100" class="mt-1 w-full rounded-lg border p-2" placeholder="0 - 100"></label>
+<label>المهام المستحقة<input id="checklist_total" type="number" min="0" value="0" class="mt-1 w-full rounded-lg border p-2"></label>
+<label>المهام المنفذة<input id="checklist_done" type="number" min="0" value="0" class="mt-1 w-full rounded-lg border p-2"></label>
+<label>المسؤول<input id="owner" class="mt-1 w-full rounded-lg border p-2" placeholder="اسم المسؤول عن المعالجة"></label>
+<label class="md:col-span-2 xl:col-span-2">الملاحظة<textarea required id="observation" rows="3" class="mt-1 w-full rounded-lg border p-2" placeholder="ما الذي تمت ملاحظته؟"></textarea></label>
+<label class="md:col-span-2 xl:col-span-2">الإجراء التصحيحي<textarea id="corrective_action" rows="3" class="mt-1 w-full rounded-lg border p-2" placeholder="ما الإجراء المطلوب؟"></textarea></label>
+<label>الموعد النهائي<input id="due_date" type="date" class="mt-1 w-full rounded-lg border p-2"></label>
+<label>الحالة<select id="status" class="mt-1 w-full rounded-lg border p-2"><option>مفتوحة</option><option>قيد المعالجة</option><option>مغلقة</option></select></label>
+<div class="xl:col-span-4 flex justify-end"><button class="px-6 py-3 rounded-full bg-[#33210d] text-white font-bold" type="submit"><span class="material-symbols-outlined">save</span> حفظ الزيارة</button></div>
+</form></div>
+<div class="card p-5"><div class="flex items-center justify-between mb-4"><div><h2 class="text-xl font-bold text-[#33210d]">سجل الزيارات</h2><p class="text-sm text-[#5e604d]">آخر الزيارات المسجلة حسب التاريخ.</p></div><input id="filter" type="search" placeholder="بحث بالفرع أو الملاحظة" class="no-print rounded-full border p-2"></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="bg-[#f0eded]"><th class="p-3 text-right">التاريخ</th><th class="p-3 text-right">الفرع</th><th class="p-3 text-right">الزائر</th><th class="p-3 text-right">التقييم</th><th class="p-3 text-right">الملاحظة</th><th class="p-3 text-right">الإجراء</th><th class="p-3 text-right">المسؤول</th><th class="p-3 text-right">الحالة</th></tr></thead><tbody id="rows"><tr><td colspan="8" class="p-6 text-center">جارٍ التحميل…</td></tr></tbody></table></div></div>
+</section></main>
+<script>
+const today=new Date().toISOString().slice(0,10); document.getElementById('visit_date').value=today;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+let branches=[], visits=[];
+function toast(msg,error=false){const x=document.getElementById('toast');x.textContent=msg;x.className='rounded-lg p-3 '+(error?'bg-red-100 text-red-800':'bg-green-100 text-green-800');setTimeout(()=>x.className='hidden',5000)}
+async function loadBranches(){const {data,error}=await zamClient.from('branches').select('id,name').order('name');if(error)throw error;branches=data||[];document.getElementById('branch_id').innerHTML='<option value="">اختر الفرع</option>'+branches.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('')}
+async function loadVisits(){const {data,error}=await zamClient.from('supervisory_visits').select('id,visit_date,branch_id,visitor_name,score,observation,corrective_action,owner,status,branches(name)').order('visit_date',{ascending:false}).limit(200);if(error)throw error;visits=data||[];render()}
+function render(){const q=document.getElementById('filter').value.trim().toLowerCase();const rows=visits.filter(v=>!q||[v.observation,v.corrective_action,v.owner,v.branches&&v.branches.name].join(' ').toLowerCase().includes(q));document.getElementById('rows').innerHTML=rows.length?rows.map(v=>`<tr class="border-b"><td class="p-3">${esc(v.visit_date)}</td><td class="p-3">${esc(v.branches&&v.branches.name||'—')}</td><td class="p-3">${esc(v.visitor_name)}</td><td class="p-3">${v.score==null?'—':esc(v.score)+'%'}</td><td class="p-3">${esc(v.observation)}</td><td class="p-3">${esc(v.corrective_action||'—')}</td><td class="p-3">${esc(v.owner||'—')}</td><td class="p-3">${esc(v.status||'مفتوحة')}</td></tr>`).join(''):'<tr><td colspan="8" class="p-6 text-center text-gray-500">لا توجد زيارات مسجلة</td></tr>'}
+document.getElementById('filter').addEventListener('input',render);document.getElementById('reload').addEventListener('click',()=>loadVisits().catch(e=>toast(e.message,true)));document.getElementById('print').addEventListener('click',()=>window.print());
+document.getElementById('visitForm').addEventListener('submit',async e=>{e.preventDefault();const payload={branch_id:document.getElementById('branch_id').value,visit_date:document.getElementById('visit_date').value,shift_type:document.getElementById('shift_type').value,visitor_name:document.getElementById('visitor_name').value.trim(),score:document.getElementById('score').value?Number(document.getElementById('score').value):null,checklist_total:Number(document.getElementById('checklist_total').value||0),checklist_done:Number(document.getElementById('checklist_done').value||0),observation:document.getElementById('observation').value.trim(),corrective_action:document.getElementById('corrective_action').value.trim()||null,owner:document.getElementById('owner').value.trim()||null,due_date:document.getElementById('due_date').value||null,status:document.getElementById('status').value};const {error}=await zamClient.from('supervisory_visits').insert(payload);if(error){toast(error.message,true);return}toast('تم حفظ الزيارة بنجاح');e.target.reset();document.getElementById('visit_date').value=today;document.getElementById('checklist_total').value=0;document.getElementById('checklist_done').value=0;await loadVisits()});
+Promise.all([loadBranches(),loadVisits()]).catch(e=>{document.getElementById('rows').innerHTML='<tr><td colspan="8" class="p-6 text-center text-red-700">تعذّر تحميل البيانات: '+esc(e.message)+'</td></tr>'});
+</script></body></html>
+
