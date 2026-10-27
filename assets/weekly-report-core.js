@@ -974,8 +974,8 @@
     Object.keys(itemsByUnit).forEach(function (u) {
       itemsByUnit[u].forEach(function (row) { topItems.push(row); });
     });
-    var maxV = Math.max(1, topItems.map(function (x) { return x[1]; }));
     var barsHtml = Object.keys(itemsByUnit).map(function (u) {
+      var maxV = Math.max.apply(null, [1].concat(itemsByUnit[u].map(function (x) { return x[1]; })));
       return '<div class="mb-sm"><div class="font-label-bold text-on-surface-variant mb-xs">وحدة القياس: ' + esc(u) + '</div>' +
         itemsByUnit[u].map(function (x) {
           return '<div class="mb-xs"><div class="flex justify-between text-body-sm"><span>' + esc(x[0]) + '</span><span class="font-bold">' + nf(x[1]) + ' ' + esc(x[2]) + '</span></div>' +
@@ -1357,4 +1357,5 @@
   };
 
 })(window);
+
 
