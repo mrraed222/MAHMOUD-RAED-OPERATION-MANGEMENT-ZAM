@@ -17,7 +17,7 @@
                 },
                 "borderRadius": {"DEFAULT": "0.125rem","lg": "0.25rem","xl": "0.5rem","full": "0.75rem"},
                 "spacing": {"margin-mobile": "16px","xl": "64px","sm": "12px","margin-desktop": "32px","lg": "40px","gutter": "24px","base": "8px","xs": "4px","md": "24px"},
-                "fontFamily": {"title-md": ["Montserrat", "Noto Sans Arabic"],"headline-lg": ["Montserrat", "Noto Sans Arabic"],"label-bold": ["Montserrat", "Noto Sans Arabic"],"display-lg": ["Montserrat", "Noto Sans Arabic"],"body-lg": ["Montserrat", "Noto Sans Arabic"],"body-sm": ["Montserrat", "Noto Sans Arabic"]},
+                "fontFamily": {"title-md": ["Noto Sans Arabic", "Montserrat"],"headline-lg": ["Noto Sans Arabic", "Montserrat"],"label-bold": ["Noto Sans Arabic", "Montserrat"],"display-lg": ["Noto Sans Arabic", "Montserrat"],"body-lg": ["Noto Sans Arabic", "Montserrat"],"body-sm": ["Noto Sans Arabic", "Montserrat"]},
                 "fontSize": {"title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],"headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],"label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],"display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],"body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],"body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]}
             }
         }
@@ -101,7 +101,7 @@
 </style>
 </head>
 <body class="bg-background text-on-surface overflow-x-hidden">
-<script>document.write(renderZamSidebar('weekly-report', currentUser.role));</script>
+<div id="sidebar-root"></div><script>renderZamSidebar('weekly-report', currentUser.role).then(function (html) { document.getElementById('sidebar-root').outerHTML = html; });</script>
 <div id="notification-bell-container"></div>
 
 <main class="mr-[280px] min-h-screen">
