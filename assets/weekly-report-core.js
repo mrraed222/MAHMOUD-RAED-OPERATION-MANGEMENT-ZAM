@@ -315,6 +315,16 @@
       if (branchFilter && x.branch !== branchFilter) return;
       out[x.date + '|' + x.branch + '|' + x.shiftType] = { date: x.date, branch: x.branch, shift: x.shiftType };
     });
+    /* بعض أيام التشيك ليست مرتبطة بتقرير يومي؛ نستخدم سجل التنفيذ نفسه
+       كجلسة تشغيل حتى لا تظهر نسبة الالتزام صفراً رغم وجود تنفيذ فعلي. */
+    (SRC.logs || []).forEach(function (l) {
+      var date = String(l.execution_date || '').slice(0, 10), branch = l.branch_id;
+      if (!inRange(date, r) || (branchFilter && branch !== branchFilter)) return;
+      var t = (SRC.templates || []).filter(function (x) { return x.id === l.template_id; })[0];
+      var shift = t && /evening|مسائي/i.test(t.shift_type || '') ? 'Evening' : 'Morning';
+      var key = date + '|' + branch + '|' + shift;
+      if (!out[key]) out[key] = { date: date, branch: branch, shift: shift };
+    });
     return out;
   }
   function compliance(r, branchFilter) {
