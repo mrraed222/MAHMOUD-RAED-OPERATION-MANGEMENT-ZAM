@@ -1155,8 +1155,12 @@
     for (var tab = 1; tab <= 6; tab++) {
       var pane = document.createElement('section');
       pane.className = 'print-pane';
-      pane.innerHTML = PANES[tab]();
-      decoratePane(pane, tab);
+      try {
+        pane.innerHTML = PANES[tab]();
+        decoratePane(pane, tab);
+      } catch (err) {
+        pane.innerHTML = '<div class="card p-md text-body-sm text-on-surface-variant">تعذر تجهيز هذا المحور للطباعة.</div>';
+      }
       el.appendChild(pane);
     }
     return function () {
@@ -1165,7 +1169,6 @@
       renderPanes();
     };
   }
-
   /* ══════════ الحقول القابلة للتحرير + الملاحظات ══════════ */
   function saveEdits() {
     try {
