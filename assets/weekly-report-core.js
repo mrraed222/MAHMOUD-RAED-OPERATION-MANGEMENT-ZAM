@@ -537,103 +537,25 @@
       '" preserveAspectRatio="xMidYMid meet" style="overflow:visible;font-family:Noto Sans Arabic,Montserrat,sans-serif">' + inner + '</svg>';
   }
   function lineChart(el, days, cur, prev) {
-    var W = 760, H = 250, PL = 56, PR = 14, PT = 16, PB = 34;
     var max = 1;
-    cur.forEach(function (d) { max = Math.max(max, d.v); });
-    prev.forEach(function (d) { max = Math.max(max, d.v || 0); });
-    var x = function (i) { return PL + (days.length < 2 ? 0 : (i * (W - PL - PR) / (days.length - 1))); };
-    var y = function (v) { return PT + (H - PT - PB) * (1 - (v / (max || 1))); };
-    var g = '', i;
-    for (i = 0; i <= 4; i++) {
-      var yy = PT + (H - PT - PB) * i / 4;
-      g += '<line x1="' + PL + '" y1="' + yy + '" x2="' + (W - PR) + '" y2="' + yy + '" stroke="' + COLORS.track + '" stroke-width="1"/>';
-      g += '<text x="' + (W - PR + 4) + '" y="' + (yy + 4) + '" font-size="10" fill="' + COLORS.outline + '">' + Math.round(max - max * i / 4) + '</text>';
-    }
-    var pts = cur.map(function (d, ix) { return x(ix) + ',' + y(d.v); }).join(' ');
-    g += '<polygon points="' + PL + ',' + (H - PB) + ' ' + pts + ' ' + x(days.length - 1) + ',' + (H - PB) + '" fill="' + COLORS.primary + '" opacity="0.07"/>';
-    g += '<polyline points="' + pts + '" fill="none" stroke="' + COLORS.primary + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
-    var ppts = prev.map(function (d, ix) { return d.v == null ? null : x(ix) + ',' + y(d.v); }).filter(Boolean);
-    if (ppts.length > 1) g += '<polyline points="' + ppts.join(' ') + '" fill="none" stroke="' + COLORS.outline + '" stroke-width="1.8" stroke-dasharray="5 4"/>';
-    var step = days.length > 14 ? Math.ceil(days.length / 10) : 1;
-    cur.forEach(function (d, ix) {
-      g += '<circle cx="' + x(ix) + '" cy="' + y(d.v) + '" r="3.5" fill="' + COLORS.primary + '"/>';
-      if (days.length <= 14 || ix % step === 0) {
-        g += '<text x="' + x(ix) + '" y="' + (y(d.v) - 10) + '" font-size="10" font-weight="700" fill="' + COLORS.primary + '" text-anchor="middle">' + nf(Math.round(d.v)) + '</text>';
-        g += '<text x="' + x(ix) + '" y="' + (H - PB + 16) + '" font-size="10" fill="' + COLORS.outline + '" text-anchor="middle">' + dayName(d.d) + '</text>';
-        g += '<text x="' + x(ix) + '" y="' + (H - PB + 28) + '" font-size="9" fill="' + COLORS.outline + '" text-anchor="middle">' + dlabel(d.d) + '</text>';
-      }
-    });
-    el.innerHTML = svgEl(W, H, g);
+    cur.forEach(function (d) { max = Math.max(max, Number(d.v) || 0); });
+    prev.forEach(function (d) { max = Math.max(max, Number(d.v) || 0); });
+    el.innerHTML = '<div class="chart-legend"><span><i class="legend-current"></i>الفترة الحالية</span><span><i class="legend-previous"></i>الفترة السابقة</span></div><div class="chart-list trend-list">' + days.map(function (d, i) { var c=cur[i]||{v:0}, p=prev[i]||{v:0}; return '<div class="trend-row"><div class="trend-label"><strong>'+esc(dayName(d))+'</strong><small>'+esc(dlabel(d))+'</small></div><div class="trend-bars"><div class="mini-track"><span class="current-bar" style="width:'+((Number(c.v)||0)/max*100)+'%"></span></div><div class="mini-track"><span class="previous-bar" style="width:'+((Number(p.v)||0)/max*100)+'%"></span></div></div><div class="trend-values"><b>'+nf(Math.round(c.v||0))+'</b><span>'+nf(Math.round(p.v||0))+'</span></div></div>'; }).join('')+'</div>';
   }
   function barCompare(el, items, onClick) {
-    var W = 760, rowH = 38, H = Math.max(80, items.length * rowH + 16);
-    var max = 1;
-    items.forEach(function (i) { max = Math.max(max, i.v, i.p || 0); });
-    var labelW = 170, valW = 95, trackX = labelW + 8, trackW = W - labelW - valW - 16;
-    var g = '';
-    items.forEach(function (it, i) {
-      var y = i * rowH + 10;
-      var wv = (it.v / max) * trackW, wp = ((it.p || 0) / max) * trackW;
-      g += '<text x="' + W + '" y="' + (y + 16) + '" font-size="12" font-weight="600" fill="#1b1c1c" text-anchor="end">' + esc(it.label) + '</text>';
-      g += '<rect x="' + trackX + '" y="' + (y + 2) + '" width="' + trackW + '" height="22" rx="4" fill="' + COLORS.track + '"/>';
-      if (it.p) g += '<rect x="' + trackX + '" y="' + (y + 2) + '" width="' + wp + '" height="22" rx="4" fill="' + COLORS.outline + '" opacity="0.35"/>';
-      g += '<rect x="' + trackX + '" y="' + (y + 2) + '" width="' + wv + '" height="22" rx="4" fill="' + COLORS.primary + '" class="barhit" data-b="' + esc(it.key || '') + '" style="cursor:pointer"/>';
-      var dv = it.p ? pctTxt(dlt(it.v, it.p)) : '';
-      var col = it.p ? (it.v >= it.p ? COLORS.good : COLORS.bad) : COLORS.outline;
-      g += '<text x="' + (trackX - 6) + '" y="' + (y + 18) + '" font-size="11" font-weight="700" fill="' + col + '" text-anchor="end">' + nf(Math.round(it.v)) + ' ' + dv + '</text>';
-    });
-    el.innerHTML = svgEl(W, H, g);
-    $$('.barhit', el).forEach(function (r) {
-      r.addEventListener('click', function () {
-        var k = r.getAttribute('data-b');
-        if (k && onClick) onClick(k);
-      });
-    });
+    var max = 1; items.forEach(function(i){max=Math.max(max,Number(i.v)||0,Number(i.p)||0);});
+    el.innerHTML='<div class="chart-legend"><span><i class="legend-current"></i>الفترة الحالية</span><span><i class="legend-previous"></i>الفترة السابقة</span></div><div class="chart-list branch-list">'+items.map(function(it){var dv=it.p?pctTxt(dlt(it.v,it.p)):'—';var col=it.p?(it.v>=it.p?'positive':'negative'):'';return '<button type="button" class="branch-row" data-b="'+esc(it.key||'')+'"><div class="branch-name">'+esc(it.label)+'</div><div class="branch-bars"><div class="mini-track"><span class="current-bar" style="width:'+((Number(it.v)||0)/max*100)+'%"></span></div><div class="mini-track"><span class="previous-bar" style="width:'+((Number(it.p)||0)/max*100)+'%"></span></div></div><div class="branch-values"><b>'+nf(Math.round(it.v||0))+'</b><span class="'+col+'">'+dv+'</span></div></button>';}).join('')+'</div>';
+    $$('.branch-row',el).forEach(function(r){r.addEventListener('click',function(){var k=r.getAttribute('data-b');if(k&&onClick)onClick(k);});});
   }
   function donut(el, items) {
-    var total = items.reduce(function (a, i) { return a + i.v; }, 0);
-    if (!total) { el.innerHTML = '<div class="text-body-sm text-on-surface-variant text-center py-lg">لا توجد بيانات هدر في هذه الفترة</div>'; return; }
-    var W = 300, cx = W / 2, cy = 78, R = 72, r = 45;
-    var palette = ['#4b3621', '#725a42', '#bd9f83', '#8a7a63', '#a89478', '#5e604d', '#33210d'];
-    var ang = -Math.PI / 2, g = '';
-    items.forEach(function (it, i) {
-      var sweep = (it.v / total) * Math.PI * 2;
-      var x1 = cx + R * Math.cos(ang), y1 = cy + R * Math.sin(ang);
-      var x2 = cx + R * Math.cos(ang + sweep), y2 = cy + R * Math.sin(ang + sweep);
-      var x3 = cx + r * Math.cos(ang + sweep), y3 = cy + r * Math.sin(ang + sweep);
-      var x4 = cx + r * Math.cos(ang), y4 = cy + r * Math.sin(ang);
-      var large = sweep > Math.PI ? 1 : 0;
-      g += '<path d="M' + x1 + ',' + y1 + ' A' + R + ',' + R + ' 0 ' + large + ' 1 ' + x2 + ',' + y2 +
-           ' L' + x3 + ',' + y3 + ' A' + r + ',' + r + ' 0 ' + large + ' 0 ' + x4 + ',' + y4 + ' Z" fill="' + palette[i % palette.length] + '"/>';
-      ang += sweep;
-    });
-    g += '<text x="' + cx + '" y="' + (cy - 2) + '" font-size="21" font-weight="800" fill="' + COLORS.primary + '" text-anchor="middle">' + nf(total) + '</text>';
-    g += '<text x="' + cx + '" y="' + (cy + 15) + '" font-size="10" fill="' + COLORS.outline + '" text-anchor="middle">إجمالي الهدر</text>';
-    var cols = 2, legend = [];
-    items.slice(0, 6).forEach(function (it, i) {
-      var col = palette[i % palette.length];
-      var x = 12 + (i % cols) * 148, y = 162 + Math.floor(i / cols) * 22;
-      legend.push('<rect x="' + x + '" y="' + (y - 9) + '" width="10" height="10" rx="2" fill="' + col + '"/>' +
-        '<text x="' + (x + 15) + '" y="' + y + '" font-size="10" fill="#4e453d">' + esc(String(it.label).slice(0, 15)) + ' (' + nf(it.v) + ')</text>');
-    });
-    el.innerHTML = svgEl(W, 162 + Math.ceil(Math.min(items.length, 6) / cols) * 22 + 10, g + legend.join(''));
+    var total=items.reduce(function(a,i){return a+(Number(i.v)||0);},0); if(!total){el.innerHTML='<div class="empty-chart">لا توجد بيانات هدر متاحة</div>';return;}
+    var max=Math.max.apply(null,items.map(function(i){return Number(i.v)||0;}).concat([1]));
+    el.innerHTML='<div class="reason-list">'+items.slice(0,8).map(function(it){return '<div class="reason-row"><div class="reason-head"><span>'+esc(it.label)+'</span><b>'+nf(it.v)+'</b></div><div class="reason-track"><span style="width:'+((Number(it.v)||0)/max*100)+'%"></span></div></div>';}).join('')+'</div><div class="chart-total">إجمالي سجلات الهدر: <b>'+nf(total)+'</b></div>';
   }
   /** أشرطة عامة (تُستخدم للتشيكلست الديناميكي) */
   function bars(el, items) {
-    var W = 760, rowH = 30, H = Math.max(60, items.length * rowH + 16), g = '';
-    items.forEach(function (it, i) {
-      var y = i * rowH + 6;
-      var p = it.total ? Math.min(100, it.done / it.total * 100) : 0;
-      var col = p >= 90 ? COLORS.good : p >= 70 ? COLORS.accent : COLORS.bad;
-      g += '<text x="' + W + '" y="' + (y + 14) + '" font-size="11" fill="#1b1c1c" text-anchor="end">' + esc(String(it.label).slice(0, 52)) + '</text>';
-      g += '<rect x="220" y="' + (y + 2) + '" width="' + (W - 340) + '" height="16" rx="4" fill="' + COLORS.track + '"/>';
-      g += '<rect x="220" y="' + (y + 2) + '" width="' + ((W - 340) * p / 100) + '" height="16" rx="4" fill="' + col + '"/>';
-      g += '<text x="210" y="' + (y + 14) + '" font-size="11" font-weight="700" fill="' + col + '" text-anchor="end">' + p.toFixed(0) + '%</text>';
-      g += '<text x="' + (W - 110) + '" y="' + (y + 14) + '" font-size="10" fill="' + COLORS.outline + '">' + it.done + '/' + it.total + '</text>';
-    });
-    el.innerHTML = svgEl(W, H, g);
+    el.innerHTML=items.length?'<div class="check-list">'+items.map(function(it){var p=it.total?Math.min(100,it.done/it.total*100):0;var col=p>=90?'good':p>=70?'mid':'bad';return '<div class="check-row"><div class="check-head"><span>'+esc(String(it.label))+'</span><strong>'+p.toFixed(0)+'% <small>'+it.done+'/'+it.total+'</small></strong></div><div class="check-track"><span class="'+col+'" style="width:'+p+'%"></span></div></div>';}).join('')+'</div>':'<div class="empty-chart">لا توجد جلسات تشيك ليست في الفترة المحددة</div>';
   }
-
   /* ══════════ العرض ══════════ */
   function deltaChip(d, goodDir, prevZero) {
     var up = d >= 0;
