@@ -25,7 +25,7 @@
 }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js?v=20261027-2"></script>
-<script src="../assets/weekly-report-core.js?v=20261027-4"></script>
+<script src="../assets/weekly-report-core.js?v=20261027-5"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // التقرير التنفيذي خاص بمالك النظام فقط.
@@ -114,6 +114,14 @@
     .overflow-x-auto { overflow:visible !important; }
     svg { max-width:100%; }
     .chart-list, .check-list, .reason-list { break-inside:avoid; }
+  .print-section-heading { display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #5b3518; padding:0 0 10px; margin:0 0 14px; color:#5b3518; }
+  .print-section-heading span { font-size:12px; color:#70655d; }
+  .dashboard-note-card { display:flex; flex-direction:column; gap:8px; padding:14px; border:1px solid #d2c4ba; border-radius:14px; background:#fffdfb; min-height:118px; }
+  .dashboard-note-card > span { color:#5b3518; font-weight:800; font-size:13px; }
+  .dashboard-note-card > div { color:#70655d; line-height:1.8; outline:none; }
+  .dashboard-note-card > div:empty::before { content:attr(data-placeholder); color:#a1958d; }
+  .dashboard-note-card > div:focus { border-bottom:2px solid #5b3518; color:#33210d; }
+
     .grid { break-inside:avoid; }
     .bg-primary { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
     .bg-surface-container, .bg-surface-container-lowest { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
@@ -241,6 +249,23 @@
       </div>
     </section>
 
+    <section class="card p-md mt-md" aria-labelledby="dashboardNotesTitle">
+      <div class="flex items-center justify-between gap-md mb-sm">
+        <div>
+          <h2 id="dashboardNotesTitle" class="font-title-md text-primary">ملاحظات مدير التشغيل على المؤشرات</h2>
+          <p class="text-body-sm text-on-surface-variant mt-xs">اكتب تفسيرك للإجراءات المطلوبة، وستظهر هذه الملاحظات في النسخة المطبوعة وتُحفظ مع التقرير التاريخي.</p>
+        </div>
+        <span class="material-symbols-outlined text-primary">edit_note</span>
+      </div>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-md">
+        <label class="dashboard-note-card"><span>انخفاض أو ارتفاع المبيعات</span><div contenteditable="true" spellcheck="true" data-edit="dashboard.salesNote" data-placeholder="اكتب تفسير التغير في المبيعات والإجراء التصحيحي…"></div></label>
+        <label class="dashboard-note-card"><span>مشاكل الشفتات والتغطية</span><div contenteditable="true" spellcheck="true" data-edit="dashboard.shiftNote" data-placeholder="اكتب ملاحظات نقص التغطية أو التأخير أو توزيع الشفتات…"></div></label>
+        <label class="dashboard-note-card"><span>الهدر وأسبابه</span><div contenteditable="true" spellcheck="true" data-edit="dashboard.wasteNote" data-placeholder="اكتب سبب الهدر وخطة تقليله والمسؤول عن المتابعة…"></div></label>
+        <label class="dashboard-note-card"><span>الالتزام بقوائم المهام</span><div contenteditable="true" spellcheck="true" data-edit="dashboard.complianceNote" data-placeholder="اكتب تفسير مستوى الالتزام والإجراء المطلوب…"></div></label>
+        <label class="dashboard-note-card"><span>الشكاوى وملاحظات العملاء</span><div contenteditable="true" spellcheck="true" data-edit="dashboard.customerNote" data-placeholder="اكتب ملخص الشكاوى وما تم اتخاذه لمعالجتها…"></div></label>
+        <label class="dashboard-note-card"><span>الزيارات والمتابعة</span><div contenteditable="true" spellcheck="true" data-edit="dashboard.visitNote" data-placeholder="اكتب ملاحظات الزيارات والفروع التي تحتاج متابعة…"></div></label>
+      </div>
+    </section>
     <!-- ============ TABS ================= -->
     <section>
       <div id="tabs" class="no-print flex gap-xs flex-wrap mb-md border-b border-outline-variant pb-sm"></div>
