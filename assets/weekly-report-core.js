@@ -64,6 +64,8 @@
   /* المصدر الوحيد: Supabase عبر جلسة المستخدم المصادَق.
      لا يوجد endpoint قراءة عام ولا مسار احتياطي من Google Sheet. */
   var CFG = { client: null, user: null };
+  /* تشخيص القراءة: أي جدول رُفض وبأي خطأ (بدل ابتلاع الأخطاء) */
+  var DIAG = { tables: [], errors: [], ok: true };
   var SRC = {
     label: 'غير محدد', kind: 'none', note: '',
     branches: [], reports: [], waste: [], issues: [], negs: [],
@@ -72,7 +74,8 @@
   };
   var BRANCHES = [];             /* [{id,name,short}] — ديناميكي */
   var BR_NAME_TO_ID = {};        /* اسم الفرع → id */
-  var state = { range: 'week', from: null, to: null, branches: new Set(), shift: 'all', tab: 1, drill: null };
+  var state = { range: 'week', from: null, to: null, branches: new Set(), shift: 'all', tab: 1, drill: null,
+                auto: null, forceCurrent: false };
   var EDIT_KEY = 'zam-weekly-edits-v3';
   var NOTES_KEY = 'zam-weekly-notes-v3';
 
@@ -121,11 +124,20 @@
   function loadFromClient() {
     if (!CFG.client || typeof CFG.client.from !== 'function') return Promise.resolve(null);
     var c = CFG.client;
+    DIAG.tables = []; DIAG.errors = []; DIAG.ok = true;
     function q(table, sel, order) {
       var b = c.from(table).select(sel);
       if (order) b = b.order(order);
-      return b.limit(5000).then(function (r) { return r.data || []; })
-        .catch(function () { return []; });
+      return b.limit(5000).then(function (r) {
+        if (r && r.error) DIAG.errors.push({ table: table, code: r.error.code || '', msg: r.error.message || '' });
+        var rows = r.data || [];
+        DIAG.tables.push({ table: table, rows: rows.length });
+        return rows;
+      }).catch(function (e) {
+        DIAG.errors.push({ table: table, code: (e && e.code) || '', msg: String((e && e.message) || e) });
+        DIAG.tables.push({ table: table, rows: 0 });
+        return [];
+      });
     }
     return Promise.all([
       q('branches', 'id,name'),
@@ -258,12 +270,50 @@
     if (off) { sat.setUTCDate(sat.getUTCDate() + 7 * off); fri.setUTCDate(fri.getUTCDate() + 7 * off); }
     return { from: dstr(sat), to: dstr(fri) };
   }
-  function resolveRange() {
-    if (state.range === 'custom' && state.from && state.to) return { from: state.from, to: state.to };
-    if (state.range === 'prev') return weekRange(-1);
-    if (state.range === 'd7') { var t = new Date(), f = new Date(); t.setUTCDate(t.getUTCDate() + 1); f.setUTCDate(f.getUTCDate() - 6); return { from: dstr(f), to: dstr(t) }; }
-    if (state.range === 'd30') { var t2 = new Date(), f2 = new Date(); t2.setUTCDate(t2.getUTCDate() + 1); f2.setUTCDate(f2.getUTCDate() - 29); return { from: dstr(f2), to: dstr(t2) }; }
+  /** الفترة المقابلة لمفتاح فلتر معيّن */
+  function rangeFor(key) {
+    if (key === 'custom' && state.from && state.to) return { from: state.from, to: state.to };
+    if (key === 'prev') return weekRange(-1);
+    if (key === 'd7') { var t = new Date(), f = new Date(); t.setUTCDate(t.getUTCDate() + 1); f.setUTCDate(f.getUTCDate() - 6); return { from: dstr(f), to: dstr(t) }; }
+    if (key === 'd30') { var t2 = new Date(), f2 = new Date(); t2.setUTCDate(t2.getUTCDate() + 1); f2.setUTCDate(f2.getUTCDate() - 29); return { from: dstr(f2), to: dstr(t2) }; }
     return weekRange(0);
+  }
+  /** نطاق التواريخ المتاح فعلياً في البيانات المحمّلة */
+  function dataSpan() {
+    var ds = [];
+    ['reports', 'waste', 'issues', 'negs', 'visits', 'attendance'].forEach(function (k) {
+      (SRC[k] || []).forEach(function (x) { if (x && x.date) ds.push(String(x.date).slice(0, 10)); });
+    });
+    if (!ds.length) return null;
+    ds.sort();
+    return { from: ds[0], to: ds[ds.length - 1] };
+  }
+  /** الأسبوع (سبت ← جمعة) الذي يقع فيه تاريخ معيّن */
+  function weekOf(dateStr) {
+    var d = parseD(dateStr);
+    if (!d || isNaN(d.getTime())) return null;
+    var dow = d.getUTCDay();
+    var sat = new Date(d.getTime());
+    sat.setUTCDate(d.getUTCDate() - ((dow + 1) % 7));
+    var fri = new Date(sat.getTime());
+    fri.setUTCDate(sat.getUTCDate() + 6);
+    return { from: dstr(sat), to: dstr(fri) };
+  }
+  /** لو الفترة المطلوبة فارغة → نختار آخر أسبوع فيه بيانات (مع إبقاء طلب المستخدم محفوظاً) */
+  function computeAutoRange() {
+    if (state.range !== 'week' || state.forceCurrent || !SRC.reports.length) return null;
+    if (state.from || state.to) return null;   // المستخدم حدد تاريخ بنفسه
+    var want = weekRange(0);
+    if (filterRows(SRC.reports, want, true, false).length) return null;
+    var span = dataSpan();
+    if (!span) return null;
+    var alt = weekOf(span.to);
+    if (!alt || alt.from >= want.from) return null;
+    return { alt: alt, want: want, span: span };
+  }
+  function resolveRange() {
+    if (state.range === 'week' && state.auto && state.auto.alt) return state.auto.alt;
+    return rangeFor(state.range);
   }
   function prevRange(cur) {
     var f = parseD(cur.from), t = parseD(cur.to);
@@ -303,10 +353,16 @@
   function byBranch(reports, r) {
     return BRANCHES.map(function (b) {
       var rows = filterRows(reports, r, true, true).filter(function (x) { return x.branch === b.id; });
-      var sales = 0, orders = 0;
-      rows.forEach(function (x) { sales += x.sales; orders += x.orders; });
+      var sales = 0, orders = 0, mSales = 0, eSales = 0, mOrders = 0, eOrders = 0;
+      rows.forEach(function (x) {
+        sales += x.sales; orders += x.orders;
+        if (x.shiftType === 'Evening') { eSales += x.sales; eOrders += x.orders; }
+        else { mSales += x.sales; mOrders += x.orders; }
+      });
       return { id: b.id, name: b.name, short: b.short, sales: sales, orders: orders,
-               avg: orders ? sales / orders : 0, shifts: rows.length };
+               avg: orders ? sales / orders : 0, shifts: rows.length,
+               mSales: mSales, eSales: eSales, mOrders: mOrders, eOrders: eOrders,
+               salesPerShift: rows.length ? sales / rows.length : 0 };
     });
   }
 
@@ -585,8 +641,11 @@
     var rc = $('#rangeChips');
     if (rc) {
       rc.innerHTML = ranges.map(function (x) {
+        var rr = rangeFor(x[0]);
+        var cnt = filterRows(SRC.reports, rr, true, false).length;
         return '<button class="slicer px-sm py-xs rounded-full border border-outline-variant text-body-sm ' +
-          (state.range === x[0] ? 'on' : '') + '" data-range="' + x[0] + '">' + x[1] + '</button>';
+          (state.range === x[0] ? 'on' : '') + '" data-range="' + x[0] + '">' + x[1] +
+          ' <span class="chip-count">' + nf(cnt) + '</span></button>';
       }).join('');
       $$('.slicer[data-range]', rc).forEach(function (b) {
         b.addEventListener('click', function () { state.range = b.getAttribute('data-range'); applyNotes(); renderAll(); });
@@ -625,6 +684,73 @@
     var df = $('#dFrom'), dt = $('#dTo');
     if (df) df.value = r.from;
     if (dt) dt.value = r.to;
+  }
+
+  /** لافتة توضّح أن الفترة المعروضة مختلفة عن الفترة المطلوبة (لأن الأخيرة بلا بيانات) */
+  function renderDataGap() {
+    var el = $('#dataGap');
+    if (!el) return;
+    var a = state.auto;
+    if (!a) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    el.classList.remove('hidden');
+    el.innerHTML = '<div class="gap-banner">' +
+      '<span class="material-symbols-outlined gap-icon">warning</span>' +
+      '<div class="gap-text"><b>لا توجد بيانات مسجّلة في الفترة ' + a.want.from + ' ← ' + a.want.to + '</b>' +
+      '<div>أحدث بيانات مسجّلة: <b>' + a.span.from + ' ← ' + a.span.to + '</b> — عُرضت الفترة ' +
+      a.alt.from + ' ← ' + a.alt.to + ' تلقائياً حتى لا يظهر التقرير فارغاً.</div></div>' +
+      '<div class="gap-actions">' +
+      '<button id="gapAllBtn" class="slicer px-sm py-xs rounded-full border border-outline-variant text-body-sm">عرض كل البيانات</button>' +
+      '<button id="gapForceBtn" class="slicer px-sm py-xs rounded-full border border-outline-variant text-body-sm">إظهار الفترة الفارغة</button>' +
+      '</div></div>';
+    var ab = $('#gapAllBtn');
+    if (ab) ab.addEventListener('click', function () {
+      state.range = 'custom'; state.from = a.span.from; state.to = a.span.to; state.forceCurrent = true;
+      state.auto = null; renderAll();
+    });
+    var fb = $('#gapForceBtn');
+    if (fb) fb.addEventListener('click', function () {
+      state.forceCurrent = true; state.auto = null; renderAll();
+    });
+  }
+
+  /** بطاقة تشخيص: عدد الصفوف لكل جدول + الأخطاء + نطاق البيانات */
+  function renderDiagnostics() {
+    var el = $('#diagPanel');
+    if (!el) return;
+    var rows = DIAG.tables || [], errs = DIAG.errors || [];
+    var span = dataSpan();
+    var chip = $('#srcLabel');
+    if (chip && errs.length) {
+      chip.innerHTML = '<span class="material-symbols-outlined text-[18px]">warning</span> تعذّر قراءة ' +
+        errs.length + ' جدول — اضغط «تشخيص»';
+    }
+    var body = '<summary class="diag-summary">تشخيص القراءة' +
+      (errs.length ? ' <span class="diag-badge">' + errs.length + ' خطأ</span>' : ' <span class="diag-ok">سليم</span>') +
+      '</summary><div class="diag-body">';
+    if (span) {
+      body += '<div class="diag-line"><b>البيانات المتاحة:</b> ' + span.from + ' ← ' + span.to + '</div>';
+    } else {
+      body += '<div class="diag-line"><b>البيانات المتاحة:</b> لا توجد صفوف في أي جدول</div>';
+    }
+    body += '<table class="diag-table"><thead><tr><th>الجدول</th><th>الصفوف المقروءة</th><th>الحالة</th></tr></thead><tbody>';
+    var errByTable = {};
+    errs.forEach(function (e) { errByTable[e.table] = e; });
+    rows.forEach(function (t) {
+      var e = errByTable[t.table];
+      body += '<tr><td dir="ltr">' + esc(t.table) + '</td><td>' + nf(t.rows) + '</td>' +
+        '<td class="' + (e ? 'diag-bad' : 'diag-good') + '">' + (e ? 'مرفوض: ' + esc(e.code || e.msg) : 'مقروء') + '</td></tr>';
+    });
+    body += '</tbody></table>';
+    if (errs.length) {
+      body += '<div class="diag-errors"><b>تفاصيل الأخطاء:</b><ul>' + errs.map(function (e) {
+        return '<li><code>' + esc(e.table) + '</code> — ' + esc(e.code) + ' ' + esc(e.msg) + '</li>';
+      }).join('') + '</ul>' +
+        '<div class="text-body-sm">الأخطاء الشائعة: <b>42501 / permission denied</b> = سياسات RLS لا تسمح بجدول für دورك · ' +
+        '<b>404 / PGRST205</b> = الجدول غير موجود في القاعدة (نفّذ ملف SQL المطلوب) · ' +
+        '<b>[]</b> = لا توجد صفوف أو الفلتر الزمني لا يغطي بياناتك.</div></div>';
+    }
+    body += '</div>';
+    el.innerHTML = body;
   }
 
   function renderKpis() {
@@ -729,58 +855,172 @@
     var r = resolveRange(), p = prevRange(r);
     var cur = byBranch(SRC.reports, r), prv = byBranch(SRC.reports, p);
     var pmap = {}; prv.forEach(function (x) { pmap[x.id] = x; });
-    var totals = { sales: 0, orders: 0, psales: 0, porders: 0 };
-    cur.forEach(function (b) { totals.sales += b.sales; totals.orders += b.orders; });
-    prv.forEach(function (b) { totals.psales += b.sales; totals.porders += b.orders; });
-    var best = cur.slice().sort(function (a, b) { return b.sales - a.sales; })[0];
-    var worst = cur.filter(function (b) { return b.shifts > 0; }).sort(function (a, b) { return a.sales - b.sales; })[0];
+
+    var list = cur.slice().sort(function (a, b) { return b.sales - a.sales; });
+    var totalSales = list.reduce(function (a, b) { return a + b.sales; }, 0);
+    var totalOrders = list.reduce(function (a, b) { return a + b.orders; }, 0);
+    var totalShifts = list.reduce(function (a, b) { return a + b.shifts; }, 0);
+    var maxSales = list.length ? list[0].sales : 0;
+    var activeBranches = list.filter(function (b) { return b.shifts > 0; }).length;
+
+    var curAgg = agg(SRC.reports, r), prvAgg = agg(SRC.reports, p);
+    var perShift = curAgg.shiftCount ? curAgg.sales / curAgg.shiftCount : 0;
+    var prvPerShift = prvAgg.shiftCount ? prvAgg.sales / prvAgg.shiftCount : 0;
+    var ordersPerShift = curAgg.shiftCount ? curAgg.orders / curAgg.shiftCount : 0;
+
+    /* أقوى/أضعف يوم داخل الفترة */
+    var byDay = {};
+    SRC.reports.forEach(function (x) {
+      if (!inRange(x.date, r) || !state.branches.has(x.branch)) return;
+      if (state.shift !== 'all' && x.shiftType !== state.shift) return;
+      byDay[x.date] = (byDay[x.date] || 0) + x.sales;
+    });
+    var dayRows = Object.keys(byDay).sort().map(function (d) { return { d: d, v: byDay[d] }; });
+    var bestDay = dayRows.slice().sort(function (a, b) { return b.v - a.v; })[0];
+    var worstDay = dayRows.slice().sort(function (a, b) { return a.v - b.v; })[0];
+    var avgDay = dayRows.length ? totalSales / dayRows.length : 0;
+
+    var best = list[0];
+    var worst = list.filter(function (b) { return b.shifts > 0; }).sort(function (a, b) { return a.sales - b.sales; })[0];
     var drill = state.drill ? cur.filter(function (b) { return b.id === state.drill; })[0] : null;
 
-    var rows = cur.map(function (b) {
-      var pb = pmap[b.id] || { sales: 0, orders: 0, avg: 0 };
-      return '<tr class="border-b border-outline-variant ' + (state.drill === b.id ? 'bg-secondary-container' : '') + '">' +
-        '<td class="px-md py-sm font-semibold">' + esc(b.name) + '</td>' +
-        '<td class="px-md py-sm">' + nf(b.orders) + '</td>' +
-        '<td class="px-md py-sm">' + (b.orders ? deltaChip(dlt(b.orders, pb.orders), 'up') : '<span class="text-on-surface-variant">—</span>') + '</td>' +
-        '<td class="px-md py-sm">' + nf(b.sales) + '</td>' +
+    /* ── شريط مؤشرات المبيعات ── */
+    function salesKpi(label, icon, value, prevTxt, delta, goodDir, prevZero, sub) {
+      return '<div class="sales-kpi">' +
+        '<div class="sales-kpi-head"><span class="material-symbols-outlined">' + icon + '</span>' + label + '</div>' +
+        '<div class="sales-kpi-value">' + value + '</div>' +
+        '<div class="sales-kpi-foot">' + (delta == null ? '' : deltaChip(delta, goodDir, prevZero)) +
+        '<span class="sales-kpi-prev">' + (prevTxt || '') + '</span></div>' +
+        '<div class="sales-kpi-sub">' + (sub || '') + '</div></div>';
+    }
+    var kpiStrip = '<div class="sales-kpis">' +
+      salesKpi('إجمالي المبيعات', 'payments', nf(totalSales) + ' <small>ر.س</small>',
+        'السابق: ' + nf(prvAgg.sales) + ' ر.س', dlt(totalSales, prvAgg.sales), 'up', !prvAgg.sales,
+        activeBranches ? 'موزّع على ' + activeBranches + ' فرع مسجّل' : 'لا توجد فروع بمبيعات') +
+      salesKpi('عدد الفواتير', 'receipt_long', nf(totalOrders),
+        'السابق: ' + nf(prvAgg.orders), dlt(totalOrders, prvAgg.orders), 'up', !prvAgg.orders,
+        curAgg.shiftCount ? nf1(ordersPerShift) + ' فاتورة لكل شفت' : 'لا توجد شفتات مسجّلة') +
+      salesKpi('متوسط الفاتورة', 'calculate', nf1(curAgg.avg) + ' <small>ر.س</small>',
+        'السابق: ' + nf1(prvAgg.avg) + ' ر.س', dlt(curAgg.avg, prvAgg.avg), 'up', !prvAgg.avg,
+        'هدف الجودة: رفع متوسط الفاتورة') +
+      salesKpi('متوسط المبيعات لكل شفت', 'speed', nf1(perShift) + ' <small>ر.س</small>',
+        'السابق: ' + nf1(prvPerShift) + ' ر.س', dlt(perShift, prvPerShift), 'up', !prvPerShift,
+        totalShifts ? 'من ' + nf(totalShifts) + ' شفت مسجّلة' : 'لا توجد شفتات مسجّلة') +
+      '</div>';
+
+    /* ── جدول أداء الفروع ── */
+    var rows = list.map(function (b) {
+      var pb = pmap[b.id] || { sales: 0, orders: 0, avg: 0, shifts: 0 };
+      var share = totalSales ? (b.sales / totalSales * 100) : 0;
+      var w = maxSales ? (b.sales / maxSales * 100) : 0;
+      return '<tr class="branch-table-row' + (state.drill === b.id ? ' is-drill' : '') + '" data-branch="' + esc(b.id) + '">' +
+        '<td class="px-md py-sm"><b>' + esc(b.name) + '</b>' +
+        '<div class="row-sub">' + nf(b.shifts) + ' شفت · ' + nf1(b.salesPerShift) + ' ر.س/شفت</div></td>' +
+        '<td class="px-md py-sm num">' + nf(b.orders) + '</td>' +
+        '<td class="px-md py-sm">' + (pb.orders ? deltaChip(dlt(b.orders, pb.orders), 'up') : '<span class="text-on-surface-variant">—</span>') + '</td>' +
+        '<td class="px-md py-sm num strong">' + nf(b.sales) + '</td>' +
         '<td class="px-md py-sm">' + (pb.sales ? deltaChip(dlt(b.sales, pb.sales), 'up') : '<span class="text-on-surface-variant">—</span>') + '</td>' +
-        '<td class="px-md py-sm">' + nf1(b.avg) + '</td>' +
+        '<td class="px-md py-sm num">' + nf1(b.avg) + '</td>' +
         '<td class="px-md py-sm">' + (pb.avg ? deltaChip(dlt(b.avg, pb.avg), 'up') : '<span class="text-on-surface-variant">—</span>') + '</td>' +
-        '<td class="px-md py-sm text-on-surface-variant">' + b.shifts + ' شفت</td></tr>';
+        '<td class="px-md py-sm num">' + nf1(b.salesPerShift) + '</td>' +
+        '<td class="px-md py-sm share-cell"><span>' + nf1(share) + '%</span>' +
+        '<div class="share-track"><i style="width:' + w.toFixed(1) + '%"></i></div></td>' +
+        '</tr>';
     }).join('');
 
+    /* ── تحليل الورديات ── */
+    var splitRows = list.filter(function (b) { return b.sales > 0; }).map(function (b) {
+      var mp = b.sales ? (b.mSales / b.sales * 100) : 0;
+      var ep = 100 - mp;
+      return '<div class="split-row"><div class="split-name">' + esc(b.name) + '</div>' +
+        '<div class="split-bar"><i class="split-morning" style="width:' + mp.toFixed(1) + '%"></i>' +
+        '<i class="split-evening" style="width:' + ep.toFixed(1) + '%"></i></div>' +
+        '<div class="split-legend"><span>صباحي ' + nf1(mp) + '%</span><span>مسائي ' + nf1(ep) + '%</span></div></div>';
+    }).join('');
+
+    /* ── أقوى/أضعف يوم ── */
+    function dayCard(label, icon, date, value, cls) {
+      return '<div class="day-card ' + cls + '"><div class="day-head"><span class="material-symbols-outlined">' + icon + '</span>' + label + '</div>' +
+        '<div class="day-date">' + (date ? esc(dayName(date)) + ' ' + esc(dlabel(date)) : '—') + '</div>' +
+        '<div class="day-value">' + nf(Math.round(value || 0)) + ' <small>ر.س</small></div></div>';
+    }
+    var daysStrip = '<div class="days-grid">' +
+      dayCard('أقوى يوم', 'trending_up', bestDay ? bestDay.d : '', bestDay ? bestDay.v : 0, 'is-good') +
+      dayCard('متوسط اليوم', 'straighten', '', avgDay, 'is-neutral') +
+      dayCard('أضعف يوم', 'trending_down', worstDay ? worstDay.d : '', worstDay ? worstDay.v : 0, 'is-bad') +
+      '</div>';
+
+    /* ── تفصيل الفرع ── */
     var detail = '';
     if (drill) {
-      var lines = SRC.reports.filter(function (x) { return inRange(x.date, r) && x.branch === drill.id; })
-        .map(function (x) { return x.date + ' — ' + (x.shiftType === 'Morning' ? 'صباحي' : 'مسائي') + ' — ' + nf(x.orders) + ' فاتورة — ' + nf(x.sales) + ' ر.س — ' + esc(x.supervisor); }).join('<br>');
-      detail = '<div class="bg-surface-container rounded-lg p-md"><div class="font-label-bold text-on-surface-variant">تفصيل الفرع — ' + esc(drill.name) + '</div>' +
-        '<div class="text-body-sm mt-1">' + (lines || 'لا توجد صفوف') + '</div></div>';
+      var drillRows = SRC.reports.filter(function (x) { return inRange(x.date, r) && x.branch === drill.id; })
+        .sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+      var body = drillRows.map(function (x) {
+        return '<tr><td>' + esc(x.date) + '</td><td>' + (x.shiftType === 'Morning' ? 'صباحي' : 'مسائي') + '</td>' +
+          '<td class="num">' + nf(x.orders) + '</td><td class="num strong">' + nf(x.sales) + '</td>' +
+          '<td class="num">' + nf1(x.avg) + '</td><td>' + esc(x.supervisor || '—') + '</td></tr>';
+      }).join('');
+      detail = '<div class="sub-panel"><div class="sub-panel-head"><span>تفصيل الفرع — ' + esc(drill.name) + '</span>' +
+        '<button id="drillClose" class="slicer px-sm py-xs rounded-full border border-outline-variant text-body-sm">إغلاق</button></div>' +
+        '<div class="overflow-x-auto"><table class="w-full text-body-sm"><thead><tr class="bg-surface-container text-on-surface-variant">' +
+        '<th class="text-right px-md py-sm font-label-bold">التاريخ</th><th class="text-right px-md py-sm font-label-bold">الشفت</th>' +
+        '<th class="text-right px-md py-sm font-label-bold">الفواتير</th><th class="text-right px-md py-sm font-label-bold">المبيعات</th>' +
+        '<th class="text-right px-md py-sm font-label-bold">المتوسط</th><th class="text-right px-md py-sm font-label-bold">المشرف</th>' +
+        '</tr></thead><tbody>' + (body || '<tr><td colspan="6" class="px-md py-lg text-center text-on-surface-variant">لا توجد صفوف</td></tr>') +
+        '</tbody></table></div></div>';
     }
 
+    var bestReason = best
+      ? 'إجمالي مبيعات ' + nf(best.sales) + ' ر.س على ' + nf(best.orders) + ' فاتورة، بمتوسط ' + nf1(best.avg) +
+        ' ر.س للفاتورة و' + nf1(best.salesPerShift) + ' ر.س لكل شفت — أعلى مساهمة في الفترة (' +
+        nf1(totalSales ? best.sales / totalSales * 100 : 0) + '% من المبيعات).'
+      : 'لا توجد بيانات كافية.';
+    var worstReason = worst
+      ? 'مبيعات ' + nf(worst.sales) + ' ر.س على ' + nf(worst.orders) + ' فاتورة (' + worst.shifts +
+        ' شفت مسجلة فقط) — بمعدل ' + nf1(worst.salesPerShift) + ' ر.س لكل شفت' +
+        (best && best.salesPerShift ? ' مقابل ' + nf1(best.salesPerShift) + ' ر.س في أفضل فرع (' + esc(best.name) + ')' : '') +
+        ' — راجع تغطية الورديات قبل الحكم على الأداء.'
+      : 'لا توجد بيانات كافية.';
+
     return '<div class="card overflow-hidden fadein"><div class="bg-primary text-on-primary px-md py-sm font-title-md">1. أداء الفروع والمبيعات</div>' +
-      '<div class="p-md space-y-md"><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
+      '<div class="p-md space-y-md">' +
+      kpiStrip +
+      '<div class="overflow-x-auto"><table class="w-full text-body-sm sales-table">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant">' +
-      '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">عدد الفواتير</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">المقارنة</th><th class="text-right px-md py-sm font-label-bold">المبيعات ر.س</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">المقارنة</th><th class="text-right px-md py-sm font-label-bold">متوسط الفاتورة</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">المقارنة</th><th class="text-right px-md py-sm font-label-bold">عدد الشفتات</th>' +
-      '</tr></thead><tbody>' + (rows || '<tr><td colspan="8" class="px-md py-lg text-center text-on-surface-variant">لا توجد بيانات</td></tr>') + '</tbody>' +
+      '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الفواتير</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">مقارنة</th><th class="text-right px-md py-sm font-label-bold">المبيعات ر.س</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">مقارنة</th><th class="text-right px-md py-sm font-label-bold">متوسط الفاتورة</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">مقارنة</th><th class="text-right px-md py-sm font-label-bold">ر.س/شفت</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">نصيب الفرع</th>' +
+      '</tr></thead><tbody>' + (rows || '<tr><td colspan="9" class="px-md py-lg text-center text-on-surface-variant">لا توجد بيانات في هذه الفترة</td></tr>') + '</tbody>' +
       '<tfoot class="bg-surface-container font-bold"><tr><td class="px-md py-sm">الإجمالي</td>' +
-      '<td class="px-md py-sm">' + nf(totals.orders) + '</td><td class="px-md py-sm">' + deltaChip(dlt(totals.orders, totals.porders), 'up') + '</td>' +
-      '<td class="px-md py-sm">' + nf(totals.sales) + '</td><td class="px-md py-sm">' + deltaChip(dlt(totals.sales, totals.psales), 'up') + '</td>' +
-      '<td class="px-md py-sm">' + nf1(totals.orders ? totals.sales / totals.orders : 0) + '</td><td class="px-md py-sm">—</td>' +
-      '<td class="px-md py-sm"></td></tr></tfoot></table></div>' +
+      '<td class="px-md py-sm num">' + nf(totalOrders) + '</td>' +
+      '<td class="px-md py-sm">' + deltaChip(dlt(totalOrders, prvAgg.orders), 'up') + '</td>' +
+      '<td class="px-md py-sm num">' + nf(totalSales) + '</td>' +
+      '<td class="px-md py-sm">' + deltaChip(dlt(totalSales, prvAgg.sales), 'up') + '</td>' +
+      '<td class="px-md py-sm num">' + nf1(totalOrders ? totalSales / totalOrders : 0) + '</td>' +
+      '<td class="px-md py-sm">—</td>' +
+      '<td class="px-md py-sm num">' + nf1(totalShifts ? totalSales / totalShifts : 0) + '</td>' +
+      '<td class="px-md py-sm">100%</td></tr></tfoot></table></div>' +
+
+      '<div class="grid lg:grid-cols-2 gap-md">' +
+      '<div class="sub-panel"><div class="sub-panel-head"><span class="material-symbols-outlined">splitscreen</span> توزيع المبيعات على الورديات</div>' +
+      '<div class="sub-panel-legend"><span><i class="dot dot-morning"></i> صباحي</span><span><i class="dot dot-evening"></i> مسائي</span></div>' +
+      (splitRows || '<div class="empty-chart">لا توجد مبيعات مسجّلة في الفترة</div>') + '</div>' +
+      '<div class="sub-panel"><div class="sub-panel-head"><span class="material-symbols-outlined">calendar_month</span> سلوك الأيام داخل الفترة</div>' +
+      daysStrip + '</div>' +
+      '</div>' +
+
       '<div class="grid md:grid-cols-2 gap-md">' +
       '<div class="border-2 border-tertiary-container rounded-lg p-md bg-tertiary-container/5"><div class="font-title-md text-tertiary-container flex items-center gap-xs"><span class="material-symbols-outlined">trending_up</span> أفضل فرع أداءً</div>' +
       '<div class="font-title-md text-primary mt-xs">' + (best ? esc(best.name) : '—') + '</div>' +
-      '<div class="mt-sm"><label class="font-label-bold text-on-surface-variant">سبب التميز</label><div class="text-body-sm mt-1" data-edit="bestReason">' +
-      (best ? 'إجمالي مبيعات ' + nf(best.sales) + ' ر.س على ' + nf(best.orders) + ' فاتورة، بمتوسط ' + nf1(best.avg) + ' ر.س — أعلى نسبة بين الفروع في الفترة.' : 'لا توجد بيانات كافية.') +
-      '</div></div></div>' +
+      (best ? '<div class="best-metrics"><span>' + nf(best.sales) + ' ر.س</span><span>' + nf(best.orders) + ' فاتورة</span><span>' + nf1(best.salesPerShift) + ' ر.س/شفت</span></div>' : '') +
+      '<div class="mt-sm"><label class="font-label-bold text-on-surface-variant">سبب التميز</label><div class="text-body-sm mt-1" data-edit="bestReason">' + bestReason + '</div></div></div>' +
       '<div class="border-2 border-error-container rounded-lg p-md bg-error-container/20"><div class="font-title-md text-error flex items-center gap-xs"><span class="material-symbols-outlined">trending_down</span> أقل فرع أداءً + خطة التحسين</div>' +
       '<div class="font-title-md text-primary mt-xs">' + (worst ? esc(worst.name) : '—') + '</div>' +
-      '<div class="mt-sm"><label class="font-label-bold text-on-surface-variant">سبب القصور</label><div class="text-body-sm mt-1" data-edit="worstReason">' +
-      (worst ? 'مبيعات ' + nf(worst.sales) + ' ر.س على ' + nf(worst.orders) + ' فاتورة (' + worst.shifts + ' شفت مسجلة فقط) — راجع تغطية الورديات أولاً قبل الحكم على الأداء.' : 'لا توجد بيانات كافية.') +
-      '</div></div><div class="grid grid-cols-3 gap-sm mt-sm">' +
+      (worst ? '<div class="best-metrics"><span>' + nf(worst.sales) + ' ر.س</span><span>' + nf(worst.orders) + ' فاتورة</span><span>' + nf1(worst.salesPerShift) + ' ر.س/شفت</span></div>' : '') +
+      '<div class="mt-sm"><label class="font-label-bold text-on-surface-variant">سبب القصور</label><div class="text-body-sm mt-1" data-edit="worstReason">' + worstReason + '</div></div>' +
+      '<div class="grid grid-cols-3 gap-sm mt-sm">' +
       '<div><label class="font-label-bold text-on-surface-variant">الإجراء التصحيحي</label><div class="text-body-sm mt-1" data-edit="worstAction">—</div></div>' +
       '<div><label class="font-label-bold text-on-surface-variant">المسؤول</label><div class="text-body-sm mt-1" data-edit="worstOwner">—</div></div>' +
       '<div><label class="font-label-bold text-on-surface-variant">الموعد</label><div class="text-body-sm mt-1" data-edit="worstDue">—</div></div>' +
@@ -1170,6 +1410,17 @@
     managerNote.innerHTML = '<label class="font-label-bold text-on-surface-variant">ملاحظة مدير التشغيل لهذا المحور</label>' +
       '<div class="text-body-sm mt-xs" contenteditable="true" spellcheck="true" data-edit="managerNote-' + tab + '">—</div>';
     el.appendChild(managerNote);
+    if (tab === 1) {
+      $$('.branch-table-row', el).forEach(function (row) {
+        row.addEventListener('click', function () {
+          var k = row.getAttribute('data-branch');
+          state.drill = (state.drill === k) ? null : k;
+          renderPanes();
+        });
+      });
+      var closeBtn = el.querySelector('#drillClose');
+      if (closeBtn) closeBtn.addEventListener('click', function () { state.drill = null; renderPanes(); });
+    }
     if (tab === 2) {
       var checks = el.querySelector('#paneChecks');
       if (checks) {
@@ -1308,10 +1559,17 @@
 
   /* ══════════ العرض العام ══════════ */
   function renderAll() {
+    state.auto = computeAutoRange();
+    renderDataGap();
+    renderDiagnostics();
     renderSlicers();
     var r = resolveRange(), p = prevRange(r);
     var lbl = $('#rangeLabel');
-    if (lbl) lbl.textContent = 'من ' + r.from + ' إلى ' + r.to + '  ·  المقارنة: ' + p.from + ' — ' + p.to;
+    if (lbl) {
+      var span0 = dataSpan();
+      lbl.textContent = 'من ' + r.from + ' إلى ' + r.to + '  ·  المقارنة: ' + p.from + ' — ' + p.to +
+        (span0 ? '  ·  البيانات المتاحة: ' + span0.from + ' ← ' + span0.to : '');
+    }
     renderKpis();
     renderCharts();
     renderPanes();
@@ -1401,19 +1659,8 @@
       var r = resolveRange();
       var anyHit = SRC.reports.some(function (x) { return inRange(x.date, r); }) ||
                    SRC.waste.some(function (x) { return inRange(x.date, r); });
-      if (!anyHit) {
-        var all = SRC.reports.map(function (x) { return x.date; })
-          .concat(SRC.waste.map(function (x) { return x.date; }))
-          .concat(SRC.issues.map(function (x) { return x.date; }))
-          .concat(SRC.negs.map(function (x) { return x.date; }))
-          .concat(SRC.visits.map(function (x) { return x.date; }))
-          .filter(Boolean).sort();
-        if (all.length) {
-          var last = all[all.length - 1];
-          var f = new Date(parseD(last)); f.setUTCDate(f.getUTCDate() - 29);
-          state.range = 'custom'; state.from = dstr(f); state.to = last;
-        }
-      }
+      /* لو الفترة المطلوبة بلا بيانات → الاختيار التلقائي (computeAutoRange)
+         يعرض آخر أسبوع فيه بيانات مع لافتة تفسيرية، بدل 30 يوم بدون توضيح. */
       applyNotes();
       renderAll();
       return SRC;

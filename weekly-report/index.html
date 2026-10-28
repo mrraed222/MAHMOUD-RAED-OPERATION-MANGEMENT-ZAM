@@ -25,13 +25,23 @@
 }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js?v=20261027-2"></script>
-<script src="../assets/weekly-report-core.js?v=20261028-4"></script>
+<script src="../assets/weekly-report-core.js?v=20261028-7"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // التقرير التنفيذي خاص بمالك النظام فقط.
   var ZAM_WEEKLY_ROLES = ['Owner'];
-  if (ZAM_WEEKLY_ROLES.indexOf(currentUser.role) === -1) {
-      window.location.href = zamRoleHomePath(currentUser.role);
+  var ZAM_WEEKLY_ALLOWED = ZAM_WEEKLY_ROLES.indexOf(currentUser.role) !== -1;
+  if (!ZAM_WEEKLY_ALLOWED) {
+    // رسالة واضحة بدل تحويل صامت — مع الحفاظ على منع الوصول للبيانات.
+    document.addEventListener('DOMContentLoaded', function () {
+      document.body.innerHTML = '<div style="max-width:560px;margin:12vh auto;text-align:center;font-family:Noto Sans Arabic,sans-serif">' +
+        '<div style="font-size:42px">🔒</div>' +
+        '<h1 style="font-size:22px;color:#33210d;margin:12px 0">التقرير الأسبوعي متاح لمالك النظام فقط</h1>' +
+        '<p style="color:#70655d;line-height:1.9">دورك الحالي: <b>' + (currentUser.role || 'غير محدد') + '</b><br>' +
+        'لو أنت المالك ولم تظهر هذه الرسالة، راجع أن دورك في <b>profiles</b> هو <b>Owner</b>.</p>' +
+        '<a href="../index.html" style="display:inline-block;margin-top:18px;background:#33210d;color:#fff;padding:10px 22px;border-radius:999px;text-decoration:none">العودة للوحة التحكم</a>' +
+        '</div>';
+    });
   }
 
   // التقرير يقرأ من Supabase فقط. لا توجد مفاتيح أو روابط مزامنة في المتصفح.
@@ -90,6 +100,75 @@
     main { margin-right:0 !important; }
     .report-header .header-inner { padding-left:16px; padding-right:16px; }
   }
+  /* ── تقرير الأسبوع: مؤشرات المبيعات وتحليل الفروع ── */
+  .chip-count { display:inline-block; min-width:20px; padding:0 5px; margin-inline-start:4px; border-radius:999px; background:#e9e3de; color:#4e453d; font-size:11px; font-weight:700; }
+  .slicer.on .chip-count { background:rgba(255,255,255,.22); color:#fff; }
+  .gap-banner { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 16px; border-radius:12px; border:1px solid #e0a83a; background:#fff6e2; color:#5b3518; }
+  .gap-banner .gap-icon { font-size:24px; color:#b8860b; }
+  .gap-banner .gap-text { flex:1 1 320px; font-size:13px; line-height:1.7; }
+  .gap-banner .gap-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .sales-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; }
+  .sales-kpi { border:1px solid #e4d9cf; border-radius:12px; padding:12px 14px; background:linear-gradient(180deg,#fffdfb 0%,#fff 100%); }
+  .sales-kpi-head { display:flex; align-items:center; gap:6px; color:#70655d; font-size:12.5px; font-weight:700; }
+  .sales-kpi-head .material-symbols-outlined { font-size:18px; color:#5b3518; }
+  .sales-kpi-value { margin-top:6px; color:#33210d; font-size:26px; font-weight:800; line-height:1.1; font-variant-numeric:tabular-nums; }
+  .sales-kpi-value small { font-size:13px; font-weight:700; color:#70655d; }
+  .sales-kpi-foot { display:flex; align-items:center; gap:8px; margin-top:6px; }
+  .sales-kpi-prev { color:#80756c; font-size:11.5px; }
+  .sales-kpi-sub { margin-top:4px; color:#80756c; font-size:11.5px; }
+  .sales-table .num { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .sales-table .strong { font-weight:800; color:#33210d; }
+  .sales-table .row-sub { color:#80756c; font-size:11px; font-weight:400; }
+  .branch-table-row { cursor:pointer; }
+  .branch-table-row:hover { background:#faf6f2; }
+  .branch-table-row.is-drill { background:#f4ece3; box-shadow:inset 3px 0 0 #5b3518; }
+  .share-cell { min-width:120px; }
+  .share-cell span { font-size:11.5px; font-weight:700; color:#5b3518; }
+  .share-track { margin-top:4px; height:8px; border-radius:999px; background:#ece6e0; overflow:hidden; }
+  .share-track i { display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#725a42,#33210d); }
+  .sub-panel { border:1px solid #e4d9cf; border-radius:12px; padding:12px 14px; background:#fffdfb; }
+  .sub-panel-head { display:flex; align-items:center; justify-content:space-between; gap:8px; color:#33210d; font-size:14px; font-weight:800; margin-bottom:10px; }
+  .sub-panel-head .material-symbols-outlined { color:#5b3518; font-size:18px; }
+  .sub-panel-legend { display:flex; gap:14px; font-size:11.5px; color:#70655d; margin-bottom:8px; }
+  .sub-panel-legend .dot { display:inline-block; width:10px; height:10px; border-radius:3px; margin-inline-end:4px; }
+  .dot-morning { background:#c8a15a; } .dot-evening { background:#5b3518; }
+  .split-row { display:grid; grid-template-columns:minmax(90px,1fr) minmax(120px,2.2fr) auto; gap:10px; align-items:center; padding:5px 0; }
+  .split-name { font-size:12.5px; font-weight:700; color:#33210d; }
+  .split-bar { display:flex; height:12px; border-radius:999px; overflow:hidden; background:#ece6e0; }
+  .split-bar i { display:block; height:100%; }
+  .split-morning { background:#c8a15a; } .split-evening { background:#5b3518; }
+  .split-legend { display:flex; gap:8px; font-size:11px; color:#70655d; white-space:nowrap; }
+  .days-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .day-card { border-radius:10px; padding:10px; border:1px solid #e4d9cf; background:#fff; }
+  .day-head { display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; color:#70655d; }
+  .day-head .material-symbols-outlined { font-size:16px; }
+  .day-date { margin-top:4px; font-size:12px; color:#80756c; }
+  .day-value { font-size:17px; font-weight:800; color:#33210d; font-variant-numeric:tabular-nums; }
+  .day-value small { font-size:11px; color:#70655d; }
+  .day-card.is-good { border-color:#9fce9f; background:#f2fbf2; }
+  .day-card.is-good .day-head { color:#17633b; }
+  .day-card.is-bad { border-color:#e8b3ad; background:#fff5f3; }
+  .day-card.is-bad .day-head { color:#a52c2c; }
+  .best-metrics { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .best-metrics span { font-size:11.5px; font-weight:700; color:#5b3518; background:rgba(255,255,255,.7); border:1px solid #e4d9cf; border-radius:999px; padding:3px 9px; }
+  @media (max-width: 640px) { .days-grid { grid-template-columns:1fr; } .split-row { grid-template-columns:1fr; } }
+  .diag-card { background:#fff; border:1px solid #d2c4ba; border-radius:12px; padding:10px 14px; }
+  .diag-summary { cursor:pointer; font-size:13px; font-weight:700; color:#5b3518; list-style:none; }
+  .diag-summary::-webkit-details-marker { display:none; }
+  .diag-summary:before { content:'\25B8 '; font-size:11px; }
+  details[open] .diag-summary:before { content:'\25BE '; }
+  .diag-badge { background:#ffdad6; color:#93000a; border-radius:999px; padding:1px 8px; font-size:11px; margin-inline-start:6px; }
+  .diag-ok { background:#e2f4e2; color:#17633b; border-radius:999px; padding:1px 8px; font-size:11px; margin-inline-start:6px; }
+  .diag-body { margin-top:10px; font-size:12.5px; color:#4e453d; }
+  .diag-line { margin-bottom:8px; }
+  .diag-table { width:100%; border-collapse:collapse; margin-bottom:8px; }
+  .diag-table th,.diag-table td { text-align:right; padding:4px 8px; border-bottom:1px solid #eee6df; }
+  .diag-table th { color:#80756c; font-weight:700; font-size:11.5px; }
+  .diag-good { color:#17633b; font-weight:700; }
+  .diag-bad { color:#a52c2c; font-weight:700; }
+  .diag-errors { background:#fff5f3; border:1px solid #ffdad6; border-radius:10px; padding:10px; }
+  .diag-errors ul { margin:6px 0; padding-inline-start:18px; }
+  .diag-errors li { margin-bottom:3px; }
   @media print {
     @page { size:A4 portrait; margin:12mm 10mm 14mm; }
     html, body { background:#fff !important; color:#1b1c1c; }
@@ -132,6 +211,32 @@
   .dashboard-note-card > div:empty::before { content:attr(data-placeholder); color:#a1958d; }
   .dashboard-note-card > div:focus { border-bottom:2px solid #5b3518; color:#33210d; }
 
+    /* جدول أداء الفروع — عرض ثابت حتى لا يخرج عن حدود الصفحة */
+    .sales-table { table-layout:fixed !important; width:100% !important; font-size:7.2pt !important; }
+    .sales-table th, .sales-table td { padding:1.3mm 0.9mm !important; overflow:hidden; }
+    .sales-table th:nth-child(1), .sales-table td:nth-child(1) { width:17%; white-space:nowrap; }
+    .sales-table th:nth-child(4), .sales-table td:nth-child(4) { width:11%; }
+    .sales-table th:nth-child(9), .sales-table td:nth-child(9) { width:13%; }
+    .sales-table .row-sub { font-size:6.4pt !important; white-space:nowrap; }
+    .sales-table .num { white-space:nowrap; }
+    .sales-table .share-cell { min-width:0 !important; }
+    .sales-table .share-cell span { font-size:6.6pt; }
+    .sales-table .share-track { height:5px !important; }
+    .sales-table .inline-flex { font-size:6.6pt !important; padding:0 3px !important; gap:1px !important; }
+    .sales-table .inline-flex .material-symbols-outlined { font-size:9px !important; }
+    .sales-kpi { padding:6px 8px !important; }
+    .sales-kpi-value { font-size:15pt !important; }
+    .sales-kpi-value small { font-size:7pt !important; }
+    .sales-kpi-head, .sales-kpi-prev, .sales-kpi-sub { font-size:6.8pt !important; }
+    .sales-kpi-sub { margin-top:2px !important; }
+    .split-row { grid-template-columns:minmax(70px,1fr) minmax(100px,2fr) auto !important; }
+    .split-name { font-size:7pt !important; }
+    .split-legend { font-size:6.4pt !important; }
+    .day-card { padding:5px !important; }
+    .day-head { font-size:6.6pt !important; }
+    .day-date { font-size:6.4pt !important; }
+    .day-value { font-size:9.5pt !important; }
+    .best-metrics span { font-size:6.4pt !important; padding:1px 5px !important; }
     .grid { break-inside:avoid; }
     .bg-primary { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
     .bg-surface-container, .bg-surface-container-lowest { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
@@ -196,6 +301,12 @@
         <div id="shiftChips" class="flex gap-xs flex-wrap"></div>
       </div>
     </div>
+  </section>
+
+  <section class="no-print px-margin-desktop pt-md hidden" id="dataGap"></section>
+
+  <section class="no-print px-margin-desktop pt-md">
+    <details id="diagPanel" class="diag-card"></details>
   </section>
 
   <section class="px-margin-desktop py-lg space-y-lg">
@@ -308,10 +419,12 @@ var printPhone = document.getElementById("printManagerPhone");
 if (printName) printName.textContent = printProfile.full_name || printProfile.name || "مدير التشغيل";
 if (printEmail) printEmail.textContent = printProfile.email || "operations@zam.sa";
 if (printPhone) printPhone.textContent = printProfile.whatsapp_number || printProfile.phone || "0563505653";
-ZamWeeklyReport.init({
-  client: ZAM_WEEKLY_CLIENT,
-  user: currentUser
-});
+if (ZAM_WEEKLY_ALLOWED) {
+  ZamWeeklyReport.init({
+    client: ZAM_WEEKLY_CLIENT,
+    user: currentUser
+  });
+}
 </script>
 </body>
 </html>
