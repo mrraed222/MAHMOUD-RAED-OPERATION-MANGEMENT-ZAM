@@ -62,20 +62,122 @@ function supa(method, path, body) {
   var res = UrlFetchApp.fetch(supaUrl() + path, opts);
   var code = res.getResponseCode();
   var txt = res.getContentText();
-  if (code >= 300) throw new Error('Supabase ' + method + ' ' + path + ' → ' + code + ' : ' + txt.slice(0, 300));
+  // شريحة أطول: تفاصيل PostgREST (Searched for the following columns: [...]) قد تتجاوز 300 حرف
+  if (code >= 300) throw new Error('Supabase ' + method + ' ' + path + ' → ' + code + ' : ' + txt.slice(0, 600));
   return txt ? JSON.parse(txt) : null;
 }
 
 
-/** يرسل سجلات Supabase على دفعات لتجنب تجاوز مهلة Apps Script */
-function supaBatch(table, rows, conflictColumn) {
-  var size = 250;
-  for (var start = 0; start < rows.length; start += size) {
-    var path = '/rest/v1/' + table;
-    if (conflictColumn) path += '?on_conflict=' + conflictColumn;
-    supa('POST', path, rows.slice(start, start + size));
+/** جدول → الأعمدة التي رفضتها القاعدة أثناء آخر مزامنة */
+var SCHEMA_DROPS = {};
+
+/** الأعمدة الاختيارية التي قد لا تدعمها القاعدة في كل جدول */
+var OPTIONAL_COLS = {
+  waste_logs: ['sheet_key', 'root_cause', 'corrective_action', 'owner', 'unit_cost', 'shift_type'],
+  shift_issues: ['sheet_key', 'issue_type', 'action_taken', 'priority'],
+  negative_reviews: ['sheet_key', 'status', 'owner', 'action_taken', 'customer_rating']
+};
+
+/** هل يدعم الجدول هذا العمود؟ (فحص سريع عبر REST) */
+function hasColumn(table, column) {
+  try {
+    supa('GET', '/rest/v1/' + table + '?select=' + column + '&limit=1');
+    return true;
+  } catch (e) { return false; }
+}
+
+/** توحيد تسمية الشفت */
+function shiftLabel(v) {
+  var s = txt(v);
+  if (!s) return '';
+  if (/مسائي|ليلي|evening|night/i.test(s)) return 'Evening';
+  if (/صباح|morning/i.test(s)) return 'Morning';
+  return s;
+}
+
+/** هل هذا الخطأ يعني أن عموداً غير موجود في القاعدة؟ */
+function isSchemaColumnError(msg) {
+  var s = String(msg == null ? '' : msg);
+  return /PGRST20[234]|42703|does not exist|not found in the schema|schema cache/i.test(s);
+}
+
+/** يستخرج أسماء الأعمدة الناقصة من رسالة خطأ PostgREST */
+function missingColumnsFromError(msg) {
+  var out = [];
+  var s = String(msg == null ? '' : msg);
+  var reList = /Searched for the following columns:\s*\[([^\]]*)\]/i;
+  var reOne = /Could not find the '([^']+)' column/i;
+  var m = s.match(reList);
+  if (m) {
+    m[1].split(',').forEach(function (x) {
+      var c = x.replace(/['"\s]/g, '');
+      if (c && out.indexOf(c) < 0) out.push(c);
+    });
   }
-  return rows.length;
+  var m2 = s.match(reOne);
+  if (m2 && out.indexOf(m2[1]) < 0) out.push(m2[1]);
+  return out;
+}
+
+/**
+ * يرسل سجلات Supabase على دفعات لتفادي تجاوز مهلة Apps Script.
+ * ------------------------------------------------------------------
+ * سلوك متين: إذا رفضت القاعدة عموداً غير موجود (PGRST204 / PGRST203 / 42703)
+ * يُستبعد هذا العمود تلقائياً وتُعاد المحاولة — فلا تتوقف المزامنة كاملة.
+ * مثال: waste_logs لا يدعم عمود shift_type قبل تشغيل ملف ترقية القاعدة.
+ */
+function supaBatch(table, rows, conflictColumn, optionalCols) {
+  var size = 250;
+  var cols = (optionalCols || OPTIONAL_COLS[table] || []).slice();
+  var drop = {};
+  var sent = 0;
+
+  for (var start = 0; start < rows.length; start += size) {
+    var chunk = rows.slice(start, start + size);
+    var tries = 0;
+    var maxTries = cols.length + 2;
+    while (true) {
+      tries++;
+      var payload = chunk.map(function (r) {
+        var o = {};
+        Object.keys(r).forEach(function (k) { if (!drop[k]) o[k] = r[k]; });
+        return o;
+      });
+      var path = '/rest/v1/' + table;
+      if (conflictColumn && !drop[conflictColumn]) path += '?on_conflict=' + conflictColumn;
+      try {
+        supa('POST', path, payload);
+        sent += chunk.length;
+        break;
+      } catch (e) {
+        var msg = String((e && e.message) || e);
+        if (!isSchemaColumnError(msg) || tries > maxTries) throw e;
+
+        var parsed = missingColumnsFromError(msg);
+        var miss = [];
+        if (parsed.length) {
+          parsed.forEach(function (c) {
+            if (cols.indexOf(c) >= 0 && miss.indexOf(c) < 0) miss.push(c);
+          });
+          if (!miss.length) throw e;   // الخطأ في عمود أساسي — لا نُخفيه
+        } else {
+          for (var i = 0; i < cols.length; i++) {
+            if (!drop[cols[i]]) { miss = [cols[i]]; break; }
+          }
+          if (!miss.length) throw e;
+        }
+
+        miss.forEach(function (c) {
+          drop[c] = true;
+          if (!SCHEMA_DROPS[table]) SCHEMA_DROPS[table] = [];
+          if (SCHEMA_DROPS[table].indexOf(c) < 0) SCHEMA_DROPS[table].push(c);
+        });
+        Logger.log('س ' + table + ': عمود غير مدعوم في القاعدة — سيُستبعد: ' +
+          miss.join('، ') + ' | الخطأ: ' + msg.slice(0, 140));
+      }
+    }
+  }
+  return sent;
 }
 
 /** تطبيع التاريخ إلى yyyy-MM-dd */
@@ -260,6 +362,7 @@ function toWasteRow(r) {
     owner: txt(val(r, ['المسؤول', 'owner'])),
     unit_cost: num(val(r, ['تكلفة الوحدة', 'unit_cost', 'تكلفة الصنف'])),
     date: toISO(val(r, ['التاريخ', 'تاريخ', 'date'])),
+    shift_type: shiftLabel(val(r, ['الشفت', 'الفت', 'الوردية', 'shift', 'shift_type'])),
     branchRaw: txt(val(r, ['الفرع', 'فرع', 'branch'])),
     sheet_row: r.__row
   };
@@ -304,6 +407,7 @@ function toNegRow(r) {
  */
 function syncToSupabase() {
   var summary = { startedAt: new Date().toISOString(), inserted: 0, updated: 0, skipped: 0, children: 0, errors: [] };
+  SCHEMA_DROPS = {};
 
   try {
     // 1) خرائط الفروع
@@ -377,17 +481,26 @@ function syncToSupabase() {
       return best;
     }
 
-    function hasColumn(table, column) {
-      try {
-        supa('GET', '/rest/v1/' + table + '?select=' + column + '&limit=1');
-        return true;
-      } catch (e) { return false; }
-    }
-    // إن كان ملف SQL المرفق قد نُفّذ، نستخدم sheet_key لمنع التكرار بأمان
-    var USE_CHILD_KEY = {
-      waste: hasColumn('waste_logs', 'sheet_key'),
-      issues: hasColumn('shift_issues', 'sheet_key'),
-      negatives: hasColumn('negative_reviews', 'sheet_key')
+    // فحص كل عمود اختياري على حدة: ما لا تدعمه القاعدة يُستبعد من الحمولة فقط،
+    // وبقية الأعمدة (التي поддерبها القاعدة) تُرسل كاملة.
+    var WASTE_COLS = {
+      sheet_key: hasColumn('waste_logs', 'sheet_key'),
+      root_cause: hasColumn('waste_logs', 'root_cause'),
+      corrective_action: hasColumn('waste_logs', 'corrective_action'),
+      owner: hasColumn('waste_logs', 'owner'),
+      unit_cost: hasColumn('waste_logs', 'unit_cost'),
+      shift_type: hasColumn('waste_logs', 'shift_type')
+    };
+    var ISSUE_COLS = {
+      sheet_key: hasColumn('shift_issues', 'sheet_key'),
+      issue_type: hasColumn('shift_issues', 'issue_type')
+    };
+    var NEG_COLS = {
+      sheet_key: hasColumn('negative_reviews', 'sheet_key'),
+      status: hasColumn('negative_reviews', 'status'),
+      owner: hasColumn('negative_reviews', 'owner'),
+      action_taken: hasColumn('negative_reviews', 'action_taken'),
+      customer_rating: hasColumn('negative_reviews', 'customer_rating')
     };
 
     // الهدر — تجهيز ثم إرسال على دفعات
@@ -398,16 +511,25 @@ function syncToSupabase() {
       var rep = findReport(w.date, w.branchRaw, w.sheet_row);
       if (!rep || !rep.id) { summary.skipped++; return; }
       var key = sheetKey([rep.key, 'W', w.item_name, w.quantity, w.unit, w.reason]);
-      wastePayload.push({
+      var wrow = {
         report_id: rep.id, item_name: w.item_name, quantity: w.quantity,
-        unit: w.unit, reason: w.reason, sheet_key: key,
-        root_cause: w.root_cause || null, corrective_action: w.corrective_action || null,
-        owner: w.owner || null, unit_cost: w.unit_cost || null
-      });
+        unit: w.unit, reason: w.reason
+      };
+      if (WASTE_COLS.sheet_key) wrow.sheet_key = key;
+      if (WASTE_COLS.root_cause) wrow.root_cause = w.root_cause || null;
+      if (WASTE_COLS.corrective_action) wrow.corrective_action = w.corrective_action || null;
+      if (WASTE_COLS.owner) wrow.owner = w.owner || null;
+      if (WASTE_COLS.unit_cost) wrow.unit_cost = w.unit_cost || null;
+      // الشفت يُستنتج من تقرير الشفت المرتبط (وإلا من عمود الشفت في الشيت)
+      if (WASTE_COLS.shift_type) wrow.shift_type = w.shift_type || rep.row.shift_type || null;
+      wastePayload.push(wrow);
     });
     try {
-      if (!USE_CHILD_KEY.waste) wastePayload.forEach(function (x) { delete x.sheet_key; delete x.root_cause; delete x.corrective_action; delete x.owner; delete x.unit_cost; });
-      if (wastePayload.length) summary.children += supaBatch('waste_logs', wastePayload, USE_CHILD_KEY.waste ? 'sheet_key' : null);
+      if (wastePayload.length) {
+        summary.children += supaBatch('waste_logs', wastePayload,
+          WASTE_COLS.sheet_key ? 'sheet_key' : null,
+          ['sheet_key', 'root_cause', 'corrective_action', 'owner', 'unit_cost', 'shift_type']);
+      }
     } catch (e) { summary.errors.push('waste_logs: ' + e.message); }
 
     // مشاكل الشفت — تجهيز ثم إرسال على دفعات
@@ -418,14 +540,20 @@ function syncToSupabase() {
       var rep = findReport(i.date, i.branchRaw, i.sheet_row);
       if (!rep || !rep.id) { summary.skipped++; return; }
       var key = sheetKey([rep.key, 'I', i.description]);
-      issuePayload.push({
-        report_id: rep.id, description: i.description, action_taken: i.action_taken,
-        priority: i.priority, issue_type: i.type, sheet_key: key
-      });
+      var irow = {
+        report_id: rep.id, description: i.description,
+        action_taken: i.action_taken, priority: i.priority
+      };
+      if (ISSUE_COLS.issue_type) irow.issue_type = i.type;
+      if (ISSUE_COLS.sheet_key) irow.sheet_key = key;
+      issuePayload.push(irow);
     });
     try {
-      if (!USE_CHILD_KEY.issues) issuePayload.forEach(function (x) { delete x.sheet_key; delete x.issue_type; });
-      if (issuePayload.length) summary.children += supaBatch('shift_issues', issuePayload, USE_CHILD_KEY.issues ? 'sheet_key' : null);
+      if (issuePayload.length) {
+        summary.children += supaBatch('shift_issues', issuePayload,
+          ISSUE_COLS.sheet_key ? 'sheet_key' : null,
+          ['sheet_key', 'issue_type', 'action_taken', 'priority']);
+      }
     } catch (e) { summary.errors.push('shift_issues: ' + e.message); }
 
     // Google Map مستبعدة من هذه المزامنة بناءً على طلب المستخدم.
@@ -439,20 +567,25 @@ function syncToSupabase() {
       var rep = findReport(n.date, n.branchRaw, n.sheet_row);
       if (!rep || !rep.id) { summary.skipped++; return; }
       var key = sheetKey([rep.key, 'N', n.comment_text]);
-      negativePayload.push({
-        report_id: rep.id, comment_text: n.comment_text,
-        review_type: n.review_type, sheet_key: key,
-        status: n.status || 'معلقة', owner: n.owner || null,
-        action_taken: n.action_taken || null, customer_rating: n.rating || null
-      });
+      var nrow = { report_id: rep.id, comment_text: n.comment_text, review_type: n.review_type };
+      if (NEG_COLS.sheet_key) nrow.sheet_key = key;
+      if (NEG_COLS.status) nrow.status = n.status || 'معلقة';
+      if (NEG_COLS.owner) nrow.owner = n.owner || null;
+      if (NEG_COLS.action_taken) nrow.action_taken = n.action_taken || null;
+      if (NEG_COLS.customer_rating) nrow.customer_rating = n.rating || null;
+      negativePayload.push(nrow);
     });
     try {
-      if (!USE_CHILD_KEY.negatives) negativePayload.forEach(function (x) { delete x.sheet_key; delete x.status; delete x.owner; delete x.action_taken; delete x.customer_rating; });
-      if (negativePayload.length) summary.children += supaBatch('negative_reviews', negativePayload, USE_CHILD_KEY.negatives ? 'sheet_key' : null);
+      if (negativePayload.length) {
+        summary.children += supaBatch('negative_reviews', negativePayload,
+          NEG_COLS.sheet_key ? 'sheet_key' : null,
+          ['sheet_key', 'status', 'owner', 'action_taken', 'customer_rating']);
+      }
     } catch (e) { summary.errors.push('negative_reviews: ' + e.message); }
 
 
     summary.finishedAt = new Date().toISOString();
+    summary.schemaDrops = SCHEMA_DROPS;
     summary.ok = true;
   } catch (e) {
     summary.ok = false;
@@ -575,6 +708,12 @@ function diagnose() {
   } catch (e) {
     Logger.log('تعذر قراءة Supabase: ' + e.message);
   }
+  // فحص الأعمدة الاختيارية — الأعمدة غير المدعومة تُذكر هنا
+  ['waste_logs', 'shift_issues', 'negative_reviews'].forEach(function (t) {
+    var cols = OPTIONAL_COLS[t] || [];
+    var missing = cols.filter(function (c) { return !hasColumn(t, c); });
+    Logger.log('أعمدة ' + t + ' غير مدعومة: ' + (missing.length ? missing.join('، ') : 'لا شيء — الجدول كامل'));
+  });
 }
 
 
