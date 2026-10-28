@@ -139,11 +139,12 @@
       q('weekly_report_notes', '*'),
       q('weekly_reports', '*'),
       q('checklist_templates', '*'),
-      q('checklist_logs', '*')
+      q('checklist_logs', '*'),
+      q('supervisory_visit_notes', '*')
     ]).then(function (res) {
       var branches = res[0], reports = res[1], waste = res[2], issues = res[3], negs = res[4],
           visits = res[5], attendance = res[6], plans = res[7], notes = res[8],
-          snapshots = res[9], templates = res[10], logs = res[11];
+          snapshots = res[9], templates = res[10], logs = res[11], visitNotes = res[12];
 
       // إن وُجدت فروع على الأقل نُبقي المصدر (حتى لو كانت جداول التقارير فارغة)
       // حتى لا نخسر الفروع الديناميكية؛ وإن فشل الاتصال تماماً نرجع null
@@ -193,6 +194,14 @@
         owner: x.owner || '', action: x.action_taken || '', rating: num(x.customer_rating) }; })
         .filter(function (x) { return x.text; });
 
+      /* ملاحظات كل زيارة (جدول supervisory_visit_notes) — هي مصدر التفاصيل */
+      var notesByVisit = {};
+      (visitNotes || []).forEach(function (n) {
+        var vid = n.visit_id || (n.supervisory_visits && n.supervisory_visits.id);
+        if (!vid) return;
+        (notesByVisit[vid] = notesByVisit[vid] || []).push(n);
+      });
+
       SRC = {
         label: 'مباشر من Supabase (نظام زام)', kind: 'live',
         note: 'قراءة مباشرة من قاعدة بيانات نظام زام',
@@ -202,7 +211,10 @@
           visitor: v.visitor_name || '', score: num(v.score),
           total: num(v.checklist_total), done: num(v.checklist_done),
           observation: v.observation || '', action: v.corrective_action || '',
-          owner: v.owner || '', due: v.due_date || '', status: v.status || 'مفتوحة' }; })
+          owner: v.owner || '', due: v.due_date || '', status: v.status || 'مفتوحة',
+          vnotes: (notesByVisit[v.id] || []).map(function (n) { return {
+            text: n.note_text || '', action: n.corrective_action || '', owner: n.owner || '',
+            due: n.due_date || '', status: n.status || 'مفتوحة' }; }) }; })
           .filter(function (v) { return v.date; }),
         attendance: attendance.map(function (a) { return {
           date: String(a.work_date || '').slice(0, 10), branch: a.branch_id,
@@ -505,7 +517,9 @@
 
   /* ══════════ الملاحظات (Supabase + localStorage) ══════════ */
   function localNotes() {
-    try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}'); } catch (e) { return {}; }
+    /* الملاحظات مفصولة بالأسبوع — حتى لا تختلط ملاحظات أسبوع بآخر */
+    try { return JSON.parse(localStorage.getItem(NOTES_KEY + ':' + reportKey(resolveRange())) || '{}'); }
+    catch (e) { return {}; }
   }
   function applyNotes() {
     var rk = reportKey(resolveRange());
@@ -519,7 +533,7 @@
     var rk = reportKey(resolveRange());
     if (!SRC.noteMap) SRC.noteMap = {};
     SRC.noteMap[noteKey] = body;
-    try { localStorage.setItem(NOTES_KEY, JSON.stringify(SRC.noteMap)); } catch (e) {}
+    try { localStorage.setItem(NOTES_KEY + ':' + rk, JSON.stringify(SRC.noteMap)); } catch (e) {}
     /* حفظ في Supabase عبر RPC */
     if (CFG.client && typeof CFG.client.rpc === 'function') {
       return CFG.client.rpc('save_weekly_note', {
@@ -790,17 +804,40 @@
         '<td class="px-md py-sm">' + v + '</td><td class="px-md py-sm">' + (v / (cur.rows.length || 1) * 100).toFixed(0) + '%</td></tr>';
     }).join('');
 
-    var visitRows = visits.map(function (v) {
-      return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(v.date) + '</td>' +
-        '<td class="px-md py-sm">' + esc(branchName(v.branch)) + '</td>' +
-        '<td class="px-md py-sm">' + esc(v.visitor || '—') + '</td>' +
-        '<td class="px-md py-sm font-bold">' + (v.score ? v.score + '%' : '—') + '</td>' +
-        '<td class="px-md py-sm text-on-surface-variant">' + esc(v.observation || '—') + '</td>' +
-        '<td class="px-md py-sm">' + esc(v.action || '—') + '</td>' +
-        '<td class="px-md py-sm">' + esc(v.owner || '—') + '</td>' +
-        '<td class="px-md py-sm">' + esc(v.due || '—') + '</td>' +
-        '<td class="px-md py-sm">' + esc(v.status) + '</td></tr>';
-    }).join('');
+    /* صف لكل ملاحظة زيارة — لأن الإجراء/المسؤول/الموعد/الحالة محفوظة في
+       supervisory_visit_notes وليست في supervisor y_visits نفسها. */
+    var visitRows = '', allNotes = [];
+    visits.forEach(function (v) {
+      if (v.vnotes && v.vnotes.length) {
+        v.vnotes.forEach(function (n) {
+          allNotes.push({ visit: v, note: n });
+          visitRows += '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(v.date) + '</td>' +
+            '<td class="px-md py-sm">' + esc(branchName(v.branch)) + '</td>' +
+            '<td class="px-md py-sm">' + esc(v.visitor || '—') + '</td>' +
+            '<td class="px-md py-sm font-bold">' + (v.score ? v.score + '%' : '—') + '</td>' +
+            '<td class="px-md py-sm text-on-surface-variant">' + esc(n.text || v.observation || '—') + '</td>' +
+            '<td class="px-md py-sm">' + esc(n.action || '—') + '</td>' +
+            '<td class="px-md py-sm">' + esc(n.owner || '—') + '</td>' +
+            '<td class="px-md py-sm">' + esc(n.due || '—') + '</td>' +
+            '<td class="px-md py-sm">' + esc(n.status) + '</td></tr>';
+        });
+      } else {
+        visitRows += '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(v.date) + '</td>' +
+          '<td class="px-md py-sm">' + esc(branchName(v.branch)) + '</td>' +
+          '<td class="px-md py-sm">' + esc(v.visitor || '—') + '</td>' +
+          '<td class="px-md py-sm font-bold">' + (v.score ? v.score + '%' : '—') + '</td>' +
+          '<td class="px-md py-sm text-on-surface-variant">' + esc(v.observation || '—') + '</td>' +
+          '<td class="px-md py-sm">' + esc(v.action || '—') + '</td>' +
+          '<td class="px-md py-sm">' + esc(v.owner || '—') + '</td>' +
+          '<td class="px-md py-sm">' + esc(v.due || '—') + '</td>' +
+          '<td class="px-md py-sm">' + esc(v.status) + '</td></tr>';
+      }
+    });
+    var todayStr = dstr(new Date());
+    var openNotes = allNotes.filter(function (x) { return /مفتوحة|قيد/.test(x.note.status || ''); }).length;
+    var lateNotes = allNotes.filter(function (x) {
+      return x.note.due && x.note.due < todayStr && !/مغلقة/.test(x.note.status || '');
+    }).length;
 
     var issueRows = issues.slice(0, 25).map(function (i) {
       return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(i.date) + '</td>' +
@@ -819,6 +856,13 @@
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">نسبة الالتزام (مستحقة ÷ منفذة)</div><div class="font-display-lg text-primary mt-xs">' +
       (comp ? comp.pct + '%' : '—') + (comp ? '<div class="text-body-sm text-on-surface-variant">' + comp.done + '/' + comp.expected + ' مهمة</div>' : '') + '</div></div>' +
       '<div class="bg-error-container/30 rounded-lg p-md"><div class="text-body-sm text-on-error-container">مهام مُعلّمة (Flagged)</div><div class="font-display-lg text-error mt-xs">' + (comp ? comp.flagged : 0) + '</div></div>' +
+      '</div>' +
+      '<div class="grid md:grid-cols-4 gap-md">' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">ملاحظات الزيارات</div><div class="font-display-lg text-primary mt-xs">' + allNotes.length + '</div></div>' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">ملاحظات مفتوحة</div><div class="font-display-lg text-primary mt-xs">' + openNotes + '</div></div>' +
+      '<div class="bg-error-container/30 rounded-lg p-md"><div class="text-body-sm text-on-error-container">متأخرة عن الموعد</div><div class="font-display-lg text-error mt-xs">' + lateNotes + '</div></div>' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">سجل الزيارات</div>' +
+      '<a href="../branch-visits/index.html" class="text-body-sm font-bold text-primary underline mt-xs inline-block">فتح صفحة الزيارات ←</a></div>' +
       '</div>' +
       '<div><div class="font-title-md text-primary mb-xs">نسبة الالتزام لكل مهمة من قوالب التشيك ليست</div><div id="paneChecks"></div>' +
       (tpl.length ? '' : '<p class="text-body-sm text-on-surface-variant mt-xs">لا توجد قوالب مهام مسندة أو سجلات تنفيذ في هذه الفترة.</p>') + '</div>' +
@@ -1146,6 +1190,26 @@
     decoratePane(el, state.tab);
   }
 
+  /* تجهيز الطباعة: نرسم المحاور الستة قبل الطباعة ونرجع للتبويب الحالي بعدها.
+     ملاحظة: المتصفح قد يستدعي beforeprint أكثر من مرة — لازم نعيد الرسم في كل مرة
+     حتىContains أحدث البيانات، ونسترجع نسخة التبويب الأصلية فقط. */
+  var printState = null;
+  function preparePrint() {
+    var el = $('#panes');
+    if (!el) return;
+    if (!printState) printState = { tab: state.tab, html: el.innerHTML };
+    try { renderAllPanesForPrint(); } catch (e) {}
+  }
+  function finishPrint() {
+    if (!printState) return;
+    var p = printState; printState = null;
+    try {
+      var el = $('#panes');
+      if (el) el.innerHTML = p.html;
+      state.tab = p.tab;
+      renderPanes();
+    } catch (e) {}
+  }
   function renderAllPanesForPrint() {
     var el = $('#panes');
     if (!el) return function () {};
@@ -1178,17 +1242,30 @@
     try {
       var o = {};
       $$('[data-edit]').forEach(function (el) { o[el.getAttribute('data-edit')] = el.innerHTML; });
-      localStorage.setItem(EDIT_KEY, JSON.stringify(o));
+      localStorage.setItem(EDIT_KEY + ':' + reportKey(resolveRange()), JSON.stringify(o));
     } catch (e) {}
   }
   function restoreEdits() {
     var o = {};
-    try { o = JSON.parse(localStorage.getItem(EDIT_KEY) || '{}'); } catch (e) {}
+    try { o = JSON.parse(localStorage.getItem(EDIT_KEY + ':' + reportKey(resolveRange())) || '{}'); } catch (e) {}
     $$('[data-edit]').forEach(function (el) {
       var k = el.getAttribute('data-edit');
       var v = (SRC.noteMap && SRC.noteMap[k]) || o[k];
       if (v != null && v !== '' && v !== '—') el.innerHTML = v;
     });
+  }
+  /* حالة حفظ الملاحظات (تظهر في الترويسة) */
+  function setNotesStatus(dbOk) {
+    var el = document.getElementById('notesStatus');
+    if (!el) return;
+    if (dbOk === true) {
+      el.textContent = 'الملاحظات: محفوظة في القاعدة';
+      el.className = 'px-md py-sm rounded-full border border-tertiary-container text-tertiary-container font-label-bold flex items-center gap-xs';
+    } else if (dbOk === false) {
+      el.textContent = 'الملاحظات: محفوظة محلياً فقط';
+      el.className = 'px-md py-sm rounded-full border border-error-container text-on-error-container font-label-bold flex items-center gap-xs';
+      el.title = 'تعذّر الحفظ في Supabase — تأكد من تشغيل save_weekly_note وصلاحيات المالك. الملاحظة محفوظة في هذا المتصفح.';
+    }
   }
   function bindEdits() {
     document.addEventListener('input', function (e) {
@@ -1198,9 +1275,11 @@
         if (!SRC.noteMap) SRC.noteMap = {};
         SRC.noteMap[k] = el.innerHTML;
         saveEdits();
-        try { localStorage.setItem(NOTES_KEY, JSON.stringify(SRC.noteMap)); } catch (err) {}
+        try { localStorage.setItem(NOTES_KEY + ':' + reportKey(resolveRange()), JSON.stringify(SRC.noteMap)); } catch (err) {}
         clearTimeout(bindEdits._t);
-        bindEdits._t = setTimeout(function () { saveNote(k, el.innerHTML); }, 1200);
+        bindEdits._t = setTimeout(function () {
+          saveNote(k, el.innerHTML).then(function (dbOk) { setNotesStatus(dbOk); });
+        }, 1200);
       }
     });
   }
@@ -1290,20 +1369,12 @@
     if (rb) rb.addEventListener('click', function () { boot(); });
     var pb = document.getElementById('printBtn');
     if (pb) pb.addEventListener('click', function () {
-      var restore = function () {};
-      try {
-        try { restore = renderAllPanesForPrint(); } catch (renderErr) { restore = function () {}; }
-        function done() {
-          global.removeEventListener('afterprint', done);
-          restore();
-        }
-        global.addEventListener('afterprint', done);
-        global.print();
-      } catch (err) {
-        try { restore(); } catch (_) {}
-        notify('تعذر تجهيز التقرير للطباعة: ' + (err && err.message ? err.message : 'خطأ غير معروف'), 'error');
-      }
+      try { preparePrint(); } catch (e) {}
+      global.print();
     });
+    /* الطباعة من قائمة المتصفح أو Ctrl+P — لازم تجهّز كل المحاور الستة */
+    global.addEventListener('beforeprint', preparePrint);
+    global.addEventListener('afterprint', finishPrint);
     var ssb = document.getElementById('saveSnapshotBtn');
     if (ssb) ssb.addEventListener('click', saveSnapshot);
 
@@ -1351,6 +1422,7 @@
 
   global.ZamWeeklyReport = {
     init: init, boot: boot, render: renderAll, notify: notify,
+    preparePrint: preparePrint, finishPrint: finishPrint,
     getSource: function () { return SRC; },
     setBranches: function (arr) { state.branches = new Set(arr); renderAll(); }
   };
