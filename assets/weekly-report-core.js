@@ -43,8 +43,8 @@
                  good: '#00450e', bad: '#ba1a1a', accent: '#725a42', light: '#bd9f83' };
 
   /* ══════════ أدوات ══════════ */
-  var $ = function (s) { return document.querySelector(s); };
-  var $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
+  var $ = function (s, root) { return (root || document).querySelector(s); };
+  var $$ = function (s, root) { return Array.prototype.slice.call((root || document).querySelectorAll(s)); };
   var nf = function (n) { return Number(n || 0).toLocaleString('en-US'); };
   var nf1 = function (n) { return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
   var nf2 = function (n) { return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); };
@@ -1117,7 +1117,7 @@
   var PANES = { 1: pane1, 2: pane2, 3: pane3, 4: pane4, 5: pane5, 6: pane6 };
 
   function decoratePane(el, tab) {
-    $('[data-edit]', el).forEach(function (node) {
+    $$('[data-edit]', el).forEach(function (node) {
       node.setAttribute('contenteditable', 'true');
       node.setAttribute('spellcheck', 'true');
     });
