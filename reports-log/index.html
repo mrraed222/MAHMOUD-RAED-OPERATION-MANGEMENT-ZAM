@@ -121,7 +121,8 @@ async function loadReports() {
     const tbody = document.getElementById('reports-tbody');
     tbody.innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
     try {
-        let query = zamClient.from('daily_reports').select('*, branches(name)').order('report_date', { ascending: false }).limit(150);
+        // قراءة كل النتائج ضمن النطاق بدلاً من إسقاط التقارير بعد أول 150 صفاً.
+        let query = zamClient.from('daily_reports').select('*, branches(name)').order('report_date', { ascending: false }).range(0, 9999);
         let branchId = document.getElementById('f-branch').value;
         if (currentUser.role === 'Supervisor') {
             branchId = currentUser.branch_id;
@@ -177,6 +178,9 @@ async function openDetail(id) {
             zamClient.from('shift_issues').select('*').eq('report_id', id),
             zamClient.from('negative_reviews').select('*').eq('report_id', id),
         ]);
+        if (wasteRes.error) throw new Error(`تعذّرت قراءة الهدر: ${wasteRes.error.message}`);
+        if (issuesRes.error) console.warn('تعذّرت قراءة مشاكل الشفت:', issuesRes.error);
+        if (reviewsRes.error) console.warn('تعذّرت قراءة التقييمات:', reviewsRes.error);
         const waste = wasteRes.data || [], issues = issuesRes.data || [], reviews = reviewsRes.data || [];
 
         body.innerHTML = `

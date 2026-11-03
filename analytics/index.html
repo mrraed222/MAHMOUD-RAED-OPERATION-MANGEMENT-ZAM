@@ -213,8 +213,8 @@ async function loadBranches() {
 
 function normalizeWasteUnit(unit) {
     const value = String(unit || '').trim().toLocaleLowerCase('ar').replace(/\s+/g, ' ');
-    if (['g', 'gm', 'gms', 'غ', 'ج', 'غرام', 'جرام'].includes(value)) return 'grams';
-    if (['ml', 'mil', 'milli', 'ملي', 'مليلتر', 'ملي لتر', 'ماي'].includes(value)) return 'milliliters';
+    if (['g', 'gm', 'gms', 'gram', 'grams', 'غ', 'ج', 'غرام', 'جرام', 'جرامات'].includes(value)) return 'grams';
+    if (['ml', 'mil', 'milli', 'milliliter', 'milliliters', 'ملي', 'مل', 'مليلتر', 'ملي لتر', 'ماي'].includes(value)) return 'milliliters';
     return 'other';
 }
 

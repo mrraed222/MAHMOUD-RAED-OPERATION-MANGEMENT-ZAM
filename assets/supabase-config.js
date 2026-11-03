@@ -1,4 +1,4 @@
-﻿// ============================================
+// ============================================
 // إعدادات الاتصال بـ Supabase - نظام زام للعمليات
 // ملف مشترك يتم تحميله في كل الشاشات
 // الإصدار: 2.0 (محدّث — فرع codex/operations-wiring)
@@ -443,6 +443,21 @@ function buildChecklistSummaryEmail({ employeeName, branchName, shiftLabel, comp
 // ============================================
 // دوال API مشتركة
 // ============================================
+// Supabase يعيد حداً افتراضياً للصفوف؛ نقرأ الصفحات حتى النهاية بدلاً من إسقاط بقية التحليلات.
+async function readAllRows(buildQuery) {
+    const pageSize = 1000;
+    const maxRows = 100000;
+    const rows = [];
+    for (let offset = 0; offset < maxRows; offset += pageSize) {
+        const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        const page = data || [];
+        rows.push(...page);
+        if (page.length < pageSize) break;
+    }
+    return rows;
+}
+
 const ZamAPI = {
     // تسجيل الدخول برمز المرور عبر Edge Function
     async login(passcode) {
@@ -698,30 +713,30 @@ const ZamAPI = {
 
     async getWasteLogs({ branchId = null, dateFrom = null, dateTo = null } = {}) {
         // الربط الداخلي مع daily_reports يجعل الفرع والتاريخ مصدرهما سجل التقرير نفسه.
-        let query = zamClient
-            .from('waste_logs')
-            .select('*, daily_reports!inner(branch_id, report_date, branches(name))')
-            .order('created_at', { ascending: false });
-        if (branchId) query = query.eq('daily_reports.branch_id', branchId);
-        if (dateFrom) query = query.gte('daily_reports.report_date', dateFrom);
-        if (dateTo) query = query.lte('daily_reports.report_date', dateTo);
-        const { data, error } = await query;
-        if (error) throw error;
-        return data || [];
+        return readAllRows(() => {
+            let query = zamClient
+                .from('waste_logs')
+                .select('*, daily_reports!inner(branch_id, report_date, branches(name))')
+                .order('created_at', { ascending: false });
+            if (branchId) query = query.eq('daily_reports.branch_id', branchId);
+            if (dateFrom) query = query.gte('daily_reports.report_date', dateFrom);
+            if (dateTo) query = query.lte('daily_reports.report_date', dateTo);
+            return query;
+        });
     },
 
     async getShiftIssues({ branchId = null, dateFrom = null, dateTo = null } = {}) {
         // لا تعتمد التحليلات على إدخال حر؛ جميع الفلاتر مرتبطة بتاريخ وفرع daily_reports.
-        let query = zamClient
-            .from('shift_issues')
-            .select('*, daily_reports!inner(branch_id, report_date, branches(name))')
-            .order('created_at', { ascending: false });
-        if (branchId) query = query.eq('daily_reports.branch_id', branchId);
-        if (dateFrom) query = query.gte('daily_reports.report_date', dateFrom);
-        if (dateTo) query = query.lte('daily_reports.report_date', dateTo);
-        const { data, error } = await query;
-        if (error) throw error;
-        return data || [];
+        return readAllRows(() => {
+            let query = zamClient
+                .from('shift_issues')
+                .select('*, daily_reports!inner(branch_id, report_date, branches(name))')
+                .order('created_at', { ascending: false });
+            if (branchId) query = query.eq('daily_reports.branch_id', branchId);
+            if (dateFrom) query = query.gte('daily_reports.report_date', dateFrom);
+            if (dateTo) query = query.lte('daily_reports.report_date', dateTo);
+            return query;
+        });
     },
 
     // ============================================

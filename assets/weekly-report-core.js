@@ -126,18 +126,29 @@
     var c = CFG.client;
     DIAG.tables = []; DIAG.errors = []; DIAG.ok = true;
     function q(table, sel, order) {
-      var b = c.from(table).select(sel);
-      if (order) b = b.order(order);
-      return b.limit(5000).then(function (r) {
-        if (r && r.error) DIAG.errors.push({ table: table, code: r.error.code || '', msg: r.error.message || '' });
-        var rows = r.data || [];
-        DIAG.tables.push({ table: table, rows: rows.length });
-        return rows;
-      }).catch(function (e) {
-        DIAG.errors.push({ table: table, code: (e && e.code) || '', msg: String((e && e.message) || e) });
-        DIAG.tables.push({ table: table, rows: 0 });
-        return [];
-      });
+      var pageSize = 1000;
+      var maxRows = 100000;
+      function readPage(offset, allRows) {
+        var b = c.from(table).select(sel);
+        if (order) b = b.order(order);
+        return b.range(offset, offset + pageSize - 1).then(function (r) {
+          if (r && r.error) {
+            DIAG.errors.push({ table: table, code: r.error.code || '', msg: r.error.message || '' });
+            DIAG.tables.push({ table: table, rows: allRows.length });
+            return allRows;
+          }
+          var page = r.data || [];
+          var rows = allRows.concat(page);
+          if (page.length === pageSize && rows.length < maxRows) return readPage(offset + pageSize, rows);
+          DIAG.tables.push({ table: table, rows: rows.length });
+          return rows;
+        }).catch(function (e) {
+          DIAG.errors.push({ table: table, code: (e && e.code) || '', msg: String((e && e.message) || e) });
+          DIAG.tables.push({ table: table, rows: allRows.length });
+          return allRows;
+        });
+      }
+      return readPage(0, []);
     }
     return Promise.all([
       q('branches', 'id,name'),
