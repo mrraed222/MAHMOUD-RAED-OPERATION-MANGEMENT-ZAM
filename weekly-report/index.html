@@ -25,7 +25,7 @@
 }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js?v=20261027-2"></script>
-<script src="../assets/weekly-report-core.js?v=20261028-7"></script>
+<script src="../assets/weekly-report-core.js?v=20261112-1"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // التقرير التنفيذي خاص بمالك النظام فقط.
@@ -151,6 +151,13 @@
   .day-card.is-bad .day-head { color:#a52c2c; }
   .best-metrics { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
   .best-metrics span { font-size:11.5px; font-weight:700; color:#5b3518; background:rgba(255,255,255,.7); border:1px solid #e4d9cf; border-radius:999px; padding:3px 9px; }
+  .branch-compliance-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; }
+  .branch-compliance-card { border:1px solid #e4d9cf; border-radius:14px; padding:14px; background:linear-gradient(180deg,#fffdfb 0%,#fff 100%); box-shadow:0 5px 16px rgba(51,33,13,.05); }
+  .branch-compliance-card.good { border-color:#9fce9f; }.branch-compliance-card.mid { border-color:#e0c982; }.branch-compliance-card.bad { border-color:#e8b3ad; }
+  .branch-compliance-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }.branch-compliance-head strong { display:block; color:#33210d; font-size:15px; }.branch-compliance-head small { display:block; color:#80756c; font-size:11px; margin-top:3px; }
+  .branch-compliance-score { color:#33210d; font-size:27px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; }.good .branch-compliance-score { color:#17633b; }.mid .branch-compliance-score { color:#a27b1c; }.bad .branch-compliance-score { color:#a52c2c; }
+  .branch-compliance-track { height:9px; margin:12px 0 10px; border-radius:999px; overflow:hidden; background:#ece6e0; }.branch-compliance-track i { display:block; height:100%; border-radius:999px; background:#725a42; }.good .branch-compliance-track i { background:#17633b; }.mid .branch-compliance-track i { background:#a27b1c; }.bad .branch-compliance-track i { background:#a52c2c; }
+  .branch-compliance-meta { display:flex; flex-wrap:wrap; gap:8px; color:#80756c; font-size:11px; }.branch-compliance-meta b { color:#33210d; }.branch-compliance-categories { display:flex; flex-direction:column; gap:7px; margin-top:12px; padding-top:10px; border-top:1px solid #eee6df; }.branch-compliance-category { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px; align-items:center; color:#4e453d; font-size:11.5px; }.branch-compliance-category b { color:#5b3518; font-size:11px; }.branch-compliance-category i { grid-column:1 / -1; height:5px; border-radius:999px; overflow:hidden; background:#eee6df; }.branch-compliance-category em { display:block; height:100%; border-radius:999px; background:#bd9f83; }
   @media (max-width: 640px) { .days-grid { grid-template-columns:1fr; } .split-row { grid-template-columns:1fr; } }
   .diag-card { background:#fff; border:1px solid #d2c4ba; border-radius:12px; padding:10px 14px; }
   .diag-summary { cursor:pointer; font-size:13px; font-weight:700; color:#5b3518; list-style:none; }
@@ -365,7 +372,7 @@
       </div>
       <div class="card p-md">
         <h3 class="font-title-md text-primary flex items-center gap-xs mb-sm">
-          <span class="material-symbols-outlined">fact_check</span> نسبة الالتزام بكل قوائم المهام المسندة
+          <span class="material-symbols-outlined">fact_check</span> التزام الفروع بكل قوائم المهام المسندة
         </h3>
         <div id="chartChecks" class="w-full"></div>
       </div>

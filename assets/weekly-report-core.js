@@ -295,6 +295,9 @@
     ['reports', 'waste', 'issues', 'negs', 'visits', 'attendance'].forEach(function (k) {
       (SRC[k] || []).forEach(function (x) { if (x && x.date) ds.push(String(x.date).slice(0, 10)); });
     });
+    (SRC.logs || []).forEach(function (x) {
+      if (x && x.execution_date) ds.push(String(x.execution_date).slice(0, 10));
+    });
     if (!ds.length) return null;
     ds.sort();
     return { from: ds[0], to: ds[ds.length - 1] };
@@ -312,10 +315,12 @@
   }
   /** لو الفترة المطلوبة فارغة → نختار آخر أسبوع فيه بيانات (مع إبقاء طلب المستخدم محفوظاً) */
   function computeAutoRange() {
-    if (state.range !== 'week' || state.forceCurrent || !SRC.reports.length) return null;
+    if (state.range !== 'week' || state.forceCurrent || (!SRC.reports.length && !SRC.logs.length)) return null;
     if (state.from || state.to) return null;   // المستخدم حدد تاريخ بنفسه
     var want = weekRange(0);
-    if (filterRows(SRC.reports, want, true, false).length) return null;
+    var hasCurrentActivity = filterRows(SRC.reports, want, true, false).length ||
+      (SRC.logs || []).some(function (x) { return inRange(x.execution_date, want) && state.branches.has(x.branch_id); });
+    if (hasCurrentActivity) return null;
     var span = dataSpan();
     if (!span) return null;
     var alt = weekOf(span.to);
@@ -379,10 +384,23 @@
 
   /* ══════════ الالتزام بالتشيكلست — القوالب المسندة فقط ══════════ */
   function dayOfWeek(date) { return parseD(date).getUTCDay(); }
+  function normalizeShift(value) {
+    var s = norm(value).toLowerCase();
+    if (!s || /all|both|كل|كلاهما|الكل/.test(s)) return 'All';
+    if (/evening|night|مسائ|ليل/.test(s)) return 'Evening';
+    if (/morning|صباح/.test(s)) return 'Morning';
+    return s;
+  }
+  function logIsDone(status) {
+    var s = norm(status).toLowerCase();
+    return /completed|complete|done|finished|مكتمل|منفذ|منج[ززة]/.test(s);
+  }
   function templateDue(t, date, branch, shift) {
     if (t.is_active === false || t.active === false) return false;
     if (t.branch_id && t.branch_id !== branch) return false;
-    if (t.shift_type && String(t.shift_type).toLowerCase() !== String(shift).toLowerCase()) return false;
+    var templateShift = normalizeShift(t.shift_type);
+    var sessionShift = normalizeShift(shift);
+    if (templateShift !== 'All' && sessionShift !== 'All' && templateShift !== sessionShift) return false;
     var f = String(t.frequency || 'daily').toLowerCase();
     if (f === 'weekly' && t.day_of_week != null && Number(t.day_of_week) !== dayOfWeek(date)) return false;
     if (f === 'monthly' && t.day_of_month != null && Number(t.day_of_month) !== parseD(date).getUTCDate()) return false;
@@ -400,7 +418,8 @@
       var date = String(l.execution_date || '').slice(0, 10), branch = l.branch_id;
       if (!inRange(date, r) || (branchFilter && branch !== branchFilter)) return;
       var t = (SRC.templates || []).filter(function (x) { return x.id === l.template_id; })[0];
-      var shift = t && /evening|مسائي/i.test(t.shift_type || '') ? 'Evening' : 'Morning';
+      var shift = t ? normalizeShift(t.shift_type) : 'Morning';
+      if (shift === 'All') shift = 'Morning';
       var key = date + '|' + branch + '|' + shift;
       if (!out[key]) out[key] = { date: date, branch: branch, shift: shift };
     });
@@ -435,10 +454,41 @@
       var key = l.template_id + '|' + date + '|' + l.branch_id;
       if (seen[key]) return;
       seen[key] = true;
-      if (String(l.status || '').toLowerCase() === 'flagged') stats[t.id].flagged++;
-      else stats[t.id].done++;
+      if (/flagged|معلّم|مرفوض|مخالفة/i.test(String(l.status || ''))) stats[t.id].flagged++;
+      else if (logIsDone(l.status)) stats[t.id].done++;
     });
     return Object.keys(stats).map(function (k) { return stats[k]; }).filter(function (s) { return s.total > 0; });
+  }
+
+  /**
+   * بطاقة التزام مستقلة لكل فرع — إجمالي القوائم المسندة عبر كل الأقسام.
+   * لا نستخدم رقماً ثابتاً ولا نخلط بين فروع مختلفة؛ القوالب العامة والقوالب
+   * الخاصة بالفرع تدخل فقط عندما تكون مستحقة في جلسات التشغيل الفعلية للفترة.
+   */
+  function complianceByBranch(r) {
+    return BRANCHES.map(function (branch) {
+      var templateStats = complianceByTemplate(r, branch.id);
+      var categories = {};
+      var expected = 0, done = 0, flagged = 0;
+      templateStats.forEach(function (item) {
+        expected += item.total;
+        done += item.done;
+        flagged += item.flagged;
+        var category = item.category || 'غير مصنف';
+        if (!categories[category]) categories[category] = { name: category, expected: 0, done: 0, flagged: 0 };
+        categories[category].expected += item.total;
+        categories[category].done += item.done;
+        categories[category].flagged += item.flagged;
+      });
+      var categoryRows = Object.keys(categories).map(function (key) { return categories[key]; })
+        .sort(function (a, b) { return a.name.localeCompare(b.name, 'ar'); });
+      return {
+        id: branch.id, name: branch.name, short: branch.short,
+        expected: expected, done: done, flagged: flagged,
+        pct: expected ? Math.min(100, Math.round(done / expected * 100)) : null,
+        categories: categoryRows
+      };
+    });
   }
 
   /* ══════════ النسخ المحفوظة للتقرير (weekly_reports) ══════════
@@ -837,11 +887,23 @@
     }), function (k) { state.drill = k; state.tab = 1; renderTabs(); renderPanes();
       var pn = $('#panes'); if (pn) global.scrollTo({ top: pn.offsetTop - 80, behavior: 'smooth' }); });
 
-    var tpl = complianceByTemplate(r);
+    var branchCompliance = complianceByBranch(r);
     if ($('#chartChecks')) {
-      bars($('#chartChecks'), tpl.map(function (t) {
-        return { label: t.title, done: t.done, total: t.total };
-      }));
+      var checkEl = $('#chartChecks');
+      checkEl.innerHTML = '<div class="branch-compliance-grid">' + branchCompliance.map(function (b) {
+        var tone = b.pct == null ? 'neutral' : (b.pct >= 90 ? 'good' : (b.pct >= 70 ? 'mid' : 'bad'));
+        var score = b.pct == null ? '—' : b.pct + '%';
+        var categories = b.categories.length ? b.categories.map(function (c) {
+          var cp = c.expected ? Math.min(100, Math.round(c.done / c.expected * 100)) : 0;
+          return '<div class="branch-compliance-category"><span>' + esc(c.name) + '</span><b>' + c.done + '/' + c.expected + '</b><i><em style="width:' + cp + '%"></em></i></div>';
+        }).join('') : '<div class="text-body-sm text-on-surface-variant">لا توجد جلسات مسجلة في الفترة</div>';
+        return '<article class="branch-compliance-card ' + tone + '">' +
+          '<div class="branch-compliance-head"><div><strong>' + esc(b.name) + '</strong><small>كل الأقسام والقوائم المسندة</small></div>' +
+          '<div class="branch-compliance-score">' + score + '</div></div>' +
+          '<div class="branch-compliance-track"><i style="width:' + (b.pct || 0) + '%"></i></div>' +
+          '<div class="branch-compliance-meta"><span>منفذة <b>' + b.done + '</b></span><span>مستحقة <b>' + b.expected + '</b></span><span>معلّمة <b>' + b.flagged + '</b></span></div>' +
+          '<div class="branch-compliance-categories">' + categories + '</div></article>';
+      }).join('') + '</div>';
     }
   }
 
