@@ -593,14 +593,18 @@ const ZamAPI = {
         return data;
     },
 
-    async getChecklistLogs({ branchId = null, date = null, shiftType = null } = {}) {
-        let q = zamClient.from('checklist_logs')
-          .select('*, checklist_templates(task_title, category, shift_type, requires_photo), profiles(full_name), branches(name)');
-        if (date) q = q.eq('execution_date', date);
-        if (branchId) q = q.eq('branch_id', branchId);
-        const { data, error } = await q.order('created_at', { ascending: false });
-        if (error) throw error;
-        return shiftType ? data.filter(l => l.checklist_templates?.shift_type === shiftType) : data;
+    async getChecklistLogs({ branchId = null, date = null, dateFrom = null, dateTo = null, shiftType = null } = {}) {
+        return readAllRows(() => {
+            let q = zamClient.from('checklist_logs')
+              .select('id,template_id,branch_id,executed_by,status,notes,photo_url,execution_date,created_at,checklist_templates(task_title,category,shift_type,requires_photo),profiles(full_name),branches(name)')
+              .order('execution_date', { ascending: false })
+              .order('created_at', { ascending: false });
+            if (date) q = q.eq('execution_date', date);
+            if (dateFrom) q = q.gte('execution_date', dateFrom);
+            if (dateTo) q = q.lte('execution_date', dateTo);
+            if (branchId) q = q.eq('branch_id', branchId);
+            return q;
+        }).then(data => shiftType ? data.filter(l => l.checklist_templates?.shift_type === shiftType) : data);
     },
 
     // سجلات اليوم لفرع محدد
