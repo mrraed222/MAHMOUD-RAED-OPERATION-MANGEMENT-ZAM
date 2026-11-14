@@ -426,8 +426,8 @@
     return out;
   }
   function compliance(r, branchFilter) {
-    var templates = SRC.templates || [], logs = SRC.logs || [], sessions = workedSessions(r, branchFilter);
-    if (!templates.length || !Object.keys(sessions).length) return null;
+    var templates = SRC.templates || [];
+    if (!templates.length) return null;
     var stats = complianceByTemplate(r, branchFilter), expected = 0, done = 0, flagged = 0;
     stats.forEach(function (s) { expected += s.total; done += s.done; flagged += s.flagged; });
     if (!expected) return null;
@@ -436,21 +436,28 @@
   }
   /** تفصيل الالتزام لكل قالب مسند، حتى لو لم يُسجّل له تنفيذ */
   function complianceByTemplate(r, branchFilter) {
-    var templates = SRC.templates || [], logs = SRC.logs || [], sessions = workedSessions(r, branchFilter);
-    if (!templates.length || !Object.keys(sessions).length) return [];
-    var stats = {}, sessionKeys = Object.keys(sessions);
+    var templates = SRC.templates || [], logs = SRC.logs || [];
+    if (!templates.length) return [];
+    var stats = {};
+    var branchesForPeriod = branchFilter ? [branchFilter] : BRANCHES.map(function (b) { return b.id; });
     templates.forEach(function (t) {
       stats[t.id] = { title: t.task_title || t.name || 'مهمة بدون اسم', category: t.category || '—', total: 0, done: 0, flagged: 0 };
-      sessionKeys.forEach(function (k) {
-        var s = sessions[k]; if (templateDue(t, s.date, s.branch, s.shift)) stats[t.id].total++;
+      dayList(r).forEach(function (date) {
+        branchesForPeriod.forEach(function (branch) {
+          var shift = normalizeShift(t.shift_type);
+          if (state.shift !== 'all' && shift !== 'All' && shift !== normalizeShift(state.shift)) return;
+          if (templateDue(t, date, branch, shift)) stats[t.id].total++;
+        });
       });
     });
     var seen = {};
     logs.forEach(function (l) {
       var date = String(l.execution_date || '').slice(0, 10), t = templates.filter(function (x) { return x.id === l.template_id; })[0];
       if (!t || !inRange(date, r) || (branchFilter && l.branch_id !== branchFilter)) return;
-      var session = sessionKeys.filter(function (k) { var s = sessions[k]; return s.date === date && s.branch === l.branch_id && templateDue(t, s.date, s.branch, s.shift); })[0];
-      if (!session) return;
+      var logShift = normalizeShift(t.shift_type);
+      if (state.shift !== 'all' && logShift !== 'All' && logShift !== normalizeShift(state.shift)) return;
+      if (branchFilter && l.branch_id !== branchFilter) return;
+      if (!templateDue(t, date, l.branch_id, logShift)) return;
       var key = l.template_id + '|' + date + '|' + l.branch_id;
       if (seen[key]) return;
       seen[key] = true;
@@ -474,7 +481,7 @@
         expected += item.total;
         done += item.done;
         flagged += item.flagged;
-        var category = item.category || 'غير مصنف';
+        var category = item.category === 'البار' ? 'مهام البار' : (item.category || 'غير مصنف');
         if (!categories[category]) categories[category] = { name: category, expected: 0, done: 0, flagged: 0 };
         categories[category].expected += item.total;
         categories[category].done += item.done;
@@ -861,13 +868,9 @@
     if ($('#chartTrend')) lineChart($('#chartTrend'), cur.map(function (c) { return c.d; }), cur, prev);
 
     var wrows = filterRows(SRC.waste, r, true, false);
-    var wasteNotice = '';
-    if (!wrows.length && SRC.waste.length) {
-      /* لا نترك الرسم فارغاً عندما تكون آخر مزامنة للهدر أقدم من تقارير المبيعات. */
-      wrows = SRC.waste.slice();
-      var lastWasteDate = SRC.waste.map(function (x) { return x.date; }).filter(Boolean).sort().pop();
-      wasteNotice = '<div class="text-body-sm text-on-surface-variant mb-sm">لا توجد سجلات هدر في الفترة المحددة؛ المعروض آخر أسباب هدر متاحة حتى ' + esc(lastWasteDate || '—') + '.</div>';
-    }
+    var wasteNotice = !wrows.length
+      ? '<div class="text-body-sm text-on-surface-variant mb-sm">لا توجد سجلات هدر في الفترة والفرع المحددين.</div>'
+      : '';
     /* الدائري يحسب عدد السجلات لكل سبب (بدون خلط وحدات القياس) —
        الكميات لكل وحدة تظهر مفصولة في محور 4. */
     var byReason = {};
