@@ -367,7 +367,7 @@
              team: team, count: rows.length, shiftCount: Object.keys(shiftsSeen).length };
   }
   function byBranch(reports, r) {
-    return BRANCHES.map(function (b) {
+    return BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
       var rows = filterRows(reports, r, true, true).filter(function (x) { return x.branch === b.id; });
       var sales = 0, orders = 0, mSales = 0, eSales = 0, mOrders = 0, eOrders = 0;
       rows.forEach(function (x) {
@@ -439,7 +439,7 @@
     var templates = SRC.templates || [], logs = SRC.logs || [];
     if (!templates.length) return [];
     var stats = {};
-    var branchesForPeriod = branchFilter ? [branchFilter] : BRANCHES.map(function (b) { return b.id; });
+    var branchesForPeriod = branchFilter ? [branchFilter] : BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) { return b.id; });
     templates.forEach(function (t) {
       stats[t.id] = { title: t.task_title || t.name || 'مهمة بدون اسم', category: t.category || '—', total: 0, done: 0, flagged: 0 };
       dayList(r).forEach(function (date) {
@@ -473,7 +473,7 @@
    * الخاصة بالفرع تدخل فقط عندما تكون مستحقة في جلسات التشغيل الفعلية للفترة.
    */
   function complianceByBranch(r) {
-    return BRANCHES.map(function (branch) {
+    return BRANCHES.filter(function (branch) { return state.branches.has(branch.id); }).map(function (branch) {
       var templateStats = complianceByTemplate(r, branch.id);
       var categories = {};
       var expected = 0, done = 0, flagged = 0;
@@ -904,7 +904,7 @@
           '<div class="branch-compliance-head"><div><strong>' + esc(b.name) + '</strong><small>كل الأقسام والقوائم المسندة</small></div>' +
           '<div class="branch-compliance-score">' + score + '</div></div>' +
           '<div class="branch-compliance-track"><i style="width:' + (b.pct || 0) + '%"></i></div>' +
-          '<div class="branch-compliance-meta"><span>منفذة <b>' + b.done + '</b></span><span>مستحقة <b>' + b.expected + '</b></span><span>معلّمة <b>' + b.flagged + '</b></span></div>' +
+          '<div class="branch-compliance-meta"><span>منفذة <b>' + b.done + '</b></span><span>غير منفذة <b>' + Math.max(0, b.expected - b.done) + '</b></span><span>مستحقة <b>' + b.expected + '</b></span></div>' +
           '<div class="branch-compliance-categories">' + categories + '</div></article>';
       }).join('') + '</div>';
     }
@@ -1169,9 +1169,9 @@
       '<div class="p-md space-y-md"><div class="grid md:grid-cols-4 gap-md">' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">عدد الزيارات الإشرافية</div><div class="font-display-lg text-primary mt-xs">' + visits.length + '</div></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">الشفتات المفحوصة</div><div class="font-display-lg text-primary mt-xs">' + cur.count + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">نسبة الالتزام (مستحقة ÷ منفذة)</div><div class="font-display-lg text-primary mt-xs">' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">نسبة الالتزام (منفذة ÷ مستحقة)</div><div class="font-display-lg text-primary mt-xs">' +
       (comp ? comp.pct + '%' : '—') + (comp ? '<div class="text-body-sm text-on-surface-variant">' + comp.done + '/' + comp.expected + ' مهمة</div>' : '') + '</div></div>' +
-      '<div class="bg-error-container/30 rounded-lg p-md"><div class="text-body-sm text-on-error-container">مهام مُعلّمة (Flagged)</div><div class="font-display-lg text-error mt-xs">' + (comp ? comp.flagged : 0) + '</div></div>' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">غير منفذة</div><div class="font-display-lg text-primary mt-xs">' + (comp ? Math.max(0, comp.expected - comp.done) : 0) + '</div></div>' +
       '</div>' +
       '<div class="grid md:grid-cols-4 gap-md">' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">ملاحظات الزيارات</div><div class="font-display-lg text-primary mt-xs">' + allNotes.length + '</div></div>' +
@@ -1213,7 +1213,7 @@
     var closed = negs.filter(function (n) { return /مغلقة|معالجة|تم/.test(n.status); }).length;
     var pending = negs.length - closed;
 
-    var rows = BRANCHES.map(function (b) {
+    var rows = BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
       var mine = negs.filter(function (x) { return x.branch === b.id; });
       var cl = mine.filter(function (n) { return /مغلقة|معالجة|تم/.test(n.status); }).length;
       return '<tr class="border-b border-outline-variant"><td class="px-md py-sm font-semibold">' + esc(b.name) + '</td>' +
@@ -1311,7 +1311,7 @@
         byUnit[unit] = byUnit[unit].slice(0, 3);   /* أعلى 3 شفتات لكل فرع/وحدة */
       });
     });
-    var shiftWasteHtml = BRANCHES.map(function (b) {
+    var shiftWasteHtml = BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
       var byUnit = topShiftsByBranch[b.id] || {};
       var units = Object.keys(byUnit);
       return '<div class="bg-surface-container rounded-lg p-md"><div class="font-title-md text-primary mb-sm">' + esc(b.name) + '</div>' +
@@ -1384,7 +1384,7 @@
       else if (a.status === 'متأخر') b.late++;
       else b.other++;
     });
-    var attRows = BRANCHES.map(function (b) {
+    var attRows = BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
       var a = attByBranch[b.id] || { present: 0, absent: 0, late: 0, other: 0 };
       var tot = a.present + a.absent + a.late + a.other;
       var rate = tot ? Math.round(a.present / tot * 100) : null;
@@ -1395,7 +1395,7 @@
         '<td class="px-md py-sm text-on-surface-variant">' + (a.late || '—') + '</td></tr>';
     }).join('');
 
-    var teamRows = BRANCHES.map(function (b) {
+    var teamRows = BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
       var rs = rows.filter(function (x) { return x.branch === b.id; });
       var ts = {};
       rs.forEach(function (x) { if (x.team) ts[x.team] = (ts[x.team] || 0) + 1; });

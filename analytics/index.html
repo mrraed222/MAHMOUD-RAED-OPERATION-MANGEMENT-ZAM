@@ -263,15 +263,10 @@ function checklistStatusDone(status) {
     return /completed|complete|done|finished|مكتمل|منفذ|منجز/i.test(String(status || '').trim());
 }
 
-function checklistStatusFlagged(status) {
-    return /flagged|معلّم|مرفوض|مخالفة/i.test(String(status || '').trim());
-}
-
 function checklistStatusLabel(status) {
     const value = String(status || '').trim();
-    if (checklistStatusFlagged(value)) return 'معلّمة';
     if (checklistStatusDone(value)) return 'مكتملة';
-    return value || 'غير محددة';
+    return 'غير مكتملة';
 }
 
 // تهريب نصوص قاعدة البيانات قبل إدراجها في HTML.
@@ -301,11 +296,11 @@ function readOutcome(result) {
 function renderChecklistAnalytics(error = null) {
     const total = checklistData.length;
     const done = checklistData.filter(log => checklistStatusDone(log.status)).length;
-    const flagged = checklistData.filter(log => checklistStatusFlagged(log.status)).length;
+    const notDone = checklistData.filter(log => !checklistStatusDone(log.status)).length;
     const branchIds = new Set(checklistData.map(log => log.branch_id).filter(Boolean));
     const summary = document.getElementById('checklist-summary');
     if (summary) summary.innerHTML = [
-        ['سجلات التنفيذ', total], ['مكتملة', done], ['معلّمة', flagged], ['فروع بها تنفيذ', branchIds.size]
+        ['سجلات التنفيذ', total], ['مكتملة', done], ['غير مكتملة', notDone], ['فروع بها تنفيذ', branchIds.size]
     ].map(([label, value]) => `<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center"><p class="text-body-sm text-on-surface-variant">${label}</p><p class="text-xl font-bold text-primary">${value}</p></div>`).join('');
 
     const byBranch = new Map();
