@@ -281,6 +281,13 @@ function esc(value) {
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// تسمية العرض فقط: قاعدة البيانات تستخدم «البار» ونعرضها «مهام البار».
+// التحويل في الواجهة وحده — لا تغيير في البيانات ولا دمج بين الأقسام.
+function displayCategory(category) {
+    const value = String(category == null ? '' : category).trim();
+    return value === 'البار' ? 'مهام البار' : value;
+}
+
 // الرسالة المعتمدة عند خلو الفترة — لا تُعرض أي بيانات من فترة أخرى مكانها.
 const CHECKLIST_EMPTY_TEXT = 'لا توجد سجلات فعلية في الفترة المحددة';
 
@@ -314,7 +321,7 @@ function renderChecklistAnalytics(error = null) {
     const cards = document.getElementById('checklist-branch-cards');
     if (cards) cards.innerHTML = byBranch.size ? [...byBranch.values()].sort((a, b) => b.total - a.total).map(row => {
         const pct = row.total ? Math.round(row.done / row.total * 100) : 0;
-        const categoryText = [...row.categories.entries()].map(([name, count]) => `${esc(name)}: ${count}`).join(' · ');
+        const categoryText = [...row.categories.entries()].map(([name, count]) => `${esc(displayCategory(name))}: ${count}`).join(' · ');
         return `<article class="zam-card border border-outline-variant rounded-xl p-md"><div class="flex justify-between gap-sm"><strong class="text-primary">${esc(row.name)}</strong><b class="text-primary">${pct}%</b></div><p class="text-body-sm text-on-surface-variant mt-xs">${row.done} مكتملة من ${row.total} سجل تنفيذ</p><p class="text-body-sm text-on-surface-variant mt-xs">${categoryText}</p></article>`;
     }).join('') : `<div class="col-span-full p-md text-center text-on-surface-variant border border-dashed border-outline-variant rounded-xl">${error ? esc(error) : CHECKLIST_EMPTY_TEXT}</div>`;
 
@@ -332,7 +339,7 @@ function renderChecklistAnalytics(error = null) {
             .map(([name, count]) => `
             <div class="border border-outline-variant rounded-xl p-sm">
                 <div class="flex justify-between items-center text-body-sm mb-xs">
-                    <span>${esc(name)}</span>
+                    <span>${esc(displayCategory(name))}</span>
                     <span class="font-bold text-primary">${count}</span>
                 </div>
                 <div class="h-2 rounded-full bg-surface-container overflow-hidden">
@@ -343,7 +350,7 @@ function renderChecklistAnalytics(error = null) {
     }
 
     const tbody = document.getElementById('checklist-tbody');
-    if (tbody) tbody.innerHTML = checklistData.length ? checklistData.map(log => `<tr class="border-t border-outline-variant"><td class="p-sm">${esc(log.execution_date || '—')}</td><td class="p-sm">${esc(log.branches?.name || '—')}</td><td class="p-sm">${esc(log.checklist_templates?.category || '—')}</td><td class="p-sm">${esc(log.checklist_templates?.task_title || '—')}</td><td class="p-sm">${esc(log.checklist_templates?.shift_type || '—')}</td><td class="p-sm font-bold">${esc(checklistStatusLabel(log.status))}</td><td class="p-sm">${esc(log.profiles?.full_name || '—')}</td></tr>`).join('') : `<tr><td colspan="7" class="p-md text-center text-on-surface-variant">${error ? esc(error) : CHECKLIST_EMPTY_TEXT}</td></tr>`;
+    if (tbody) tbody.innerHTML = checklistData.length ? checklistData.map(log => `<tr class="border-t border-outline-variant"><td class="p-sm">${esc(log.execution_date || '—')}</td><td class="p-sm">${esc(log.branches?.name || '—')}</td><td class="p-sm">${esc(displayCategory(log.checklist_templates?.category || '—'))}</td><td class="p-sm">${esc(log.checklist_templates?.task_title || '—')}</td><td class="p-sm">${esc(log.checklist_templates?.shift_type || '—')}</td><td class="p-sm font-bold">${esc(checklistStatusLabel(log.status))}</td><td class="p-sm">${esc(log.profiles?.full_name || '—')}</td></tr>`).join('') : `<tr><td colspan="7" class="p-md text-center text-on-surface-variant">${error ? esc(error) : CHECKLIST_EMPTY_TEXT}</td></tr>`;
 }
 
 function renderWasteAggregation(error = null) {
