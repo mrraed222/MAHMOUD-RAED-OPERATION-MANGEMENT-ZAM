@@ -395,6 +395,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
         // تعبئة القيم الافتراضية عند فتح الصفحة
         document.getElementById('reportDate').value = new Date().toISOString().split('T')[0];
         document.getElementById('supervisorName').value = currentUser.full_name || '';
+        if (currentUser.role === 'Supervisor' && ['Morning', 'Evening'].includes(currentUser.shift_type)) {
+            document.getElementById('shiftType').value = currentUser.shift_type;
+        }
         addRow('waste-table');
         addRow('google-table');
         addRow('issues-table');

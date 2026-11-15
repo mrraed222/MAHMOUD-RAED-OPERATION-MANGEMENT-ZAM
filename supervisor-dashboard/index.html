@@ -180,7 +180,14 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   <!-- حالة تقرير الشفت -->
   <section id="report-status" class="rounded-xl p-md mb-lg flex items-center justify-between gap-md border">
     <p class="text-body-sm"><span id="report-text">جارِ فحص تقرير الشفت...</span></p>
-    <a href="../daily-report/index.html" class="shrink-0 bg-primary text-on-primary px-md py-xs rounded-lg font-label-bold hover:bg-primary-container transition-colors">إرسال/تعديل التقرير</a>
+    <a href="../daily-report/index.html" class="shrink-0 bg-primary text-on-primary px-md py-xs rounded-lg font-label-bold hover:bg-primary-container transition-colors">تقرير مشرف الشفت</a>
+  </section>
+
+  <section class="mb-lg">
+    <h2 class="font-title-md text-title-md text-primary mb-sm flex items-center gap-xs"><span class="material-symbols-outlined">report</span> مخالفات وتكليفات الزيارات</h2>
+    <div id="visit-actions-list" class="space-y-sm">
+      <p class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl text-body-sm text-on-surface-variant">جارِ تحميل التكليفات...</p>
+    </div>
   </section>
 
   <!-- فريق الوردية -->
@@ -235,7 +242,7 @@ const ROLE_CATEGORY = { Barista: 'البار', Waiter: 'الصالة', Kitchen: 
 const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
 
 let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : 'Morning';
-let cache = { staff: [], catsBy: {}, templates: [], logs: [] };
+let cache = { staff: [], catsBy: {}, templates: [], logs: [], visitActions: [] };
 
 // زر الورديتين يظهر فقط لمن يغطي الورديتين فعليًا
 if (currentUser.role === 'Manager' || currentUser.shift_type === 'Both') {
@@ -277,7 +284,14 @@ async function loadAll() {
     await zamClient.auth.getSession();
     // فرع الملاحظة: باراميتر ?branch= (للمالك/الأدمن من لوحة التحكم) أو فرع المستخدم نفسه
     const branchId = urlBranchId || currentUser.branch_id;
-    const [staffRes, catRes, templates, logs, reportsRes, branchRes, notesRes] = await Promise.all([
+    if (!branchId) throw new Error('حسابك غير مرتبط بفرع. تواصل مع الإدارة لإسناد الحساب إلى الفرع الصحيح.');
+    let actionsQuery = zamClient.from('visit_action_items').select('id,visit_id,title,description,item_type,priority,status,shift_type,due_date,created_at')
+        .eq('branch_id', branchId).in('assigned_role', ['مشرف الشفت', 'Supervisor', 'Shift Supervisor'])
+        .not('status', 'in', '("مغلقة","ملغاة")').order('created_at', { ascending: false }).limit(50);
+    if (currentUser.role === 'Supervisor' && currentUser.shift_type && currentUser.shift_type !== 'Both') {
+        actionsQuery = actionsQuery.or(`shift_type.is.null,shift_type.eq.${currentUser.shift_type}`);
+    }
+    const [staffRes, catRes, templates, logs, reportsRes, branchRes, notesRes, actionsRes] = await Promise.all([
         zamClient.from('profiles').select('id, full_name, role, shift_type, avatar_url, employee_number')
             .eq('branch_id', branchId).eq('status', 'active')
             .in('role', ['Barista', 'Waiter', 'Kitchen']),
@@ -288,7 +302,9 @@ async function loadAll() {
         zamClient.from('branches').select('name').eq('id', branchId).maybeSingle(),
         zamClient.from('team_notes').select('id, profile_id, note, created_at, profiles(full_name, avatar_url)')
             .eq('branch_id', branchId).order('created_at', { ascending: false }).limit(30),
+        actionsQuery,
     ]);
+    if (actionsRes.error) throw actionsRes.error;
     const today = new Date().toISOString().split('T')[0];
     cache.staff = staffRes.data || [];
     cache.catsBy = {};
@@ -301,6 +317,7 @@ async function loadAll() {
         authorName: n.profiles?.full_name || '—',
         authorAvatar: n.profiles?.avatar_url || avatarFallback,
     }));
+    cache.visitActions = actionsRes.data || [];
     document.getElementById('branch-name').textContent = branchRes.data?.name || 'الفرع';
     render();
 }
@@ -393,7 +410,52 @@ function render() {
 
     // ملاحظات الفريق
     renderNotes();
+    renderVisitActions();
 }
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function renderVisitActions() {
+    const box = document.getElementById('visit-actions-list');
+    const actions = cache.visitActions || [];
+    if (!actions.length) {
+        box.innerHTML = '<p class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl text-body-sm text-on-surface-variant">لا توجد مخالفات أو تكليفات مفتوحة مسندة إلى مشرف الشفت في هذا الفرع والوردية.</p>';
+        return;
+    }
+    box.innerHTML = actions.map(action => `
+      <article class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl flex flex-wrap items-center justify-between gap-md">
+        <div class="min-w-0 flex-1">
+          <p class="font-bold text-on-surface">${escapeHtml(action.title || 'تكليف زيارة')}</p>
+          <p class="text-body-sm text-on-surface-variant">${escapeHtml(action.item_type || 'تكليف')} · ${escapeHtml(action.priority || '—')} · ${escapeHtml(action.status || 'مفتوحة')}${action.due_date ? ' · موعد الاستحقاق: ' + escapeHtml(action.due_date) : ''}</p>
+          ${action.description ? `<p class="text-body-sm text-on-surface-variant mt-xs">${escapeHtml(action.description)}</p>` : ''}
+        </div>
+        <button type="button" class="visit-report-btn shrink-0 bg-primary text-on-primary px-md py-xs rounded-lg font-label-bold" data-visit-id="${escapeHtml(action.visit_id)}">تقرير الزيارة والمرفقات</button>
+      </article>`).join('');
+}
+
+document.getElementById('visit-actions-list').addEventListener('click', async event => {
+    const button = event.target.closest('.visit-report-btn');
+    if (!button) return;
+    const reportWindow = window.open('', '_blank');
+    if (!reportWindow) { alert('اسمح بفتح نافذة التقرير ثم حاول مرة أخرى.'); return; }
+    reportWindow.document.write('<p dir="rtl" style="font-family:Tahoma;padding:24px">جارٍ تجهيز تقرير الزيارة...</p>');
+    button.disabled = true;
+    try {
+        const { data, error } = await zamClient.functions.invoke('visit-report-pdf', {
+            body: { visit_id: button.dataset.visitId, send_email: false, recipient_modes: [] }
+        });
+        if (error) throw error;
+        if (!data?.signed_url) throw new Error(data?.error || 'تعذر إنشاء التقرير');
+        reportWindow.location.href = data.signed_url;
+    } catch (error) {
+        reportWindow.close();
+        alert('تعذر إنشاء تقرير الزيارة: ' + (error.message || error));
+    } finally {
+        button.disabled = false;
+    }
+});
 
 function renderNotes() {
     const notesList = document.getElementById('notes-list');
