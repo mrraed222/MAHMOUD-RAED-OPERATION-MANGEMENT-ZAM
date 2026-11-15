@@ -105,7 +105,7 @@ const ZAM_NAV_ITEMS = [
     { key: 'reports-monitor', label: 'متابعة التقارير', icon: 'fact_check', href: 'reports-monitor/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports' },
     { key: 'analytics', label: 'داشبورد التحليلات', icon: 'insights', href: 'analytics/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports' },
     { key: 'weekly-report', label: 'التقرير الأسبوعي', icon: 'summarize', href: 'weekly-report/index.html', roles: ['Owner'], perm: null },
-    { key: 'branch-visits', label: 'زيارات الفروع', icon: 'fact_check', href: 'branch-visits/index.html', roles: ['Owner'], perm: null },
+    { key: 'branch-visits', label: 'زيارات الفروع والتكليفات', icon: 'fact_check', href: 'branch-visits-new/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor', 'Quality', 'Quality Manager', 'Barista', 'Kitchen', 'Waiter'], perm: null },
     { key: 'staff-management', label: 'إدارة الطاقم', icon: 'groups', href: 'staff-management/index.html', roles: ['Owner', 'Admin', 'Supervisor'], perm: 'can_manage_staff' },
     { key: 'automation-settings', label: 'إعدادات الأتمتة', icon: 'settings', href: 'automation-settings/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_manage_automations' },
     { key: 'permissions', label: 'الأذونات والصلاحيات', icon: 'admin_panel_settings', href: 'permissions/index.html', roles: ['Owner'], perm: null },
@@ -757,7 +757,7 @@ const ZamAPI = {
         // المالك دايمًا له كل الصلاحيات
         if (me.role === 'Owner') return true;
         // الأدوار التشغيلية (Barista, Kitchen, Waiter) ليست لهم صلاحيات أدمن أصلًا
-        if (!['Admin', 'Supervisor', 'Manager'].includes(me.role)) return false;
+        if (!['Admin', 'Supervisor', 'Manager', 'Quality', 'Quality Manager'].includes(me.role)) return false;
         // الأدمن والمشرف والمدير: نفحص الجدول فعليًا
         await zamClient.auth.getSession();
         const { data, error } = await zamClient.from('admin_permissions').select(permKey).eq('profile_id', me.id).maybeSingle();
