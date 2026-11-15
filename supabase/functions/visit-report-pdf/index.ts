@@ -136,7 +136,10 @@ Deno.serve(async (req: Request) => {
     }
     if (modes.includes('self') && actor.email) emails.add(actor.email.trim().toLowerCase())
     const recipients = [...emails].filter(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)).slice(0, 20)
-    if (!recipients.length) return json({ error: 'لم يتم العثور على بريد للمستلمين المحددين', pdf_path: path, signed_url: signed.data.signedUrl }, 422)
+    if (!recipients.length) {
+      await supabaseAdmin.from('visit_email_logs').insert({ visit_id: visitId, sent_by: actorId, recipients: [], cc_recipients: [], attachment_path: path, status: 'failed', error_message: 'لم يتم العثور على بريد للمستلمين المحددين' })
+      return json({ error: 'لم يتم العثور على بريد للمستلمين المحددين', pdf_path: path, signed_url: signed.data.signedUrl }, 422)
+    }
     const resendKey = Deno.env.get('RESEND_API_KEY')
     const from = Deno.env.get('RESEND_FROM') || 'Operations Expert <onboarding@resend.dev>'
     if (!resendKey) throw new Error('RESEND_API_KEY غير مضبوط في أسرار Edge Function')
