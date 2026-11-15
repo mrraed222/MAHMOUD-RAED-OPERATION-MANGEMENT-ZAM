@@ -10,7 +10,6 @@ const corsHeaders = {
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[c] || c))
 const clean = (value: unknown, max = 500) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max)
-const allowedRoles = ['Owner', 'Admin', 'Manager', 'Quality', 'Quality Manager', 'Supervisor']
 const managementRoles = ['Owner', 'Admin', 'Manager', 'Quality', 'Quality Manager']
 
 async function loadArabicFont(url: string) {
@@ -59,7 +58,7 @@ async function buildPdf(visit: any, results: any[], actions: any[], evidence: an
 
   text('تقرير زيارة فرع — Operations Expert', 19, true, primary)
   text(`الفرع: ${visit.branches?.name || 'غير محدد'} | التاريخ: ${visit.visit_date} | الشفت: ${visit.shift_type === 'Morning' ? 'صباحي' : 'مسائي'}`, 10, false, muted)
-  text(`الزائر: ${visit.visitor_name || '—'} | الحالة: ${visit.status || '—'} | التوقيع: ${visit.signed_at ? 'معتمدة إلكترونياً' : 'غير معتمدة'}`, 10, false, muted)
+  text(`منفّذ الزيارة: ${visit.visitor_name || '—'} | الحالة: ${visit.status || '—'} | التوقيع: ${visit.signed_at ? 'معتمدة إلكترونياً' : 'غير معتمدة'}`, 10, false, muted)
   y -= 8
   heading('النتيجة العامة')
   text(`الدرجة: ${visit.score_total ?? '—'} من ${visit.score_possible ?? '—'} | النسبة: ${visit.score_percentage == null ? '—' : `${Number(visit.score_percentage).toFixed(0)}%`}`, 13, true, primary)
@@ -103,6 +102,8 @@ async function buildPdf(visit: any, results: any[], actions: any[], evidence: an
     }
   }
   y -= 10
+  text('الاعتماد الإلكتروني: محمود شريف — إدارة التشغيل', 11, true, primary)
+  text(`حالة الاعتماد: ${visit.signed_at ? 'معتمدة إلكترونياً' : 'غير معتمدة'} | وقت الاعتماد: ${visit.signed_at ? new Date(visit.signed_at).toLocaleString('ar-SA') : '—'}`, 9, false, muted)
   text(`تم إنشاء التقرير: ${new Date().toLocaleString('ar-SA')}`, 8, false, muted)
   return await doc.save()
 }
@@ -126,7 +127,9 @@ Deno.serve(async (req: Request) => {
     actorId = authData.user.id
     supabaseAdmin = createClient(supabaseUrl, serviceKey)
     const { data: actor } = await supabaseAdmin.from('profiles').select('id,full_name,email,role,branch_id,shift_type,status').eq('id', actorId).maybeSingle()
-    if (!actor || !allowedRoles.includes(actor.role)) return json({ error: 'لا تملك صلاحية تقارير الزيارات' }, 403)
+    if (!actor || actor.status !== 'active') return json({ error: 'الحساب غير نشط' }, 403)
+    const { data: canManageVisits, error: permissionError } = await userClient.rpc('can_manage_branch_visits')
+    if (permissionError) throw permissionError
     const body = await req.json()
     visitId = clean(body.visit_id, 80)
     if (!visitId) return json({ error: 'visit_id مطلوب' }, 400)
@@ -135,19 +138,10 @@ Deno.serve(async (req: Request) => {
     const { data: visit, error: visitError } = await supabaseAdmin.from('supervisory_visits').select('*,branches(name)').eq('id', visitId).maybeSingle()
     if (visitError) throw visitError
     if (!visit) return json({ error: 'الزيارة غير موجودة' }, 404)
-    if (actor.role === 'Supervisor') {
-      if (!['Morning', 'Evening', 'Both'].includes(actor.shift_type)) return json({ error: 'وردية حساب المشرف غير محددة أو غير صالحة' }, 403)
-      if (sendEmail) return json({ error: 'مشرف الشفت يستطيع تنزيل التقرير فقط' }, 403)
-      if (actor.branch_id !== visit.branch_id) return json({ error: 'لا تملك صلاحية تقرير هذا الفرع' }, 403)
-      let assignmentQuery = supabaseAdmin.from('visit_action_items').select('id').eq('visit_id', visitId)
-        .eq('branch_id', actor.branch_id).in('assigned_role', ['مشرف الشفت', 'Supervisor', 'Shift Supervisor']).limit(1)
-      if (actor.shift_type && actor.shift_type !== 'Both') {
-        assignmentQuery = assignmentQuery.or(`shift_type.is.null,shift_type.eq.${actor.shift_type}`)
-      }
-      const { data: assignment, error: assignmentError } = await assignmentQuery.maybeSingle()
-      if (assignmentError) throw assignmentError
-      if (!assignment) return json({ error: 'لا يوجد تكليف مشرف شفت مرتبط بهذه الزيارة' }, 403)
-    }
+    const { data: canAccessVisit, error: accessError } = await userClient.rpc('can_access_branch_visit', { p_visit_id: visitId })
+    if (accessError) throw accessError
+    if (!canAccessVisit) return json({ error: 'لا يوجد لديك تكليف أو صلاحية لعرض هذا التقرير' }, 403)
+    if (sendEmail && !canManageVisits) return json({ error: 'إرسال تقارير الزيارة بالبريد يتطلب صلاحية إدارة زيارات الفروع' }, 403)
     const { data: results, error: resultsError } = await supabaseAdmin.from('supervisory_visit_results').select('id,score,result,note,is_violation,visit_checklist_templates(category,title,sort_order)').eq('visit_id', visitId).order('sort_order', { referencedTable: 'visit_checklist_templates', ascending: true })
     if (resultsError) throw resultsError
     const { data: actions, error: actionsError } = await supabaseAdmin.from('visit_action_items').select('id,title,description,item_type,priority,assigned_role,due_date,status').eq('visit_id', visitId).order('created_at')
