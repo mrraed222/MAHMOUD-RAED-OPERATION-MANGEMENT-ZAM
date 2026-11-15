@@ -41,16 +41,32 @@ require("from('visit_evidence')" in print_fn, 'direct printing must read visit e
 require('createSignedUrl(item.file_path,600)' in print_fn, 'direct printing must use temporary evidence URLs')
 require('class="attachments"' in print_fn and 'المرفقات' in print_fn, 'direct printing must render an attachments section')
 require('window.print()' in print_fn, 'direct printing must trigger the print dialog after page load')
-require("rpc('can_manage_branch_visits')" in history, 'history controls must use the server permission')
+require("rpc('can_manage_branch_visits')" in history, 'history email controls must use the server permission')
+require("rpc('can_review_branch_visit_actions')" in history and "rpc('review_branch_visit_action'" in history, 'review controls must use the separate server permission and guarded RPC')
+require(".from('visit_action_items').update(" not in history and 'updateAction' not in history, 'history must not change action status directly')
 require("rpc('can_view_branch_visit_reports')" in history, 'history must check view access with the server')
 
 pdf = (ROOT / 'supabase/functions/visit-report-pdf/index.ts').read_text()
-require("storage.from('task-evidence').download(item.file_path)" in pdf, 'PDF generation must download stored evidence')
+require("storage.from(evidenceBucket).download(item.file_path)" in pdf and "item.action_item_id ? 'visit-action-evidence' : 'task-evidence'" in pdf, 'PDF must select the correct evidence bucket')
 require('doc.embedPng(item.bytes)' in pdf and 'doc.embedJpg(item.bytes)' in pdf, 'PDF must embed PNG and JPEG evidence')
 require("rpc('can_access_branch_visit'" in pdf, 'PDF authorization must be scoped to the specific visit assignment')
 require("rpc('can_manage_branch_visits')" in pdf, 'email sending must require the visit management permission')
 require("if (sendEmail && !canManageVisits)" in pdf, 'assigned workers may download but must not email reports')
 require('allowedRoles' not in pdf, 'PDF access must not depend on a separate hard-coded role allow-list')
+require("String(visit.branch_id || 'branch').replace(/[^A-Za-z0-9_-]/g, '')" in pdf, 'PDF object keys must use ASCII-safe branch identifiers')
+require('canReviewActionProof' in pdf and 'actionIdsVisibleToActor' in pdf, 'PDF must not expose private action proof to unrelated report viewers')
+
+review_migration = (ROOT / 'supabase/migrations/20261115181500_visit_action_review_workflow.sql').read_text()
+require('ADD COLUMN IF NOT EXISTS can_review_visit_actions boolean NOT NULL DEFAULT false' in review_migration, 'review permission must default off and remain separate')
+require("target_profile.branch_id = branch_visit_assignments.branch_id" in review_migration and "target_profile.role = 'Supervisor'" in review_migration, 'visit assignment must validate the selected branch supervisor')
+require("action_row.assigned_to IS NULL" in review_migration and "p.role = 'Supervisor'" in review_migration and "p.shift_type = 'Both'" in review_migration, 'unassigned role-scoped actions must only be completable by a matching supervisor')
+require('UPDATE public.branch_visit_assignments' not in review_migration and 'UPDATE public.profiles' not in review_migration, 'migration must not alter live account or assignment records')
+require("'بانتظار اعتماد الإدارة'" in review_migration and 'submit_visit_action_for_review' in review_migration, 'employee completion must enter management review')
+require('CREATE POLICY visit_action_evidence_read' in review_migration and 'public.can_review_branch_visit_actions()' in review_migration, 'proof storage must be private and reviewer-scoped')
+require('visit_evidence_update_draft' in review_migration and 'visit_evidence_delete_draft' in review_migration and 'action_item_id IS NULL' in review_migration, 'only draft visit evidence may be edited or deleted')
+require('CREATE TRIGGER guard_visit_action_status_transition' in review_migration and "current_setting('app.visit_action_transition', true)" in review_migration, 'action statuses must only change through audited RPCs')
+require("IF action_row.completion_submitted_by = auth.uid() THEN" in review_migration, 'reviewer cannot approve or return their own submission')
+require('CREATE TABLE IF NOT EXISTS public.visit_action_review_events' in review_migration and 'review_approved' in review_migration and 'review_returned' in review_migration, 'review decisions must be audited')
 
 migration = (ROOT / 'supabase/migrations/20261115172000_branch_visit_assignments_and_15_criteria.sql').read_text()
 criteria = re.findall(r"\('BRV-[A-Z]+-\d{2}'", migration)
@@ -85,6 +101,7 @@ require("status = 'مسودة'" in migration and 'signed_by IS NULL' in migratio
 
 visit_page = (ROOT / 'branch-visits-new/index.html').read_text()
 require("rpc('can_manage_branch_visits')" in visit_page, 'assignment management must check the live permission')
+require("rpc('list_branch_visit_supervisors'" in visit_page and 'المشرف المكلف بالزيارة' in visit_page, 'visit assignment box must select supervisors only')
 require("rpc('list_branch_visit_assignees'" in visit_page, 'assignees must be selected from active branch profiles')
 require("from('branch_visit_assignments').insert" in visit_page, 'managers must be able to create explicit assignments')
 require(".in('code', BRANCH_VISIT_CODES)" in visit_page, 'the standard form must stay capped at the official 15 criteria without deleting custom templates')
@@ -113,7 +130,10 @@ require('shift_type = (SELECT p.shift_type FROM public.profiles AS p WHERE p.id 
 
 dashboard = (ROOT / 'supervisor-dashboard/index.html').read_text()
 require('visit_action_items' in dashboard and 'visit-actions-list' in dashboard, 'supervisor dashboard must display visit actions')
-require('visit-report-pdf' in dashboard, 'supervisor dashboard must provide report access')
+require("storage.from('visit-action-evidence').upload" in dashboard and "rpc('submit_visit_action_for_review'" in dashboard, 'supervisor must upload private proof and submit the completion report')
+require('بانتظار اعتماد الإدارة' in dashboard and 'إفادة التنفيذ وإرفاق الإثبات' in dashboard, 'supervisor must see the pending-review status and submit control')
+require('canSubmitVisitAction(action)' in dashboard and "currentUser.role === 'Supervisor'" in dashboard, 'supervisor dashboard must support role-scoped legacy tasks')
+require('visit-report-pdf' not in dashboard, 'supervisor action submission must not depend on PDF generation')
 require('لا توجد مخالفات أو تكليفات مفتوحة' in dashboard, 'supervisor dashboard must show an empty state')
 
 config = (ROOT / 'assets/supabase-config.js').read_text()
@@ -121,11 +141,12 @@ require("href: 'branch-visits-new/index.html'" in config and "'Kitchen', 'Waiter
 require("['Admin', 'Supervisor', 'Manager', 'Quality', 'Quality Manager'].includes(me.role)" in config, 'permission helper must accept quality roles')
 permissions = (ROOT / 'permissions/index.html').read_text()
 require("key: 'can_manage_branch_visits'" in permissions, 'owner permission editor must expose visit assignment control')
+require("key: 'can_review_visit_actions'" in permissions, 'owner permission editor must expose independent proof-review permission')
 
 report = (ROOT / 'daily-report/index.html').read_text()
 require("currentUser.role === 'Supervisor'" in report and 'currentUser.shift_type' in report, 'daily report must retain the prior supervisor shift default')
 
-for relative in ['branch-visits-new/index.html', 'branch-visits-history/index.html', 'supervisor-dashboard/index.html', 'daily-report/index.html']:
+for relative in ['branch-visits-new/index.html', 'branch-visits-history/index.html', 'supervisor-dashboard/index.html', 'daily-report/index.html', 'permissions/index.html']:
     parser = InlineScripts()
     parser.feed((ROOT / relative).read_text())
     for index, source in enumerate(parser.scripts):
@@ -135,4 +156,4 @@ for relative in ['branch-visits-new/index.html', 'branch-visits-history/index.ht
             result = subprocess.run(['node', '--check', temp.name], text=True, capture_output=True)
             require(result.returncode == 0, f'JavaScript syntax error in {relative} inline script {index + 1}: {result.stderr}')
 
-print('PASS: 15 assessment criteria preserve requested checks; assignment-scoped RLS, task workflow, PDF access and inline JavaScript validated')
+print('PASS: assessment criteria, supervisor assignment, separate review permission, private proof, audited status transitions, PDF paths/access, and inline JavaScript validated')

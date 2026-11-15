@@ -25,7 +25,7 @@
       <a href="../dashboard/index.html" title="الصفحة الأساسية" aria-label="الصفحة الأساسية" class="no-print w-9 h-9 rounded-full bg-white/20 border border-white/40 text-white inline-flex items-center justify-center hover:bg-white/30 transition"><svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></a>
     </div>
     <div class="max-w-5xl mx-auto flex justify-between items-center gap-3 flex-wrap">
-      <div><p class="opacity-75">Operations Expert</p><h1 class="text-3xl font-black">تقرير زيارة فرع</h1><p class="opacity-85">يُسند التقرير إلى موظف محدد وتُطبّق صلاحياته من قاعدة البيانات.</p></div>
+      <div><p class="opacity-75">Operations Expert</p><h1 class="text-3xl font-black">تقرير زيارة فرع</h1><p class="opacity-85">تكليف مشرف بزيارة فرعه وفحصه، مع صلاحيات مضبوطة من صفحة الصلاحيات.</p></div>
       <a href="../branch-visits-history/index.html" class="no-print bg-white text-[#33210d] rounded-full px-4 py-2 font-bold">السجل والتقارير</a>
     </div>
   </header>
@@ -33,11 +33,11 @@
     <div id="message" class="hidden"></div>
 
     <section id="assignmentAdmin" class="card p-5 hidden">
-      <h2 class="text-xl font-bold">إسناد زيارة لموظف</h2>
-      <p class="muted text-sm mt-1">اختر فرعاً وموظفاً نشطاً من الفرع. سيظهر التكليف في صفحة الزيارات الخاصة بالموظف، ولن يرى موظفون آخرون بيانات التقرير.</p>
+      <h2 class="text-xl font-bold">تكليف مشرف بزيارة وفحص فرعه</h2>
+      <p class="muted text-sm mt-1">اختر الفرع والمشرف النشط التابع له، وحدد موعد الزيارة والشفت ونوعها. سيظهر التكليف للمشرف في صفحة الزيارة؛ ولا يتيح له ذلك صلاحية مراجعة الإثباتات أو إغلاق المخالفات.</p>
       <form id="assignmentForm" class="grid md:grid-cols-3 gap-3 mt-4">
         <label>الفرع<select id="scheduleBranch" required class="w-full border rounded-lg p-2 mt-1"></select></label>
-        <label>الموظف المكلف<select id="scheduleAssignee" required class="w-full border rounded-lg p-2 mt-1"><option value="">اختر الفرع أولاً</option></select></label>
+        <label>المشرف المكلف بالزيارة<select id="scheduleAssignee" required class="w-full border rounded-lg p-2 mt-1"><option value="">اختر الفرع أولاً</option></select></label>
         <label>موعد الزيارة<input id="scheduleDate" type="date" required class="w-full border rounded-lg p-2 mt-1"></label>
         <label>الشفت<select id="scheduleShift" class="w-full border rounded-lg p-2 mt-1"><option value="Morning">صباحي</option><option value="Evening">مسائي</option></select></label>
         <label>نوع الزيارة<select id="scheduleType" class="w-full border rounded-lg p-2 mt-1"><option>زيارة دورية</option><option>زيارة مفاجئة</option><option>زيارة متابعة</option><option>بسبب شكوى أو مشكلة</option></select></label>
@@ -220,13 +220,21 @@ async function loadTemplates() {
 }
 async function loadAssignees(branchId) {
   assignees = [];
-  if (!branchId) { renderItems(); return; }
-  const {data, error} = await zamClient.rpc('list_branch_visit_assignees', {p_branch_id: branchId});
+  if (!branchId) {
+    renderItems();
+    scheduleAssignee.innerHTML = '<option value="">اختر الفرع أولاً</option>';
+    return;
+  }
+  const [{data: people, error}, {data: supervisors, error: supervisorError}] = await Promise.all([
+    zamClient.rpc('list_branch_visit_assignees', {p_branch_id: branchId}),
+    zamClient.rpc('list_branch_visit_supervisors', {p_branch_id: branchId})
+  ]);
   if (error) throw error;
-  assignees = data || [];
+  if (supervisorError) throw supervisorError;
+  assignees = people || [];
   renderItems();
-  scheduleAssignee.innerHTML = '<option value="">اختر الموظف</option>' + assignees.map(p => `<option value="${p.user_id}">${esc(p.full_name)} — ${esc(p.role)}${p.shift_type ? ' — ' + (p.shift_type === 'Morning' ? 'صباحي' : p.shift_type === 'Evening' ? 'مسائي' : 'كلاهما') : ''}</option>`).join('');
-  if (!assignees.length) scheduleAssignee.innerHTML = '<option value="">لا يوجد موظفون نشطون مؤهلون في هذا الفرع</option>';
+  scheduleAssignee.innerHTML = '<option value="">اختر المشرف</option>' + (supervisors || []).map(p => `<option value="${p.user_id}">${esc(p.full_name)} — مشرف${p.shift_type ? ' — ' + (p.shift_type === 'Morning' ? 'صباحي' : p.shift_type === 'Evening' ? 'مسائي' : 'كلاهما') : ''}</option>`).join('');
+  if (!(supervisors || []).length) scheduleAssignee.innerHTML = '<option value="">لا يوجد مشرف نشط في هذا الفرع</option>';
 }
 async function loadAssignments() {
   const {data, error} = await zamClient.from('branch_visit_assignments')
@@ -304,7 +312,7 @@ async function insertAssignment(event) {
   event.preventDefault();
   assignButton.disabled = true;
   try {
-    if (!scheduleBranch.value || !scheduleAssignee.value || !scheduleDate.value) throw new Error('أكمل الفرع والموظف وتاريخ الزيارة.');
+    if (!scheduleBranch.value || !scheduleAssignee.value || !scheduleDate.value) throw new Error('أكمل الفرع والمشرف وتاريخ الزيارة.');
     const {error} = await zamClient.from('branch_visit_assignments').insert({
       branch_id: scheduleBranch.value,
       assigned_to: scheduleAssignee.value,
@@ -315,7 +323,7 @@ async function insertAssignment(event) {
       notes: scheduleNotes.value.trim() || null
     });
     if (error) throw error;
-    show('تم إسناد الزيارة. سيظهر التكليف للموظف المحدد، وسيتم إغلاقه تلقائياً بعد اعتماد التقرير.');
+    show('تم تكليف المشرف بزيارة الفرع وفحصه؛ يظهر التكليف في صفحة زياراته.');
     assignmentForm.reset();
     scheduleDate.value = today;
   } catch (error) {

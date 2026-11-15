@@ -236,6 +236,21 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </div>
 </main>
 
+<div id="visit-action-modal" class="fixed inset-0 z-50 hidden bg-black/50 p-4 flex items-center justify-center">
+  <div class="w-full max-w-lg rounded-2xl bg-surface-container-lowest p-md shadow-xl">
+    <h2 id="visit-action-title" class="font-title-md text-title-md text-primary">إفادة تنفيذ التكليف</h2>
+    <p id="visit-action-summary" class="mt-xs text-body-sm text-on-surface-variant"></p>
+    <p class="mt-sm text-body-sm text-on-surface-variant">اكتب ما تم تنفيذه وأرفق صورة أو ملف PDF؛ سيراجع مسؤول التفتيش الإثبات قبل إغلاق المخالفة.</p>
+    <form id="visit-action-form" class="mt-md space-y-sm">
+      <label class="block text-body-sm font-bold">إفادة التنفيذ<textarea id="completion-note" required maxlength="4000" rows="4" class="mt-xs w-full rounded-lg border border-outline-variant p-sm" placeholder="تم تنفيذ الإجراء التصحيحي…"></textarea></label>
+      <label class="block text-body-sm font-bold">الإثبات (JPG / PNG / PDF)<input id="completion-proof" required type="file" accept="image/jpeg,image/png,application/pdf" class="mt-xs w-full rounded-lg border border-outline-variant p-sm"></label>
+      <p class="text-[11px] text-on-surface-variant">الحد الأقصى 10 ميغابايت. بعد الإرسال تصبح الحالة «بانتظار اعتماد الإدارة» ولا يمكن إغلاقها من حساب المكلف.</p>
+      <div class="flex justify-end gap-sm pt-xs"><button id="cancel-visit-action" type="button" class="rounded-lg border border-outline-variant px-md py-xs">إلغاء</button><button id="submit-visit-action" type="submit" class="rounded-lg bg-primary px-md py-xs font-bold text-on-primary">إرسال للإدارة للاعتماد</button></div>
+    </form>
+  </div>
+</div>
+
+
 <script>
 const ROLE_LABELS = { Barista: 'باريستا', Waiter: 'خدمة صالة', Kitchen: 'مطبخ', Supervisor: 'مشرف وردية' };
 const ROLE_CATEGORY = { Barista: 'البار', Waiter: 'الصالة', Kitchen: 'المطبخ' };
@@ -285,12 +300,9 @@ async function loadAll() {
     // فرع الملاحظة: باراميتر ?branch= (للمالك/الأدمن من لوحة التحكم) أو فرع المستخدم نفسه
     const branchId = urlBranchId || currentUser.branch_id;
     if (!branchId) throw new Error('حسابك غير مرتبط بفرع. تواصل مع الإدارة لإسناد الحساب إلى الفرع الصحيح.');
-    let actionsQuery = zamClient.from('visit_action_items').select('id,visit_id,title,description,item_type,priority,status,shift_type,due_date,created_at')
-        .eq('branch_id', branchId).in('assigned_role', ['مشرف الشفت', 'Supervisor', 'Shift Supervisor'])
-        .not('status', 'in', '("مغلقة","ملغاة")').order('created_at', { ascending: false }).limit(50);
-    if (currentUser.role === 'Supervisor' && currentUser.shift_type && currentUser.shift_type !== 'Both') {
-        actionsQuery = actionsQuery.or(`shift_type.is.null,shift_type.eq.${currentUser.shift_type}`);
-    }
+    let actionsQuery = zamClient.from('visit_action_items').select('id,visit_id,title,description,item_type,priority,status,shift_type,due_date,created_at,assigned_to,assigned_role,completion_note,completion_submitted_at,review_note')
+        .eq('branch_id', branchId)
+        .not('status', 'in', '("مغلقة","ملغاة")').order('created_at', { ascending: false }).limit(100);
     const [staffRes, catRes, templates, logs, reportsRes, branchRes, notesRes, actionsRes] = await Promise.all([
         zamClient.from('profiles').select('id, full_name, role, shift_type, avatar_url, employee_number')
             .eq('branch_id', branchId).eq('status', 'active')
@@ -417,43 +429,108 @@ function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+function canSubmitVisitAction(action) {
+    if (action.assigned_to === currentUser.id) return true;
+    return action.assigned_to == null
+        && currentUser.role === 'Supervisor'
+        && ['مشرف الشفت', 'Supervisor', 'Shift Supervisor'].includes(action.assigned_role)
+        && (!action.shift_type || currentUser.shift_type === 'Both' || action.shift_type === currentUser.shift_type);
+}
 function renderVisitActions() {
     const box = document.getElementById('visit-actions-list');
     const actions = cache.visitActions || [];
     if (!actions.length) {
-        box.innerHTML = '<p class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl text-body-sm text-on-surface-variant">لا توجد مخالفات أو تكليفات مفتوحة مسندة إلى مشرف الشفت في هذا الفرع والوردية.</p>';
+        box.innerHTML = '<p class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl text-body-sm text-on-surface-variant">لا توجد مخالفات أو تكليفات مفتوحة مسندة إليك في هذا الفرع.</p>';
         return;
     }
-    box.innerHTML = actions.map(action => `
-      <article class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl flex flex-wrap items-center justify-between gap-md">
-        <div class="min-w-0 flex-1">
-          <p class="font-bold text-on-surface">${escapeHtml(action.title || 'تكليف زيارة')}</p>
-          <p class="text-body-sm text-on-surface-variant">${escapeHtml(action.item_type || 'تكليف')} · ${escapeHtml(action.priority || '—')} · ${escapeHtml(action.status || 'مفتوحة')}${action.due_date ? ' · موعد الاستحقاق: ' + escapeHtml(action.due_date) : ''}</p>
-          ${action.description ? `<p class="text-body-sm text-on-surface-variant mt-xs">${escapeHtml(action.description)}</p>` : ''}
-        </div>
-        <button type="button" class="visit-report-btn shrink-0 bg-primary text-on-primary px-md py-xs rounded-lg font-label-bold" data-visit-id="${escapeHtml(action.visit_id)}">تقرير الزيارة والمرفقات</button>
-      </article>`).join('');
+    box.innerHTML = actions.map(action => {
+        const canSubmit = canSubmitVisitAction(action) && ['مفتوحة', 'قيد المعالجة'].includes(action.status);
+        const stateText = action.status === 'بانتظار اعتماد الإدارة'
+            ? 'تم إرسال إفادة التنفيذ — بانتظار اعتماد الإدارة'
+            : action.status === 'قيد المعالجة' && action.review_note
+                ? `أُعيدت للمراجعة: ${escapeHtml(action.review_note)}`
+                : escapeHtml(action.status || 'مفتوحة');
+        return `<article class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl flex flex-wrap items-center justify-between gap-md">
+          <div class="min-w-0 flex-1">
+            <p class="font-bold text-on-surface">${escapeHtml(action.title || 'تكليف زيارة')}</p>
+            <p class="text-body-sm text-on-surface-variant">${escapeHtml(action.item_type || 'تكليف')} · ${escapeHtml(action.priority || '—')} · ${stateText}${action.due_date ? ' · موعد الاستحقاق: ' + escapeHtml(action.due_date) : ''}</p>
+            ${action.description ? `<p class="text-body-sm text-on-surface-variant mt-xs">${escapeHtml(action.description)}</p>` : ''}
+            ${action.status === 'بانتظار اعتماد الإدارة' && action.completion_note ? `<p class="mt-xs text-body-sm"><b>إفادة التنفيذ:</b> ${escapeHtml(action.completion_note)}</p>` : ''}
+          </div>
+          ${canSubmit ? `<button type="button" class="visit-action-submit-btn shrink-0 bg-primary text-on-primary px-md py-xs rounded-lg font-label-bold" data-action-id="${escapeHtml(action.id)}">إفادة التنفيذ وإرفاق الإثبات</button>` : ''}
+        </article>`;
+    }).join('');
 }
 
-document.getElementById('visit-actions-list').addEventListener('click', async event => {
-    const button = event.target.closest('.visit-report-btn');
+const visitActionModal = document.getElementById('visit-action-modal');
+const visitActionForm = document.getElementById('visit-action-form');
+let activeVisitAction = null;
+function closeVisitActionModal() {
+    visitActionModal.classList.add('hidden');
+    visitActionForm.reset();
+    activeVisitAction = null;
+}
+document.getElementById('visit-actions-list').addEventListener('click', event => {
+    const button = event.target.closest('.visit-action-submit-btn');
     if (!button) return;
-    const reportWindow = window.open('', '_blank');
-    if (!reportWindow) { alert('اسمح بفتح نافذة التقرير ثم حاول مرة أخرى.'); return; }
-    reportWindow.document.write('<p dir="rtl" style="font-family:Tahoma;padding:24px">جارٍ تجهيز تقرير الزيارة...</p>');
-    button.disabled = true;
+    const action = (cache.visitActions || []).find(item => item.id === button.dataset.actionId);
+    if (!action || !canSubmitVisitAction(action) || !['مفتوحة', 'قيد المعالجة'].includes(action.status)) {
+        alert('لا يمكن إرسال إفادة لهذا التكليف من هذا الحساب أو في حالته الحالية.');
+        return;
+    }
+    activeVisitAction = action;
+    document.getElementById('visit-action-title').textContent = action.title || 'إفادة تنفيذ التكليف';
+    document.getElementById('visit-action-summary').textContent = `${action.item_type || 'تكليف'} · ${action.priority || '—'}${action.due_date ? ' · موعد الاستحقاق: ' + action.due_date : ''}`;
+    visitActionModal.classList.remove('hidden');
+});
+document.getElementById('cancel-visit-action').addEventListener('click', closeVisitActionModal);
+visitActionForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!activeVisitAction) return;
+    const note = document.getElementById('completion-note').value.trim();
+    const file = document.getElementById('completion-proof').files[0];
+    const submit = document.getElementById('submit-visit-action');
+    if (note.length < 2) { alert('اكتب إفادة مختصرة بما تم إنجازه.'); return; }
+    if (!file) { alert('أرفق صورة أو ملف PDF كإثبات قبل الإرسال.'); return; }
+    if (!['image/jpeg', 'image/png', 'application/pdf'].includes(file.type)) { alert('الصيغ المقبولة: JPG أو PNG أو PDF.'); return; }
+    if (file.size > 10 * 1024 * 1024) { alert('الحد الأقصى لحجم الإثبات 10 ميغابايت.'); return; }
+    submit.disabled = true;
+    submit.textContent = 'جارٍ الحفظ والإرسال…';
     try {
-        const { data, error } = await zamClient.functions.invoke('visit-report-pdf', {
-            body: { visit_id: button.dataset.visitId, send_email: false, recipient_modes: [] }
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-100) || 'proof';
+        const digestBytes = new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()));
+        const digest = Array.from(digestBytes, byte => byte.toString(16).padStart(2, '0')).join('');
+        const path = `${activeVisitAction.id}/${currentUser.id}/${digest}-${safeName}`;
+        const clientKey = `action-${activeVisitAction.id}-${digest}`;
+        const { data: existing, error: lookupError } = await zamClient.from('visit_evidence').select('id').eq('visit_id', activeVisitAction.visit_id).eq('client_key', clientKey).maybeSingle();
+        if (lookupError) throw lookupError;
+        if (!existing) {
+            const { error: uploadError } = await zamClient.storage.from('visit-action-evidence').upload(path, file, { upsert: false, contentType: file.type });
+            if (uploadError && uploadError.statusCode !== '409' && !/already exists|duplicate/i.test(uploadError.message || '')) throw uploadError;
+            const { error: evidenceError } = await zamClient.from('visit_evidence').insert({
+                visit_id: activeVisitAction.visit_id,
+                action_item_id: activeVisitAction.id,
+                file_path: path,
+                file_name: file.name,
+                mime_type: file.type,
+                uploaded_by: currentUser.id,
+                client_key: clientKey
+            });
+            if (evidenceError) throw evidenceError;
+        }
+        const { error: submitError } = await zamClient.rpc('submit_visit_action_for_review', {
+            p_action_id: activeVisitAction.id,
+            p_completion_note: note
         });
-        if (error) throw error;
-        if (!data?.signed_url) throw new Error(data?.error || 'تعذر إنشاء التقرير');
-        reportWindow.location.href = data.signed_url;
+        if (submitError) throw submitError;
+        closeVisitActionModal();
+        alert('تم إرسال إفادة التنفيذ والإثبات. أصبحت الحالة بانتظار اعتماد الإدارة.');
+        await loadAll();
     } catch (error) {
-        reportWindow.close();
-        alert('تعذر إنشاء تقرير الزيارة: ' + (error.message || error));
+        alert('تعذر إرسال الإفادة: ' + (error.message || error));
     } finally {
-        button.disabled = false;
+        submit.disabled = false;
+        submit.textContent = 'إرسال للإدارة للاعتماد';
     }
 });
 

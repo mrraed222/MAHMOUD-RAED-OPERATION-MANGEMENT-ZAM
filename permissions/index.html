@@ -126,7 +126,8 @@ const PERMS = [
     { key: 'can_manage_templates', label: 'تعديل قوالب التشيك ليست' },
     { key: 'can_manage_automations', label: 'إعدادات الأتمتة' },
     { key: 'can_manage_reports', label: 'تعديل/حذف التقارير' },
-    { key: 'can_manage_branch_visits', label: 'إسناد وإدارة زيارات الفروع' },
+    { key: 'can_manage_branch_visits', label: 'إسناد وإدارة تكليفات الزيارات' },
+    { key: 'can_review_visit_actions', label: 'مراجعة إثباتات المخالفات وإغلاقها أو إعادتها' },
     { key: 'can_view_all_reports', label: 'الاطلاع على كل التقارير' },
 ];
 
@@ -202,7 +203,7 @@ async function openPermsEditor(empId, empName) {
     modal.innerHTML = `
         <div class="bg-surface-container-lowest rounded-xl p-md w-full max-w-sm max-h-[90vh] overflow-y-auto">
             <h3 class="font-title-md text-title-md text-primary mb-xs">صلاحيات ${empName}</h3>
-            <p class="text-body-sm text-on-surface-variant mb-sm">حدد الأقسام/المهام والصلاحيات الإدارية الخاصة بالموظف.</p>
+            <p class="text-body-sm text-on-surface-variant mb-sm">حدد الأقسام والمهام والصلاحيات. صلاحية مراجعة الإثبات مستقلة عن إسناد الزيارات وإدارتها.</p>
 
             <div class="mb-md">
                 <h4 class="font-bold text-sm text-primary mb-xs border-b border-outline-variant pb-xs">📋 قوائم المهام المسندة (التحكم المتعدد)</h4>
