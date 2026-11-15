@@ -67,11 +67,17 @@ create table if not exists checklist_templates (
   id uuid primary key default uuid_generate_v4(),
   task_title text not null,
   category text not null,
-  shift_type text not null check (shift_type in ('Morning', 'Evening')),
+  shift_type text not null check (shift_type in ('Morning', 'Evening', 'Both')),
   instructions text,
   branch_id uuid references branches(id) on delete cascade,
   requires_photo boolean default false,
   target_time time,
+  frequency text default 'daily' check (frequency in ('daily','weekly','monthly')),
+  day_of_week int check (day_of_week between 0 and 6),
+  day_of_month int check (day_of_month between 1 and 31),
+  allows_notes boolean not null default false,
+  task_type text not null default 'standard' check (task_type in ('standard','fridge_temps','inventory_request')),
+  sort_order integer not null default 0,
   created_at timestamptz default now()
 );
 
@@ -84,7 +90,7 @@ create table if not exists checklist_logs (
   status text default 'Completed',
   notes text,
   photo_url text,
-  execution_date date default current_date,
+  execution_date date default (timezone('Asia/Riyadh', now()))::date,
   created_at timestamptz default now(),
   unique (template_id, execution_date, branch_id)
 );

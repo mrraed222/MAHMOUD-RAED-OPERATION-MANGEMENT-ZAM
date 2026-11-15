@@ -223,6 +223,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">checklist</span>
 <span class="text-[10px] font-bold">المهام</span>
 </a>
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" href="../inventory-requests/index.html">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="text-[10px] font-bold">الجرد</span>
+</a>
 <div class="relative -top-6">
     <!-- زر (+) يفتح صفحة التقرير السريع -->
     <button id="fab-quick-report" class="bg-primary text-on-primary p-md rounded-full shadow-xl" aria-label="تقرير سريع">
@@ -264,10 +268,11 @@ document.querySelectorAll('.shift-btn').forEach(btn => {
         currentShift = btn.dataset.shift;
         setActiveShiftButton();
         loadChecklist();
+        scheduleInventoryTaskVisibility();
     });
 });
 
-if (currentUser.shift_type && currentUser.shift_type !== 'Both') {
+if (currentUser.shift_type && currentUser.shift_type !== 'Both' && currentUser.role !== 'Supervisor') {
     currentShift = currentUser.shift_type;
     document.querySelectorAll('.shift-btn').forEach(btn => {
         if (btn.dataset.shift !== currentShift) btn.style.display = 'none';
@@ -292,12 +297,54 @@ function escHtml(v) {
     return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+function riyadhMinuteOfDay(date = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(date);
+    const hour = Number(parts.find(p => p.type === 'hour')?.value || 0);
+    const minute = Number(parts.find(p => p.type === 'minute')?.value || 0);
+    return hour * 60 + minute;
+}
+
+function isTaskDueForCurrentShift(task) {
+    if (!ZamAPI.isTaskDueToday(task)) return false;
+    if (task.task_type !== 'inventory_request') return true;
+    const [hour, minute] = String(task.target_time || '00:00').slice(0, 5).split(':').map(Number);
+    const nowMinute = riyadhMinuteOfDay();
+    const targetMinute = hour * 60 + minute;
+    if (task.shift_type === 'Evening' && targetMinute === 0) return nowMinute < 16 * 60;
+    return nowMinute >= targetMinute;
+}
+
+let inventoryTaskVisibilityTimeout = null;
+function scheduleInventoryTaskVisibility() {
+    clearTimeout(inventoryTaskVisibilityTimeout);
+    const nowInRiyadh = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Riyadh' }));
+    const dueAt = new Date(nowInRiyadh);
+    if (currentShift === 'Morning') {
+        dueAt.setHours(12, 0, 0, 0);
+        if (dueAt <= nowInRiyadh) return;
+    } else {
+        dueAt.setHours(0, 0, 0, 0);
+        if (dueAt <= nowInRiyadh) dueAt.setDate(dueAt.getDate() + 1);
+        if (riyadhMinuteOfDay(nowInRiyadh) < 16 * 60) return;
+    }
+    inventoryTaskVisibilityTimeout = setTimeout(() => loadChecklist(), Math.max(1000, dueAt.getTime() - nowInRiyadh.getTime() + 1000));
+}
+
 function renderChecklist(templates, logsByTemplate) {
     let filteredTemplates = templates;
     if (activeSubTab === 'my-tasks') {
         filteredTemplates = templates.filter(t => ['المشرف', 'إشراف', 'مهام المشرفين'].includes(t.category));
     } else {
         filteredTemplates = templates.filter(t => !['المشرف', 'إشراف', 'مهام المشرفين'].includes(t.category));
+    }
+    if (activeSubTab === 'my-tasks') {
+        if (currentShift === 'Evening') {
+            filteredTemplates.sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
+        } else {
+            filteredTemplates.sort((a, b) => String(a.target_time || '99:99').slice(0, 5).localeCompare(String(b.target_time || '99:99').slice(0, 5)));
+        }
     }
     if (!filteredTemplates.length) {
         container.innerHTML = `<p class="p-md text-on-surface-variant text-body-sm text-center">لا توجد مهام ${activeSubTab === 'my-tasks' ? 'إشرافية خاصة بك' : 'للفريق لربطها بمتابعتك'} مسندة في هذه الوردية حالياً.</p>`;
@@ -316,6 +363,7 @@ function renderChecklist(templates, logsByTemplate) {
                     <span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-outline'}">${completed ? 'check_circle' : 'device_thermostat'}</span>
                     <div class="flex-1">
                         <h4 class="font-body-lg font-bold text-on-surface">${escHtml(item.task_title)}</h4>
+                        ${item.target_time ? `<p class="text-[11px] font-bold text-secondary">موعد التنفيذ: ${escHtml(String(item.target_time).slice(0, 5))}</p>` : ''}
                         ${item.instructions ? `<p class="text-body-sm text-on-surface-variant">${escHtml(item.instructions)}</p>` : ''}
                     </div>
                 </div>
@@ -329,16 +377,21 @@ function renderChecklist(templates, logsByTemplate) {
             <div class="checklist-item p-md ${completed ? 'bg-tertiary-fixed/10' : ''}">
                 <div class="flex items-center justify-between gap-md">
                     <div class="flex items-center gap-md flex-1">
-                        <input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${item.id}" ${completed ? 'checked disabled' : ''}/>
+                        ${item.task_type === 'inventory_request'
+                            ? `<span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-primary'}">${completed ? 'task_alt' : 'inventory_2'}</span>`
+                            : `<input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${item.id}" ${completed ? 'checked disabled' : ''}/>`}
                         <div class="flex-1">
-                            <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${item.task_title}</h4>
+                            <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${escHtml(item.task_title)}</h4>
+                            ${item.target_time ? `<p class="text-[11px] font-bold text-secondary">موعد التنفيذ: ${escHtml(String(item.target_time).slice(0, 5))}</p>` : ''}
                             ${item.instructions ? `<p class="text-body-sm text-on-surface-variant">${escHtml(item.instructions)}</p>` : ''}
+                            ${item.task_type === 'inventory_request' ? `<a href="../inventory-requests/index.html?shift=${currentShift}" class="mt-2 inline-flex items-center gap-1 rounded-lg bg-secondary-container px-3 py-2 text-sm font-bold text-primary"><span class="material-symbols-outlined text-base">open_in_new</span> فتح صفحة الجرد والطلبيات</a>` : ''}
+                            ${item.task_type === 'inventory_request' && !completed ? '<p class="mt-1 text-[11px] font-bold text-secondary">تُكمل هذه المهمة تلقائياً بعد حفظ طلب الجرد.</p>' : ''}
                             ${item.requires_photo ? '<p class="text-body-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-sm">photo_camera</span> يتطلب صورة إثبات</p>' : ''}
                             ${completed && log.notes ? `<p class="text-body-sm text-on-surface-variant mt-xs">📝 ${escHtml(log.notes)}</p>` : ''}
                         </div>
                     </div>
                 </div>
-                ${!completed ? `
+                ${!completed && item.task_type !== 'inventory_request' ? `
                 <div class="mt-xs pr-10 flex items-center gap-sm flex-wrap task-actions" data-id="${item.id}" data-requires-photo="${item.requires_photo}">
                     ${item.requires_photo ? `
                         <label class="flex items-center gap-xs cursor-pointer px-sm py-1 bg-surface-container border border-outline rounded-lg text-[12px] font-bold text-primary hover:bg-surface-container-high transition-all">
@@ -469,7 +522,7 @@ async function initFridgePanels(logsByTemplate) {
     try {
         [fridges, readings] = await Promise.all([
             ZamAPI.getFridges(currentUser.branch_id),
-            ZamAPI.getTodayFridgeReadings(currentUser.branch_id)
+            ZamAPI.getTodayFridgeReadings(currentUser.branch_id, currentShift)
         ]);
     } catch (err) {
         console.error(err);
@@ -547,9 +600,10 @@ function renderFridgePanel(panel, fridges, readings, log) {
         try {
             const { problemCount } = await ZamAPI.submitFridgeReadings(entries, {
                 branch_id: currentUser.branch_id,
-                recorded_by: currentUser.id
+                recorded_by: currentUser.id,
+                shift_type: currentShift
             });
-            const updated = await ZamAPI.getTodayFridgeReadings(currentUser.branch_id);
+            const updated = await ZamAPI.getTodayFridgeReadings(currentUser.branch_id, currentShift);
             const allDone = fridges.every(f => updated.some(r => r.fridge_id === f.id));
             if (allDone && !log) {
                 await ZamAPI.submitChecklistLog({
@@ -576,7 +630,7 @@ async function loadChecklist() {
     container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
     try {
         const categoryFilter = null;
-        const templates = (await ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id)).filter(t => ZamAPI.isTaskDueToday(t));
+        const templates = (await ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id)).filter(isTaskDueForCurrentShift);
         const logs = await ZamAPI.getTodayLogs(currentUser.branch_id);
         const logsByTemplate = {};
         logs.forEach(l => { logsByTemplate[l.template_id] = l; });
@@ -591,6 +645,10 @@ async function loadChecklist() {
 setActiveShiftButton();
 loadChecklist();
 loadRecentNotes();
+scheduleInventoryTaskVisibility();
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) loadChecklist();
+});
 
 document.getElementById('send-report-btn')?.addEventListener('click', () => {
     window.location.href = '../daily-report/index.html';

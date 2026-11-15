@@ -97,6 +97,7 @@ const ZAM_NAV_ITEMS = [
     { key: 'branches', label: 'الفروع', icon: 'storefront', href: 'branches-checklists/index.html', roles: ['Owner', 'Admin', 'Supervisor'], perm: 'can_manage_branches' },
     { key: 'my-checklist', label: 'مهامي اليومية', icon: 'task_alt', href: 'my-checklist/index.html', roles: ['Barista', 'Kitchen', 'Waiter'], perm: null },
     { key: 'supervisor-checklist', label: 'قوائم المهام', icon: 'checklist', href: 'supervisor-checklist/index.html', roles: ['Admin', 'Manager', 'Supervisor'], perm: null },
+    { key: 'inventory-requests', label: 'الجرد والطلبيات', icon: 'inventory_2', href: 'inventory-requests/index.html', roles: ['Supervisor'], perm: null },
     { key: 'supervisor-dashboard', label: 'داشبورد الفرع', icon: 'space_dashboard', href: 'supervisor-dashboard/index.html', roles: ['Supervisor', 'Manager'], perm: null },
     { key: 'manage-templates', label: 'إدارة قوائم التحقق', icon: 'edit_note', href: 'manage-templates/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_manage_templates' },
     { key: 'daily-report', label: 'التقارير اليومية', icon: 'assignment', href: 'daily-report/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: null },
@@ -459,6 +460,14 @@ async function readAllRows(buildQuery) {
     return rows;
 }
 
+function zamRiyadhDateString(date = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(date);
+    const value = type => parts.find(part => part.type === type)?.value || '';
+    return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
 const ZamAPI = {
     // تسجيل الدخول برمز المرور عبر Edge Function
     async login(passcode) {
@@ -571,11 +580,18 @@ const ZamAPI = {
     isTaskDueToday(t, date = new Date()) {
         const freq = t.frequency || 'daily';
         if (freq === 'daily') return true;
-        if (freq === 'weekly') return t.day_of_week === date.getDay();
+        const dateParts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).formatToParts(date);
+        const year = Number(dateParts.find(part => part.type === 'year')?.value);
+        const month = Number(dateParts.find(part => part.type === 'month')?.value);
+        const day = Number(dateParts.find(part => part.type === 'day')?.value);
+        const riyadhDate = new Date(Date.UTC(year, month - 1, day));
+        if (freq === 'weekly') return Number(t.day_of_week) === riyadhDate.getUTCDay();
         if (freq === 'monthly') {
             // لو الشهر أقصر من اليوم المحدد (31 في شهر 30 يوم) نطبّقه في آخر يوم بالشهر
-            const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-            return date.getDate() === Math.min(t.day_of_month, lastDay);
+            const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+            return day === Math.min(Number(t.day_of_month), lastDay);
         }
         return true;
     },
@@ -583,7 +599,7 @@ const ZamAPI = {
     async getTemplates(category = null, shiftType = null, branchId = null) {
         let query = zamClient.from('checklist_templates').select('*');
         if (category) query = query.eq('category', category);
-        if (shiftType) query = query.eq('shift_type', shiftType);
+        if (shiftType) query = query.in('shift_type', [shiftType, 'Both']);
         if (branchId) {
             // استخدم or() للفلترة على مستوى DB بدل JS
             query = query.or(`branch_id.is.null,branch_id.eq.${branchId}`);
@@ -605,12 +621,12 @@ const ZamAPI = {
             if (dateTo) q = q.lte('execution_date', dateTo);
             if (branchId) q = q.eq('branch_id', branchId);
             return q;
-        }).then(data => shiftType ? data.filter(l => l.checklist_templates?.shift_type === shiftType) : data);
+        }).then(data => shiftType ? data.filter(l => [shiftType, 'Both'].includes(l.checklist_templates?.shift_type)) : data);
     },
 
     // سجلات اليوم لفرع محدد
     async getTodayLogs(branchId) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = zamRiyadhDateString();
         let query = zamClient.from('checklist_logs').select('*, profiles(full_name)').eq('execution_date', today);
         if (branchId) query = query.eq('branch_id', branchId);
         const { data, error } = await query;
@@ -621,7 +637,7 @@ const ZamAPI = {
     async submitChecklistLog({ template_id, branch_id, executed_by, status = 'Completed', notes = null, photo_url = null }) {
         const { data, error } = await zamClient
             .from('checklist_logs')
-            .insert([{ template_id, branch_id, executed_by, status, notes, photo_url }])
+            .insert([{ template_id, branch_id, executed_by, status, notes, photo_url, execution_date: zamRiyadhDateString() }])
             .select()
             .single();
         if (error) throw error;
@@ -904,21 +920,23 @@ const ZamAPI = {
         if (error) throw error;
     },
 
-    async getTodayFridgeReadings(branchId) {
-        const { data, error } = await zamClient.from('fridge_readings').select('*')
-            .eq('branch_id', branchId).eq('reading_date', this.todayDate())
-            .order('created_at', { ascending: true });
+    async getTodayFridgeReadings(branchId, shiftType = null) {
+        let query = zamClient.from('fridge_readings').select('*')
+            .eq('branch_id', branchId).eq('reading_date', this.todayDate());
+        if (shiftType) query = query.eq('shift_type', shiftType);
+        const { data, error } = await query.order('created_at', { ascending: true });
         if (error) throw error;
         return data || [];
     },
 
     // يحفظ القراءات، وينشئ بلاغ مشكلة تقنية تلقائيًا لأي قراءة تتخطى حد المشكلة
-    async submitFridgeReadings(entries, { branch_id, recorded_by }) {
+    async submitFridgeReadings(entries, { branch_id, recorded_by, shift_type = null }) {
         // entries: [{ fridge, temperature, note }]
         const rows = entries.map(e => ({
             fridge_id: e.fridge.id,
             branch_id,
             recorded_by,
+            shift_type,
             temperature: Number(e.temperature),
             status: this.fridgeReadingStatus(e.fridge, e.temperature),
             note: e.note || null
