@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html class="light" dir="rtl" lang="ar">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#33210d" />
+  <title>ZAM Operations - الجرد والطلبيات</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="../assets/supabase-config.js?v=20261115"></script>
+  <script>
+    const currentUser = ZamSession.requireAuth('../index.html');
+    if (currentUser && currentUser.role !== 'Supervisor') {
+      window.location.href = '../supervisor-dashboard/index.html';
+    }
+  </script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#33210d', 'primary-container': '#4b3621', 'on-primary': '#ffffff',
+            background: '#fcf9f8', surface: '#fcf9f8', 'surface-container': '#f0eded',
+            'surface-container-low': '#f6f3f2', 'surface-container-lowest': '#ffffff',
+            'outline-variant': '#d2c4ba', 'on-surface': '#1b1c1c',
+            'on-surface-variant': '#4e453d', secondary: '#5e604d',
+            'secondary-container': '#e1e1c9', tertiary: '#002c06',
+            'error-container': '#ffdad6', error: '#ba1a1a'
+          },
+          fontFamily: { sans: ['Tajawal', 'sans-serif'] },
+          borderRadius: { DEFAULT: '0.5rem', xl: '1rem' }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root { font-family: Tajawal, sans-serif; }
+    body { font-family: Tajawal, sans-serif; background: #fcf9f8; }
+    .material-symbols-outlined { vertical-align: middle; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .4); outline-offset: 2px; }
+    .request-item { break-inside: avoid; }
+    @media print {
+      @page { size: A4 portrait; margin: 12mm; }
+      html, body { background: #fff !important; color: #111 !important; }
+      #sidebar-slot, .site-header, .mobile-nav, .no-print { display: none !important; }
+      main { padding: 0 !important; margin: 0 !important; }
+      #page-content { max-width: none !important; padding: 0 !important; }
+      #order-preview { display: block !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
+      #order-preview table { width: 100% !important; border-collapse: collapse !important; }
+      #order-preview th, #order-preview td { border: 1px solid #777 !important; padding: 7px !important; color: #111 !important; }
+      #order-preview thead { display: table-header-group; }
+      #order-preview tr { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body class="min-h-screen text-on-surface">
+  <div id="sidebar-slot"></div>
+  <script>
+    (async () => {
+      if (currentUser) {
+        document.getElementById('sidebar-slot').outerHTML = await renderZamSidebar('inventory-requests', currentUser.role);
+      }
+    })();
+  </script>
+
+  <header class="site-header fixed top-0 left-0 z-40 flex h-16 w-full items-center justify-between border-b border-outline-variant bg-surface px-4 shadow-sm md:pr-[312px] md:px-8">
+    <div class="flex min-w-0 items-center gap-3">
+      <a href="../supervisor-dashboard/index.html" class="flex items-center gap-2 text-primary" aria-label="لوحة المشرف">
+        <span class="material-symbols-outlined">inventory_2</span>
+        <span class="hidden font-extrabold sm:inline">ZAM Operations</span>
+      </a>
+      <span class="hidden text-on-surface-variant sm:inline">|</span>
+      <span id="branch-label" class="truncate text-sm font-bold text-on-surface-variant">جارٍ تحميل الفرع…</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="shift-chip" class="rounded-full bg-secondary-container px-3 py-1 text-sm font-bold text-on-surface"></span>
+      <div id="notif-bell-slot"></div>
+    </div>
+  </header>
+
+  <main class="min-h-screen pt-20 md:pr-[280px]">
+    <div id="page-content" class="mx-auto max-w-6xl space-y-5 p-4 pb-24 md:p-8 md:pb-10">
+      <section class="no-print flex flex-col gap-3 border-b border-outline-variant pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="mb-1 text-sm font-bold text-secondary">للمشرفين — جميع الورديات</p>
+          <h1 class="text-3xl font-black text-primary">الجرد والطلبيات</h1>
+          <p class="mt-2 max-w-2xl text-on-surface-variant">سجّل الرصيد الحالي والكمية المطلوبة لكل صنف، ثم احفظ الطلب واطبعه أو جهّز نصه للمشاركة داخلياً عبر واتساب.</p>
+        </div>
+        <div class="rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-3 text-sm">
+          <span class="font-bold">المشرف:</span> <span id="supervisor-name">—</span>
+        </div>
+      </section>
+
+      <div id="page-error" class="hidden rounded-xl border border-error bg-error-container p-4 text-sm font-bold text-error" role="alert"></div>
+      <div id="page-message" class="hidden rounded-xl border border-outline-variant bg-secondary-container p-4 text-sm font-bold text-on-surface" role="status"></div>
+
+      <section class="no-print rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm md:p-6">
+        <div class="mb-5 flex flex-col gap-3 border-b border-outline-variant pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-xl font-extrabold text-primary">إنشاء طلب جرد جديد</h2>
+            <p class="mt-1 text-sm text-on-surface-variant">أنشئ طلباً مستقلاً لكل جهة توريد.</p>
+          </div>
+          <div>
+            <span class="mb-2 block text-sm font-bold">وردية الطلب</span>
+            <div id="shift-switch" class="inline-flex rounded-full bg-surface-container p-1" role="group" aria-label="اختيار الوردية">
+              <button type="button" class="shift-choice rounded-full px-4 py-2 text-sm font-bold" data-shift="Morning" aria-pressed="false">الصباح</button>
+              <button type="button" class="shift-choice rounded-full px-4 py-2 text-sm font-bold" data-shift="Evening" aria-pressed="false">الليل</button>
+            </div>
+            <p class="mt-1 text-[11px] text-on-surface-variant">اختَر الوردية التي أُجري فيها الجرد؛ لا يغيّر ذلك تعيين حسابك.</p>
+          </div>
+        </div>
+
+        <form id="request-form" class="space-y-5">
+          <div class="max-w-md">
+            <label for="supplier" class="mb-1 block text-sm font-bold">جهة التوريد الداخلية <span class="text-error">*</span></label>
+            <select id="supplier" name="supplier" required class="w-full rounded-xl border-outline-variant bg-surface px-3 py-3">
+              <option value="">اختر جهة التوريد</option>
+              <option value="المعمل">المعمل</option>
+              <option value="المستودع">المستودع</option>
+              <option value="مشتريات مباشرة">مشتريات مباشرة</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h3 class="font-extrabold text-primary">أصناف الطلب</h3>
+                <p class="text-xs text-on-surface-variant">الكمية الحالية لا تقبل قيمة سالبة، والكمية المطلوبة يجب أن تكون أكبر من صفر.</p>
+              </div>
+              <button id="add-item-btn" type="button" class="inline-flex items-center gap-1 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm font-bold text-primary hover:bg-surface-container">
+                <span class="material-symbols-outlined text-base">add</span> إضافة صنف
+              </button>
+            </div>
+            <div id="items-list" class="space-y-3"></div>
+          </div>
+
+          <div class="flex flex-col gap-3 border-t border-outline-variant pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p class="max-w-xl text-xs leading-5 text-on-surface-variant">بعد الحفظ يظهر الطلب في سجل الفرع. لا تُرسل الصفحة الطلب تلقائياً؛ استخدم زر واتساب بعد المراجعة لإرساله للجهة الداخلية المناسبة.</p>
+            <button id="save-request-btn" type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 font-extrabold text-on-primary shadow-sm hover:bg-primary-container disabled:cursor-wait disabled:opacity-60">
+              <span class="material-symbols-outlined">save</span> حفظ الطلب
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section id="order-preview" class="hidden rounded-2xl border border-outline-variant bg-white p-4 shadow-sm md:p-6">
+        <div class="mb-5 flex flex-col gap-4 border-b border-outline-variant pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p class="text-sm font-bold text-secondary">طلب جرد داخلي</p>
+            <h2 class="mt-1 text-2xl font-black text-primary">قائمة الأصناف المطلوبة</h2>
+            <p id="order-number" class="mt-2 text-sm font-bold"></p>
+          </div>
+          <div class="no-print flex flex-wrap gap-2">
+            <button id="print-order-btn" type="button" class="inline-flex items-center gap-1 rounded-lg bg-primary px-4 py-2 font-bold text-on-primary">
+              <span class="material-symbols-outlined text-base">print</span> طباعة / حفظ PDF
+            </button>
+            <button id="whatsapp-order-btn" type="button" class="inline-flex items-center gap-1 rounded-lg bg-[#128c7e] px-4 py-2 font-bold text-white">
+              <span class="material-symbols-outlined text-base">share</span> تجهيز واتساب
+            </button>
+          </div>
+        </div>
+        <dl class="mb-5 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+          <div class="rounded-lg bg-surface-container-low p-3"><dt class="text-xs text-on-surface-variant">الفرع</dt><dd id="print-branch" class="mt-1 font-bold"></dd></div>
+          <div class="rounded-lg bg-surface-container-low p-3"><dt class="text-xs text-on-surface-variant">جهة التوريد</dt><dd id="print-supplier" class="mt-1 font-bold"></dd></div>
+          <div class="rounded-lg bg-surface-container-low p-3"><dt class="text-xs text-on-surface-variant">الوردية</dt><dd id="print-shift" class="mt-1 font-bold"></dd></div>
+          <div class="rounded-lg bg-surface-container-low p-3"><dt class="text-xs text-on-surface-variant">التاريخ والوقت</dt><dd id="print-date" class="mt-1 font-bold"></dd></div>
+        </dl>
+        <p class="mb-3 text-sm"><span class="font-bold">مُعدّ الطلب:</span> <span id="print-supervisor"></span></p>
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[640px] border-collapse text-right text-sm">
+            <thead class="bg-surface-container text-primary">
+              <tr>
+                <th class="border border-outline-variant p-2">#</th>
+                <th class="border border-outline-variant p-2">اسم المنتج</th>
+                <th class="border border-outline-variant p-2">الكمية الحالية</th>
+                <th class="border border-outline-variant p-2">الكمية المطلوبة</th>
+                <th class="border border-outline-variant p-2">وحدة التخزين / الطلب</th>
+                <th class="border border-outline-variant p-2">الاحتياج</th>
+              </tr>
+            </thead>
+            <tbody id="print-items"></tbody>
+          </table>
+        </div>
+        <p class="mt-5 text-center text-xs text-on-surface-variant">نموذج طلب داخلي — تتم مراجعة الكميات قبل الإرسال للجهة المعنية.</p>
+      </section>
+
+      <section class="no-print rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm md:p-6">
+        <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-extrabold text-primary">آخر طلبات الفرع</h2>
+            <p class="mt-1 text-sm text-on-surface-variant">تظهر طلبات الصباح والليل لهذا الفرع فقط.</p>
+          </div>
+          <button id="refresh-history-btn" type="button" class="rounded-lg border border-outline-variant px-3 py-2 text-sm font-bold text-primary hover:bg-surface-container">تحديث السجل</button>
+        </div>
+        <div id="history-list" class="divide-y divide-outline-variant rounded-xl border border-outline-variant">
+          <p class="p-4 text-sm text-on-surface-variant">جارٍ تحميل سجل الطلبات…</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <nav class="mobile-nav fixed bottom-0 left-0 z-50 flex w-full items-center justify-around border-t border-outline-variant bg-surface px-2 py-2 md:hidden">
+    <a class="flex flex-col items-center gap-1 text-on-surface-variant" href="../supervisor-dashboard/index.html"><span class="material-symbols-outlined">dashboard</span><span class="text-[10px] font-bold">الرئيسية</span></a>
+    <a class="flex flex-col items-center gap-1 text-on-surface-variant" href="../supervisor-checklist/index.html"><span class="material-symbols-outlined">checklist</span><span class="text-[10px] font-bold">المهام</span></a>
+    <a class="flex flex-col items-center gap-1 text-primary" href="index.html" aria-current="page"><span class="material-symbols-outlined">inventory_2</span><span class="text-[10px] font-bold">الجرد</span></a>
+    <a class="flex flex-col items-center gap-1 text-on-surface-variant" href="../reports-log/index.html"><span class="material-symbols-outlined">assessment</span><span class="text-[10px] font-bold">التقارير</span></a>
+    <a class="flex flex-col items-center gap-1 text-on-surface-variant" href="../employee-profile/index.html"><span class="material-symbols-outlined">person</span><span class="text-[10px] font-bold">حسابي</span></a>
+  </nav>
+
+  <script>
+    const SUPPLIER_OPTIONS = ['المعمل', 'المستودع', 'مشتريات مباشرة'];
+    const SHIFT_LABELS = { Morning: 'الصباح', Evening: 'الليل' };
+    const itemsList = document.getElementById('items-list');
+    const historyList = document.getElementById('history-list');
+    const preview = document.getElementById('order-preview');
+    const taskRequestedShift = new URLSearchParams(window.location.search).get('shift');
+    let selectedShift = ['Morning', 'Evening'].includes(taskRequestedShift)
+      ? taskRequestedShift
+      : (currentUser?.shift_type === 'Evening' ? 'Evening' : 'Morning');
+    let selectedOrder = null;
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      }[character]));
+    }
+
+    function displayBranch() {
+      return currentUser?.branches?.name || 'فرع المستخدم';
+    }
+
+    function setMessage(message, isError = false) {
+      const node = document.getElementById(isError ? 'page-error' : 'page-message');
+      const other = document.getElementById(isError ? 'page-message' : 'page-error');
+      other.classList.add('hidden');
+      node.textContent = message;
+      node.classList.remove('hidden');
+    }
+
+    function clearMessages() {
+      document.getElementById('page-error').classList.add('hidden');
+      document.getElementById('page-message').classList.add('hidden');
+    }
+
+    function updateShiftButtons() {
+      document.querySelectorAll('.shift-choice').forEach(button => {
+        const active = button.dataset.shift === selectedShift;
+        button.setAttribute('aria-pressed', String(active));
+        button.classList.toggle('bg-primary', active);
+        button.classList.toggle('text-on-primary', active);
+        button.classList.toggle('text-on-surface-variant', !active);
+      });
+      document.getElementById('shift-chip').textContent = `وردية ${SHIFT_LABELS[selectedShift]}`;
+    }
+
+    function addItemRow(values = {}) {
+      if (itemsList.children.length >= 50) {
+        setMessage('الحد الأقصى 50 صنفاً في الطلب الواحد.', true);
+        return;
+      }
+      const row = document.createElement('fieldset');
+      row.className = 'request-item rounded-xl border border-outline-variant bg-surface p-3 md:p-4';
+      row.innerHTML = `
+        <legend class="sr-only">صنف من الطلب</legend>
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <span class="item-index rounded-full bg-secondary-container px-3 py-1 text-xs font-extrabold text-on-surface"></span>
+          <button type="button" class="remove-item rounded-lg px-3 py-1 text-sm font-bold text-error hover:bg-error-container disabled:cursor-not-allowed disabled:opacity-40" aria-label="حذف الصنف">حذف</button>
+        </div>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <label class="text-sm font-bold sm:col-span-2 lg:col-span-5">اسم المنتج <span class="text-error">*</span>
+            <input type="text" class="product-name mt-1 w-full rounded-lg border-outline-variant bg-white" maxlength="200" required placeholder="مثال: حليب كامل الدسم" />
+          </label>
+          <label class="text-sm font-bold">الكمية الحالية <span class="text-error">*</span>
+            <input type="number" class="current-quantity mt-1 w-full rounded-lg border-outline-variant bg-white" min="0" step="any" inputmode="decimal" required placeholder="0" />
+          </label>
+          <label class="text-sm font-bold">الكمية المطلوبة <span class="text-error">*</span>
+            <input type="number" class="requested-quantity mt-1 w-full rounded-lg border-outline-variant bg-white" min="0.001" step="any" inputmode="decimal" required placeholder="1" />
+          </label>
+          <label class="text-sm font-bold">وحدة التخزين / الطلب <span class="text-error">*</span>
+            <input type="text" class="unit mt-1 w-full rounded-lg border-outline-variant bg-white" maxlength="80" required placeholder="كرتون، كجم، حبة…" />
+          </label>
+          <label class="text-sm font-bold">الاحتياج <span class="text-error">*</span>
+            <select class="urgency mt-1 w-full rounded-lg border-outline-variant bg-white" required>
+              <option value="">اختر</option>
+              <option value="عاجل">عاجل</option>
+              <option value="غير عاجل">غير عاجل</option>
+            </select>
+          </label>
+        </div>`;
+      row.querySelector('.product-name').value = values.product_name || '';
+      row.querySelector('.current-quantity').value = values.current_quantity ?? '';
+      row.querySelector('.requested-quantity').value = values.requested_quantity ?? '';
+      row.querySelector('.unit').value = values.unit || '';
+      row.querySelector('.urgency').value = values.urgency || '';
+      row.querySelector('.remove-item').addEventListener('click', () => {
+        if (itemsList.children.length <= 1) return;
+        row.remove();
+        renumberItems();
+      });
+      itemsList.appendChild(row);
+      renumberItems();
+    }
+
+    function renumberItems() {
+      [...itemsList.querySelectorAll('.request-item')].forEach((row, index) => {
+        row.querySelector('.item-index').textContent = `الصنف ${index + 1}`;
+        row.querySelector('.remove-item').disabled = itemsList.children.length <= 1;
+      });
+    }
+
+    function readFormItems() {
+      const rows = [...itemsList.querySelectorAll('.request-item')];
+      return rows.map(row => {
+        const current = Number(row.querySelector('.current-quantity').value);
+        const requested = Number(row.querySelector('.requested-quantity').value);
+        return {
+          product_name: row.querySelector('.product-name').value.trim(),
+          current_quantity: current,
+          requested_quantity: requested,
+          unit: row.querySelector('.unit').value.trim(),
+          urgency: row.querySelector('.urgency').value
+        };
+      });
+    }
+
+    function formatQuantity(value) {
+      return Number(value).toLocaleString('ar-SA', { maximumFractionDigits: 3 });
+    }
+
+    function formatDate(value) {
+      return new Intl.DateTimeFormat('ar-SA', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+    }
+
+    function renderOrderPreview(request, items, supervisorName = currentUser?.full_name || '—') {
+      selectedOrder = { request, items, supervisorName };
+      const shortId = String(request.id || '').slice(0, 8).toUpperCase();
+      document.getElementById('order-number').textContent = `رقم الطلب: ${shortId ? `#${shortId}` : '—'}`;
+      document.getElementById('print-branch').textContent = displayBranch();
+      document.getElementById('print-supplier').textContent = request.supplier || '—';
+      document.getElementById('print-shift').textContent = SHIFT_LABELS[request.shift_type] || '—';
+      document.getElementById('print-date').textContent = formatDate(request.created_at || new Date());
+      document.getElementById('print-supervisor').textContent = supervisorName || '—';
+      document.getElementById('print-items').innerHTML = items.map((item, index) => `
+        <tr>
+          <td class="border border-outline-variant p-2">${index + 1}</td>
+          <td class="border border-outline-variant p-2">${escapeHtml(item.product_name)}</td>
+          <td class="border border-outline-variant p-2">${formatQuantity(item.current_quantity)}</td>
+          <td class="border border-outline-variant p-2">${formatQuantity(item.requested_quantity)}</td>
+          <td class="border border-outline-variant p-2">${escapeHtml(item.unit)}</td>
+          <td class="border border-outline-variant p-2 font-bold">${escapeHtml(item.urgency)}</td>
+        </tr>`).join('');
+      preview.classList.remove('hidden');
+      preview.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function buildWhatsAppText() {
+      if (!selectedOrder) return '';
+      const { request, items, supervisorName } = selectedOrder;
+      const lines = [
+        'طلب جرد داخلي — ZAM',
+        `الفرع: ${displayBranch()}`,
+        `جهة التوريد: ${request.supplier}`,
+        `الوردية: ${SHIFT_LABELS[request.shift_type] || ''}`,
+        `التاريخ: ${formatDate(request.created_at || new Date())}`,
+        `المشرف: ${supervisorName || '—'}`,
+        '',
+        ...items.map((item, index) => `${index + 1}) ${item.product_name} | الحالي: ${formatQuantity(item.current_quantity)} | المطلوب: ${formatQuantity(item.requested_quantity)} ${item.unit} | ${item.urgency}`)
+      ];
+      return lines.join('\n');
+    }
+
+    async function loadHistory() {
+      historyList.innerHTML = '<p class="p-4 text-sm text-on-surface-variant">جارٍ تحميل سجل الطلبات…</p>';
+      const { data, error } = await zamClient.from('inventory_requests')
+        .select('id,branch_id,created_by,shift_type,supplier,created_at')
+        .eq('branch_id', currentUser.branch_id)
+        .order('created_at', { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      if (!data?.length) {
+        historyList.innerHTML = '<p class="p-4 text-sm text-on-surface-variant">لا توجد طلبات محفوظة لهذا الفرع بعد.</p>';
+        return;
+      }
+      historyList.innerHTML = data.map(request => `
+        <div class="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="min-w-0">
+            <p class="font-extrabold text-primary">${escapeHtml(request.supplier)} <span class="text-xs font-normal text-on-surface-variant">#${escapeHtml(String(request.id).slice(0, 8).toUpperCase())}</span></p>
+            <p class="mt-1 text-xs text-on-surface-variant">${escapeHtml(SHIFT_LABELS[request.shift_type] || '—')} · ${escapeHtml(formatDate(request.created_at))}</p>
+          </div>
+          <button type="button" class="view-order-btn shrink-0 rounded-lg border border-outline-variant px-4 py-2 text-sm font-bold text-primary hover:bg-surface-container" data-order-id="${escapeHtml(request.id)}">عرض وطباعة</button>
+        </div>`).join('');
+      historyList.querySelectorAll('.view-order-btn').forEach(button => {
+        button.addEventListener('click', () => showSavedOrder(button.dataset.orderId));
+      });
+    }
+
+    async function showSavedOrder(orderId) {
+      clearMessages();
+      try {
+        const [requestResult, itemsResult] = await Promise.all([
+          zamClient.from('inventory_requests').select('id,branch_id,created_by,shift_type,supplier,created_at')
+            .eq('id', orderId).eq('branch_id', currentUser.branch_id).maybeSingle(),
+          zamClient.from('inventory_request_items').select('line_number,product_name,current_quantity,requested_quantity,unit,urgency')
+            .eq('request_id', orderId).order('line_number', { ascending: true })
+        ]);
+        if (requestResult.error) throw requestResult.error;
+        if (itemsResult.error) throw itemsResult.error;
+        if (!requestResult.data || !itemsResult.data?.length) throw new Error('لم يتم العثور على الطلب أو أصنافه.');
+        let supervisorName = 'مشرف الوردية';
+        if (requestResult.data.created_by === currentUser.id) {
+          supervisorName = currentUser.full_name || supervisorName;
+        } else {
+          const { data: creator } = await zamClient.from('profiles').select('full_name').eq('id', requestResult.data.created_by).maybeSingle();
+          supervisorName = creator?.full_name || supervisorName;
+        }
+        renderOrderPreview(requestResult.data, itemsResult.data, supervisorName);
+      } catch (error) {
+        console.error(error);
+        setMessage(error.message || 'تعذّر تحميل الطلب المحفوظ.', true);
+      }
+    }
+
+    document.querySelectorAll('.shift-choice').forEach(button => {
+      button.addEventListener('click', () => {
+        selectedShift = button.dataset.shift;
+        updateShiftButtons();
+      });
+    });
+
+    document.getElementById('add-item-btn').addEventListener('click', () => addItemRow());
+    document.getElementById('refresh-history-btn').addEventListener('click', async () => {
+      clearMessages();
+      try { await loadHistory(); }
+      catch (error) { console.error(error); setMessage('تعذّر تحديث سجل الطلبات.', true); }
+    });
+
+    document.getElementById('request-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      clearMessages();
+      if (!currentUser?.branch_id) {
+        setMessage('حسابك غير مرتبط بفرع؛ لا يمكن حفظ الطلب.', true);
+        return;
+      }
+      const supplier = document.getElementById('supplier').value;
+      const items = readFormItems();
+      if (!SUPPLIER_OPTIONS.includes(supplier)) {
+        setMessage('اختر جهة التوريد من القائمة.', true);
+        return;
+      }
+      const invalid = items.some(item => !item.product_name || !item.unit || !Number.isFinite(item.current_quantity) || item.current_quantity < 0 || !Number.isFinite(item.requested_quantity) || item.requested_quantity <= 0 || !['عاجل', 'غير عاجل'].includes(item.urgency));
+      if (invalid) {
+        setMessage('راجع حقول الأصناف: الاسم والكمية الحالية والمطلوبة والوحدة والاحتياج.', true);
+        return;
+      }
+      const button = document.getElementById('save-request-btn');
+      button.disabled = true;
+      try {
+        const { data, error } = await zamClient.rpc('create_inventory_request', {
+          p_supplier: supplier,
+          p_shift_type: selectedShift,
+          p_items: items
+        });
+        if (error) throw error;
+        const requestId = typeof data === 'string' ? data : data?.id;
+        if (!requestId) throw new Error('تم استلام رد غير مكتمل من قاعدة البيانات.');
+        const request = {
+          id: requestId,
+          branch_id: currentUser.branch_id,
+          created_by: currentUser.id,
+          shift_type: selectedShift,
+          supplier,
+          created_at: new Date().toISOString()
+        };
+        renderOrderPreview(request, items, currentUser.full_name || '—');
+        document.getElementById('supplier').value = '';
+        itemsList.innerHTML = '';
+        addItemRow();
+        setMessage(`تم حفظ الطلب رقم #${requestId.slice(0, 8).toUpperCase()}. يمكنك الآن طباعته أو تجهيز نصه لواتساب.`);
+        try { await loadHistory(); }
+        catch (historyError) { console.warn('Request saved, but history refresh failed:', historyError); }
+      } catch (error) {
+        console.error(error);
+        setMessage(error.message || 'تعذّر حفظ الطلب. حاول مرة أخرى.', true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    document.getElementById('print-order-btn').addEventListener('click', () => {
+      if (selectedOrder) window.print();
+    });
+
+    document.getElementById('whatsapp-order-btn').addEventListener('click', () => {
+      if (!selectedOrder) return;
+      const url = `https://wa.me/?text=${encodeURIComponent(buildWhatsAppText())}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    });
+
+    document.getElementById('branch-label').textContent = displayBranch();
+    document.getElementById('supervisor-name').textContent = currentUser?.full_name || '—';
+    updateShiftButtons();
+    addItemRow();
+    (async () => {
+      const slot = document.getElementById('notif-bell-slot');
+      if (slot) {
+        try {
+          slot.innerHTML = await renderNotificationBell();
+          attachNotificationBellHandlers();
+        } catch (error) { console.warn('Notification bell could not be loaded:', error); }
+      }
+      try { await loadHistory(); }
+      catch (error) { console.error(error); historyList.innerHTML = '<p class="p-4 text-sm font-bold text-error">تعذّر تحميل سجل الطلبات.</p>'; }
+    })();
+  </script>
+</body>
+</html>
