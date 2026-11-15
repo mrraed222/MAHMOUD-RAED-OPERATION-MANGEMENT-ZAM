@@ -71,6 +71,7 @@ async function buildPdf(visit: any, results: any[], actions: any[], evidence: an
     if (category !== currentCategory) { currentCategory = category; text(category, 11, true, primary) }
     const score = result.score == null ? 'لا ينطبق' : `${result.score}/10`
     text(`${result.visit_checklist_templates?.title || 'بند'} — ${score}${result.is_violation ? ' — مخالفة' : ''}`, 10, true)
+    if (Array.isArray(result.subchecks)) for (const check of result.subchecks) text(`• ${check.title || check.code} — ${check.score}/10`, 9, false, muted)
     if (result.note) text(`ملاحظة: ${result.note}`, 9, false, muted)
   }
   if (actions.length) {
@@ -102,9 +103,9 @@ async function buildPdf(visit: any, results: any[], actions: any[], evidence: an
     }
   }
   y -= 10
-  text('الاعتماد الإلكتروني: محمود شريف — إدارة التشغيل', 11, true, primary)
   text(`حالة الاعتماد: ${visit.signed_at ? 'معتمدة إلكترونياً' : 'غير معتمدة'} | وقت الاعتماد: ${visit.signed_at ? new Date(visit.signed_at).toLocaleString('ar-SA') : '—'}`, 9, false, muted)
   text(`تم إنشاء التقرير: ${new Date().toLocaleString('ar-SA')}`, 8, false, muted)
+  text('اعتماد إلكتروني — محمود شريف — إدارة التشغيل', 11, true, primary)
   return await doc.save()
 }
 
@@ -142,7 +143,7 @@ Deno.serve(async (req: Request) => {
     if (accessError) throw accessError
     if (!canAccessVisit) return json({ error: 'لا يوجد لديك تكليف أو صلاحية لعرض هذا التقرير' }, 403)
     if (sendEmail && !canManageVisits) return json({ error: 'إرسال تقارير الزيارة بالبريد يتطلب صلاحية إدارة زيارات الفروع' }, 403)
-    const { data: results, error: resultsError } = await supabaseAdmin.from('supervisory_visit_results').select('id,score,result,note,is_violation,visit_checklist_templates(category,title,sort_order)').eq('visit_id', visitId).order('sort_order', { referencedTable: 'visit_checklist_templates', ascending: true })
+    const { data: results, error: resultsError } = await supabaseAdmin.from('supervisory_visit_results').select('id,score,result,note,is_violation,subchecks,visit_checklist_templates(category,title,sort_order)').eq('visit_id', visitId).order('sort_order', { referencedTable: 'visit_checklist_templates', ascending: true })
     if (resultsError) throw resultsError
     const { data: actions, error: actionsError } = await supabaseAdmin.from('visit_action_items').select('id,title,description,item_type,priority,assigned_role,due_date,status').eq('visit_id', visitId).order('created_at')
     if (actionsError) throw actionsError

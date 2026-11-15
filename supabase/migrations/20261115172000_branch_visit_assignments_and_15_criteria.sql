@@ -41,8 +41,8 @@ $$;
 
 CREATE TABLE IF NOT EXISTS public.branch_visit_assignments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  branch_id uuid NOT NULL REFERENCES public.branches(id) ON DELETE CASCADE,
-  assigned_to uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  branch_id uuid NOT NULL REFERENCES public.branches(id) ON DELETE RESTRICT,
+  assigned_to uuid NOT NULL REFERENCES public.profiles(id) ON DELETE RESTRICT,
   assigned_by uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
   visit_date date NOT NULL,
   shift_type text NOT NULL CHECK (shift_type IN ('Morning', 'Evening')),
@@ -56,6 +56,30 @@ CREATE TABLE IF NOT EXISTS public.branch_visit_assignments (
 
 ALTER TABLE public.supervisory_visits
   ADD COLUMN IF NOT EXISTS assignment_id uuid;
+
+-- Idempotency keys let a retry update, rather than duplicate, each violation/action.
+ALTER TABLE public.visit_action_items
+  ADD COLUMN IF NOT EXISTS client_key text;
+ALTER TABLE public.visit_evidence
+  ADD COLUMN IF NOT EXISTS client_key text;
+CREATE UNIQUE INDEX IF NOT EXISTS visit_action_items_visit_client_key_unique
+  ON public.visit_action_items(visit_id, client_key);
+CREATE UNIQUE INDEX IF NOT EXISTS visit_evidence_visit_client_key_unique
+  ON public.visit_evidence(visit_id, client_key);
+
+-- The government-compliance criterion keeps five auditable, separately scored checks.
+ALTER TABLE public.supervisory_visit_results
+  ADD COLUMN IF NOT EXISTS subchecks jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.supervisory_visit_results
+  DROP CONSTRAINT IF EXISTS supervisory_visit_results_score_check;
+ALTER TABLE public.supervisory_visit_results
+  ADD CONSTRAINT supervisory_visit_results_score_check CHECK (score BETWEEN 0 AND 10);
+DO $$ BEGIN
+  ALTER TABLE public.supervisory_visit_results
+    ADD CONSTRAINT supervisory_visit_results_subchecks_array_check
+    CHECK (jsonb_typeof(subchecks) = 'array');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 DO $$ BEGIN
   ALTER TABLE public.supervisory_visits
@@ -88,7 +112,8 @@ AS $$
       public.can_manage_branch_visits()
       OR EXISTS (
         SELECT 1 FROM public.branch_visit_assignments AS a
-        WHERE a.assigned_to = auth.uid()
+        JOIN public.profiles AS actor ON actor.id = auth.uid() AND actor.status = 'active'
+        WHERE a.assigned_to = actor.id
           AND a.branch_id = p_branch_id
           AND a.status = 'assigned'
       )
@@ -107,6 +132,10 @@ AS $$
     SELECT 1
     FROM public.supervisory_visits AS v
     WHERE v.id = p_visit_id
+      AND EXISTS (
+        SELECT 1 FROM public.profiles AS actor
+        WHERE actor.id = auth.uid() AND actor.status = 'active'
+      )
       AND (
         v.signed_by = auth.uid()
         OR EXISTS (
@@ -150,8 +179,10 @@ AS $$
   SELECT public.can_manage_branch_visits() OR EXISTS (
     SELECT 1
     FROM public.branch_visit_assignments AS a
+    JOIN public.profiles AS p ON p.id = auth.uid()
     WHERE a.id = p_assignment_id
-      AND a.assigned_to = auth.uid()
+      AND a.assigned_to = p.id
+      AND p.status = 'active'
       AND a.branch_id = p_branch_id
       AND a.visit_date = p_visit_date
       AND a.shift_type = p_shift_type
@@ -170,6 +201,13 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   assignment_row public.branch_visit_assignments%ROWTYPE;
+  visit_row public.supervisory_visits%ROWTYPE;
+  performer_role text;
+  criteria_count integer;
+  result_count integer;
+  calc_score_total numeric;
+  calc_score_possible numeric;
+  calc_perfect_count integer;
 BEGIN
   SELECT * INTO assignment_row
   FROM public.branch_visit_assignments
@@ -180,38 +218,162 @@ BEGIN
     RAISE EXCEPTION 'التكليف غير موجود';
   END IF;
 
-  IF NOT public.can_manage_branch_visits() AND NOT (
-    assignment_row.assigned_to = auth.uid()
-    AND EXISTS (
-      SELECT 1 FROM public.profiles AS p
-      WHERE p.id = auth.uid() AND p.status = 'active'
-    )
-  ) THEN
+  SELECT p.role INTO performer_role
+  FROM public.profiles AS p
+  WHERE p.id = auth.uid() AND p.status = 'active';
+  IF performer_role IS NULL THEN
+    RAISE EXCEPTION 'الحساب غير نشط';
+  END IF;
+
+  IF NOT public.can_manage_branch_visits()
+     AND assignment_row.assigned_to <> auth.uid() THEN
     RAISE EXCEPTION 'لا تملك صلاحية إغلاق هذا التكليف';
   END IF;
 
   IF assignment_row.status = 'completed' THEN
-    RETURN true;
+    IF public.can_manage_branch_visits() OR EXISTS (
+      SELECT 1 FROM public.supervisory_visits AS v
+      WHERE v.assignment_id = p_assignment_id AND v.signed_by = auth.uid()
+    ) THEN
+      RETURN true;
+    END IF;
+    RAISE EXCEPTION 'لا تملك صلاحية الاطلاع على هذا التكليف';
   END IF;
   IF assignment_row.status <> 'assigned' THEN
     RAISE EXCEPTION 'لا يمكن إغلاق تكليف ملغى';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.supervisory_visits AS v
-    WHERE v.assignment_id = p_assignment_id
-      AND v.branch_id = assignment_row.branch_id
-      AND v.visit_date = assignment_row.visit_date
-      AND v.shift_type = assignment_row.shift_type
-      AND (public.can_manage_branch_visits() OR v.signed_by = auth.uid())
-      AND EXISTS (
+  SELECT * INTO visit_row
+  FROM public.supervisory_visits AS v
+  WHERE v.assignment_id = p_assignment_id
+    AND v.branch_id = assignment_row.branch_id
+    AND v.visit_date = assignment_row.visit_date
+    AND v.shift_type = assignment_row.shift_type
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'لا يمكن إغلاق التكليف قبل حفظ مسودة التقرير';
+  END IF;
+  IF visit_row.status <> 'مسودة' OR visit_row.signed_by IS NOT NULL OR visit_row.signed_at IS NOT NULL THEN
+    RAISE EXCEPTION 'حالة التقرير لا تسمح بإغلاق التكليف';
+  END IF;
+
+  SELECT count(*) INTO criteria_count
+  FROM public.visit_checklist_templates AS t
+  WHERE t.active = true
+    AND t.code = ANY (ARRAY['BRV-CLEAN-01','BRV-CLEAN-02','BRV-CLEAN-03','BRV-CLEAN-04','BRV-CLEAN-05','BRV-CLEAN-06','BRV-HYGIENE-01','BRV-CUSTOMER-01','BRV-CUSTOMER-02','BRV-CUSTOMER-03','BRV-CUSTOMER-04','BRV-INVENTORY-01','BRV-INVENTORY-02','BRV-OPS-01','BRV-GOV-01']::text[])
+    AND (t.branch_id IS NULL OR t.branch_id = visit_row.branch_id)
+    AND (t.shift_type IS NULL OR t.shift_type = visit_row.shift_type);
+  IF criteria_count <> 15 THEN
+    RAISE EXCEPTION 'يجب أن يحتوي نموذج الزيارة النشط على 15 معياراً بالضبط، الموجود حالياً: %', criteria_count;
+  END IF;
+
+  SELECT count(*) INTO result_count
+  FROM public.supervisory_visit_results AS r
+  JOIN public.visit_checklist_templates AS t ON t.id = r.item_id
+  WHERE r.visit_id = visit_row.id
+    AND t.active = true
+    AND t.code = ANY (ARRAY['BRV-CLEAN-01','BRV-CLEAN-02','BRV-CLEAN-03','BRV-CLEAN-04','BRV-CLEAN-05','BRV-CLEAN-06','BRV-HYGIENE-01','BRV-CUSTOMER-01','BRV-CUSTOMER-02','BRV-CUSTOMER-03','BRV-CUSTOMER-04','BRV-INVENTORY-01','BRV-INVENTORY-02','BRV-OPS-01','BRV-GOV-01']::text[])
+    AND (t.branch_id IS NULL OR t.branch_id = visit_row.branch_id)
+    AND (t.shift_type IS NULL OR t.shift_type = visit_row.shift_type);
+  IF result_count <> criteria_count OR EXISTS (
+    SELECT 1 FROM public.visit_checklist_templates AS t
+    WHERE t.active = true
+      AND t.code = ANY (ARRAY['BRV-CLEAN-01','BRV-CLEAN-02','BRV-CLEAN-03','BRV-CLEAN-04','BRV-CLEAN-05','BRV-CLEAN-06','BRV-HYGIENE-01','BRV-CUSTOMER-01','BRV-CUSTOMER-02','BRV-CUSTOMER-03','BRV-CUSTOMER-04','BRV-INVENTORY-01','BRV-INVENTORY-02','BRV-OPS-01','BRV-GOV-01']::text[])
+      AND (t.branch_id IS NULL OR t.branch_id = visit_row.branch_id)
+      AND (t.shift_type IS NULL OR t.shift_type = visit_row.shift_type)
+      AND NOT EXISTS (
         SELECT 1 FROM public.supervisory_visit_results AS r
-        WHERE r.visit_id = v.id
+        WHERE r.visit_id = visit_row.id AND r.item_id = t.id
       )
   ) THEN
-    RAISE EXCEPTION 'لا يمكن إغلاق التكليف قبل حفظ تقرير الزيارة ونتائجه';
+    RAISE EXCEPTION 'لا يمكن اعتماد الزيارة قبل تقييم جميع المعايير النشطة';
   END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.supervisory_visit_results AS r
+    JOIN public.visit_checklist_templates AS t ON t.id = r.item_id
+    WHERE r.visit_id = visit_row.id
+      AND (
+        NOT t.active OR NOT (t.code = ANY (ARRAY['BRV-CLEAN-01','BRV-CLEAN-02','BRV-CLEAN-03','BRV-CLEAN-04','BRV-CLEAN-05','BRV-CLEAN-06','BRV-HYGIENE-01','BRV-CUSTOMER-01','BRV-CUSTOMER-02','BRV-CUSTOMER-03','BRV-CUSTOMER-04','BRV-INVENTORY-01','BRV-INVENTORY-02','BRV-OPS-01','BRV-GOV-01']::text[]))
+        OR (t.branch_id IS NOT NULL AND t.branch_id <> visit_row.branch_id)
+        OR (t.shift_type IS NOT NULL AND t.shift_type <> visit_row.shift_type)
+        OR r.result = 'غير مكتمل'
+        OR (r.score IS NULL AND r.result <> 'لا ينطبق')
+        OR (r.score IS NOT NULL AND r.result = 'لا ينطبق')
+        OR (t.code <> 'BRV-GOV-01' AND r.score IS NOT NULL AND r.score NOT IN (0, 5, 10))
+      )
+  ) THEN
+    RAISE EXCEPTION 'توجد نتيجة غير مكتملة أو غير مطابقة لمعايير التقييم';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.supervisory_visit_results AS r
+    JOIN public.visit_checklist_templates AS t ON t.id = r.item_id
+    WHERE r.visit_id = visit_row.id
+      AND t.code = 'BRV-GOV-01'
+      AND (
+        jsonb_array_length(r.subchecks) <> 5
+        OR (SELECT count(DISTINCT check_row->>'code') FROM jsonb_array_elements(r.subchecks) AS checks(check_row)) <> 5
+        OR (SELECT count(*) FROM jsonb_array_elements(r.subchecks) AS checks(check_row)
+            WHERE check_row->>'code' IN ('GOV-FIRE','GOV-EQUIPMENT','GOV-MUNICIPAL','GOV-FOOD','GOV-GMP')
+              AND check_row->>'score' ~ '^(0|5|10)$') <> 5
+        OR r.score IS DISTINCT FROM (
+          SELECT round(avg(CASE WHEN check_row->>'score' ~ '^(0|5|10)$'
+                                THEN (check_row->>'score')::numeric END))::integer
+          FROM jsonb_array_elements(r.subchecks) AS checks(check_row)
+        )
+      )
+  ) THEN
+    RAISE EXCEPTION 'يجب تسجيل النقاط الحكومية الخمس كلٌّ على حدة، وبدرجة صحيحة';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.supervisory_visit_results AS r
+    JOIN public.visit_checklist_templates AS t ON t.id = r.item_id
+    WHERE r.visit_id = visit_row.id
+      AND r.is_violation = true
+      AND (
+        NOT EXISTS (
+          SELECT 1 FROM public.visit_action_items AS ai
+          WHERE ai.visit_id = visit_row.id
+            AND ai.result_id = r.id
+            AND ai.assigned_to IS NOT NULL
+            AND ai.created_by = auth.uid()
+        )
+        OR (t.requires_photo_on_violation AND NOT EXISTS (
+          SELECT 1 FROM public.visit_evidence AS e
+          WHERE e.visit_id = visit_row.id
+            AND e.result_id = r.id
+            AND e.uploaded_by = auth.uid()
+            AND e.file_path IS NOT NULL
+        ))
+      )
+  ) THEN
+    RAISE EXCEPTION 'أكمل الإجراء المسند وأرفق صورة لكل مخالفة قبل الاعتماد';
+  END IF;
+
+  SELECT COALESCE(sum(r.score), 0), count(r.score) * 10,
+         count(*) FILTER (WHERE r.score = 10)
+    INTO calc_score_total, calc_score_possible, calc_perfect_count
+  FROM public.supervisory_visit_results AS r
+  WHERE r.visit_id = visit_row.id;
+
+  UPDATE public.supervisory_visits
+     SET status = 'معتمدة',
+         score_total = calc_score_total,
+         score_possible = calc_score_possible,
+         score_percentage = CASE WHEN calc_score_possible > 0 THEN round(calc_score_total / calc_score_possible * 100) ELSE 0 END,
+         score = CASE WHEN calc_score_possible > 0 THEN round(calc_score_total / calc_score_possible * 100) ELSE 0 END,
+         checklist_total = calc_score_possible,
+         checklist_done = calc_perfect_count,
+         signed_by = auth.uid(),
+         signed_by_role = performer_role,
+         signed_at = now(),
+         signature_method = 'حساب المستخدم'
+   WHERE id = visit_row.id;
 
   UPDATE public.branch_visit_assignments
      SET status = 'completed', completed_at = now(), updated_at = now()
@@ -226,7 +388,12 @@ DROP POLICY IF EXISTS branch_visit_assignments_update ON public.branch_visit_ass
 DROP POLICY IF EXISTS branch_visit_assignments_delete ON public.branch_visit_assignments;
 CREATE POLICY branch_visit_assignments_read ON public.branch_visit_assignments
   FOR SELECT TO authenticated
-  USING (public.can_manage_branch_visits() OR assigned_to = auth.uid());
+  USING (
+    public.can_manage_branch_visits()
+    OR (assigned_to = auth.uid() AND EXISTS (
+      SELECT 1 FROM public.profiles AS p WHERE p.id = auth.uid() AND p.status = 'active'
+    ))
+  );
 CREATE POLICY branch_visit_assignments_insert ON public.branch_visit_assignments
   FOR INSERT TO authenticated
   WITH CHECK (
@@ -240,13 +407,8 @@ CREATE POLICY branch_visit_assignments_insert ON public.branch_visit_assignments
         AND (p.shift_type = 'Both' OR p.shift_type = branch_visit_assignments.shift_type)
     )
   );
-CREATE POLICY branch_visit_assignments_update ON public.branch_visit_assignments
-  FOR UPDATE TO authenticated
-  USING (public.can_manage_branch_visits())
-  WITH CHECK (public.can_manage_branch_visits());
-CREATE POLICY branch_visit_assignments_delete ON public.branch_visit_assignments
-  FOR DELETE TO authenticated
-  USING (public.can_manage_branch_visits());
+-- Clients cannot edit status or assignment history; the guarded finalizer is the
+-- only path that marks a task complete. Managers can create new assignments.
 
 DROP POLICY IF EXISTS supervisory_visits_owner_insert ON public.supervisory_visits;
 DROP POLICY IF EXISTS supervisory_visits_owner_select ON public.supervisory_visits;
@@ -262,15 +424,31 @@ CREATE POLICY supervisory_visits_insert ON public.supervisory_visits
   WITH CHECK (
     public.can_manage_branch_visits()
     OR (
-      signed_by = auth.uid()
+      status = 'مسودة'
+      AND signed_by IS NULL
+      AND signed_at IS NULL
       AND assignment_id IS NOT NULL
       AND public.can_submit_assigned_branch_visit(assignment_id, branch_id, visit_date, shift_type)
     )
   );
 CREATE POLICY supervisory_visits_update ON public.supervisory_visits
   FOR UPDATE TO authenticated
-  USING (public.can_manage_branch_visits())
-  WITH CHECK (public.can_manage_branch_visits());
+  USING (
+    public.can_manage_branch_visits()
+    OR (
+      status = 'مسودة' AND signed_by IS NULL AND signed_at IS NULL
+      AND assignment_id IS NOT NULL
+      AND public.can_submit_assigned_branch_visit(assignment_id, branch_id, visit_date, shift_type)
+    )
+  )
+  WITH CHECK (
+    public.can_manage_branch_visits()
+    OR (
+      status = 'مسودة' AND signed_by IS NULL AND signed_at IS NULL
+      AND assignment_id IS NOT NULL
+      AND public.can_submit_assigned_branch_visit(assignment_id, branch_id, visit_date, shift_type)
+    )
+  );
 
 DROP POLICY IF EXISTS visit_results_read ON public.supervisory_visit_results;
 DROP POLICY IF EXISTS visit_results_write ON public.supervisory_visit_results;
@@ -284,6 +462,7 @@ CREATE POLICY visit_results_write ON public.supervisory_visit_results
     OR EXISTS (
       SELECT 1 FROM public.supervisory_visits AS v
       WHERE v.id = visit_id
+        AND v.status = 'مسودة'
         AND v.assignment_id IS NOT NULL
         AND public.can_submit_assigned_branch_visit(v.assignment_id, v.branch_id, v.visit_date, v.shift_type)
     )
@@ -293,6 +472,7 @@ CREATE POLICY visit_results_write ON public.supervisory_visit_results
     OR EXISTS (
       SELECT 1 FROM public.supervisory_visits AS v
       WHERE v.id = visit_id
+        AND v.status = 'مسودة'
         AND v.assignment_id IS NOT NULL
         AND public.can_submit_assigned_branch_visit(v.assignment_id, v.branch_id, v.visit_date, v.shift_type)
     )
@@ -304,11 +484,12 @@ CREATE POLICY visit_actions_read ON public.visit_action_items
   FOR SELECT TO authenticated
   USING (
     public.can_view_branch_visit_reports()
-    OR assigned_to = auth.uid()
+    OR (assigned_to = auth.uid() AND EXISTS (SELECT 1 FROM public.profiles AS actor WHERE actor.id = auth.uid() AND actor.status = 'active'))
     OR public.can_access_branch_visit(visit_id)
     OR EXISTS (
       SELECT 1 FROM public.profiles AS p
       WHERE p.id = auth.uid()
+        AND p.status = 'active'
         AND p.role = 'Supervisor'
         AND p.branch_id = visit_action_items.branch_id
         AND visit_action_items.assigned_role IN ('مشرف الشفت', 'Supervisor', 'Shift Supervisor')
@@ -319,21 +500,32 @@ CREATE POLICY visit_actions_write ON public.visit_action_items
   FOR ALL TO authenticated
   USING (
     public.can_manage_branch_visits()
-    OR (assigned_to = auth.uid() AND branch_id = (SELECT p.branch_id FROM public.profiles AS p WHERE p.id = auth.uid()))
+    OR (assigned_to = auth.uid() AND branch_id = (SELECT p.branch_id FROM public.profiles AS p WHERE p.id = auth.uid() AND p.status = 'active'))
+    OR (
+      created_by = auth.uid()
+      AND EXISTS (
+        SELECT 1 FROM public.supervisory_visits AS v
+        WHERE v.id = visit_action_items.visit_id
+          AND v.status = 'مسودة'
+          AND v.assignment_id IS NOT NULL
+          AND public.can_submit_assigned_branch_visit(v.assignment_id, v.branch_id, v.visit_date, v.shift_type)
+      )
+    )
   )
   WITH CHECK (
     public.can_manage_branch_visits()
     OR (
       assigned_to = auth.uid()
-      AND branch_id = (SELECT p.branch_id FROM public.profiles AS p WHERE p.id = auth.uid())
+      AND branch_id = (SELECT p.branch_id FROM public.profiles AS p WHERE p.id = auth.uid() AND p.status = 'active')
     )
     OR (
       created_by = auth.uid()
-      AND branch_id = (SELECT a.branch_id FROM public.branch_visit_assignments AS a WHERE a.id = (SELECT v.assignment_id FROM public.supervisory_visits AS v WHERE v.id = visit_id))
       AND EXISTS (
         SELECT 1 FROM public.supervisory_visits AS v
         WHERE v.id = visit_action_items.visit_id
+          AND v.status = 'مسودة'
           AND v.assignment_id IS NOT NULL
+          AND v.branch_id = visit_action_items.branch_id
           AND public.can_submit_assigned_branch_visit(v.assignment_id, v.branch_id, v.visit_date, v.shift_type)
       )
     )
@@ -343,15 +535,38 @@ DROP POLICY IF EXISTS visit_evidence_read ON public.visit_evidence;
 DROP POLICY IF EXISTS visit_evidence_write ON public.visit_evidence;
 CREATE POLICY visit_evidence_read ON public.visit_evidence
   FOR SELECT TO authenticated
-  USING (public.can_access_branch_visit(visit_id) OR uploaded_by = auth.uid());
+  USING (
+    public.can_access_branch_visit(visit_id)
+    OR (uploaded_by = auth.uid() AND EXISTS (
+      SELECT 1 FROM public.profiles AS p WHERE p.id = auth.uid() AND p.status = 'active'
+    ))
+  );
 CREATE POLICY visit_evidence_write ON public.visit_evidence
   FOR ALL TO authenticated
-  USING (public.can_manage_branch_visits() OR uploaded_by = auth.uid())
+  USING (
+    public.can_manage_branch_visits()
+    OR (
+      uploaded_by = auth.uid()
+      AND EXISTS (
+        SELECT 1 FROM public.supervisory_visits AS v
+        WHERE v.id = visit_evidence.visit_id
+          AND v.status = 'مسودة'
+          AND v.assignment_id IS NOT NULL
+          AND public.can_submit_assigned_branch_visit(v.assignment_id, v.branch_id, v.visit_date, v.shift_type)
+      )
+    )
+  )
   WITH CHECK (
     public.can_manage_branch_visits()
     OR (
       uploaded_by = auth.uid()
-      AND public.can_access_branch_visit(visit_id)
+      AND EXISTS (
+        SELECT 1 FROM public.supervisory_visits AS v
+        WHERE v.id = visit_evidence.visit_id
+          AND v.status = 'مسودة'
+          AND v.assignment_id IS NOT NULL
+          AND public.can_submit_assigned_branch_visit(v.assignment_id, v.branch_id, v.visit_date, v.shift_type)
+      )
     )
   );
 
@@ -368,9 +583,20 @@ REVOKE ALL ON FUNCTION public.can_access_branch_visit(uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.can_submit_assigned_branch_visit(uuid, uuid, date, text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.list_branch_visit_assignees(uuid) FROM PUBLIC, anon;
 
--- Keep all assessment checks while making them 15 scorable criteria.
--- Old rows are retained (inactive) so existing visit_results continue to render unchanged.
-UPDATE public.visit_checklist_templates SET active = false WHERE active = true;
+-- Keep historical reports and organization-created templates. Only archive the 34 legacy built-in checklist rows.
+UPDATE public.visit_checklist_templates
+   SET active = false
+ WHERE active = true
+   AND code IN (
+     'PERSONAL-HYGIENE-01','PERSONAL-HYGIENE-02','BAR-01','BAR-02',
+     'KITCHEN-01','KITCHEN-02','HALL-01','HALL-02','STORAGE-01','STORAGE-02',
+     'FOOD-SAFETY-01','FOOD-SAFETY-02','WASTE-01','WASTE-02',
+     'OPEN-CLOSE-01','OPEN-CLOSE-02','STAFF-01','STAFF-02',
+     'MANAGEMENT-01','MANAGEMENT-02','GMP-01','GMP-02',
+     'FOOD-TIME-01','FOOD-TIME-02','EXPIRY-01','EXPIRY-02',
+     'BAR-03','BAR-04','OPEN-CLOSE-03','OPEN-CLOSE-04',
+     'CUSTOMER-01','CUSTOMER-02','WASTE-03','WASTE-04'
+   );
 
 INSERT INTO public.visit_checklist_templates (code, category, title, instructions, max_score, sort_order, branch_id, shift_type, active, requires_photo_on_violation)
 VALUES
