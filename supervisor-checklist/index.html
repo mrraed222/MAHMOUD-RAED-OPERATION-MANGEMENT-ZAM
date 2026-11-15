@@ -2,7 +2,7 @@
 <html class="light" dir="rtl" lang="ar"><head>
 <meta charset="utf-8"/><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20260819"></script>
+<script src="../assets/supabase-config.js?v=20261114"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // صفحة قوائم المهام مخصصة للمشرفين — المالك/الأدمن يتابعان الأداء من الداشبورد
@@ -288,6 +288,10 @@ async function uploadEvidence(file) {
     return data.publicUrl;
 }
 
+function escHtml(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 function renderChecklist(templates, logsByTemplate) {
     let filteredTemplates = templates;
     if (activeSubTab === 'my-tasks') {
@@ -305,6 +309,21 @@ function renderChecklist(templates, logsByTemplate) {
     container.innerHTML = filteredTemplates.map(item => {
         const log = logsByTemplate[item.id];
         const completed = !!log;
+        if (activeSubTab === 'my-tasks' && item.task_type === 'fridge_temps') {
+            return `
+            <div class="p-md ${completed ? 'bg-tertiary-fixed/10' : ''}">
+                <div class="flex items-center gap-md">
+                    <span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-outline'}">${completed ? 'check_circle' : 'device_thermostat'}</span>
+                    <div class="flex-1">
+                        <h4 class="font-body-lg font-bold text-on-surface">${escHtml(item.task_title)}</h4>
+                        ${item.instructions ? `<p class="text-body-sm text-on-surface-variant">${escHtml(item.instructions)}</p>` : ''}
+                    </div>
+                </div>
+                <div class="fridge-panel mt-sm pr-10" data-id="${item.id}" data-allows-notes="${!!item.allows_notes}">
+                    <p class="text-body-sm text-on-surface-variant">جارِ تحميل الثلاجات...</p>
+                </div>
+            </div>`;
+        }
         if (activeSubTab === 'my-tasks') {
             return `
             <div class="checklist-item p-md ${completed ? 'bg-tertiary-fixed/10' : ''}">
@@ -313,7 +332,9 @@ function renderChecklist(templates, logsByTemplate) {
                         <input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${item.id}" ${completed ? 'checked disabled' : ''}/>
                         <div class="flex-1">
                             <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${item.task_title}</h4>
+                            ${item.instructions ? `<p class="text-body-sm text-on-surface-variant">${escHtml(item.instructions)}</p>` : ''}
                             ${item.requires_photo ? '<p class="text-body-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-sm">photo_camera</span> يتطلب صورة إثبات</p>' : ''}
+                            ${completed && log.notes ? `<p class="text-body-sm text-on-surface-variant mt-xs">📝 ${escHtml(log.notes)}</p>` : ''}
                         </div>
                     </div>
                 </div>
@@ -326,6 +347,7 @@ function renderChecklist(templates, logsByTemplate) {
                             <input type="file" accept="image/*" capture="environment" class="hidden evidence-input"/>
                         </label>
                     ` : ''}
+                    ${item.allows_notes ? `<textarea rows="2" class="task-note w-full border border-outline-variant rounded-lg p-sm text-body-sm" data-id="${item.id}" placeholder="ملاحظة أو تعليق (اختياري) — اكتبها قبل التأشير"></textarea>` : ''}
                     <span class="task-status text-error text-[11px]"></span>
                     <span class="loading-indicator text-primary text-[11px] font-bold hidden"><span class="material-symbols-outlined animate-spin text-sm">sync</span> جارِ رفع الصورة والحفظ...</span>
                 </div>` : ''}
@@ -361,7 +383,8 @@ function renderChecklist(templates, logsByTemplate) {
                         template_id: cb.dataset.id,
                         branch_id: currentUser.branch_id,
                         executed_by: currentUser.id,
-                        status: 'Completed'
+                        status: 'Completed',
+                        notes: container.querySelector(`.task-note[data-id="${cb.dataset.id}"]`)?.value.trim() || null
                     });
                     await loadChecklist();
                 } catch (err) {
@@ -392,6 +415,7 @@ function renderChecklist(templates, logsByTemplate) {
                         branch_id: currentUser.branch_id,
                         executed_by: currentUser.id,
                         status: 'Completed',
+                        notes: container.querySelector(`.task-note[data-id="${templateId}"]`)?.value.trim() || null,
                         photo_url
                     });
                     await loadChecklist();
@@ -415,6 +439,139 @@ function renderChecklist(templates, logsByTemplate) {
     }
 }
 
+// ===== قراءات الثلاجات والفريزرات =====
+const FRIDGE_STATUS_UI = {
+    ok:      { label: 'طبيعي',  cls: 'bg-tertiary-fixed text-on-tertiary-fixed-variant' },
+    warning: { label: 'تنبيه',  cls: 'bg-secondary-container text-on-secondary-container' },
+    problem: { label: 'مشكلة',  cls: 'bg-error-container text-on-error-container' }
+};
+
+function normalizeTempInput(raw) {
+    const map = { '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','٫':'.',',':'.','−':'-','–':'-' };
+    const cleaned = String(raw || '').trim().replace(/[٠-٩٫,−–]/g, c => map[c]);
+    if (!/^-?\d+(\.\d+)?$/.test(cleaned)) return null;
+    return cleaned;
+}
+
+function fridgeLabel(f) {
+    return (f.kind === 'freezer' ? 'فريزر' : 'ثلاجة') + ' ' + f.number + (f.name ? ' — ' + escHtml(f.name) : '');
+}
+
+function fridgeTargetText(f) {
+    if (f.kind === 'freezer' || f.target_min === null) return `الطبيعي ${f.target_max}° أو أقل • مشكلة عند ${f.problem_threshold}°`;
+    return `الطبيعي ${f.target_min}–${f.target_max}° • مشكلة عند ${f.problem_threshold}°`;
+}
+
+async function initFridgePanels(logsByTemplate) {
+    const panels = container.querySelectorAll('.fridge-panel');
+    if (!panels.length) return;
+    let fridges = [], readings = [];
+    try {
+        [fridges, readings] = await Promise.all([
+            ZamAPI.getFridges(currentUser.branch_id),
+            ZamAPI.getTodayFridgeReadings(currentUser.branch_id)
+        ]);
+    } catch (err) {
+        console.error(err);
+        panels.forEach(p => { p.innerHTML = '<p class="text-error text-body-sm">تعذّر تحميل الثلاجات.</p>'; });
+        return;
+    }
+    panels.forEach(panel => renderFridgePanel(panel, fridges, readings, logsByTemplate[panel.dataset.id]));
+}
+
+function renderFridgePanel(panel, fridges, readings, log) {
+    if (!fridges.length) {
+        panel.innerHTML = '<p class="text-body-sm text-on-surface-variant">لا توجد ثلاجات مضافة لهذا الفرع. تُضاف من «إدارة قوالب المهام» ← «إدارة الثلاجات».</p>';
+        return;
+    }
+    const rows = fridges.map(f => {
+        const mine = readings.filter(r => r.fridge_id === f.id);
+        const history = mine.map(r => {
+            const ui = FRIDGE_STATUS_UI[r.status] || FRIDGE_STATUS_UI.ok;
+            const time = new Date(r.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+            return `<span class="inline-flex items-center gap-1 px-xs py-[2px] rounded-full text-[11px] font-bold ${ui.cls}">${time} • ${r.temperature}°</span>`;
+        }).join(' ');
+        const isFreezer = f.kind === 'freezer';
+        return `
+        <div class="fridge-row py-sm border-b border-outline-variant last:border-0" data-fridge-id="${f.id}">
+            <div class="flex items-center justify-between gap-sm flex-wrap">
+                <div>
+                    <p class="font-bold text-on-surface text-body-sm">${fridgeLabel(f)}</p>
+                    <p class="text-[11px] text-on-surface-variant">${fridgeTargetText(f)}</p>
+                </div>
+                <div class="flex items-center gap-xs">
+                    ${isFreezer ? '<button type="button" class="sign-toggle w-9 h-9 rounded-lg border border-outline bg-surface-container font-bold" data-sign="-1" title="السالب / الموجب">−</button>' : ''}
+                    <input type="text" inputmode="decimal" dir="ltr" class="fridge-temp w-24 border border-outline-variant rounded-lg p-xs text-center" placeholder="الدرجة °"/>
+                </div>
+            </div>
+            ${history ? `<div class="mt-xs flex flex-wrap gap-xs">${history}</div>` : ''}
+        </div>`;
+    }).join('');
+    panel.innerHTML = `
+        <div class="bg-surface-container-low rounded-xl p-sm border border-outline-variant">
+            ${rows}
+            ${panel.dataset.allowsNotes === 'true' ? '<textarea rows="2" class="fridge-note w-full mt-sm border border-outline-variant rounded-lg p-sm text-body-sm" placeholder="ملاحظة أو تعليق (اختياري)"></textarea>' : ''}
+            <div class="flex items-center gap-sm mt-sm flex-wrap">
+                <button type="button" class="save-fridges bg-primary text-on-primary rounded-lg px-md py-xs font-bold text-body-sm">${readings.length ? 'حفظ قراءة جديدة' : 'حفظ القراءات'}</button>
+                <span class="fridge-msg text-[12px] font-bold"></span>
+            </div>
+        </div>`;
+
+    panel.querySelectorAll('.sign-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const next = btn.dataset.sign === '-1' ? 1 : -1;
+            btn.dataset.sign = String(next);
+            btn.textContent = next === -1 ? '−' : '+';
+        });
+    });
+
+    panel.querySelector('.save-fridges').addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        const msg = panel.querySelector('.fridge-msg');
+        msg.textContent = '';
+        msg.className = 'fridge-msg text-[12px] font-bold text-error';
+        const note = panel.querySelector('.fridge-note')?.value.trim() || null;
+        const entries = [];
+        for (const row of panel.querySelectorAll('.fridge-row')) {
+            const raw = row.querySelector('.fridge-temp').value;
+            if (!raw.trim()) continue;
+            const norm = normalizeTempInput(raw);
+            if (norm === null) { msg.textContent = 'قراءة غير صالحة — اكتب رقمًا فقط.'; return; }
+            let value = Number(norm);
+            const toggle = row.querySelector('.sign-toggle');
+            if (toggle && !/^-/.test(norm)) value = Math.abs(value) * Number(toggle.dataset.sign);
+            entries.push({ fridge: fridges.find(f => f.id === row.dataset.fridgeId), temperature: value, note });
+        }
+        if (!entries.length) { msg.textContent = 'أدخل قراءة واحدة على الأقل.'; return; }
+        btn.disabled = true;
+        try {
+            const { problemCount } = await ZamAPI.submitFridgeReadings(entries, {
+                branch_id: currentUser.branch_id,
+                recorded_by: currentUser.id
+            });
+            const updated = await ZamAPI.getTodayFridgeReadings(currentUser.branch_id);
+            const allDone = fridges.every(f => updated.some(r => r.fridge_id === f.id));
+            if (allDone && !log) {
+                await ZamAPI.submitChecklistLog({
+                    template_id: panel.dataset.id,
+                    branch_id: currentUser.branch_id,
+                    executed_by: currentUser.id,
+                    status: 'Completed',
+                    notes: note
+                });
+            }
+            if (problemCount) {
+                alert(`تم تسجيل ${problemCount} بلاغ مشكلة تقنية تلقائيًا بسبب ارتفاع الحرارة. راجعها في تقرير الشفت.`);
+            }
+            await loadChecklist();
+        } catch (err) {
+            console.error(err);
+            msg.textContent = 'تعذّر حفظ القراءات، حاول مرة أخرى.';
+            btn.disabled = false;
+        }
+    });
+}
+
 async function loadChecklist() {
     container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
     try {
@@ -424,6 +581,7 @@ async function loadChecklist() {
         const logsByTemplate = {};
         logs.forEach(l => { logsByTemplate[l.template_id] = l; });
         renderChecklist(templates, logsByTemplate);
+        if (activeSubTab === 'my-tasks') initFridgePanels(logsByTemplate);
     } catch (err) {
         console.error(err);
         container.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل المهام من قاعدة البيانات.</p>';

@@ -2,7 +2,7 @@
 
 <html dir="rtl" lang="ar"><head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20260819"></script>
+<script src="../assets/supabase-config.js?v=20261114"></script>
 <script>
   // حماية الشاشة: لازم تسجيل دخول قبل الوصول
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -287,6 +287,35 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <tbody id="issues-tbody"></tbody>
 </table>
 </div>
+<!-- Technical Issues -->
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant" id="tech-issues-card">
+<div class="flex justify-between items-center border-b border-outline-variant pb-base mb-md">
+<h3 class="font-title-md text-title-md text-primary flex items-center gap-sm">
+<span class="material-symbols-outlined text-error">build</span> المشاكل التقنية
+</h3>
+<button type="button" id="tech-toggle-btn" class="bg-primary text-white px-md py-xs rounded-full text-label-bold flex items-center gap-xs hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">report</span> الإبلاغ عن مشكلة تقنية
+</button>
+</div>
+<div id="tech-form" class="hidden mb-md bg-surface-container-low rounded-xl p-md border border-outline-variant">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-sm">
+<input id="tech-title" class="border border-outline-variant rounded-lg p-sm" placeholder="عنوان المشكلة (مثال: ماكينة الإسبريسو لا تسخن)"/>
+<select id="tech-priority" class="border border-outline-variant rounded-lg p-sm">
+<option value="normal">أولوية عادية</option>
+<option value="high">أولوية عالية</option>
+</select>
+<select id="tech-fridge" class="border border-outline-variant rounded-lg p-sm md:col-span-2">
+<option value="">غير مرتبطة بثلاجة</option>
+</select>
+<textarea id="tech-desc" rows="2" class="border border-outline-variant rounded-lg p-sm md:col-span-2" placeholder="تفاصيل إضافية (اختياري)"></textarea>
+</div>
+<div class="flex items-center gap-sm mt-sm">
+<button type="button" id="tech-save-btn" class="bg-primary text-white px-md py-xs rounded-full text-label-bold">إرسال البلاغ</button>
+<span id="tech-msg" class="text-[12px] font-bold"></span>
+</div>
+</div>
+<div id="tech-list"><p class="text-body-sm text-on-surface-variant">جارِ التحميل...</p></div>
+</div>
 </div>
 <div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant flex flex-col md:flex-row items-center justify-between gap-md">
 <label class="flex items-center gap-md cursor-pointer">
@@ -458,4 +487,82 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
             attachNotificationBellHandlers();
         })();
     </script>
+<script>
+(function () {
+    const listEl = document.getElementById('tech-list');
+    const msgEl = document.getElementById('tech-msg');
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    let fridgesCache = [];
+
+    async function loadTechIssues() {
+        if (!currentUser.branch_id) {
+            listEl.innerHTML = '<p class="text-body-sm text-on-surface-variant">الحساب غير مرتبط بفرع.</p>';
+            return;
+        }
+        try {
+            const issues = await ZamAPI.getTechnicalIssues(currentUser.branch_id, { onlyOpen: true });
+            listEl.innerHTML = issues.length ? issues.map(i => `
+                <div class="flex items-start justify-between gap-sm py-sm border-b border-outline-variant last:border-0">
+                    <div>
+                        <p class="font-bold text-body-sm">${i.priority === 'high' ? '🔴 ' : ''}${esc(i.title)}${i.source === 'fridge' ? ' <span class="text-[11px] text-outline">(تلقائي من الثلاجات)</span>' : ''}</p>
+                        ${i.description ? `<p class="text-[12px] text-on-surface-variant">${esc(i.description)}</p>` : ''}
+                    </div>
+                    <span class="text-[11px] text-outline shrink-0">${new Date(i.created_at).toLocaleDateString('ar-EG')}</span>
+                </div>`).join('') : '<p class="text-body-sm text-on-surface-variant">لا توجد مشاكل تقنية مفتوحة.</p>';
+        } catch (err) {
+            console.error(err);
+            listEl.innerHTML = '<p class="text-error text-body-sm">تعذّر تحميل المشاكل التقنية.</p>';
+        }
+    }
+
+    document.getElementById('tech-toggle-btn').addEventListener('click', async () => {
+        const form = document.getElementById('tech-form');
+        form.classList.toggle('hidden');
+        if (!form.classList.contains('hidden') && currentUser.branch_id && !fridgesCache.length) {
+            try {
+                fridgesCache = await ZamAPI.getFridges(currentUser.branch_id);
+                const sel = document.getElementById('tech-fridge');
+                fridgesCache.forEach(f => {
+                    const o = document.createElement('option');
+                    o.value = f.id;
+                    o.textContent = (f.kind === 'freezer' ? 'فريزر ' : 'ثلاجة ') + f.number + (f.name ? ' — ' + f.name : '');
+                    sel.appendChild(o);
+                });
+            } catch (err) { console.error(err); }
+        }
+    });
+
+    document.getElementById('tech-save-btn').addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        const title = document.getElementById('tech-title').value.trim();
+        msgEl.className = 'text-[12px] font-bold text-error';
+        if (!title) { msgEl.textContent = 'اكتب عنوان المشكلة.'; return; }
+        if (!currentUser.branch_id) { msgEl.textContent = 'الحساب غير مرتبط بفرع.'; return; }
+        btn.disabled = true;
+        try {
+            await ZamAPI.createTechnicalIssue({
+                branch_id: currentUser.branch_id,
+                reported_by: currentUser.id,
+                title,
+                description: document.getElementById('tech-desc').value.trim() || null,
+                priority: document.getElementById('tech-priority').value,
+                fridge_id: document.getElementById('tech-fridge').value || null
+            });
+            document.getElementById('tech-title').value = '';
+            document.getElementById('tech-desc').value = '';
+            document.getElementById('tech-fridge').value = '';
+            msgEl.className = 'text-[12px] font-bold text-tertiary';
+            msgEl.textContent = 'تم إرسال البلاغ.';
+            await loadTechIssues();
+        } catch (err) {
+            console.error(err);
+            msgEl.textContent = 'تعذّر إرسال البلاغ، حاول مرة أخرى.';
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    loadTechIssues();
+})();
+</script>
 </body></html>

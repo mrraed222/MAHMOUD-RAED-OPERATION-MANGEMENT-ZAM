@@ -862,5 +862,104 @@ const ZamAPI = {
             }
             throw err;
         }
+    },
+
+    // ============================================
+    // الثلاجات والفريزرات + البلاغات التقنية
+    // ============================================
+    todayDate() {
+        return new Date().toISOString().split('T')[0];
+    },
+
+    // حالة القراءة: ok | warning | problem
+    fridgeReadingStatus(fridge, temperature) {
+        const t = Number(temperature);
+        if (t >= Number(fridge.problem_threshold)) return 'problem';
+        const aboveMax = t > Number(fridge.target_max);
+        const belowMin = fridge.target_min !== null && fridge.target_min !== undefined && t < Number(fridge.target_min);
+        return (aboveMax || belowMin) ? 'warning' : 'ok';
+    },
+
+    async getFridges(branchId, { includeInactive = false } = {}) {
+        let q = zamClient.from('fridges').select('*').eq('branch_id', branchId)
+            .order('kind', { ascending: true }).order('number', { ascending: true });
+        if (!includeInactive) q = q.eq('active', true);
+        const { data, error } = await q;
+        if (error) throw error;
+        return data || [];
+    },
+
+    async saveFridge(payload, id = null) {
+        const q = id
+            ? zamClient.from('fridges').update(payload).eq('id', id)
+            : zamClient.from('fridges').insert([payload]);
+        const { data, error } = await q.select().single();
+        if (error) throw error;
+        return data;
+    },
+
+    async deleteFridge(id) {
+        const { error } = await zamClient.from('fridges').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    async getTodayFridgeReadings(branchId) {
+        const { data, error } = await zamClient.from('fridge_readings').select('*')
+            .eq('branch_id', branchId).eq('reading_date', this.todayDate())
+            .order('created_at', { ascending: true });
+        if (error) throw error;
+        return data || [];
+    },
+
+    // يحفظ القراءات، وينشئ بلاغ مشكلة تقنية تلقائيًا لأي قراءة تتخطى حد المشكلة
+    async submitFridgeReadings(entries, { branch_id, recorded_by }) {
+        // entries: [{ fridge, temperature, note }]
+        const rows = entries.map(e => ({
+            fridge_id: e.fridge.id,
+            branch_id,
+            recorded_by,
+            temperature: Number(e.temperature),
+            status: this.fridgeReadingStatus(e.fridge, e.temperature),
+            note: e.note || null
+        }));
+        const { data, error } = await zamClient.from('fridge_readings').insert(rows).select();
+        if (error) throw error;
+        const problems = (data || []).filter(r => r.status === 'problem');
+        if (problems.length) {
+            const issues = problems.map(r => {
+                const f = entries.find(e => e.fridge.id === r.fridge_id).fridge;
+                const label = (f.kind === 'freezer' ? 'فريزر' : 'ثلاجة') + ' رقم ' + f.number + (f.name ? ' (' + f.name + ')' : '');
+                return {
+                    branch_id,
+                    reported_by: recorded_by,
+                    source: 'fridge',
+                    fridge_id: f.id,
+                    reading_id: r.id,
+                    title: 'ارتفاع درجة حرارة ' + label,
+                    description: 'القراءة ' + r.temperature + '° وحد المشكلة ' + f.problem_threshold + '°' + (r.note ? ' — ' + r.note : ''),
+                    priority: 'high'
+                };
+            });
+            const { error: issueErr } = await zamClient.from('technical_issues').insert(issues);
+            if (issueErr) throw issueErr;
+        }
+        return { readings: data || [], problemCount: problems.length };
+    },
+
+    async createTechnicalIssue({ branch_id, reported_by, title, description = null, priority = 'normal', fridge_id = null }) {
+        const { data, error } = await zamClient.from('technical_issues')
+            .insert([{ branch_id, reported_by, source: 'manual', title, description, priority, fridge_id }])
+            .select().single();
+        if (error) throw error;
+        return data;
+    },
+
+    async getTechnicalIssues(branchId, { onlyOpen = true } = {}) {
+        let q = zamClient.from('technical_issues').select('*').eq('branch_id', branchId)
+            .order('created_at', { ascending: false }).limit(50);
+        if (onlyOpen) q = q.eq('status', 'open');
+        const { data, error } = await q;
+        if (error) throw error;
+        return data || [];
     }
 };

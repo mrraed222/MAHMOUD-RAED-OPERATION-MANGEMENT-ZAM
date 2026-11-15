@@ -15,7 +15,7 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20260819"></script>
+<script src="../assets/supabase-config.js?v=20261114"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: anyone without this permission is sent home
@@ -58,6 +58,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
       <p class="text-body-sm text-on-surface-variant">أضف، عدّل، أو احذف مهام التشيك ليست وقوائمه الرئيسية</p>
     </div>
   </div>
+  <button id="open-fridges-btn" class="border border-primary text-primary rounded-lg px-md py-sm font-bold flex items-center gap-1 ml-sm">🧊 إدارة الثلاجات</button>
   <button id="add-template-btn" class="bg-primary text-on-primary rounded-lg px-md py-sm font-bold flex items-center gap-1">
     <span class="material-symbols-outlined text-base">add</span> مهمة جديدة
   </button>
@@ -139,10 +140,72 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
           <input type="time" id="f-target-time" class="border border-outline-variant rounded-lg p-xs w-full text-body-sm"/>
         </div>
       </div>
+      <div class="grid grid-cols-2 gap-sm mt-xs">
+        <label class="flex items-center gap-sm cursor-pointer">
+          <input type="checkbox" id="f-allows-notes" class="w-5 h-5 text-primary"/>
+          <span class="text-body-sm">إتاحة إضافة تعليق / ملاحظة</span>
+        </label>
+        <div>
+          <label class="text-[11px] text-on-surface-variant block font-bold">نوع المهمة</label>
+          <select id="f-task-type" class="border border-outline-variant rounded-lg p-xs w-full text-body-sm">
+            <option value="standard">مهمة عادية</option>
+            <option value="fridge_temps">قراءة حرارة الثلاجات والفريزرات</option>
+          </select>
+        </div>
+      </div>
     </div>
     <div class="flex gap-sm justify-end mt-md">
       <button id="cancel-modal" class="px-md py-sm rounded-lg text-on-surface-variant">إلغاء</button>
       <button id="save-template" class="px-md py-sm bg-primary text-on-primary rounded-lg font-bold">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal إدارة الثلاجات -->
+<div id="fridge-modal" class="fixed inset-0 bg-inverse-surface/40 hidden items-center justify-center z-50 p-margin-mobile">
+  <div class="bg-surface-container-lowest rounded-xl p-md w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <h3 class="font-title-md text-title-md text-primary mb-sm">إدارة الثلاجات والفريزرات</h3>
+    <label class="text-body-sm text-on-surface-variant">الفرع</label>
+    <select id="fr-branch" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-sm"></select>
+    <div id="fr-list" class="mb-md"></div>
+    <div class="border-t border-outline-variant pt-sm">
+      <p class="font-bold text-body-sm mb-xs" id="fr-form-title">إضافة ثلاجة / فريزر</p>
+      <div class="grid grid-cols-2 gap-sm">
+        <div>
+          <label class="text-[11px] text-on-surface-variant font-bold">النوع</label>
+          <select id="fr-kind" class="w-full border border-outline-variant rounded-lg p-xs">
+            <option value="fridge">ثلاجة</option>
+            <option value="freezer">فريزر</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-[11px] text-on-surface-variant font-bold">الرقم</label>
+          <input id="fr-number" type="number" min="1" class="w-full border border-outline-variant rounded-lg p-xs"/>
+        </div>
+        <div class="col-span-2">
+          <label class="text-[11px] text-on-surface-variant font-bold">الاسم / الموقع (اختياري)</label>
+          <input id="fr-name" class="w-full border border-outline-variant rounded-lg p-xs" placeholder="مثال: ثلاجة الألبان"/>
+        </div>
+        <div>
+          <label class="text-[11px] text-on-surface-variant font-bold">أدنى درجة طبيعية</label>
+          <input id="fr-min" type="number" step="0.5" class="w-full border border-outline-variant rounded-lg p-xs"/>
+        </div>
+        <div>
+          <label class="text-[11px] text-on-surface-variant font-bold">أقصى درجة طبيعية</label>
+          <input id="fr-max" type="number" step="0.5" class="w-full border border-outline-variant rounded-lg p-xs"/>
+        </div>
+        <div class="col-span-2">
+          <label class="text-[11px] text-on-surface-variant font-bold">حد المشكلة (قراءة تساويه أو تتخطاه تُسجَّل مشكلة)</label>
+          <input id="fr-problem" type="number" step="0.5" class="w-full border border-outline-variant rounded-lg p-xs"/>
+        </div>
+      </div>
+      <div class="flex gap-sm justify-end mt-sm">
+        <button id="fr-cancel-edit" class="px-sm py-xs rounded-lg text-on-surface-variant hidden">إلغاء التعديل</button>
+        <button id="fr-save" class="px-md py-xs bg-primary text-on-primary rounded-lg font-bold">حفظ</button>
+      </div>
+    </div>
+    <div class="flex justify-end mt-md">
+      <button id="fr-close" class="px-md py-sm rounded-lg text-on-surface-variant">إغلاق</button>
     </div>
   </div>
 </div>
@@ -184,6 +247,8 @@ function openModal(template = null) {
     document.getElementById('f-instructions').value = template?.instructions || '';
     document.getElementById('f-branch').value = template?.branch_id || '';
     document.getElementById('f-requires-photo').checked = !!template?.requires_photo;
+    document.getElementById('f-allows-notes').checked = template ? !!template.allows_notes : true;
+    document.getElementById('f-task-type').value = template?.task_type || 'standard';
     document.getElementById('f-target-time').value = template?.target_time ? template.target_time.slice(0, 5) : '';
     const freqSel = document.getElementById('f-frequency');
     freqSel.value = template?.frequency || 'daily';
@@ -210,6 +275,8 @@ document.getElementById('save-template').addEventListener('click', async () => {
         instructions: document.getElementById('f-instructions').value.trim() || null,
         branch_id: document.getElementById('f-branch').value || null,
         requires_photo: document.getElementById('f-requires-photo').checked,
+        allows_notes: document.getElementById('f-allows-notes').checked,
+        task_type: document.getElementById('f-task-type').value,
         target_time: document.getElementById('f-target-time').value || null,
         frequency: document.getElementById('f-frequency').value,
         day_of_week: payload_dayOfWeek(),
@@ -296,6 +363,7 @@ async function loadTemplates() {
                                         <span class="text-[11px] ${t.branch_id ? 'text-primary font-bold' : 'text-outline'}">${t.branch_id ? '📍 ' + (branchesCache.find(b => b.id === t.branch_id)?.name || 'عام (كل الفروع)') : 'عام (كل الفروع)'}</span>
                                     </div>
                                     <div class="flex gap-sm shrink-0">
+                                        ${t.task_type === 'fridge_temps' ? `<button class="fridges-btn text-tertiary text-[12px] font-bold hover:underline" data-id="${t.id}">🧊 إدارة الثلاجات</button>` : ''}
                                         <button class="edit-btn text-primary text-[12px] font-bold hover:underline" data-id="${t.id}">تعديل</button>
                                         <button class="delete-btn text-error text-[12px] font-bold hover:underline" data-id="${t.id}">حذف</button>
                                     </div>
@@ -313,6 +381,12 @@ async function loadTemplates() {
                 openModal(t);
             });
         });
+        container.querySelectorAll('.fridges-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const t = allTemplates.find(x => x.id === btn.dataset.id);
+                openFridgeModal(t?.branch_id || '');
+            });
+        });
         container.querySelectorAll('.delete-btn').forEach(btn => {
             btn.addEventListener('click', () => deleteTemplate(btn.dataset.id));
         });
@@ -321,6 +395,132 @@ async function loadTemplates() {
         container.innerHTML = '<p class="text-error text-body-sm">تعذّر تحميل قوائم التحقق.</p>';
     }
 }
+
+// ===== إدارة الثلاجات =====
+const fridgeModal = document.getElementById('fridge-modal');
+let editingFridgeId = null;
+let currentFridges = [];
+
+function frEsc(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function applyFridgePreset() {
+    const kind = document.getElementById('fr-kind').value;
+    document.getElementById('fr-min').value = kind === 'freezer' ? '' : 1;
+    document.getElementById('fr-max').value = kind === 'freezer' ? -18 : 4;
+    document.getElementById('fr-problem').value = kind === 'freezer' ? -14 : 9;
+}
+
+function suggestFridgeNumber() {
+    const kind = document.getElementById('fr-kind').value;
+    const used = currentFridges.filter(f => f.kind === kind).map(f => f.number);
+    document.getElementById('fr-number').value = used.length ? Math.max(...used) + 1 : 1;
+}
+
+function resetFridgeForm() {
+    editingFridgeId = null;
+    document.getElementById('fr-form-title').textContent = 'إضافة ثلاجة / فريزر';
+    document.getElementById('fr-cancel-edit').classList.add('hidden');
+    document.getElementById('fr-kind').disabled = false;
+    document.getElementById('fr-name').value = '';
+    applyFridgePreset();
+    suggestFridgeNumber();
+}
+
+async function loadFridgeList() {
+    const branchId = document.getElementById('fr-branch').value;
+    const list = document.getElementById('fr-list');
+    if (!branchId) { list.innerHTML = ''; return; }
+    try {
+        currentFridges = await ZamAPI.getFridges(branchId, { includeInactive: true });
+    } catch (err) {
+        console.error(err);
+        list.innerHTML = '<p class="text-error text-body-sm">تعذّر تحميل الثلاجات.</p>';
+        return;
+    }
+    list.innerHTML = currentFridges.length ? currentFridges.map(f => `
+        <div class="flex items-center justify-between gap-sm py-xs border-b border-outline-variant ${f.active ? '' : 'opacity-50'}">
+            <div>
+                <p class="font-bold text-body-sm">${f.kind === 'freezer' ? '❄️ فريزر' : '🧊 ثلاجة'} ${f.number}${f.name ? ' — ' + frEsc(f.name) : ''}${f.active ? '' : ' (متوقفة)'}</p>
+                <p class="text-[11px] text-on-surface-variant">طبيعي ${f.target_min !== null ? f.target_min + ' إلى ' : 'حتى '}${f.target_max}° • مشكلة عند ${f.problem_threshold}°</p>
+            </div>
+            <div class="flex gap-sm shrink-0">
+                <button class="fr-edit text-primary text-[12px] font-bold" data-id="${f.id}">تعديل</button>
+                <button class="fr-toggle text-secondary text-[12px] font-bold" data-id="${f.id}">${f.active ? 'إيقاف' : 'تفعيل'}</button>
+                <button class="fr-del text-error text-[12px] font-bold" data-id="${f.id}">حذف</button>
+            </div>
+        </div>`).join('') : '<p class="text-body-sm text-on-surface-variant">لا توجد ثلاجات لهذا الفرع بعد.</p>';
+
+    list.querySelectorAll('.fr-edit').forEach(b => b.addEventListener('click', () => {
+        const f = currentFridges.find(x => x.id === b.dataset.id);
+        editingFridgeId = f.id;
+        document.getElementById('fr-form-title').textContent = 'تعديل ثلاجة / فريزر';
+        document.getElementById('fr-cancel-edit').classList.remove('hidden');
+        document.getElementById('fr-kind').value = f.kind;
+        document.getElementById('fr-kind').disabled = true;
+        document.getElementById('fr-number').value = f.number;
+        document.getElementById('fr-name').value = f.name || '';
+        document.getElementById('fr-min').value = f.target_min ?? '';
+        document.getElementById('fr-max').value = f.target_max;
+        document.getElementById('fr-problem').value = f.problem_threshold;
+    }));
+    list.querySelectorAll('.fr-toggle').forEach(b => b.addEventListener('click', async () => {
+        const f = currentFridges.find(x => x.id === b.dataset.id);
+        try { await ZamAPI.saveFridge({ active: !f.active }, f.id); await loadFridgeList(); }
+        catch (err) { console.error(err); alert('تعذّر التحديث. تأكد من صلاحية تعديل القوالب.'); }
+    }));
+    list.querySelectorAll('.fr-del').forEach(b => b.addEventListener('click', async () => {
+        if (!confirm('حذف الثلاجة وكل قراءاتها نهائيًا؟ (للإيقاف المؤقت استخدم «إيقاف»)')) return;
+        try { await ZamAPI.deleteFridge(b.dataset.id); await loadFridgeList(); resetFridgeForm(); }
+        catch (err) { console.error(err); alert('تعذّر الحذف. تأكد من صلاحية تعديل القوالب.'); }
+    }));
+    if (!editingFridgeId) suggestFridgeNumber();
+}
+
+function openFridgeModal(branchId) {
+    const sel = document.getElementById('fr-branch');
+    sel.innerHTML = branchesCache.map(b => `<option value="${b.id}">${frEsc(b.name)}</option>`).join('');
+    if (branchId) sel.value = branchId;
+    resetFridgeForm();
+    fridgeModal.classList.remove('hidden');
+    fridgeModal.classList.add('flex');
+    loadFridgeList();
+}
+
+document.getElementById('open-fridges-btn').addEventListener('click', () => openFridgeModal(''));
+document.getElementById('fr-branch').addEventListener('change', () => { resetFridgeForm(); loadFridgeList(); });
+document.getElementById('fr-kind').addEventListener('change', () => { applyFridgePreset(); suggestFridgeNumber(); });
+document.getElementById('fr-cancel-edit').addEventListener('click', () => { resetFridgeForm(); });
+document.getElementById('fr-close').addEventListener('click', () => {
+    fridgeModal.classList.add('hidden');
+    fridgeModal.classList.remove('flex');
+});
+document.getElementById('fr-save').addEventListener('click', async () => {
+    const branch_id = document.getElementById('fr-branch').value;
+    const num = (id) => { const v = document.getElementById(id).value; return v === '' ? null : Number(v); };
+    const payload = {
+        branch_id,
+        kind: document.getElementById('fr-kind').value,
+        number: num('fr-number'),
+        name: document.getElementById('fr-name').value.trim() || null,
+        target_min: num('fr-min'),
+        target_max: num('fr-max'),
+        problem_threshold: num('fr-problem')
+    };
+    if (!branch_id || !payload.number || payload.target_max === null || payload.problem_threshold === null) {
+        alert('الفرع والرقم وأقصى درجة وحد المشكلة مطلوبين.');
+        return;
+    }
+    try {
+        await ZamAPI.saveFridge(payload, editingFridgeId);
+        resetFridgeForm();
+        await loadFridgeList();
+    } catch (err) {
+        console.error(err);
+        alert(err.code === '23505' ? 'الرقم ده مستخدم قبل كده في نفس الفرع.' : 'تعذّر الحفظ. تأكد من صلاحية تعديل القوالب.');
+    }
+});
 
 loadTemplates();
 </script>
