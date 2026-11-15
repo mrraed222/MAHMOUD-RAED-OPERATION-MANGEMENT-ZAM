@@ -145,23 +145,34 @@ Deno.serve(async (req: Request) => {
     if (sendEmail && !canManageVisits) return json({ error: 'إرسال تقارير الزيارة بالبريد يتطلب صلاحية إدارة زيارات الفروع' }, 403)
     const { data: results, error: resultsError } = await supabaseAdmin.from('supervisory_visit_results').select('id,score,result,note,is_violation,subchecks,visit_checklist_templates(category,title,sort_order)').eq('visit_id', visitId).order('sort_order', { referencedTable: 'visit_checklist_templates', ascending: true })
     if (resultsError) throw resultsError
-    const { data: actions, error: actionsError } = await supabaseAdmin.from('visit_action_items').select('id,title,description,item_type,priority,assigned_role,due_date,status').eq('visit_id', visitId).order('created_at')
+    const { data: actions, error: actionsError } = await supabaseAdmin.from('visit_action_items').select('id,title,description,item_type,priority,assigned_role,due_date,status,assigned_to,branch_id,shift_type').eq('visit_id', visitId).order('created_at')
     if (actionsError) throw actionsError
+    const { data: canReviewActionProof, error: reviewPermissionError } = await userClient.rpc('can_review_branch_visit_actions')
+    if (reviewPermissionError) throw reviewPermissionError
+    const actionIdsVisibleToActor = new Set((actions || []).filter((action: any) => action.assigned_to === actorId || (
+      action.assigned_to == null
+      && actor.role === 'Supervisor'
+      && ['مشرف الشفت', 'Supervisor', 'Shift Supervisor'].includes(action.assigned_role)
+      && action.branch_id === actor.branch_id
+      && (action.shift_type == null || actor.shift_type === 'Both' || action.shift_type === actor.shift_type)
+    )).map((action: any) => action.id))
     const { data: evidenceRows, error: evidenceError } = await supabaseAdmin.from('visit_evidence')
-      .select('id,result_id,file_path,file_name,mime_type').eq('visit_id', visitId).order('created_at')
+      .select('id,result_id,action_item_id,file_path,file_name,mime_type').eq('visit_id', visitId).order('created_at')
     if (evidenceError) throw evidenceError
     const evidence = []
     for (const item of evidenceRows || []) {
+      if (item.action_item_id && !canReviewActionProof && !actionIdsVisibleToActor.has(item.action_item_id)) continue
       const mime = String(item.mime_type || '').toLowerCase()
       const name = String(item.file_name || '')
       const supported = mime.includes('png') || mime.includes('jpeg') || mime.includes('jpg') || /\.(png|jpe?g)$/i.test(name)
       if (!supported) { evidence.push({ ...item, loadError: 'نوع الصورة غير مدعوم داخل PDF' }); continue }
-      const { data: file, error: fileError } = await supabaseAdmin.storage.from('task-evidence').download(item.file_path)
+      const evidenceBucket = item.action_item_id ? 'visit-action-evidence' : 'task-evidence'
+      const { data: file, error: fileError } = await supabaseAdmin.storage.from(evidenceBucket).download(item.file_path)
       if (fileError || !file) { evidence.push({ ...item, loadError: 'تعذر تحميل المرفق من التخزين' }); continue }
       evidence.push({ ...item, bytes: new Uint8Array(await file.arrayBuffer()) })
     }
     const pdfBytes = await buildPdf(visit, results || [], actions || [], evidence)
-    const safeBranch = clean(visit.branches?.name || 'branch', 60).replace(/[^\p{L}\p{N}_-]+/gu, '_')
+    const safeBranch = String(visit.branch_id || 'branch').replace(/[^A-Za-z0-9_-]/g, '') || 'branch'
     const path = `${visitId}/visit-${safeBranch}-${visit.visit_date}.pdf`
     const upload = await supabaseAdmin.storage.from('visit-reports').upload(path, pdfBytes, { contentType: 'application/pdf', upsert: true })
     if (upload.error) throw upload.error
