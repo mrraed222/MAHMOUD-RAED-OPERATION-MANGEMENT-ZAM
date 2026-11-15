@@ -10,7 +10,7 @@ const corsHeaders = {
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[c] || c))
 const clean = (value: unknown, max = 500) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max)
-const allowedRoles = ['Owner', 'Admin', 'Manager', 'Quality', 'Quality Manager']
+const allowedRoles = ['Owner', 'Admin', 'Manager', 'Quality', 'Quality Manager', 'Supervisor']
 const managementRoles = ['Owner', 'Admin', 'Manager', 'Quality', 'Quality Manager']
 
 async function loadArabicFont(url: string) {
@@ -30,7 +30,7 @@ function wrap(text: string, max = 78) {
   return lines.length ? lines : ['—']
 }
 
-async function buildPdf(visit: any, results: any[], actions: any[]) {
+async function buildPdf(visit: any, results: any[], actions: any[], evidence: any[]) {
   const doc = await PDFDocument.create()
   doc.registerFontkit(fontkit)
   let regular: any
@@ -78,6 +78,30 @@ async function buildPdf(visit: any, results: any[], actions: any[]) {
     y -= 8; heading('الإجراءات والمخالفات')
     for (const action of actions) text(`${action.item_type || 'تكليف'} | ${action.title} | الأولوية: ${action.priority || '—'} | المسؤول: ${action.assigned_role || '—'} | الموعد: ${action.due_date || '—'} | الحالة: ${action.status || '—'}${action.description ? ` | ${action.description}` : ''}`, 9)
   }
+  if (evidence.length) {
+    y -= 8; heading('مرفقات المخالفات')
+    for (const item of evidence) {
+      const fileName = clean(item.file_name || 'مرفق', 120)
+      if (item.loadError) { text(`${fileName} — ${item.loadError}`, 9, false, muted); continue }
+      const mime = String(item.mime_type || '').toLowerCase()
+      const isPng = mime.includes('png') || /\.png$/i.test(fileName)
+      const isJpeg = mime.includes('jpeg') || mime.includes('jpg') || /\.(jpe?g)$/i.test(fileName)
+      if (!isPng && !isJpeg) { text(`${fileName} — نوع الصورة غير مدعوم داخل PDF`, 9, false, muted); continue }
+      try {
+        const image = isPng ? await doc.embedPng(item.bytes) : await doc.embedJpg(item.bytes)
+        const scale = Math.min(500 / image.width, 590 / image.height, 1)
+        const width = image.width * scale
+        const height = image.height * scale
+        if (y - height - 28 < 56) { page = doc.addPage([595, 842]); y = 790 }
+        text(fileName, 9, true, muted)
+        page.drawImage(image, { x: 45, y: y - height, width, height })
+        y -= height + 18
+      } catch (error) {
+        console.error('Visit evidence could not be embedded', fileName, error)
+        text(`${fileName} — تعذر تضمين الصورة في PDF`, 9, false, muted)
+      }
+    }
+  }
   y -= 10
   text(`تم إنشاء التقرير: ${new Date().toLocaleString('ar-SA')}`, 8, false, muted)
   return await doc.save()
@@ -111,11 +135,37 @@ Deno.serve(async (req: Request) => {
     const { data: visit, error: visitError } = await supabaseAdmin.from('supervisory_visits').select('*,branches(name)').eq('id', visitId).maybeSingle()
     if (visitError) throw visitError
     if (!visit) return json({ error: 'الزيارة غير موجودة' }, 404)
+    if (actor.role === 'Supervisor') {
+      if (!['Morning', 'Evening', 'Both'].includes(actor.shift_type)) return json({ error: 'وردية حساب المشرف غير محددة أو غير صالحة' }, 403)
+      if (sendEmail) return json({ error: 'مشرف الشفت يستطيع تنزيل التقرير فقط' }, 403)
+      if (actor.branch_id !== visit.branch_id) return json({ error: 'لا تملك صلاحية تقرير هذا الفرع' }, 403)
+      let assignmentQuery = supabaseAdmin.from('visit_action_items').select('id').eq('visit_id', visitId)
+        .eq('branch_id', actor.branch_id).in('assigned_role', ['مشرف الشفت', 'Supervisor', 'Shift Supervisor']).limit(1)
+      if (actor.shift_type && actor.shift_type !== 'Both') {
+        assignmentQuery = assignmentQuery.or(`shift_type.is.null,shift_type.eq.${actor.shift_type}`)
+      }
+      const { data: assignment, error: assignmentError } = await assignmentQuery.maybeSingle()
+      if (assignmentError) throw assignmentError
+      if (!assignment) return json({ error: 'لا يوجد تكليف مشرف شفت مرتبط بهذه الزيارة' }, 403)
+    }
     const { data: results, error: resultsError } = await supabaseAdmin.from('supervisory_visit_results').select('id,score,result,note,is_violation,visit_checklist_templates(category,title,sort_order)').eq('visit_id', visitId).order('sort_order', { referencedTable: 'visit_checklist_templates', ascending: true })
     if (resultsError) throw resultsError
     const { data: actions, error: actionsError } = await supabaseAdmin.from('visit_action_items').select('id,title,description,item_type,priority,assigned_role,due_date,status').eq('visit_id', visitId).order('created_at')
     if (actionsError) throw actionsError
-    const pdfBytes = await buildPdf(visit, results || [], actions || [])
+    const { data: evidenceRows, error: evidenceError } = await supabaseAdmin.from('visit_evidence')
+      .select('id,result_id,file_path,file_name,mime_type').eq('visit_id', visitId).order('created_at')
+    if (evidenceError) throw evidenceError
+    const evidence = []
+    for (const item of evidenceRows || []) {
+      const mime = String(item.mime_type || '').toLowerCase()
+      const name = String(item.file_name || '')
+      const supported = mime.includes('png') || mime.includes('jpeg') || mime.includes('jpg') || /\.(png|jpe?g)$/i.test(name)
+      if (!supported) { evidence.push({ ...item, loadError: 'نوع الصورة غير مدعوم داخل PDF' }); continue }
+      const { data: file, error: fileError } = await supabaseAdmin.storage.from('task-evidence').download(item.file_path)
+      if (fileError || !file) { evidence.push({ ...item, loadError: 'تعذر تحميل المرفق من التخزين' }); continue }
+      evidence.push({ ...item, bytes: new Uint8Array(await file.arrayBuffer()) })
+    }
+    const pdfBytes = await buildPdf(visit, results || [], actions || [], evidence)
     const safeBranch = clean(visit.branches?.name || 'branch', 60).replace(/[^\p{L}\p{N}_-]+/gu, '_')
     const path = `${visitId}/visit-${safeBranch}-${visit.visit_date}.pdf`
     const upload = await supabaseAdmin.storage.from('visit-reports').upload(path, pdfBytes, { contentType: 'application/pdf', upsert: true })

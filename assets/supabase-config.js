@@ -154,12 +154,13 @@ async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
 
     const links = items.map(i => {
         const active = i.key === activeKey;
+        const label = i.key === 'daily-report' && role === 'Supervisor' ? 'تقرير مشرف الشفت' : i.label;
         const cls = active
             ? 'flex items-center gap-sm p-sm rounded-lg text-primary font-bold border-r-4 border-primary bg-surface-container transition-colors'
             : 'flex items-center gap-sm p-sm rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors group';
         return `<a class="${cls}" href="${pathPrefix}${i.href}">
             <span class="material-symbols-outlined">${i.icon}</span>
-            <span class="font-body-lg">${i.label}</span>
+            <span class="font-body-lg">${label}</span>
         </a>`;
     }).join('');
 
