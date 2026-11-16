@@ -102,6 +102,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <script>
 let reportsData = [];
 
+// Escape database values before inserting them into HTML text or quoted attributes.
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+}
+
 async function loadBranchOptions() {
     const branches = await ZamAPI.getBranches();
     const sel = document.getElementById('f-branch');
@@ -144,13 +151,13 @@ async function loadReports() {
         }
 
         tbody.innerHTML = reportsData.map(r => `
-            <tr class="border-t border-outline-variant hover:bg-surface-container-low cursor-pointer view-detail-row" data-id="${r.id}">
-                <td class="p-sm">${r.report_date}</td>
-                <td class="p-sm">${r.branches?.name || '—'}</td>
-                <td class="p-sm">${r.supervisor_name}</td>
+            <tr class="border-t border-outline-variant hover:bg-surface-container-low cursor-pointer view-detail-row" data-id="${escapeHtml(r.id)}">
+                <td class="p-sm">${escapeHtml(r.report_date)}</td>
+                <td class="p-sm">${escapeHtml(r.branches?.name || '—')}</td>
+                <td class="p-sm">${escapeHtml(r.supervisor_name)}</td>
                 <td class="p-sm">${r.shift_type === 'Morning' ? 'صباحي' : 'مسائي'}</td>
                 <td class="p-sm font-bold text-primary">${Number(r.total_sales || 0).toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</td>
-                <td class="p-sm">${r.team_status || '—'}</td>
+                <td class="p-sm">${escapeHtml(r.team_status || '—')}</td>
                 <td class="p-sm"><span class="material-symbols-outlined text-primary text-[18px]">visibility</span></td>
             </tr>
         `).join('');
@@ -186,12 +193,12 @@ async function openDetail(id) {
         body.innerHTML = `
             <div class="grid grid-cols-3 gap-sm mb-md text-center">
                 <div class="bg-surface-container rounded-lg p-sm"><p class="text-[11px] text-on-surface-variant">المبيعات</p><p class="font-bold">${Number(report.total_sales || 0).toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س</p></div>
-                <div class="bg-surface-container rounded-lg p-sm"><p class="text-[11px] text-on-surface-variant">الطلبات</p><p class="font-bold">${report.orders_count}</p></div>
+                <div class="bg-surface-container rounded-lg p-sm"><p class="text-[11px] text-on-surface-variant">الطلبات</p><p class="font-bold">${escapeHtml(report.orders_count)}</p></div>
                 <div class="bg-surface-container rounded-lg p-sm"><p class="text-[11px] text-on-surface-variant">متوسط الفاتورة</p><p class="font-bold">${Number(report.avg_ticket || 0).toFixed(2)}</p></div>
             </div>
-            ${waste.length ? `<h4 class="font-bold text-primary mb-xs">الهدر</h4><ul class="text-body-sm mb-md list-disc pr-md">${waste.map(w => `<li>${w.item_name}: ${w.quantity} ${w.unit} — ${w.reason || ''}</li>`).join('')}</ul>` : ''}
-            ${issues.length ? `<h4 class="font-bold text-primary mb-xs">مشاكل الشفت</h4><ul class="text-body-sm mb-md list-disc pr-md">${issues.map(i => `<li>[${i.priority}] ${i.description}</li>`).join('')}</ul>` : ''}
-            ${reviews.length ? `<h4 class="font-bold text-primary mb-xs">التقييمات</h4><ul class="text-body-sm list-disc pr-md">${reviews.map(r => `<li>${r.review_type === 'positive' ? '👍' : '👎'} ${r.comment_text}</li>`).join('')}</ul>` : ''}
+            ${waste.length ? `<h4 class="font-bold text-primary mb-xs">الهدر</h4><ul class="text-body-sm mb-md list-disc pr-md">${waste.map(w => `<li>${escapeHtml(w.item_name)}: ${escapeHtml(w.quantity)} ${escapeHtml(w.unit)} — ${escapeHtml(w.reason || '')}</li>`).join('')}</ul>` : ''}
+            ${issues.length ? `<h4 class="font-bold text-primary mb-xs">مشاكل الشفت</h4><ul class="text-body-sm mb-md list-disc pr-md">${issues.map(i => `<li>[${escapeHtml(i.priority)}] ${escapeHtml(i.description)}</li>`).join('')}</ul>` : ''}
+            ${reviews.length ? `<h4 class="font-bold text-primary mb-xs">التقييمات</h4><ul class="text-body-sm list-disc pr-md">${reviews.map(r => `<li>${r.review_type === 'positive' ? '👍' : '👎'} ${escapeHtml(r.comment_text)}</li>`).join('')}</ul>` : ''}
             ${!waste.length && !issues.length && !reviews.length ? '<p class="text-body-sm text-on-surface-variant">لا توجد تفاصيل إضافية.</p>' : ''}
         `;
     } catch (err) {

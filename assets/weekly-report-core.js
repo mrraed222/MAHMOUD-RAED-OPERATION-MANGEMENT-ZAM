@@ -499,9 +499,7 @@
   }
 
   /* ══════════ النسخ المحفوظة للتقرير (weekly_reports) ══════════
-     جدول weekly_reports اتأنشئ في Supabase، فأعمدته تختلف بحسب الـ migration.
-     لذلك بنقرأ الأعمدة المرشّحة من الصف نفسه، وبنحفظ بأعمدة مرشّحة مع
-     تدرّج تلقائي: لو عمود غير موجود بنحذفه ونعيد المحاولة. */
+     القراءة تدعم أسماء أعمدة تاريخية؛ الكتابة تستخدم مخطط الجدول الحالي. */
   var SNAP_COL = {
     start:    ['period_start', 'week_start', 'start_date', 'from_date', 'period_from'],
     end:      ['period_end', 'week_end', 'end_date', 'to_date', 'period_to'],
@@ -530,22 +528,6 @@
       createdAt: row[firstCol(row, SNAP_COL.createdAt) || ''] || '',
       body: body || null
     };
-  }
-  /** إدراج متدرّج: يحذف أي عمود غير موجود في الجدول ويعيد المحاولة */
-  function insertAdaptive(table, payload, tries) {
-    tries = tries == null ? 8 : tries;
-    return CFG.client.from(table).insert(payload).then(function (res) {
-      if (!res.error) return { ok: true };
-      var msg = res.error.message || '';
-      var m = /column "?([A-Za-z0-9_]+)"? does not exist/i.exec(msg);
-      if (m && tries > 0 && payload[m[1]] !== undefined) {
-        delete payload[m[1]];
-        return insertAdaptive(table, payload, tries - 1);
-      }
-      return { ok: false, error: msg || 'خطأ غير معروف' };
-    }).catch(function (e) {
-      return { ok: false, error: (e && e.message) || String(e) };
-    });
   }
   /** يحفظSnapshot للأرقام والتعليقات كما هي لحظة الحفظ */
   function saveSnapshot() {
@@ -586,10 +568,9 @@
       plans: (SRC.plans || []).filter(function (p) { return p.weekStart === r.from; })
     };
     var payload = {
-      period_start: r.from,
-      period_end: r.to,
       week_start: r.from,
-      status: 'مسودة',
+      week_end: r.to,
+      status: 'draft',
       snapshot: snapshot,
       notes: snapshot.notes
     };
@@ -598,13 +579,16 @@
       payload.created_by = uid;
     }
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="material-symbols-outlined text-sm">save</span> جارٍ الحفظ…'; }
-    insertAdaptive('weekly_reports', payload).then(function (res) {
+    CFG.client.from('weekly_reports').insert(payload).then(function (res) {
       if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-sm">save</span> حفظ نسخة التقرير'; }
-      if (!res.ok) {
-        notify('تعذّر حفظ النسخة: ' + res.error, 'error'); return;
+      if (res.error) {
+        notify('تعذّر حفظ النسخة: ' + (res.error.message || 'خطأ غير معروف'), 'error'); return;
       }
       notify('تم حفظ نسخة التقرير (نسخة تاريخية) في جدول weekly_reports.', 'ok');
       return boot();
+    }).catch(function (err) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-sm">save</span> حفظ نسخة التقرير'; }
+      notify('تعذّر حفظ النسخة: ' + ((err && err.message) || 'خطأ غير معروف'), 'error');
     });
   }
   /** يعرض النسخ المحفوظة */
@@ -629,9 +613,10 @@
       list.map(function (s) {
         var k = (s.body && s.body.kpis) || {};
         var per = s.start && s.end ? (s.start + ' → ' + s.end) : (s.start || '—');
+        var status = s.status === 'draft' ? 'مسودة' : s.status;
         return '<tr class="border-b border-outline-variant">' +
           '<td class="px-md py-sm font-semibold">' + esc(per) + '</td>' +
-          '<td class="px-md py-sm">' + esc(s.status) + '</td>' +
+          '<td class="px-md py-sm">' + esc(status) + '</td>' +
           '<td class="px-md py-sm">' + (k.sales != null ? nf(k.sales) : '—') + '</td>' +
           '<td class="px-md py-sm">' + (k.avgTicket != null ? nf1(k.avgTicket) : '—') + '</td>' +
           '<td class="px-md py-sm">' + (k.compliance != null ? k.compliance + '%' : '—') + '</td>' +
@@ -672,7 +657,7 @@
   /* ══════════ الرسوم ══════════ */
   function svgEl(w, h, inner) {
     return '<svg viewBox="0 0 ' + w + ' ' + h + '" width="100%" height="' + h +
-      '" preserveAspectRatio="xMidYMid meet" style="overflow:visible;font-family:Noto Sans Arabic,Montserrat,sans-serif">' + inner + '</svg>';
+      '" preserveAspectRatio="xMidYMid meet" style="overflow:visible;font-family:Tajawal,sans-serif">' + inner + '</svg>';
   }
   function lineChart(el, days, cur, prev) {
     var max = 1;
@@ -1178,7 +1163,7 @@
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">ملاحظات مفتوحة</div><div class="font-display-lg text-primary mt-xs">' + openNotes + '</div></div>' +
       '<div class="bg-error-container/30 rounded-lg p-md"><div class="text-body-sm text-on-error-container">متأخرة عن الموعد</div><div class="font-display-lg text-error mt-xs">' + lateNotes + '</div></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">سجل الزيارات</div>' +
-      '<a href="../branch-visits/index.html" class="text-body-sm font-bold text-primary underline mt-xs inline-block">فتح صفحة الزيارات ←</a></div>' +
+      '<a href="../branch-visits-new/index.html" class="text-body-sm font-bold text-primary underline mt-xs inline-block">فتح صفحة الزيارات ←</a></div>' +
       '</div>' +
       '<div><div class="font-title-md text-primary mb-xs">نسبة الالتزام لكل مهمة من قوالب التشيك ليست</div><div id="paneChecks"></div>' +
       (tpl.length ? '' : '<p class="text-body-sm text-on-surface-variant mt-xs">لا توجد قوالب مهام مسندة أو سجلات تنفيذ في هذه الفترة.</p>') + '</div>' +
@@ -1209,18 +1194,20 @@
   function pane3() {
     var r = resolveRange();
     var negs = filterRows(SRC.negs, r, true, false);
-    var posTotal = filterRows(SRC.reports, r, true, true).reduce(function (a, x) { return a + x.pos; }, 0);
+    var positiveReports = filterRows(SRC.reports, r, true, true);
+    var posTotal = positiveReports.reduce(function (a, x) { return a + x.pos; }, 0);
     var closed = negs.filter(function (n) { return /مغلقة|معالجة|تم/.test(n.status); }).length;
     var pending = negs.length - closed;
 
     var rows = BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
       var mine = negs.filter(function (x) { return x.branch === b.id; });
       var cl = mine.filter(function (n) { return /مغلقة|معالجة|تم/.test(n.status); }).length;
+      var posMine = positiveReports.filter(function (x) { return x.branch === b.id; }).reduce(function (a, x) { return a + x.pos; }, 0);
       return '<tr class="border-b border-outline-variant"><td class="px-md py-sm font-semibold">' + esc(b.name) + '</td>' +
         '<td class="px-md py-sm">' + mine.length + '</td>' +
         '<td class="px-md py-sm text-tertiary-container font-bold">' + cl + '</td>' +
         '<td class="px-md py-sm text-error font-bold">' + (mine.length - cl) + '</td>' +
-        '<td class="px-md py-sm">' + posTotal + '</td>' +
+        '<td class="px-md py-sm">' + posMine + '</td>' +
         '<td class="px-md py-sm text-on-surface-variant">' + esc(mine.slice(0, 2).map(function (x) { return x.text; }).join(' | ') || '—') + '</td>' +
         '<td class="px-md py-sm" data-edit="complAction-' + b.id + '">—</td></tr>';
     }).join('');
@@ -1751,6 +1738,3 @@
   };
 
 })(window);
-
-
-
