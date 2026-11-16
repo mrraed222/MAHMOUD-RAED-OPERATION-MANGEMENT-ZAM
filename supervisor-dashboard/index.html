@@ -3,7 +3,9 @@
 <meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>ZAM Operations - داشبورد الفرع</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261116134500"></script>
+<script src="../assets/supabase-config.js?v=20261116205000"></script>
+<script src="../assets/checklist-schedule.js?v=20261116205000"></script>
+<script src="../assets/checklist-dashboard.js?v=20261116202000"></script>
 <script>
   let currentUser = ZamSession.requireAuth('../index.html');
   // المالك والأدمن يفتحان فرعاً محدداً من لوحة التحكم للمتابعة التفصيلية فقط.
@@ -260,8 +262,10 @@ const ROLE_LABELS = { Barista: 'باريستا', Waiter: 'خدمة صالة', Ki
 const ROLE_CATEGORY = { Barista: 'البار', Waiter: 'الصالة', Kitchen: 'المطبخ' };
 const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
 
-let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : 'Morning';
-let cache = { staff: [], catsBy: {}, templates: [], logs: [], visitActions: [] };
+let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both'
+    ? currentUser.shift_type
+    : (ZamChecklistSchedule.riyadhParts().hour < 16 ? 'Morning' : 'Evening');
+let cache = { staff: [], catsBy: {}, templates: [], logs: [], hourlyLogs: [], reports: [], notes: [], visitActions: [], branchName: '' };
 
 // زر الورديتين يظهر فقط لمن يغطي الورديتين فعليًا
 if (currentUser.role === 'Manager' || currentUser.shift_type === 'Both') {
@@ -292,11 +296,14 @@ function empCategories(emp) {
     return ROLE_CATEGORY[emp.role] ? [ROLE_CATEGORY[emp.role]] : [];
 }
 
-function tasksFor(emp) {
-    return cache.templates.filter(t =>
-        empCategories(emp).includes(t.category) &&
-        (!t.branch_id || t.branch_id === (urlBranchId || currentUser.branch_id))
-    );
+function tasksFor(emp, now = new Date()) {
+    return ZamChecklistDashboard.tasksForEmployee(cache.templates, emp, {
+        branchId: urlBranchId || currentUser.branch_id,
+        branchName: cache.branchName,
+        categoriesBy: cache.catsBy,
+        shiftType: currentShift,
+        now
+    });
 }
 
 async function loadAll() {
@@ -304,49 +311,69 @@ async function loadAll() {
     // فرع الملاحظة: باراميتر ?branch= (للمالك/الأدمن من لوحة التحكم) أو فرع المستخدم نفسه
     const branchId = urlBranchId || currentUser.branch_id;
     if (!branchId) throw new Error('حسابك غير مرتبط بفرع. تواصل مع الإدارة لإسناد الحساب إلى الفرع الصحيح.');
+    const now = new Date();
+    const today = ZamChecklistSchedule.riyadhDateString(now);
     let actionsQuery = zamClient.from('visit_action_items').select('id,visit_id,title,description,item_type,priority,status,shift_type,due_date,created_at,assigned_to,assigned_role,completion_note,completion_submitted_at,review_note')
         .eq('branch_id', branchId)
         .not('status', 'in', '("مغلقة","ملغاة")').order('created_at', { ascending: false }).limit(100);
-    const [staffRes, catRes, templates, logs, reportsRes, branchRes, notesRes, actionsRes] = await Promise.all([
+    const [staffRes, catRes, templates, logsRes, hourlyLogs, reportsRes, branchRes, notesRes, actionsRes] = await Promise.all([
         zamClient.from('profiles').select('id, full_name, role, shift_type, avatar_url, employee_number')
             .eq('branch_id', branchId).eq('status', 'active')
             .in('role', ['Barista', 'Waiter', 'Kitchen']),
         zamClient.from('employee_task_categories').select('profile_id, category'),
         ZamAPI.getTemplates(null, null, branchId),
-        zamClient.from('checklist_logs').select('template_id, executed_by, execution_date').eq('branch_id', branchId).then(r => r.data || []),
-        zamClient.from('daily_reports').select('id, shift_type, report_date').eq('branch_id', branchId),
+        zamClient.from('checklist_logs').select('template_id, branch_id, executed_by, status, execution_date, shift_type')
+            .eq('branch_id', branchId).eq('execution_date', today),
+        ZamAPI.getHourlyChecklistLogs({ branchId, date: today }),
+        zamClient.from('daily_reports').select('id, shift_type, report_date').eq('branch_id', branchId).eq('report_date', today),
         zamClient.from('branches').select('name').eq('id', branchId).maybeSingle(),
         zamClient.from('team_notes').select('id, profile_id, note, created_at, profiles(full_name, avatar_url)')
             .eq('branch_id', branchId).order('created_at', { ascending: false }).limit(30),
         actionsQuery,
     ]);
-    if (actionsRes.error) throw actionsRes.error;
-    const today = new Date().toISOString().split('T')[0];
+    for (const result of [staffRes, catRes, logsRes, reportsRes, branchRes, notesRes, actionsRes]) {
+        if (result.error) throw result.error;
+    }
     cache.staff = staffRes.data || [];
     cache.catsBy = {};
     (catRes.data || []).forEach(r => { (cache.catsBy[r.profile_id] = cache.catsBy[r.profile_id] || []).push(r.category); });
-    cache.templates = (templates || []).filter(t => ZamAPI.isTaskDueToday(t));
-    cache.logs = logs.filter(l => l.execution_date === today);
-    cache.reports = (reportsRes.data || []).filter(r => r.report_date === today);
+    cache.templates = (templates || []).filter(t => t.is_active !== false);
+    cache.logs = logsRes.data || [];
+    cache.hourlyLogs = hourlyLogs || [];
+    cache.reports = reportsRes.data || [];
+    cache.branchName = branchRes.data?.name || '';
     cache.notes = (notesRes.data || []).map(n => ({
         ...n,
         authorName: n.profiles?.full_name || '—',
         authorAvatar: n.profiles?.avatar_url || avatarFallback,
     }));
     cache.visitActions = actionsRes.data || [];
-    document.getElementById('branch-name').textContent = branchRes.data?.name || 'الفرع';
+    document.getElementById('branch-name').textContent = cache.branchName || 'الفرع';
     render();
 }
 
 function render() {
-    const shiftTemplates = cache.templates.filter(t => t.shift_type === currentShift);
+    const now = new Date();
+    const branchId = urlBranchId || currentUser.branch_id;
     const shiftStaff = cache.staff.filter(e => !e.shift_type || e.shift_type === 'Both' || e.shift_type === currentShift);
+    const shiftTemplates = ZamChecklistDashboard.dashboardTasks({
+        templates: cache.templates,
+        staff: shiftStaff,
+        categoriesBy: cache.catsBy,
+        branchId,
+        branchName: cache.branchName,
+        shiftType: currentShift,
+        currentUserRole: currentUser.role,
+        now
+    });
+    const doneKeys = ZamChecklistDashboard.completedTaskKeys(
+        shiftTemplates, cache.logs, cache.hourlyLogs, { branchId, shiftType: currentShift, now }
+    );
+    const keyFor = task => ZamChecklistDashboard.taskKey(task, now);
     document.getElementById('team-shift-label').textContent = currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية';
 
-    // توزيع المنجز: أي موظف من الفريق نفذ المهمة
-    const doneIds = new Set(shiftTemplates.filter(t => cache.logs.some(l => l.template_id === t.id)).map(t => t.id));
     const totalTasks = shiftTemplates.length;
-    const doneCount = doneIds.size;
+    const doneCount = shiftTemplates.filter(t => doneKeys.has(keyFor(t))).length;
     const pct = totalTasks ? Math.round(doneCount / totalTasks * 100) : 0;
     document.getElementById('stat-team').textContent = shiftStaff.length;
     document.getElementById('stat-tasks').textContent = totalTasks;
@@ -368,8 +395,11 @@ function render() {
         grid.innerHTML = '<p class="text-on-surface-variant text-body-sm col-span-full">لا يوجد موظفون تشغيليون في هذه الوردية بعد.</p>';
     } else {
         grid.innerHTML = shiftStaff.map(emp => {
-            const mine = tasksFor(emp).filter(t => t.shift_type === currentShift);
-            const myDone = mine.filter(t => cache.logs.some(l => l.template_id === t.id && l.executed_by === emp.id)).length;
+            const mine = tasksFor(emp, now);
+            const myDoneKeys = ZamChecklistDashboard.completedTaskKeys(
+                mine, cache.logs, cache.hourlyLogs, { branchId, shiftType: currentShift, now, executedBy: emp.id }
+            );
+            const myDone = mine.filter(t => myDoneKeys.has(keyFor(t))).length;
             const p = mine.length ? Math.round(myDone / mine.length * 100) : 0;
             const cats = empCategories(emp);
             return `
@@ -377,15 +407,15 @@ function render() {
                 <div class="flex items-center gap-sm mb-sm">
                     <img src="${emp.avatar_url || avatarFallback}" class="w-12 h-12 rounded-full object-cover border-2 border-primary"/>
                     <div class="flex-1 min-w-0">
-                        <p class="font-bold text-on-surface truncate">${emp.full_name}</p>
-                        <p class="text-[11px] text-on-surface-variant">${ROLE_LABELS[emp.role] || emp.role}${emp.employee_number ? ' · ' + emp.employee_number : ''}</p>
+                        <p class="font-bold text-on-surface truncate">${escapeHtml(emp.full_name)}</p>
+                        <p class="text-[11px] text-on-surface-variant">${escapeHtml(ROLE_LABELS[emp.role] || emp.role)}${emp.employee_number ? ' · ' + escapeHtml(emp.employee_number) : ''}</p>
                     </div>
                     <span class="text-[11px] font-bold px-xs py-[2px] rounded-full ${p === 100 ? 'bg-tertiary text-on-tertiary' : 'bg-surface-container text-on-surface-variant'}">${myDone}/${mine.length}</span>
                 </div>
                 <div class="flex flex-wrap gap-xs mb-sm">
                     ${cats.map(c => {
                         const isExtra = c !== (ROLE_CATEGORY[emp.role] || '');
-                        return `<span class="px-xs py-[2px] rounded-full text-[10px] font-bold ${isExtra ? 'bg-primary-fixed text-on-primary-fixed' : 'bg-secondary-container text-on-secondary-container'}">${c}${isExtra ? ' +إسناد' : ''}</span>`;
+                        return `<span class="px-xs py-[2px] rounded-full text-[10px] font-bold ${isExtra ? 'bg-primary-fixed text-on-primary-fixed' : 'bg-secondary-container text-on-secondary-container'}">${escapeHtml(c)}${isExtra ? ' +إسناد' : ''}</span>`;
                     }).join('')}
                 </div>
                 <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden">
@@ -401,9 +431,16 @@ function render() {
     shiftTemplates.forEach(t => {
         byCat[t.category] = byCat[t.category] || { total: 0, done: 0, owners: new Set() };
         byCat[t.category].total++;
-        if (doneIds.has(t.id)) byCat[t.category].done++;
+        if (doneKeys.has(keyFor(t))) byCat[t.category].done++;
     });
-    shiftStaff.forEach(e => empCategories(e).forEach(c => { if (byCat[c]) byCat[c].owners.add(e.full_name); }));
+    shiftStaff.forEach(employee => tasksFor(employee, now).forEach(task => {
+        if (byCat[task.category]) byCat[task.category].owners.add(employee.full_name);
+    }));
+    if (currentUser.role === 'Supervisor') {
+        shiftTemplates.filter(task => task.task_type === 'inventory_request').forEach(task => {
+            if (byCat[task.category]) byCat[task.category].owners.add(currentUser.full_name || 'مشرف الوردية');
+        });
+    }
     const catNames = Object.keys(byCat);
     catGrid.innerHTML = catNames.length ? catNames.map(c => {
         const v = byCat[c];
@@ -411,7 +448,7 @@ function render() {
         return `
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
             <div class="flex items-center justify-between mb-xs">
-                <p class="font-bold text-on-surface">${c}</p>
+                <p class="font-bold text-on-surface">${escapeHtml(c)}</p>
                 <span class="text-[11px] text-on-surface-variant">${v.done} من ${v.total} منجزة</span>
             </div>
             <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden mb-sm">
@@ -419,7 +456,7 @@ function render() {
             </div>
             <p class="text-[11px] text-on-surface-variant leading-relaxed">
                 <span class="font-bold text-on-surface">المسؤولون:</span>
-                ${[...v.owners].join('، ') || 'لا يوجد موظف مسند لهذه الفئة في هذه الوردية'}
+                ${[...v.owners].map(escapeHtml).join('، ') || 'لا يوجد موظف مسند لهذه الفئة في هذه الوردية'}
             </p>
         </div>`;
     }).join('') : '<p class="text-on-surface-variant text-body-sm col-span-full">لا توجد مهام مستحقة في هذه الوردية اليوم.</p>';
@@ -552,7 +589,7 @@ function renderNotes() {
         notesList.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">لا توجد ملاحظات من الفريق حتى الآن.</p>';
         return;
     }
-    const today = new Date().toISOString().split('T')[0];
+    const today = ZamChecklistSchedule.riyadhDateString();
     const todayNotes = notes.filter(n => n.created_at?.startsWith(today));
     const olderNotes = notes.filter(n => !n.created_at?.startsWith(today));
 
@@ -598,6 +635,22 @@ function noteCardHTML(n) {
         slot.innerHTML = await renderNotificationBell();
         attachNotificationBellHandlers();
     }
+    let refreshRunning = false;
+    const refreshDashboard = async () => {
+        if (refreshRunning || document.hidden) return;
+        refreshRunning = true;
+        try {
+            await loadAll();
+        } catch (err) {
+            console.error('Dashboard refresh error:', err);
+        } finally {
+            refreshRunning = false;
+        }
+    };
+    window.setInterval(refreshDashboard, 60000);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) refreshDashboard();
+    });
 })();
 </script>
 </body></html>

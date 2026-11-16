@@ -15,7 +15,8 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261116134500"></script>
+<script src="../assets/checklist-schedule.js?v=20261116205000"></script>
+<script src="../assets/supabase-config.js?v=20261116205000"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: anyone without this permission is sent home
@@ -55,7 +56,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     <a href="../dashboard/index.html" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">arrow_forward</span></a>
     <div>
       <h1 class="font-title-md text-title-md text-primary">إدارة قوائم التحقق</h1>
-      <p class="text-body-sm text-on-surface-variant">أضف، عدّل، أو احذف مهام التشيك ليست وقوائمه الرئيسية</p>
+      <p class="text-body-sm text-on-surface-variant">إدارة القوالب النشطة وأرشفتها مع حفظ النسخ والسجلات التاريخية</p>
     </div>
   </div>
   <button id="open-fridges-btn" class="border border-primary text-primary rounded-lg px-md py-sm font-bold flex items-center gap-1 ml-sm">🧊 إدارة الثلاجات</button>
@@ -99,6 +100,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
           <option value="daily">يومي</option>
           <option value="weekly">أسبوعي (يوم محدد)</option>
           <option value="monthly">شهري (يوم محدد من الشهر)</option>
+          <option value="hourly">كل ساعة</option>
         </select>
       </div>
     </div>
@@ -150,6 +152,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
           <select id="f-task-type" class="border border-outline-variant rounded-lg p-xs w-full text-body-sm">
             <option value="standard">مهمة عادية</option>
             <option value="fridge_temps">قراءة حرارة الثلاجات والفريزرات</option>
+            <option value="inventory_request">طلب جرد للمشرف</option>
+            <option value="restroom_check">فحص/تنظيف دورة مياه</option>
           </select>
         </div>
       </div>
@@ -233,7 +237,7 @@ const modal = document.getElementById('template-modal');
 // إظهار/إخفاء حقول اليوم حسب نوع التكرار
 document.getElementById('f-frequency').addEventListener('change', (e) => {
     const freq = e.target.value;
-    document.getElementById('f-day-row').classList.toggle('hidden', freq === 'daily');
+    document.getElementById('f-day-row').classList.toggle('hidden', freq === 'daily' || freq === 'hourly');
     document.getElementById('f-day-of-week-wrap').classList.toggle('hidden', freq !== 'weekly');
     document.getElementById('f-day-of-month-wrap').classList.toggle('hidden', freq !== 'monthly');
 });
@@ -294,6 +298,10 @@ document.getElementById('save-template').addEventListener('click', async () => {
         alert('اسم المهمة والقائمة الرئيسية مطلوبين.');
         return;
     }
+    if (payload.frequency === 'hourly' && payload.task_type !== 'restroom_check') {
+        alert('التكرار الساعي مخصص لمهام فحص/تنظيف دورة المياه.');
+        return;
+    }
     try {
         if (editingId) {
             await ZamAPI.updateTemplate(editingId, payload);
@@ -309,13 +317,13 @@ document.getElementById('save-template').addEventListener('click', async () => {
 });
 
 async function deleteTemplate(id) {
-    if (!confirm('تأكيد حذف هذه المهمة نهائياً؟')) return;
+    if (!confirm('أرشفة هذه النسخة؟ ستظل محفوظة مع سجلاتها، ويمكن إنشاء إصدار نشط جديد منها لاحقاً.')) return;
     try {
         await ZamAPI.deleteTemplate(id);
         await loadTemplates();
     } catch (err) {
         console.error(err);
-        alert('تعذّر الحذف. تأكد إن عندك الصلاحية اللازمة.');
+        alert('تعذّرت الأرشفة. تأكد إن عندك الصلاحية اللازمة.');
     }
 }
 
@@ -324,72 +332,83 @@ const SHIFT_LABELS = { Morning: 'صباحية', Evening: 'مسائية' };
 async function loadTemplates() {
     const container = document.getElementById('templates-container');
     try {
-        allTemplates = await ZamAPI.getTemplates();
+        allTemplates = await ZamAPI.getTemplates(null, null, null, { includeArchived: true });
+        const activeTemplates = allTemplates.filter(t => t.is_active !== false);
+        const archivedTemplates = allTemplates.filter(t => t.is_active === false);
+        const categories = [...new Set(allTemplates.map(t => t.category).filter(Boolean))];
+        document.getElementById('category-options').innerHTML = categories.map(c => `<option value="${frEsc(c)}">`).join('');
 
-        // تحديث قائمة الفئات المقترحة
-        const categories = [...new Set(allTemplates.map(t => t.category))];
-        document.getElementById('category-options').innerHTML = categories.map(c => `<option value="${c}">`).join('');
-
-        if (!allTemplates.length) {
-            container.innerHTML = '<p class="text-on-surface-variant text-body-sm">لا توجد مهام بعد. ابدأ بإضافة أول مهمة.</p>';
-            return;
+        function renderTask(task, archived) {
+            const branchName = task.branch_id ? (branchesCache.find(b => b.id === task.branch_id)?.name || 'فرع محدد') : 'كل الفروع';
+            const frequencyLabel = { weekly: 'أسبوعي', monthly: 'شهري', hourly: 'كل ساعة' }[task.frequency];
+            const shiftLabel = task.shift_type === 'Both' ? 'الورديتان' : (SHIFT_LABELS[task.shift_type] || task.shift_type || 'غير محددة');
+            return `
+                <div class="p-sm flex items-start justify-between gap-sm">
+                    <div class="min-w-0">
+                        <p class="font-bold text-on-surface text-body-sm">
+                            ${frEsc(task.task_title)}
+                            ${task.requires_photo ? '<span class="material-symbols-outlined text-[14px] align-middle text-outline">photo_camera</span>' : ''}
+                            ${task.target_time ? `<span class="inline-flex items-center gap-xs px-xs py-[2px] bg-warning-container text-on-warning text-[10px] font-bold rounded-full ml-sm">${frEsc(task.target_time.slice(0, 5))}</span>` : ''}
+                            ${frequencyLabel ? `<span class="inline-flex px-xs py-[2px] bg-secondary-container text-on-secondary-container text-[10px] font-bold rounded-full ml-sm">${frequencyLabel}</span>` : ''}
+                        </p>
+                        ${task.instructions ? `<p class="text-[12px] text-on-surface-variant">${frEsc(task.instructions)}</p>` : ''}
+                        <span class="text-[11px] ${task.branch_id ? 'text-primary font-bold' : 'text-outline'}">${task.branch_id ? '📍 ' : ''}${frEsc(branchName)} · ${frEsc(shiftLabel)}</span>
+                    </div>
+                    <div class="flex flex-wrap justify-end gap-sm shrink-0">
+                        ${!archived && task.task_type === 'fridge_temps' ? `<button class="fridges-btn text-tertiary text-[12px] font-bold hover:underline" data-id="${frEsc(task.id)}">🧊 إدارة الثلاجات</button>` : ''}
+                        ${archived ? `<button class="copy-archived-btn text-tertiary text-[12px] font-bold hover:underline" data-id="${frEsc(task.id)}">إنشاء إصدار نشط</button>` : `
+                          <button class="edit-btn text-primary text-[12px] font-bold hover:underline" data-id="${frEsc(task.id)}">تعديل بإصدار جديد</button>
+                          <button class="delete-btn text-error text-[12px] font-bold hover:underline" data-id="${frEsc(task.id)}">أرشفة</button>`}
+                    </div>
+                </div>`;
         }
 
-        // تجميع حسب الفئة ثم الوردية
-        const grouped = {};
-        allTemplates.forEach(t => {
-            grouped[t.category] = grouped[t.category] || { Morning: [], Evening: [] };
-            grouped[t.category][t.shift_type]?.push(t);
-        });
-
-        container.innerHTML = Object.entries(grouped).map(([cat, shifts]) => `
-            <div class="mb-lg">
-                <h2 class="font-title-md text-title-md text-primary mb-sm">${cat}</h2>
-                ${['Morning', 'Evening'].map(shift => shifts[shift].length ? `
-                    <div class="mb-sm">
-                        <p class="text-body-sm font-bold text-on-surface-variant mb-xs">الوردية ${SHIFT_LABELS[shift]}</p>
-                        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant divide-y divide-outline-variant">
-                            ${shifts[shift].map(t => `
-                                <div class="p-sm flex items-center justify-between gap-sm">
-                                    <div>
-                                        <p class="font-bold text-on-surface text-body-sm">
-                                            ${t.task_title}
-                                            ${t.requires_photo ? '<span class="material-symbols-outlined text-[14px] align-middle text-outline">photo_camera</span>' : ''}
-                                            ${t.target_time ? `<span class="inline-flex items-center gap-xs px-xs py-[2px] bg-warning-container text-on-warning text-[10px] font-bold rounded-full ml-sm">⏰ ${t.target_time.slice(0, 5)}</span>` : ''}
-                                            ${t.frequency === 'weekly' ? `<span class="inline-flex px-xs py-[2px] bg-secondary-container text-on-secondary-container text-[10px] font-bold rounded-full ml-sm">📅 أسبوعي</span>` : ''}
-                                            ${t.frequency === 'monthly' ? `<span class="inline-flex px-xs py-[2px] bg-secondary-container text-on-secondary-container text-[10px] font-bold rounded-full ml-sm">📅 شهري</span>` : ''}
-                                        </p>
-                                        ${t.instructions ? `<p class="text-[12px] text-on-surface-variant">${t.instructions}</p>` : ''}
-                                        <span class="text-[11px] ${t.branch_id ? 'text-primary font-bold' : 'text-outline'}">${t.branch_id ? '📍 ' + (branchesCache.find(b => b.id === t.branch_id)?.name || 'عام (كل الفروع)') : 'عام (كل الفروع)'}</span>
-                                    </div>
-                                    <div class="flex gap-sm shrink-0">
-                                        ${t.task_type === 'fridge_temps' ? `<button class="fridges-btn text-tertiary text-[12px] font-bold hover:underline" data-id="${t.id}">🧊 إدارة الثلاجات</button>` : ''}
-                                        <button class="edit-btn text-primary text-[12px] font-bold hover:underline" data-id="${t.id}">تعديل</button>
-                                        <button class="delete-btn text-error text-[12px] font-bold hover:underline" data-id="${t.id}">حذف</button>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                ` : '').join('')}
-            </div>
-        `).join('');
-
-        container.querySelectorAll('.edit-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const t = allTemplates.find(x => x.id === btn.dataset.id);
-                openModal(t);
+        function renderGroups(templates, archived = false) {
+            const grouped = new Map();
+            templates.forEach(task => {
+                if (!grouped.has(task.category)) grouped.set(task.category, { Morning: [], Evening: [], Both: [] });
+                (grouped.get(task.category)[task.shift_type] || grouped.get(task.category).Both).push(task);
             });
-        });
-        container.querySelectorAll('.fridges-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const t = allTemplates.find(x => x.id === btn.dataset.id);
-                openFridgeModal(t?.branch_id || '');
-            });
-        });
-        container.querySelectorAll('.delete-btn').forEach(btn => {
-            btn.addEventListener('click', () => deleteTemplate(btn.dataset.id));
-        });
+            return [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b, 'ar')).map(([category, shifts]) => `
+                <div class="mb-lg">
+                    <h3 class="font-title-md text-title-md text-primary mb-sm">${frEsc(category || 'بدون فئة')}</h3>
+                    ${['Morning', 'Evening', 'Both'].map(shift => shifts[shift].length ? `
+                      <div class="mb-sm">
+                        <p class="text-body-sm font-bold text-on-surface-variant mb-xs">${shift === 'Both' ? 'الورديتان' : `الوردية ${SHIFT_LABELS[shift]}`}</p>
+                        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant divide-y divide-outline-variant">${shifts[shift].map(task => renderTask(task, archived)).join('')}</div>
+                      </div>` : '').join('')}
+                </div>`).join('');
+        }
+
+        container.innerHTML = `
+          <section>
+            <h2 class="font-title-md text-title-md text-primary mb-sm">القوالب النشطة (${activeTemplates.length})</h2>
+            ${activeTemplates.length ? renderGroups(activeTemplates) : '<p class="text-on-surface-variant text-body-sm mb-md">لا توجد قوالب نشطة حالياً.</p>'}
+          </section>
+          <details class="mt-lg border border-outline-variant rounded-xl p-md bg-surface-container-low">
+            <summary class="font-bold text-primary cursor-pointer">الأرشيف المحفوظ (${archivedTemplates.length}) — لا تُحذف النسخ القديمة</summary>
+            <div class="mt-md">${archivedTemplates.length ? renderGroups(archivedTemplates, true) : '<p class="text-on-surface-variant text-body-sm">لا توجد نسخ مؤرشفة.</p>'}</div>
+          </details>`;
+
+        container.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', () => {
+            const task = allTemplates.find(x => x.id === btn.dataset.id);
+            openModal(task);
+        }));
+        container.querySelectorAll('.fridges-btn').forEach(btn => btn.addEventListener('click', () => {
+            const task = allTemplates.find(x => x.id === btn.dataset.id);
+            openFridgeModal(task?.branch_id || '');
+        }));
+        container.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', () => deleteTemplate(btn.dataset.id)));
+        container.querySelectorAll('.copy-archived-btn').forEach(btn => btn.addEventListener('click', async () => {
+            if (!confirm('إنشاء قالب نشط جديد من هذه النسخة المؤرشفة؟ ستبقى النسخة الأصلية وسجلاتها محفوظة.')) return;
+            try {
+                await ZamAPI.copyArchivedTemplateAsNewVersion(btn.dataset.id);
+                await loadTemplates();
+            } catch (err) {
+                console.error(err);
+                alert('تعذّر إنشاء الإصدار النشط الجديد.');
+            }
+        }));
     } catch (err) {
         console.error(err);
         container.innerHTML = '<p class="text-error text-body-sm">تعذّر تحميل قوائم التحقق.</p>';

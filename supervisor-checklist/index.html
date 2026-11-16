@@ -2,7 +2,8 @@
 <html class="light" dir="rtl" lang="ar"><head>
 <meta charset="utf-8"/><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261116134500"></script>
+<script src="../assets/checklist-schedule.js?v=20261116205000"></script>
+<script src="../assets/supabase-config.js?v=20261116205000"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // صفحة قوائم المهام مخصصة للمشرفين — المالك/الأدمن يتابعان الأداء من الداشبورد
@@ -247,7 +248,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   <img id="modal-img" src="" class="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"/>
 </div>
 <script>
-let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : 'Morning';
+let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : (ZamChecklistSchedule.riyadhParts().hour < 16 ? 'Morning' : 'Evening');
 let currentCategory = '';
 let activeSubTab = 'my-tasks'; // الصفحة الآن لمهام المشرف فقط — متابعة الفريق في داشبورد الفرع
 
@@ -316,27 +317,26 @@ function riyadhMinuteOfDay(date = new Date()) {
 function isTaskDueForCurrentShift(task) {
     if (!ZamAPI.isTaskDueToday(task)) return false;
     if (task.task_type !== 'inventory_request') return true;
-    const [hour, minute] = String(task.target_time || '00:00').slice(0, 5).split(':').map(Number);
-    const nowMinute = riyadhMinuteOfDay();
-    const targetMinute = hour * 60 + minute;
-    if (task.shift_type === 'Evening' && targetMinute === 0) return nowMinute < 16 * 60;
-    return nowMinute >= targetMinute;
+    return currentUser.role === 'Supervisor' && ZamChecklistSchedule.isInventoryTaskVisible(task);
 }
 
 let inventoryTaskVisibilityTimeout = null;
 function scheduleInventoryTaskVisibility() {
     clearTimeout(inventoryTaskVisibilityTimeout);
-    const nowInRiyadh = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Riyadh' }));
-    const dueAt = new Date(nowInRiyadh);
-    if (currentShift === 'Morning') {
-        dueAt.setHours(12, 0, 0, 0);
-        if (dueAt <= nowInRiyadh) return;
-    } else {
-        dueAt.setHours(0, 0, 0, 0);
-        if (dueAt <= nowInRiyadh) dueAt.setDate(dueAt.getDate() + 1);
-        if (riyadhMinuteOfDay(nowInRiyadh) < 16 * 60) return;
-    }
-    inventoryTaskVisibilityTimeout = setTimeout(() => loadChecklist(), Math.max(1000, dueAt.getTime() - nowInRiyadh.getTime() + 1000));
+    const now = new Date();
+    const parts = ZamChecklistSchedule.riyadhParts(now);
+    const nowMinute = parts.hour * 60 + parts.minute;
+    let targetMinute = null;
+    if (currentShift === 'Morning') targetMinute = nowMinute < 12 * 60 ? 12 * 60 : 36 * 60;
+    if (currentShift === 'Evening') targetMinute = nowMinute < 16 * 60 ? 16 * 60 : 24 * 60;
+    if (targetMinute === null) return;
+    let minutes = targetMinute - nowMinute;
+    if (minutes <= 0) minutes += 24 * 60;
+    const delay = Math.max(1000, minutes * 60 * 1000 - parts.second * 1000 - now.getMilliseconds() + 1000);
+    inventoryTaskVisibilityTimeout = setTimeout(() => {
+        loadChecklist();
+        scheduleInventoryTaskVisibility();
+    }, delay);
 }
 
 function renderChecklist(templates, logsByTemplate) {
@@ -444,7 +444,8 @@ function renderChecklist(templates, logsByTemplate) {
                         branch_id: currentUser.branch_id,
                         executed_by: currentUser.id,
                         status: 'Completed',
-                        notes: container.querySelector(`.task-note[data-id="${cb.dataset.id}"]`)?.value.trim() || null
+                        notes: container.querySelector(`.task-note[data-id="${cb.dataset.id}"]`)?.value.trim() || null,
+                        shift_type: currentShift
                     });
                     await loadChecklist();
                 } catch (err) {
@@ -476,7 +477,8 @@ function renderChecklist(templates, logsByTemplate) {
                         executed_by: currentUser.id,
                         status: 'Completed',
                         notes: container.querySelector(`.task-note[data-id="${templateId}"]`)?.value.trim() || null,
-                        photo_url
+                        photo_url,
+                        shift_type: currentShift
                     });
                     await loadChecklist();
                 } catch (err) {
@@ -548,7 +550,7 @@ function renderFridgePanel(panel, fridges, readings, log) {
         const mine = readings.filter(r => r.fridge_id === f.id);
         const history = mine.map(r => {
             const ui = FRIDGE_STATUS_UI[r.status] || FRIDGE_STATUS_UI.ok;
-            const time = new Date(r.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+            const time = new Date(r.created_at).toLocaleTimeString('ar-EG', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' });
             return `<span class="inline-flex items-center gap-1 px-xs py-[2px] rounded-full text-[11px] font-bold ${ui.cls}">${time} • ${r.temperature}°</span>`;
         }).join(' ');
         const isFreezer = f.kind === 'freezer';
@@ -618,7 +620,8 @@ function renderFridgePanel(panel, fridges, readings, log) {
                     branch_id: currentUser.branch_id,
                     executed_by: currentUser.id,
                     status: 'Completed',
-                    notes: note
+                    notes: note,
+                    shift_type: currentShift
                 });
             }
             if (problemCount) {
@@ -638,9 +641,23 @@ async function loadChecklist() {
     try {
         const categoryFilter = null;
         const templates = (await ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id)).filter(isTaskDueForCurrentShift);
-        const logs = await ZamAPI.getTodayLogs(currentUser.branch_id);
+        const [logs, hourlyLogs] = await Promise.all([
+            ZamAPI.getTodayLogs(currentUser.branch_id),
+            ZamAPI.getHourlyChecklistLogs({ branchId: currentUser.branch_id, date: ZamChecklistSchedule.riyadhDateString(), shiftType: currentShift })
+        ]);
+        const templatesById = new Map(templates.map(task => [task.id, task]));
         const logsByTemplate = {};
-        logs.forEach(l => { logsByTemplate[l.template_id] = l; });
+        logs.forEach(l => {
+            const task = templatesById.get(l.template_id);
+            const matchesShift = l.shift_type
+                ? l.shift_type === currentShift
+                : !!task && task.shift_type !== 'Both' && task.shift_type === currentShift;
+            if (matchesShift) logsByTemplate[l.template_id] = l;
+        });
+        const currentHour = ZamChecklistSchedule.riyadhParts().hour;
+        hourlyLogs.forEach(log => {
+            if (Number(log.occurrence_hour) === currentHour && log.shift_type === currentShift) logsByTemplate[log.template_id] = log;
+        });
         renderChecklist(templates, logsByTemplate);
         if (activeSubTab === 'my-tasks') initFridgePanels(logsByTemplate);
     } catch (err) {
@@ -673,6 +690,7 @@ document.getElementById('save-note-btn')?.addEventListener('click', async () => 
         const { error } = await zamClient.from('team_notes').insert([{
             profile_id: currentUser.id,
             branch_id: currentUser.branch_id,
+            shift_type: currentShift,
             note,
         }]);
         if (error) throw error;
@@ -697,7 +715,7 @@ async function loadRecentNotes() {
         await zamClient.auth.getSession();
         const { data: notes, error } = await zamClient
             .from('team_notes')
-            .select('id, profile_id, note, created_at, profiles(full_name, avatar_url)')
+            .select('id, profile_id, branch_id, shift_type, note, created_at, profiles(full_name, avatar_url)')
             .eq('branch_id', currentUser.branch_id)
             .order('created_at', { ascending: false })
             .limit(20);
@@ -708,8 +726,8 @@ async function loadRecentNotes() {
         }
         const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
         listEl.innerHTML = notes.map(n => {
-            const time = n.created_at ? new Date(n.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '';
-            const date = n.created_at ? new Date(n.created_at).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }) : '';
+            const time = n.created_at ? new Date(n.created_at).toLocaleTimeString('ar-SA', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' }) : '';
+            const date = n.created_at ? new Date(n.created_at).toLocaleDateString('ar-SA', { timeZone: 'Asia/Riyadh', month: 'short', day: 'numeric' }) : '';
             const avatar = safeImageUrl(n.profiles?.avatar_url) || avatarFallback;
             const name = n.profiles?.full_name || '—';
             return `
@@ -718,7 +736,7 @@ async function loadRecentNotes() {
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-sm mb-xs">
                         <span class="font-bold text-on-surface text-[12px]">${escHtml(name)}</span>
-                        <span class="text-[10px] text-on-surface-variant">${escHtml(date)} · ${escHtml(time)}</span>
+                        <span class="text-[10px] text-on-surface-variant">${escHtml(date)} · ${escHtml(time)}${n.shift_type ? ' · ' + (n.shift_type === 'Morning' ? 'صباحي' : n.shift_type === 'Evening' ? 'مسائي' : 'الورديتان') : ''}</span>
                     </div>
                     <p class="text-body-sm text-on-surface-variant">${escHtml(n.note)}</p>
                 </div>
@@ -741,7 +759,7 @@ document.getElementById('fab-quick-report')?.addEventListener('click', () => {
 });
 
 try {
-    document.getElementById('today-date-label').textContent = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+    document.getElementById('today-date-label').textContent = new Date().toLocaleDateString('ar-SA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: 'long', day: 'numeric' });
     document.getElementById('branch-sub-label').textContent = currentUser.branches?.name || 'فرعي';
     document.getElementById('branch-badge').textContent = currentUser.branches?.name?.slice(0, 5) || 'ZAM';
     document.getElementById('branch-name-label').textContent = currentUser.branches?.name || 'بدون فرع حدد';

@@ -15,7 +15,8 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261116134500"></script>
+<script src="../assets/checklist-schedule.js?v=20261116205000"></script>
+<script src="../assets/supabase-config.js?v=20261116205000"></script>
 <script>
   let currentUser = ZamSession.requireAuth('../index.html');
   // دور المالك متابعة وإدارة فقط؛ لا ينفذ قائمة مهام يومية.
@@ -107,7 +108,9 @@ const myCategories = myCategory ? [myCategory] : []; // تُستبدل بالف�
 
 document.getElementById('user-branch-label').textContent = currentUser.branches?.name || 'بدون فرع محدد';
 
-let currentShift = currentUser.shift_type || (new Date().getHours() < 16 ? 'Morning' : 'Evening');
+let currentShift = ['Morning', 'Evening'].includes(currentUser.shift_type)
+  ? currentUser.shift_type
+  : (ZamChecklistSchedule.riyadhParts().hour < 16 ? 'Morning' : 'Evening');
 if (!isSupervisorLike) {
   document.querySelectorAll('.shift-btn').forEach(b => b.style.display = b.dataset.shift === currentShift ? '' : 'none');
 }
@@ -115,6 +118,7 @@ if (!isSupervisorLike) {
 const container = document.getElementById('checklist-container');
 const progressLabel = document.getElementById('progress-label');
 const categoryLabel = document.getElementById('category-label');
+let visibleTemplatesById = new Map();
 
 // Refresh current user profile from database on load to ensure we have the absolute latest roles/categories
 (async function refreshUserProfile() {
@@ -126,6 +130,10 @@ const categoryLabel = document.getElementById('category-label');
         if (freshProfile) {
             Object.assign(currentUser, freshProfile);
             ZamSession.save(currentUser);
+            currentShift = ['Morning', 'Evening'].includes(freshProfile.shift_type)
+                ? freshProfile.shift_type
+                : (ZamChecklistSchedule.riyadhParts().hour < 16 ? 'Morning' : 'Evening');
+            updateShiftButtons();
             myCategories.length = 0;
             // الفئات تُقرأ من جدول employee_task_categories (يدعم تعدد الفئات)
             let freshCats = [];
@@ -150,6 +158,7 @@ function updateShiftButtons() {
         btn.classList.toggle('bg-primary', active);
         btn.classList.toggle('text-on-primary', active);
         btn.classList.toggle('text-on-surface-variant', !active);
+        if (!isSupervisorLike) btn.style.display = active ? '' : 'none';
     });
 }
 
@@ -173,16 +182,55 @@ async function uploadEvidence(file) {
     return data.publicUrl;
 }
 
+async function saveTaskCompletion(templateId, notes = null, photo_url = null) {
+    const task = visibleTemplatesById.get(templateId);
+    const base = {
+        template_id: templateId,
+        branch_id: currentUser.branch_id,
+        executed_by: currentUser.id,
+        status: 'Completed',
+        notes,
+        photo_url,
+        shift_type: currentShift
+    };
+    if (task?.frequency === 'hourly') {
+        return ZamAPI.submitHourlyChecklistLog(base);
+    }
+    return ZamAPI.submitChecklistLog(base);
+}
+
 async function loadMyChecklist() {
     categoryLabel.textContent = myCategories.length ? `مهامك: ${myCategories.join(' و ')} — ${currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية'}` : 'كل الفئات';
     container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل المهام...</p>';
 
     try {
-        const allTemplates = (await ZamAPI.getTemplates(null, currentShift, currentUser.branch_id)).filter(t => ZamAPI.isTaskDueToday(t));
-        const templates = myCategories.length ? allTemplates.filter(t => myCategories.includes(t.category)) : allTemplates;
-        const logs = await ZamAPI.getTodayLogs(currentUser.branch_id);
+        const allTemplates = await ZamAPI.getTemplates(null, currentShift, currentUser.branch_id);
+        const visibility = {
+            role: currentUser.role,
+            branchId: currentUser.branch_id,
+            branchName: currentUser.branches?.name,
+            categories: myCategories,
+            shiftType: currentShift
+        };
+        const templates = allTemplates.filter(t => ZamChecklistSchedule.isTemplateVisibleForEmployee(t, visibility));
+        visibleTemplatesById = new Map(templates.map(task => [task.id, task]));
+        const today = ZamChecklistSchedule.riyadhDateString();
+        const [logs, hourlyLogs] = await Promise.all([
+            ZamAPI.getTodayLogs(currentUser.branch_id),
+            ZamAPI.getHourlyChecklistLogs({ branchId: currentUser.branch_id, date: today })
+        ]);
         const logsByTemplate = {};
-        logs.forEach(l => { logsByTemplate[l.template_id] = l; });
+        logs.forEach(l => {
+            const task = visibleTemplatesById.get(l.template_id);
+            const matchesShift = l.shift_type
+                ? l.shift_type === currentShift
+                : !!task && task.shift_type !== 'Both' && task.shift_type === currentShift;
+            if (matchesShift) logsByTemplate[l.template_id] = l;
+        });
+        const currentHour = ZamChecklistSchedule.riyadhParts().hour;
+        hourlyLogs.forEach(l => {
+            if (Number(l.occurrence_hour) === currentHour && l.shift_type === currentShift) logsByTemplate[l.template_id] = l;
+        });
 
         if (!templates.length) {
             container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">لا توجد مهام مسندة لهذه الوردية حالياً.</p>';
@@ -286,7 +334,8 @@ async function loadMyChecklist() {
                         <input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${t.id}" ${completed ? 'checked disabled' : ''}/>
                         <div class="flex-1">
                             <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${t.task_title}</h4>
-                            ${t.requires_photo ? '<p class="text-body-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-sm">photo_camera</span> يتطلب صورة إثبات</p>' : ''}
+                    ${t.frequency === 'hourly' ? '<p class="text-body-sm text-secondary">مهمة تتكرر كل ساعة — يُسجّل إنجاز هذه الساعة فقط</p>' : ''}
+                    ${t.requires_photo ? '<p class="text-body-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-sm">photo_camera</span> يتطلب صورة إثبات</p>' : ''}
                         </div>
                     </div>
                 </div>
@@ -299,6 +348,7 @@ async function loadMyChecklist() {
                             <input type="file" accept="image/*" capture="environment" class="hidden evidence-input"/>
                         </label>
                     ` : ''}
+                    ${t.allows_notes ? `<textarea rows="2" class="task-note w-full border border-outline-variant rounded-lg p-sm text-body-sm" data-id="${t.id}" placeholder="ملاحظة أو عطل أو نقص (اختياري)"></textarea>` : ''}
                     <span class="task-status text-error text-[11px]"></span>
                     <span class="loading-indicator text-primary text-[11px] font-bold hidden"><span class="material-symbols-outlined animate-spin text-sm">sync</span> جارِ رفع الصورة والحفظ...</span>
                 </div>` : ''}
@@ -325,13 +375,8 @@ async function loadMyChecklist() {
 
                 try {
                     const photo_url = await uploadEvidence(file);
-                    await ZamAPI.submitChecklistLog({
-                        template_id: templateId,
-                        branch_id: currentUser.branch_id,
-                        executed_by: currentUser.id,
-                        status: 'Completed',
-                        photo_url
-                    });
+                    const notes = container.querySelector(`.task-note[data-id="${templateId}"]`)?.value.trim() || null;
+                    await saveTaskCompletion(templateId, notes, photo_url);
                     await loadMyChecklist();
                 } catch (err) {
                     console.error(err);
@@ -357,12 +402,8 @@ async function loadMyChecklist() {
                 }
                 cb.disabled = true;
                 try {
-                    await ZamAPI.submitChecklistLog({
-                        template_id: cb.dataset.id,
-                        branch_id: currentUser.branch_id,
-                        executed_by: currentUser.id,
-                        status: 'Completed'
-                    });
+                    const notes = container.querySelector(`.task-note[data-id="${cb.dataset.id}"]`)?.value.trim() || null;
+                    await saveTaskCompletion(cb.dataset.id, notes);
                     await loadMyChecklist();
                 } catch (err) {
                     console.error(err);
@@ -381,5 +422,12 @@ async function loadMyChecklist() {
 
 updateShiftButtons();
 loadMyChecklist();
+function refreshAtNextHour() {
+    setTimeout(() => {
+        loadMyChecklist();
+        refreshAtNextHour();
+    }, ZamChecklistSchedule.millisecondsUntilNextRiyadhHour());
+}
+refreshAtNextHour();
 </script>
 </body></html>

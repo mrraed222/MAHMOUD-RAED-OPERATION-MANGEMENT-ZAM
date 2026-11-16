@@ -13,7 +13,7 @@
                 }
             }
         }
-    }catch(_e){}</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/supabase-config.js?v=20261116134500"></script><script>
+    }catch(_e){}</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/checklist-schedule.js?v=20261116205000"></script><script src="../assets/supabase-config.js?v=20261116205000"></script><script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (!['Owner','Admin','Manager','Supervisor'].includes(currentUser.role)) {
       window.location.href = zamRoleHomePath(currentUser.role);
@@ -139,6 +139,21 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
       </table>
     </div>
 
+    <section class="mt-lg bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+      <div class="p-md border-b border-outline-variant"><h2 class="font-title-md text-primary">تنفيذ المهام الساعية</h2><p class="text-[11px] text-on-surface-variant">كل سجل مرتبط بساعة الرياض، والفرع والمنفذ والوردية.</p></div>
+      <div class="overflow-x-auto"><table class="w-full text-body-sm text-right"><thead class="bg-surface-container text-on-surface-variant font-bold"><tr><th class="p-sm">التاريخ</th><th class="p-sm">الساعة</th><th class="p-sm">الفرع</th><th class="p-sm">المهمة</th><th class="p-sm">الوردية</th><th class="p-sm">المنفذ / الدور</th><th class="p-sm">ملاحظات</th></tr></thead><tbody id="hourly-logs-tbody"><tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody></table></div>
+    </section>
+
+    <section class="mt-md bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+      <div class="p-md border-b border-outline-variant"><h2 class="font-title-md text-primary">ملاحظات الفريق</h2><p class="text-[11px] text-on-surface-variant">ملاحظات تشغيلية غير مرتبطة بمهمة، مع الفرع والوردية والتوقيت المحلي.</p></div>
+      <div id="team-notes-list" class="divide-y divide-outline-variant"><p class="p-md text-center text-on-surface-variant">جارِ التحميل...</p></div>
+    </section>
+
+    <section class="mt-md bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+      <div class="p-md border-b border-outline-variant"><h2 class="font-title-md text-primary">قراءات حرارة الثلاجات والفريزرات</h2><p class="text-[11px] text-on-surface-variant">السجل الأصلي مرتبط بالثلاجة/الفريزر والفرع والموظف والوردية.</p></div>
+      <div class="overflow-x-auto"><table class="w-full text-body-sm text-right"><thead class="bg-surface-container text-on-surface-variant font-bold"><tr><th class="p-sm">الوقت المحلي</th><th class="p-sm">الفرع</th><th class="p-sm">الجهاز</th><th class="p-sm">القراءة</th><th class="p-sm">الحالة</th><th class="p-sm">الوردية</th><th class="p-sm">الموظف / الدور</th><th class="p-sm">ملاحظة</th></tr></thead><tbody id="fridge-readings-tbody"><tr><td colspan="8" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody></table></div>
+    </section>
+
   </div>
 </main>
 
@@ -149,8 +164,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </div>
 
 <script>
-document.getElementById('date-label').textContent = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+document.getElementById('date-label').textContent = new Date().toLocaleDateString('ar-SA', { timeZone: 'Asia/Riyadh', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+document.getElementById('f-date').value = ZamChecklistSchedule.riyadhDateString();
 
 const tabGallery = document.getElementById('tab-gallery');
 const tabTable = document.getElementById('tab-table');
@@ -172,6 +187,26 @@ tabTable.addEventListener('click', () => {
 });
 
 let branchesCache = [];
+
+function escHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+function safeImageUrl(value) {
+    if (!value || !String(value).trim()) return '';
+    try {
+        const url = new URL(String(value), location.origin);
+        return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+    } catch { return ''; }
+}
+
+function riyadhDateTime(value) {
+    return value ? new Date(value).toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+}
+
+function shiftLabel(value) {
+    return value === 'Morning' ? 'صباحي' : value === 'Evening' ? 'مسائي' : value === 'Both' ? 'الورديتان' : '—';
+}
 
 async function loadBranchOptions() {
     branchesCache = await ZamAPI.getBranches();
@@ -197,34 +232,39 @@ async function loadLogs() {
     const shiftType = document.getElementById('f-shift').value || null;
 
     try {
-        const logs = await ZamAPI.getChecklistLogs({ branchId, date, shiftType });
+        const [logs, hourlyLogs, notes, readings] = await Promise.all([
+            ZamAPI.getChecklistLogs({ branchId, date, shiftType }),
+            ZamAPI.getHourlyChecklistLogs({ branchId, date, shiftType }),
+            ZamAPI.getTeamNotes({ branchId, date, shiftType }),
+            ZamAPI.getFridgeReadings({ branchId, date, shiftType })
+        ]);
 
         // حساب الإحصائيات
-        document.getElementById('stat-total-executed').textContent = logs.length;
-        const withPhotos = logs.filter(l => l.photo_url).length;
+        document.getElementById('stat-total-executed').textContent = logs.length + hourlyLogs.length;
+        const withPhotos = [...logs, ...hourlyLogs].filter(l => l.photo_url).length;
         document.getElementById('stat-with-photos').textContent = withPhotos;
-        const staff = [...new Set(logs.map(l => l.executed_by))].length;
+        const staff = [...new Set([...logs, ...hourlyLogs].map(l => l.executed_by).filter(Boolean))].length;
         document.getElementById('stat-staff-count').textContent = staff;
 
         // رندر معرض الصور
-        const logsWithPhotos = logs.filter(l => l.photo_url);
+        const logsWithPhotos = [...logs, ...hourlyLogs].filter(l => safeImageUrl(l.photo_url));
         if (!logsWithPhotos.length) {
             galleryView.innerHTML = '<p class="col-span-3 text-on-surface-variant text-body-sm p-md text-center bg-surface-container-lowest border border-outline-variant rounded-xl">لا توجد مهام موثقة بصور مطابقة للفلاتر اليوم.</p>';
         } else {
             galleryView.innerHTML = logsWithPhotos.map(l => `
                 <div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col">
                   <div class="h-48 overflow-hidden relative cursor-pointer group flex items-center justify-center bg-surface-container">
-                    <img src="${l.photo_url}" class="w-full h-full object-cover group-hover:scale-105 transition-all zoomable-img" data-src="${l.photo_url}"/>
+                    <img src="${escHtml(safeImageUrl(l.photo_url))}" class="w-full h-full object-cover group-hover:scale-105 transition-all zoomable-img" data-src="${escHtml(safeImageUrl(l.photo_url))}"/>
                     <div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"><span class="material-symbols-outlined text-4xl">zoom_in</span></div>
                   </div>
                   <div class="p-sm flex flex-col gap-xs flex-1 justify-between">
                     <div>
-                      <span class="inline-block px-sm py-xs rounded-full text-[10px] bg-primary/10 text-primary font-bold mb-xs">${l.checklist_templates?.category || 'باريستا'}</span>
-                      <h4 class="font-bold text-on-surface text-body-sm leading-tight">${l.checklist_templates?.task_title || 'مهمة مجهولة'}</h4>
+                      <span class="inline-block px-sm py-xs rounded-full text-[10px] bg-primary/10 text-primary font-bold mb-xs">${escHtml(l.checklist_templates?.category || l.template_category || '—')}</span>
+                      <h4 class="font-bold text-on-surface text-body-sm leading-tight">${escHtml(l.checklist_templates?.task_title || l.template_title || 'مهمة مجهولة')}</h4>
                     </div>
                     <div class="text-[11px] text-on-surface-variant border-t border-outline-variant pt-xs mt-xs flex justify-between items-center">
-                      <span>👤 ${l.profiles?.full_name || 'موظف'}</span>
-                      <span>📍 ${l.branches?.name || 'فرع'}</span>
+                      <span>👤 ${escHtml(l.profiles?.full_name || 'موظف')}</span>
+                      <span>📍 ${escHtml(l.branches?.name || 'فرع')}</span>
                     </div>
                   </div>
                 </div>
@@ -238,23 +278,42 @@ async function loadLogs() {
         } else {
             tbody.innerHTML = logs.map(l => `
                 <tr class="hover:bg-surface-container-low transition-colors">
-                  <td class="p-sm">${l.execution_date}</td>
-                  <td class="p-sm font-bold">${l.branches?.name || 'عام'}</td>
-                  <td class="p-sm">${l.checklist_templates?.task_title || 'مهمة مجهولة'}</td>
-                  <td class="p-sm">${l.checklist_templates?.category || '—'}</td>
-                  <td class="p-sm">${l.checklist_templates?.shift_type === 'Morning' ? 'صباحي' : 'مسائي'}</td>
-                  <td class="p-sm font-bold">${l.profiles?.full_name || '—'}</td>
+                  <td class="p-sm">${escHtml(l.execution_date)}</td>
+                  <td class="p-sm font-bold">${escHtml(l.branches?.name || 'عام')}</td>
+                  <td class="p-sm">${escHtml(l.checklist_templates?.task_title || 'مهمة مجهولة')}</td>
+                  <td class="p-sm">${escHtml(l.checklist_templates?.category || '—')}</td>
+                  <td class="p-sm">${escHtml(shiftLabel(l.shift_type || l.checklist_templates?.shift_type))}</td>
+                  <td class="p-sm font-bold">${escHtml(l.profiles?.full_name || '—')} <span class="text-[10px] text-outline">${escHtml(l.profiles?.role || '')}</span></td>
                   <td class="p-sm">
-                    ${l.photo_url ? `<button class="text-primary hover:underline flex items-center gap-xs zoomable-btn" data-src="${l.photo_url}"><span class="material-symbols-outlined">image</span> عرض</button>` : '<span class="text-outline">—</span>'}
+                    ${safeImageUrl(l.photo_url) ? `<button class="text-primary hover:underline flex items-center gap-xs zoomable-btn" data-src="${escHtml(safeImageUrl(l.photo_url))}"><span class="material-symbols-outlined">image</span> عرض</button>` : '<span class="text-outline">—</span>'}
                   </td>
                 </tr>
             `).join('');
         }
 
+        const hourlyBody = document.getElementById('hourly-logs-tbody');
+        hourlyBody.innerHTML = hourlyLogs.length ? hourlyLogs.map(l => `
+            <tr><td class="p-sm">${escHtml(l.execution_date)}</td><td class="p-sm font-bold">${String(l.occurrence_hour).padStart(2, '0')}:00–${String(l.occurrence_hour).padStart(2, '0')}:59</td><td class="p-sm">${escHtml(l.branches?.name || '—')}</td><td class="p-sm">${escHtml(l.checklist_templates?.task_title || l.template_title || 'مهمة ساعية')}</td><td class="p-sm">${escHtml(shiftLabel(l.shift_type))}</td><td class="p-sm">${escHtml(l.profiles?.full_name || '—')} <span class="text-[10px] text-outline">${escHtml(l.profiles?.role || '')}</span></td><td class="p-sm">${escHtml(l.notes || '—')}</td></tr>
+        `).join('') : '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">لا توجد إنجازات ساعية مطابقة.</td></tr>';
+
+        const notesList = document.getElementById('team-notes-list');
+        notesList.innerHTML = notes.length ? notes.map(n => `
+            <article class="p-md"><div class="flex flex-wrap items-center justify-between gap-sm text-[11px] text-on-surface-variant"><span class="font-bold text-primary">${escHtml(n.branches?.name || 'فرع غير محدد')} · ${escHtml(n.profiles?.full_name || '—')} (${escHtml(n.profiles?.role || '—')})</span><span>${escHtml(shiftLabel(n.shift_type))} · ${escHtml(riyadhDateTime(n.created_at))}</span></div><p class="text-body-sm mt-xs whitespace-pre-wrap">${escHtml(n.note)}</p></article>
+        `).join('') : '<p class="p-md text-center text-on-surface-variant">لا توجد ملاحظات مطابقة للفلاتر.</p>';
+
+        const readingsBody = document.getElementById('fridge-readings-tbody');
+        readingsBody.innerHTML = readings.length ? readings.map(r => {
+            const fridge = Array.isArray(r.fridges) ? r.fridges[0] : r.fridges;
+            const device = fridge ? `${fridge.kind === 'freezer' ? 'فريزر' : 'ثلاجة'} ${fridge.number}${fridge.name ? ' — ' + fridge.name : ''}` : 'جهاز غير معروف';
+            const status = r.status === 'problem' ? 'مشكلة' : r.status === 'warning' ? 'تنبيه' : 'طبيعي';
+            return `<tr><td class="p-sm">${escHtml(riyadhDateTime(r.created_at))}</td><td class="p-sm">${escHtml(r.branches?.name || '—')}</td><td class="p-sm">${escHtml(device)}</td><td class="p-sm font-bold">${escHtml(r.temperature)}°</td><td class="p-sm">${escHtml(status)}</td><td class="p-sm">${escHtml(shiftLabel(r.shift_type))}</td><td class="p-sm">${escHtml(r.profiles?.full_name || '—')} <span class="text-[10px] text-outline">${escHtml(r.profiles?.role || '')}</span></td><td class="p-sm">${escHtml(r.note || '—')}</td></tr>`;
+        }).join('') : '<tr><td colspan="8" class="p-md text-center text-on-surface-variant">لا توجد قراءات مطابقة للفلاتر.</td></tr>';
+
         // إضافة مستمعين للتكبير
         document.querySelectorAll('.zoomable-img, .zoomable-btn').forEach(el => {
             el.addEventListener('click', () => {
-                const src = el.dataset.src;
+                const src = safeImageUrl(el.dataset.src);
+                if (!src) return;
                 document.getElementById('modal-img').src = src;
                 document.getElementById('image-modal').classList.remove('hidden');
                 document.getElementById('image-modal').classList.add('flex');

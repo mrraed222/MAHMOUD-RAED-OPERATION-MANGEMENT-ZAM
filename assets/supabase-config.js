@@ -568,20 +568,39 @@ const ZamAPI = {
     },
 
     async updateTemplate(id, payload) {
-        const { data, error } = await zamClient.from('checklist_templates').update(payload).eq('id', id).select().single();
+        const { data: newId, error } = await zamClient.rpc('version_checklist_template', {
+            p_template_id: id,
+            p_payload: payload
+        });
         if (error) throw error;
+        const { data, error: readError } = await zamClient.from('checklist_templates').select('*').eq('id', newId).single();
+        if (readError) throw readError;
         return data;
     },
 
     async deleteTemplate(id) {
-        const { error } = await zamClient.from('checklist_templates').delete().eq('id', id);
+        // "الحذف" من الواجهة أرشفة غير إتلافية حتى لا تنحذف السجلات التاريخية.
+        const { data, error } = await zamClient.from('checklist_templates')
+            .update({ is_active: false }).eq('id', id).eq('is_active', true).select().maybeSingle();
         if (error) throw error;
+        return data;
+    },
+
+    async copyArchivedTemplateAsNewVersion(id) {
+        const { data: old, error: readError } = await zamClient.from('checklist_templates')
+            .select('*').eq('id', id).eq('is_active', false).single();
+        if (readError) throw readError;
+        const { id: _oldId, created_at: _createdAt, ...payload } = old;
+        const { data, error } = await zamClient.from('checklist_templates')
+            .insert([{ ...payload, is_active: true }]).select().single();
+        if (error) throw error;
+        return data;
     },
 
     // هل المهمة مستحقة اليوم؟ (يومية دايمًا، أسبوعية في يومها من الأسبوع، شهرية في يومها من الشهر)
     isTaskDueToday(t, date = new Date()) {
         const freq = t.frequency || 'daily';
-        if (freq === 'daily') return true;
+        if (freq === 'daily' || freq === 'hourly') return true;
         const dateParts = new Intl.DateTimeFormat('en-CA', {
             timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit'
         }).formatToParts(date);
@@ -598,8 +617,9 @@ const ZamAPI = {
         return true;
     },
 
-    async getTemplates(category = null, shiftType = null, branchId = null) {
+    async getTemplates(category = null, shiftType = null, branchId = null, { includeArchived = false } = {}) {
         let query = zamClient.from('checklist_templates').select('*');
+        if (!includeArchived) query = query.eq('is_active', true);
         if (category) query = query.eq('category', category);
         if (shiftType) query = query.in('shift_type', [shiftType, 'Both']);
         if (branchId) {
@@ -615,7 +635,7 @@ const ZamAPI = {
     async getChecklistLogs({ branchId = null, date = null, dateFrom = null, dateTo = null, shiftType = null } = {}) {
         return readAllRows(() => {
             let q = zamClient.from('checklist_logs')
-              .select('id,template_id,branch_id,executed_by,status,notes,photo_url,execution_date,created_at,checklist_templates(task_title,category,shift_type,requires_photo),profiles(full_name),branches(name)')
+              .select('id,template_id,branch_id,executed_by,status,notes,photo_url,execution_date,created_at,shift_type,checklist_templates(task_title,category,shift_type,requires_photo),profiles(full_name,role),branches(name)')
               .order('execution_date', { ascending: false })
               .order('created_at', { ascending: false });
             if (date) q = q.eq('execution_date', date);
@@ -623,7 +643,34 @@ const ZamAPI = {
             if (dateTo) q = q.lte('execution_date', dateTo);
             if (branchId) q = q.eq('branch_id', branchId);
             return q;
-        }).then(data => shiftType ? data.filter(l => [shiftType, 'Both'].includes(l.checklist_templates?.shift_type)) : data);
+        }).then(data => shiftType ? data.filter(l => {
+            if (l.shift_type) return l.shift_type === shiftType;
+            const templateShift = l.checklist_templates?.shift_type;
+            return templateShift !== 'Both' && templateShift === shiftType;
+        }) : data);
+    },
+
+    async getHourlyChecklistLogs({ branchId = null, date = null, shiftType = null } = {}) {
+        return readAllRows(() => {
+            let q = zamClient.from('hourly_checklist_logs')
+                .select('id,template_id,template_title,template_category,branch_id,executed_by,status,notes,photo_url,execution_date,occurrence_hour,shift_type,created_at,checklist_templates(task_title,category,shift_type),profiles(full_name,role),branches(name)')
+                .order('execution_date', { ascending: false }).order('occurrence_hour', { ascending: false });
+            if (date) q = q.eq('execution_date', date);
+            if (branchId) q = q.eq('branch_id', branchId);
+            if (shiftType) q = q.eq('shift_type', shiftType);
+            return q;
+        });
+    },
+
+    async submitHourlyChecklistLog({ template_id, shift_type, notes = null, photo_url = null }) {
+        const { data, error } = await zamClient.rpc('create_hourly_checklist_log', {
+            p_template_id: template_id,
+            p_shift_type: shift_type,
+            p_notes: notes,
+            p_photo_url: photo_url
+        });
+        if (error) throw error;
+        return data;
     },
 
     // سجلات اليوم لفرع محدد
@@ -636,10 +683,10 @@ const ZamAPI = {
         return data;
     },
 
-    async submitChecklistLog({ template_id, branch_id, executed_by, status = 'Completed', notes = null, photo_url = null }) {
+    async submitChecklistLog({ template_id, branch_id, executed_by, status = 'Completed', notes = null, photo_url = null, shift_type = null }) {
         const { data, error } = await zamClient
             .from('checklist_logs')
-            .insert([{ template_id, branch_id, executed_by, status, notes, photo_url, execution_date: zamRiyadhDateString() }])
+            .insert([{ template_id, branch_id, executed_by, status, notes, photo_url, shift_type, execution_date: zamRiyadhDateString() }])
             .select()
             .single();
         if (error) throw error;
@@ -649,6 +696,38 @@ const ZamAPI = {
     async deleteChecklistLog(logId) {
         const { error } = await zamClient.from('checklist_logs').delete().eq('id', logId);
         if (error) throw error;
+    },
+
+    async getTeamNotes({ branchId = null, date = null, shiftType = null } = {}) {
+        return readAllRows(() => {
+            let q = zamClient.from('team_notes')
+                .select('id,profile_id,branch_id,shift_type,note,created_at,profiles(full_name,role),branches(name)')
+                .order('created_at', { ascending: false });
+            if (branchId) q = q.eq('branch_id', branchId);
+            if (shiftType) q = q.eq('shift_type', shiftType);
+            if (date) {
+                const start = new Date(`${date}T00:00:00+03:00`);
+                const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+                q = q.gte('created_at', start.toISOString()).lt('created_at', end.toISOString());
+            }
+            return q;
+        });
+    },
+
+    async getFridgeReadings({ branchId = null, date = null, shiftType = null } = {}) {
+        return readAllRows(() => {
+            let q = zamClient.from('fridge_readings')
+                .select('id,branch_id,fridge_id,recorded_by,temperature,status,note,reading_date,created_at,shift_type,fridges(kind,number,name),profiles(full_name,role),branches(name)')
+                .order('created_at', { ascending: false });
+            if (branchId) q = q.eq('branch_id', branchId);
+            if (date) {
+                const start = new Date(`${date}T00:00:00+03:00`);
+                const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+                q = q.gte('created_at', start.toISOString()).lt('created_at', end.toISOString());
+            }
+            if (shiftType) q = q.eq('shift_type', shiftType);
+            return q;
+        });
     },
 
     // ============================================
@@ -887,7 +966,7 @@ const ZamAPI = {
     // الثلاجات والفريزرات + البلاغات التقنية
     // ============================================
     todayDate() {
-        return new Date().toISOString().split('T')[0];
+        return zamRiyadhDateString();
     },
 
     // حالة القراءة: ok | warning | problem
@@ -923,8 +1002,12 @@ const ZamAPI = {
     },
 
     async getTodayFridgeReadings(branchId, shiftType = null) {
+        const today = this.todayDate();
+        const start = new Date(`${today}T00:00:00+03:00`);
+        const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
         let query = zamClient.from('fridge_readings').select('*')
-            .eq('branch_id', branchId).eq('reading_date', this.todayDate());
+            .eq('branch_id', branchId)
+            .gte('created_at', start.toISOString()).lt('created_at', end.toISOString());
         if (shiftType) query = query.eq('shift_type', shiftType);
         const { data, error } = await query.order('created_at', { ascending: true });
         if (error) throw error;
@@ -939,6 +1022,7 @@ const ZamAPI = {
             branch_id,
             recorded_by,
             shift_type,
+            reading_date: this.todayDate(),
             temperature: Number(e.temperature),
             status: this.fridgeReadingStatus(e.fridge, e.temperature),
             note: e.note || null

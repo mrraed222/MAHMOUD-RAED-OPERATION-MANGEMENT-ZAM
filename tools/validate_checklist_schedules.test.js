@@ -1,0 +1,297 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const schedule = require('../assets/checklist-schedule.js');
+const dashboard = require('../assets/checklist-dashboard.js');
+
+const atRiyadh = value => new Date(value);
+const MAIN_ID = '93f53332-73d0-4742-a9c0-ab15dd828acb';
+const HAY_ID = '5da7b89d-089b-46a9-bc8e-3ad2582f9616';
+const MANAH_ID = '30956dd5-4eb1-408b-94b6-a29498b14b2e';
+const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20261116175407_checklist_recurrence_and_history.sql'), 'utf8');
+const supervisorPage = fs.readFileSync(path.join(__dirname, '..', 'supervisor-checklist', 'index.html'), 'utf8');
+const employeePage = fs.readFileSync(path.join(__dirname, '..', 'my-checklist', 'index.html'), 'utf8');
+const adminLogPage = fs.readFileSync(path.join(__dirname, '..', 'checklist-logs', 'index.html'), 'utf8');
+const templateAdminPage = fs.readFileSync(path.join(__dirname, '..', 'manage-templates', 'index.html'), 'utf8');
+const dashboardPage = fs.readFileSync(path.join(__dirname, '..', 'supervisor-dashboard', 'index.html'), 'utf8');
+const api = fs.readFileSync(path.join(__dirname, '..', 'assets', 'supabase-config.js'), 'utf8');
+const schema = fs.readFileSync(path.join(__dirname, '..', 'schema.sql'), 'utf8');
+
+function waiter(branchId, branchName, shiftType = 'Morning') {
+  return { role: 'Waiter', branchId, branchName, categories: ['الصالة'], shiftType };
+}
+
+test('تاريخ اليوم يُحسب بتوقيت الرياض حتى عندما يتغير اليوم UTC قبل الرياض', () => {
+  assert.equal(schedule.riyadhDateString(atRiyadh('2026-11-15T21:30:00.000Z')), '2026-11-16');
+  assert.equal(schedule.riyadhDateString(atRiyadh('2026-11-16T20:59:00.000Z')), '2026-11-16');
+  assert.equal(schedule.riyadhDateString(atRiyadh('2026-11-16T21:00:00.000Z')), '2026-11-17');
+});
+
+test('التنظيف الكيميائي للإسبريسو مستحق الأحد والثلاثاء والخميس فقط', () => {
+  const task = { frequency: 'weekly', day_of_week: 0 };
+  assert.equal(schedule.isTaskDueToday(task, atRiyadh('2026-11-15T09:00:00+03:00')), true);
+  task.day_of_week = 2;
+  assert.equal(schedule.isTaskDueToday(task, atRiyadh('2026-11-17T09:00:00+03:00')), true);
+  task.day_of_week = 4;
+  assert.equal(schedule.isTaskDueToday(task, atRiyadh('2026-11-19T09:00:00+03:00')), true);
+  task.day_of_week = 0;
+  assert.equal(schedule.isTaskDueToday(task, atRiyadh('2026-11-16T09:00:00+03:00')), false, 'الاثنين مستبعد');
+  assert.match(migration, /'التنظيف الكيميائي لماكينة الإسبريسو',[\s\S]*?weekly', 0[\s\S]*?weekly', 2[\s\S]*?weekly', 4/);
+  const brushDates = [
+    ['2026-11-16T09:00:00+03:00', 1], ['2026-11-18T09:00:00+03:00', 3],
+    ['2026-11-20T09:00:00+03:00', 5], ['2026-11-21T09:00:00+03:00', 6]
+  ];
+  for (const [date, day] of brushDates) assert.equal(schedule.isTaskDueToday({ frequency: 'weekly', day_of_week: day }, atRiyadh(date)), true);
+  assert.match(migration, /VALUES \(1, 323\), \(3, 324\), \(5, 325\), \(6, 326\)/);
+  assert.match(migration, /'تنظيف ماكينة الإسبريسو وعصا البخار بالماء والفرشاة', 'البار', 'Both'/);
+});
+
+test('التنظيف العميق لكل الفئات التشغيلية مستحق السبت بتقويم الرياض', () => {
+  const saturday = atRiyadh('2026-11-21T10:00:00+03:00');
+  for (const category of ['البار', 'المطبخ', 'الصالة']) {
+    assert.equal(schedule.isTaskDueToday({ category, frequency: 'weekly', day_of_week: 6 }, saturday), true, category);
+  }
+  assert.equal(schedule.isTaskDueToday({ frequency: 'weekly', day_of_week: 6 }, atRiyadh('2026-11-20T23:59:00+03:00')), false);
+  for (const title of ['تنظيف عميق للبار والمعدات', 'تنظيف عميق للمطبخ والمعدات', 'تنظيف عميق للصالة والمعدات']) {
+    assert.ok(migration.includes(title), `migration includes ${title}`);
+  }
+});
+
+test('مهمة جرد الصباح تظهر عند 12:00 بتوقيت الرياض', () => {
+  const task = { task_type: 'inventory_request', shift_type: 'Morning', target_time: '12:00:00' };
+  assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T11:59:00+03:00')), false);
+  assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T12:00:00+03:00')), true);
+  assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T16:00:00+03:00')), true);
+});
+
+test('مهمة جرد الليل تبدأ عند 00:00 وتبقى متاحة بعد بداية الوردية 16:00', () => {
+  const task = { task_type: 'inventory_request', shift_type: 'Evening', target_time: '00:00:00' };
+  assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-15T23:59:00+03:00')), false);
+  assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T00:00:00+03:00')), true);
+  assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T15:59:00+03:00')), true);
+  assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T16:00:00+03:00')), false);
+  assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T23:59:00+03:00')), false);
+  assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-17T00:00:00+03:00')), true);
+  assert.match(supervisorPage, /currentShift === 'Evening'\) targetMinute = nowMinute < 16 \* 60 \? 16 \* 60 : 24 \* 60/);
+  assert.match(supervisorPage, /currentUser\.role === 'Supervisor'/);
+});
+
+test('مهام حمامات الإدارة في الفرع الرئيسي تظهر عند 09:00 و12:00 فقط من موعدها', () => {
+  const task = { task_type: 'restroom_check', category: 'الصالة', shift_type: 'Morning', branch_id: MAIN_ID, frequency: 'daily', target_time: '09:00:00' };
+  const context = waiter(MAIN_ID, 'زام الرئيسي');
+  assert.equal(schedule.isTemplateVisibleForEmployee(task, context, atRiyadh('2026-11-16T08:59:00+03:00')), false);
+  assert.equal(schedule.isTemplateVisibleForEmployee(task, context, atRiyadh('2026-11-16T09:00:00+03:00')), true);
+  task.target_time = '12:00:00';
+  assert.equal(schedule.isTemplateVisibleForEmployee(task, context, atRiyadh('2026-11-16T11:59:00+03:00')), false);
+  assert.equal(schedule.isTemplateVisibleForEmployee(task, context, atRiyadh('2026-11-16T12:00:00+03:00')), true);
+  assert.match(migration, /'تنظيف دورة مياه الإدارة — 09:00'/);
+  assert.match(migration, /'تنظيف دورة مياه الإدارة — 12:00'/);
+});
+
+test('جولة الحمام كل ساعة خاصة بزام الرئيسي وموظفي الصالة وتطلب صورة', () => {
+  const hourly = { task_type: 'restroom_check', category: 'الصالة', shift_type: 'Both', branch_id: MAIN_ID, frequency: 'hourly' };
+  assert.equal(schedule.isTemplateVisibleForEmployee(hourly, waiter(MAIN_ID, 'زام الرئيسي', 'Evening')), true);
+  assert.equal(schedule.isTemplateVisibleForEmployee(hourly, waiter(HAY_ID, 'زام الحي', 'Evening')), false);
+  assert.equal(schedule.isTemplateVisibleForEmployee(hourly, { role: 'Barista', branchId: MAIN_ID, categories: ['البار'], shiftType: 'Morning' }), false);
+  assert.equal(schedule.isTemplateVisibleForEmployee(hourly, { role: 'Supervisor', branchId: MAIN_ID, branchName: 'زام الرئيسي', categories: ['الصالة'], shiftType: 'Morning' }), false);
+  assert.match(migration, /'تنظيف وفحص دورة المياه كل ساعة'[\s\S]*?b\.id, true, 'hourly'/);
+  assert.match(migration, /WHERE b\.name = 'زام الرئيسي'/);
+});
+
+test('زام الحي لا تظهر له مهام حمامات، لكن تبقى مهام الصالة العادية ظاهرة', () => {
+  const restroom = { task_type: 'restroom_check', category: 'الصالة', shift_type: 'Morning', branch_id: HAY_ID, frequency: 'daily' };
+  assert.equal(schedule.isTemplateVisibleForEmployee(restroom, waiter(HAY_ID, 'زام الحي')), false);
+  const lounge = { task_type: 'standard', category: 'الصالة', shift_type: 'Morning', branch_id: HAY_ID, frequency: 'daily' };
+  assert.equal(schedule.isTemplateVisibleForEmployee(lounge, waiter(HAY_ID, 'زام الحي')), true);
+  assert.match(migration, /'زام الحي'[\s\S]*?لا توجد مهام دورة مياه لهذا الفرع/);
+});
+
+test('زام المنح بلا ويتر صباحي، وتُتاح قائمة الوردية المسائية فقط', () => {
+  const morning = { task_type: 'standard', category: 'الصالة', shift_type: 'Morning', branch_id: MANAH_ID, frequency: 'daily' };
+  assert.equal(schedule.isTemplateVisibleForEmployee(morning, waiter(MANAH_ID, 'زام المنح', 'Morning')), false);
+  const evening = { ...morning, shift_type: 'Evening' };
+  assert.equal(schedule.isTemplateVisibleForEmployee(evening, waiter(MANAH_ID, 'زام المنح', 'Evening')), true);
+  assert.match(migration, /b\.name <> 'زام المنح'/);
+});
+
+test('تُفصل إنجازات الصباح والليل، مع إظهار مهام الورديتين في كليهما', () => {
+  const morning = { category: 'الصالة', shift_type: 'Morning', branch_id: HAY_ID, frequency: 'daily', task_type: 'standard' };
+  const both = { ...morning, shift_type: 'Both' };
+  const eveningContext = waiter(HAY_ID, 'زام الحي', 'Evening');
+  assert.equal(schedule.isTemplateVisibleForEmployee(morning, eveningContext), false);
+  assert.equal(schedule.isTemplateVisibleForEmployee(both, eveningContext), true);
+  assert.match(migration, /checklist_logs_shift_occurrence_uidx[\s\S]*?branch_id, shift_type/);
+});
+
+test('طلبات الجرد لا تُعرض في واجهة الموظف العادية، وتُحصر بصفحة المشرف', () => {
+  const inventory = { task_type: 'inventory_request', category: 'مهام المشرفين', shift_type: 'Morning', target_time: '12:00:00', frequency: 'daily' };
+  assert.equal(schedule.isTemplateVisibleForEmployee(inventory, { role: 'Supervisor', branchId: MAIN_ID, categories: ['مهام المشرفين'], shiftType: 'Morning' }, atRiyadh('2026-11-16T13:00:00+03:00')), false);
+  assert.match(supervisorPage, /currentUser\.role === 'Supervisor' && ZamChecklistSchedule\.isInventoryTaskVisible/);
+  assert.match(supervisorPage, /getHourlyChecklistLogs\(\{ branchId: currentUser\.branch_id, date: ZamChecklistSchedule\.riyadhDateString\(\), shiftType: currentShift \}\)/);
+  assert.match(migration, /v_profile\.role IS DISTINCT FROM 'Supervisor'/);
+});
+
+test('مفتاح تنفيذ الساعة ثابت خلال الساعة ويتغير عند بدايتها التالية', () => {
+  const first = schedule.hourlyOccurrenceKey(atRiyadh('2026-11-16T10:05:00+03:00'));
+  const sameHour = schedule.hourlyOccurrenceKey(atRiyadh('2026-11-16T10:59:59+03:00'));
+  const nextHour = schedule.hourlyOccurrenceKey(atRiyadh('2026-11-16T11:00:00+03:00'));
+  assert.equal(first, sameHour);
+  assert.notEqual(first, nextHour);
+  assert.equal(first, '2026-11-16-10');
+});
+
+test('ترحيل السجل الساعي والإصدارات إضافي ويحافظ على سجلات وتفاصيل الطلبات', () => {
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.hourly_checklist_logs/i);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS shift_type/i);
+  assert.match(migration, /frequency[^;]*hourly/is);
+  assert.match(migration, /FOREIGN KEY \(template_id\) REFERENCES public\.checklist_templates\(id\) ON DELETE RESTRICT/i);
+  assert.match(migration, /DROP CONSTRAINT IF EXISTS one_log_per_task_day_branch/i);
+  assert.doesNotMatch(migration, /DELETE\s+FROM\s+public\.(checklist_logs|team_notes|inventory_requests)/i);
+  assert.doesNotMatch(migration, /DROP\s+TABLE\s+public\.(checklist_logs|team_notes|inventory_requests|daily_reports|inventory_request_items)/i);
+  assert.doesNotMatch(migration, /DELETE\s+FROM\s+public\.checklist_templates/i);
+});
+
+test('الأرشيف يظل محفوظاً ويظهر للمخولين فقط وتحديث القالب ينشئ إصداراً جديداً', () => {
+  assert.match(migration, /Users read active checklist templates[\s\S]*?USING \(is_active OR public\.has_admin_permission\('templates'\)\)/);
+  assert.match(migration, /INSERT INTO public\.checklist_templates[\s\S]*?UPDATE public\.checklist_templates[\s\S]*?SET is_active = false/);
+  assert.match(migration, /CREATE POLICY "Admin roles read all checklist logs"[\s\S]*?current_user_role\(\) IN \('Owner', 'Admin', 'Manager'\)/);
+  assert.doesNotMatch(migration, /DROP POLICY IF EXISTS "Supervisors read own branch checklist logs"/);
+  assert.match(api, /if \(!includeArchived\) query = query\.eq\('is_active', true\)/);
+  assert.match(templateAdminPage, /getTemplates\(null, null, null, \{ includeArchived: true \}\)/);
+  assert.match(templateAdminPage, /copyArchivedTemplateAsNewVersion/);
+  assert.match(templateAdminPage, /delete-btn[^`]*>أرشفة/);
+  assert.doesNotMatch(api, /from\('checklist_templates'\)\.delete\(/);
+});
+
+test('إنشاء طلب الجرد يسجل الوردية ويستخدم قيد التكرار الجديد', () => {
+  assert.match(migration, /INSERT INTO public\.checklist_logs \([\s\S]*?shift_type,\s*execution_date\s*\)/);
+  assert.match(migration, /p_shift_type,[\s\S]*?\(pg_catalog\.timezone\('Asia\/Riyadh', now\(\)\)\)::date/);
+  assert.match(migration, /ON CONFLICT \(template_id, execution_date, branch_id, shift_type\)[\s\S]*?WHERE shift_type IS NOT NULL/);
+  assert.match(migration, /AND t\.is_active/);
+});
+
+test('سياسات الإدارة والسجل الساعي والملاحظات ليست عامة', () => {
+  assert.match(migration, /FOR SELECT TO authenticated[\s\S]*?USING \(public\.current_user_role\(\) IN \('Owner', 'Admin', 'Manager'\)\)/);
+  assert.match(migration, /CREATE POLICY "Supervisors read own branch team notes"[\s\S]*?TO authenticated[\s\S]*?branch_id = public\.current_user_branch_id\(\)/);
+  assert.match(migration, /REVOKE ALL PRIVILEGES ON public\.hourly_checklist_logs FROM PUBLIC, anon, authenticated/);
+});
+
+test('تواريخ قراءات الحرارة وسجلات التنفيذ تُضبط على يوم الرياض وتُعرض أوقاتها محلياً', () => {
+  assert.match(migration, /ALTER COLUMN execution_date SET DEFAULT \(pg_catalog\.timezone\('Asia\/Riyadh', now\(\)\)\)::date/);
+  assert.match(migration, /ALTER COLUMN reading_date SET DEFAULT \(pg_catalog\.timezone\('Asia\/Riyadh', now\(\)\)\)::date/);
+  assert.match(api, /getFridgeReadings\([\s\S]*?created_at', start\.toISOString\(\)[\s\S]*?created_at', end\.toISOString\(\)/);
+  assert.match(adminLogPage, /timeZone: 'Asia\/Riyadh'/);
+  assert.match(supervisorPage, /timeZone: 'Asia\/Riyadh'/);
+});
+
+test('عدادات Both تعرض المهمة في الورديتين ولا تنقل سجل الوردية أو السجل القديم بينهما', () => {
+  const task = { id: 'both-task', category: 'الصالة', shift_type: 'Both', branch_id: HAY_ID, frequency: 'daily', task_type: 'standard' };
+  const employee = { id: 'waiter-1', role: 'Waiter', shift_type: 'Both' };
+  const opts = { templates: [task], staff: [employee], branchId: HAY_ID, branchName: 'زام الحي', now: atRiyadh('2026-11-16T10:00:00+03:00') };
+  const morning = dashboard.dashboardTasks({ ...opts, shiftType: 'Morning' });
+  const evening = dashboard.dashboardTasks({ ...opts, shiftType: 'Evening' });
+  assert.deepEqual(morning.map(t => t.id), ['both-task']);
+  assert.deepEqual(evening.map(t => t.id), ['both-task']);
+  const morningLog = { template_id: task.id, branch_id: HAY_ID, execution_date: '2026-11-16', shift_type: 'Morning', executed_by: 'waiter-1', status: 'Completed' };
+  assert.equal(dashboard.completedTaskKeys(morning, [morningLog], [], { branchId: HAY_ID, shiftType: 'Morning', now: opts.now }).has(task.id), true);
+  assert.equal(dashboard.completedTaskKeys(evening, [morningLog], [], { branchId: HAY_ID, shiftType: 'Evening', now: opts.now }).has(task.id), false);
+  assert.equal(dashboard.completedTaskKeys(morning, [morningLog], [], { branchId: HAY_ID, shiftType: 'Morning', now: opts.now, executedBy: 'waiter-1' }).has(task.id), true);
+  assert.equal(dashboard.completedTaskKeys(morning, [morningLog], [], { branchId: HAY_ID, shiftType: 'Morning', now: opts.now, executedBy: 'waiter-2' }).has(task.id), false);
+  const legacyLog = { ...morningLog, shift_type: null };
+  assert.equal(dashboard.completedTaskKeys(evening, [legacyLog], [], { branchId: HAY_ID, shiftType: 'Evening', now: opts.now }).has(task.id), false);
+  assert.match(employeePage, /\['Morning', 'Evening'\]\.includes\(currentUser\.shift_type\)/);
+  assert.match(employeePage, /task\.shift_type !== 'Both' && task\.shift_type === currentShift/);
+  assert.match(employeePage, /Number\(l\.occurrence_hour\) === currentHour && l\.shift_type === currentShift/);
+  assert.match(supervisorPage, /task\.shift_type !== 'Both' && task\.shift_type === currentShift/);
+  assert.match(api, /if \(l\.shift_type\) return l\.shift_type === shiftType;[\s\S]*?templateShift !== 'Both' && templateShift === shiftType/);
+});
+
+test('العدادات لا تُدخل المهام قبل موعدها وتراعي الاستحقاق الأسبوعي والشهري', () => {
+  const base = { category: 'الصالة', shift_type: 'Morning', branch_id: MAIN_ID, task_type: 'restroom_check', frequency: 'daily' };
+  const employee = { id: 'waiter-1', role: 'Waiter', shift_type: 'Morning' };
+  const atTime = { ...base, id: 'at-noon', target_time: '12:00:00' };
+  const context = { templates: [atTime], staff: [employee], branchId: MAIN_ID, branchName: 'زام الرئيسي', shiftType: 'Morning' };
+  assert.equal(dashboard.dashboardTasks({ ...context, now: atRiyadh('2026-11-16T11:59:00+03:00') }).length, 0);
+  assert.equal(dashboard.dashboardTasks({ ...context, now: atRiyadh('2026-11-16T12:00:00+03:00') }).length, 1);
+  const weekly = { ...base, id: 'weekly-saturday', task_type: 'standard', frequency: 'weekly', day_of_week: 6 };
+  const monthly = { ...base, id: 'monthly-31', task_type: 'standard', frequency: 'monthly', day_of_month: 31 };
+  const recurring = { ...context, templates: [weekly, monthly], now: atRiyadh('2027-02-28T10:00:00+03:00') };
+  assert.deepEqual(dashboard.dashboardTasks(recurring).map(t => t.id), ['monthly-31'], '31st-day monthly task is due on February’s last day; Saturday task is not');
+  assert.equal(dashboard.dashboardTasks({ ...recurring, now: atRiyadh('2026-11-21T10:00:00+03:00') }).some(t => t.id === 'weekly-saturday'), true);
+});
+
+test('المهام وبطاقات الموظفين تحترم الإسناد الإضافي للفئات', () => {
+  const templates = [
+    { id: 'bar-task', category: 'البار', shift_type: 'Morning', branch_id: MAIN_ID, task_type: 'standard', frequency: 'daily' },
+    { id: 'kitchen-task', category: 'المطبخ', shift_type: 'Morning', branch_id: MAIN_ID, task_type: 'standard', frequency: 'daily' }
+  ];
+  const employee = { id: 'multi-role-1', role: 'Barista', shift_type: 'Morning' };
+  assert.deepEqual(dashboard.tasksForEmployee(templates, employee, { branchId: MAIN_ID, branchName: 'زام الرئيسي', categoriesBy: { [employee.id]: ['المطبخ'] }, shiftType: 'Morning' }).map(t => t.id), ['kitchen-task']);
+});
+
+test('السجل الساعي يحسب الساعة والوردية الحالية فقط، والمجموع العام يختلف عن بطاقة الموظف', () => {
+  const now = atRiyadh('2026-11-16T10:30:00+03:00');
+  const task = { id: 'hourly-restroom', category: 'الصالة', shift_type: 'Both', branch_id: MAIN_ID, frequency: 'hourly', task_type: 'restroom_check' };
+  const logs = [
+    { template_id: task.id, branch_id: MAIN_ID, execution_date: '2026-11-16', occurrence_hour: 10, shift_type: 'Morning', executed_by: 'waiter-1', status: 'Completed' },
+    { template_id: task.id, branch_id: MAIN_ID, execution_date: '2026-11-16', occurrence_hour: 9, shift_type: 'Morning', executed_by: 'waiter-2', status: 'Completed' },
+    { template_id: task.id, branch_id: MAIN_ID, execution_date: '2026-11-16', occurrence_hour: 10, shift_type: 'Evening', executed_by: 'waiter-2', status: 'Completed' },
+    { template_id: task.id, branch_id: MAIN_ID, execution_date: '2026-11-15', occurrence_hour: 10, shift_type: 'Morning', executed_by: 'waiter-2', status: 'Completed' }
+  ];
+  assert.equal(dashboard.taskKey(task, now), 'hourly-restroom:hour:10');
+  assert.equal(dashboard.completedTaskKeys([task], [], logs, { branchId: MAIN_ID, shiftType: 'Morning', now }).has(dashboard.taskKey(task, now)), true);
+  assert.equal(dashboard.completedTaskKeys([task], [], logs, { branchId: MAIN_ID, shiftType: 'Morning', now, executedBy: 'waiter-1' }).size, 1);
+  assert.equal(dashboard.completedTaskKeys([task], [], logs, { branchId: MAIN_ID, shiftType: 'Morning', now, executedBy: 'waiter-2' }).size, 0);
+  assert.equal(dashboard.completedTaskKeys([task], [], logs, { branchId: MAIN_ID, shiftType: 'Evening', now }).size, 1, 'only the current hour’s evening entry counts for evening');
+});
+
+test('عدادات الجرد تظهر للمشرف فقط وبعد موعد الورديّة وفي الفرع المحدد', () => {
+  const task = { id: 'inventory', category: 'مهام المشرفين', shift_type: 'Morning', branch_id: null, task_type: 'inventory_request', frequency: 'daily', target_time: '12:00:00' };
+  const staff = [{ id: 'waiter', role: 'Waiter', shift_type: 'Morning' }];
+  const common = { templates: [task], staff, branchId: MAIN_ID, branchName: 'زام الرئيسي', shiftType: 'Morning' };
+  const before = atRiyadh('2026-11-16T11:59:00+03:00');
+  const due = atRiyadh('2026-11-16T12:00:00+03:00');
+  assert.equal(dashboard.dashboardTasks({ ...common, currentUserRole: 'Supervisor', now: before }).length, 0);
+  assert.deepEqual(dashboard.dashboardTasks({ ...common, currentUserRole: 'Supervisor', now: due }).map(t => t.id), ['inventory']);
+  assert.equal(dashboard.dashboardTasks({ ...common, currentUserRole: 'Manager', now: due }).length, 0);
+  assert.equal(dashboard.dashboardTasks({ ...common, currentUserRole: 'Supervisor', branchId: HAY_ID, now: due }).length, 1, 'unscoped shared task may be available at each branch');
+  assert.equal(dashboard.dashboardTasks({ ...common, currentUserRole: 'Supervisor', templates: [{ ...task, branch_id: HAY_ID }], now: due }).length, 0);
+});
+
+test('لوحة الفرع تربط السجلات الفعلية وتعرض عداداتًا محدثة دوريًا', () => {
+  assert.match(dashboardPage, /ZamChecklistDashboard\.dashboardTasks/);
+  assert.match(dashboardPage, /ZamChecklistDashboard\.completedTaskKeys/);
+  assert.match(dashboardPage, /getHourlyChecklistLogs\(\{ branchId, date: today \}\)/);
+  assert.match(dashboardPage, /window\.setInterval\(refreshDashboard,\s*60000\)/);
+  assert.match(dashboardPage, /if \(refreshRunning \|\| document\.hidden\) return/);
+  assert.match(dashboardPage, /const today = ZamChecklistSchedule\.riyadhDateString\(now\)/);
+});
+
+test('إنشاء الجولة الساعية خادمي فقط: لا يقبل هوية أو فرعًا أو ساعة من المتصفح ويتحقق من صورة المالك', () => {
+  assert.match(api, /rpc\('create_hourly_checklist_log'/);
+  assert.doesNotMatch(api, /from\('hourly_checklist_logs'\)\.insert/);
+  assert.match(api, /p_template_id: template_id,[\s\S]*?p_shift_type: shift_type,[\s\S]*?p_notes: notes,[\s\S]*?p_photo_url: photo_url/);
+  assert.match(migration, /SECURITY DEFINER[\s\S]*?SET search_path = ''[\s\S]*?auth\.uid\(\)/i);
+  assert.match(migration, /v_profile\.status IS DISTINCT FROM 'active'[\s\S]*?v_profile\.role IS DISTINCT FROM 'Waiter'/);
+  assert.match(migration, /WHERE b\.name = 'زام الرئيسي'/);
+  assert.match(migration, /INTO STRICT v_main_branch_id/);
+  assert.match(migration, /v_local_now := pg_catalog\.timezone\('Asia\/Riyadh'/);
+  assert.match(migration, /v_expected_shift := CASE[\s\S]*?WHEN v_profile\.shift_type IN \('Morning', 'Evening'\)[\s\S]*?EXTRACT\(HOUR FROM v_local_now\) >= 16/);
+  assert.match(migration, /REVOKE ALL ON FUNCTION public\.create_inventory_request\(text, text, jsonb\) FROM PUBLIC, anon, authenticated/i);
+  assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.create_inventory_request\(text, text, jsonb\) TO authenticated/i);
+  assert.match(migration, /o\.owner = v_user_id OR o\.owner_id = v_user_id::text/);
+  assert.match(migration, /o\.metadata ->> 'mimetype'\) LIKE 'image\/%'/);
+  assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.create_hourly_checklist_log\(uuid, text, text, text\) TO authenticated/i);
+  assert.match(migration, /REVOKE ALL PRIVILEGES ON public\.hourly_checklist_logs FROM PUBLIC, anon, authenticated/i);
+  assert.match(migration, /CREATE POLICY "Waiters read own branch hourly checklist logs"[\s\S]*?p\.role = 'Waiter'[\s\S]*?p\.branch_id = hourly_checklist_logs\.branch_id/);
+  assert.doesNotMatch(migration, /CREATE POLICY "Users create own hourly checklist logs"/);
+  assert.match(migration, /CREATE OR REPLACE FUNCTION public\.is_hourly_checklist_template[\s\S]*?SECURITY DEFINER[\s\S]*?frequency = 'hourly'/i);
+  assert.match(migration, /CREATE POLICY "Users can create own logs"[\s\S]*?NOT public\.is_hourly_checklist_template\(template_id\)/i);
+  assert.match(migration, /CREATE POLICY "Users can update own logs"[\s\S]*?USING \(executed_by = \(SELECT auth\.uid\(\)\) AND branch_id = public\.current_user_branch_id\(\)\)[\s\S]*?WITH CHECK \([\s\S]*?branch_id = public\.current_user_branch_id\(\)[\s\S]*?NOT public\.is_hourly_checklist_template\(template_id\)/i);
+  assert.match(schema, /create or replace function public\.create_hourly_checklist_log\([\s\S]*?set search_path = ''/i);
+  assert.match(schema, /not public\.is_hourly_checklist_template\(template_id\)/i);
+  assert.match(schema, /v_expected_shift := case[\s\S]*?when v_profile\.shift_type in \('Morning', 'Evening'\)[\s\S]*?extract\(hour from v_local_now\) >= 16/i);
+  assert.match(schema, /grant select on hourly_checklist_logs to authenticated/i);
+  assert.doesNotMatch(schema, /grant select, insert on hourly_checklist_logs/i);
+});
