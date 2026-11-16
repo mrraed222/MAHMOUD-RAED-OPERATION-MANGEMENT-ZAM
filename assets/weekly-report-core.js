@@ -72,7 +72,7 @@
   var SRC = {
     label: 'غير محدد', kind: 'none', note: '',
     branches: [], reports: [], waste: [], issues: [], negs: [],
-    visits: [], attendance: [], plans: [], notes: [], snapshots: [],
+    visits: [], visitResults: [], visitActions: [], attendance: [], plans: [], notes: [], snapshots: [],
     templates: [], logs: []
   };
   var BRANCHES = [];             /* [{id,name,short}] — ديناميكي */
@@ -166,17 +166,22 @@
       q('weekly_reports', '*'),
       q('checklist_templates', '*'),
       q('checklist_logs', '*'),
-      q('supervisory_visit_notes', '*')
+      q('supervisory_visit_notes', '*'),
+      q('supervisory_visit_results', '*'),
+      q('visit_action_items', '*'),
+      q('visit_checklist_templates', 'id,title,category,sort_order'),
+      q('profiles', 'id,full_name,role')
     ]).then(function (res) {
       var branches = res[0], reports = res[1], waste = res[2], issues = res[3], negs = res[4],
           visits = res[5], attendance = res[6], plans = res[7], notes = res[8],
-          snapshots = res[9], templates = res[10], logs = res[11], visitNotes = res[12];
+          snapshots = res[9], templates = res[10], logs = res[11], visitNotes = res[12],
+          visitResults = res[13], visitActions = res[14], visitTemplates = res[15], profiles = res[16];
 
       // إن وُجدت فروع على الأقل نُبقي المصدر (حتى لو كانت جداول التقارير فارغة)
       // حتى لا نخسر الفروع الديناميكية؛ وإن فشل الاتصال تماماً نرجع null
       // كي تتولّى خطة GAS ثم CSV.
       var hasAny = reports.length || waste.length || issues.length || negs.length ||
-        visits.length || attendance.length || plans.length || notes.length ||
+        visits.length || visitResults.length || visitActions.length || attendance.length || plans.length || notes.length ||
         templates.length || logs.length;
       if (!hasAny && !branches.length) return null;
 
@@ -229,14 +234,20 @@
         if (!vid) return;
         (notesByVisit[vid] = notesByVisit[vid] || []).push(n);
       });
+      var visitTemplateById = {};
+      (visitTemplates || []).forEach(function (item) { visitTemplateById[String(item.id)] = item; });
+      var profileById = {};
+      (profiles || []).forEach(function (profile) { profileById[String(profile.id)] = profile; });
 
       SRC = {
         label: 'مباشر من Supabase (نظام زام)', kind: 'live',
         note: 'قراءة مباشرة من قاعدة بيانات نظام زام',
         branches: BRANCHES, reports: R, waste: W, issues: I, negs: N,
         visits: visits.map(function (v) { return {
-          date: String(v.visit_date || '').slice(0, 10), branch: v.branch_id,
-          visitor: v.visitor_name || '', score: num(v.score),
+          id: v.id, date: String(v.visit_date || '').slice(0, 10), branch: v.branch_id,
+          shiftType: normalizeShift(v.shift_type),
+          visitor: v.visitor_name || '',
+          score: v.score_percentage != null ? num(v.score_percentage) : (v.score != null ? num(v.score) : null),
           total: num(v.checklist_total), done: num(v.checklist_done),
           observation: v.observation || '', action: v.corrective_action || '',
           owner: v.owner || '', due: v.due_date || '', status: v.status || 'مفتوحة',
@@ -244,6 +255,18 @@
             text: n.note_text || '', action: n.corrective_action || '', owner: n.owner || '',
             due: n.due_date || '', status: n.status || 'مفتوحة' }; }) }; })
           .filter(function (v) { return v.date; }),
+        visitResults: visitResults.map(function (row) {
+          var item = visitTemplateById[String(row.item_id)] || {};
+          return { visitId: row.visit_id, itemId: row.item_id, title: item.title || 'بند زيارة', category: item.category || 'غير مصنف',
+            score: row.score, result: row.result || 'غير مكتمل', note: row.note || '', violation: !!row.is_violation };
+        }),
+        visitActions: visitActions.map(function (row) {
+          var assigned = profileById[String(row.assigned_to)] || {};
+          return { id: row.id, visitId: row.visit_id, resultId: row.result_id || '', branch: row.branch_id,
+            title: row.title || '', description: row.description || '', itemType: row.item_type || '', priority: row.priority || '',
+            assignedTo: assigned.full_name || row.assigned_role || (row.assigned_to ? 'موظف محدد' : '—'),
+            shiftType: row.shift_type || '', due: row.due_date || '', status: row.status || 'مفتوحة', createdAt: row.created_at || '' };
+        }),
         attendance: attendance.map(function (a) { return {
           date: String(a.work_date || '').slice(0, 10), branch: a.branch_id,
           employee: a.employee_name || '', shiftType: normalizeShift(a.shift_type) === 'Evening' ? 'Evening' : 'Morning',
@@ -387,7 +410,7 @@
     });
   }
 
-  /* ══════════ الالتزام بالتشيكلست — القوالب المسندة فقط ══════════ */
+  /* ══════════ الالتزام بقوائم التحقق — القوالب المسندة فقط ══════════ */
   function normalizeShift(value) {
     return METRICS.normalizeShift(value);
   }
@@ -670,7 +693,7 @@
         var cnt = filterRows(SRC.reports, rr, true, false).length;
         return '<button class="slicer px-sm py-xs rounded-full border border-outline-variant text-body-sm ' +
           (state.range === x[0] ? 'on' : '') + '" data-range="' + x[0] + '">' + x[1] +
-          ' <span class="chip-count">' + nf(cnt) + '</span></button>';
+          ' <span class="chip-count">' + nf(cnt) + ' تقارير</span></button>';
       }).join('');
       $$('.slicer[data-range]', rc).forEach(function (b) {
         b.addEventListener('click', function () { state.range = b.getAttribute('data-range'); applyNotes(); renderAll(); });
@@ -786,13 +809,13 @@
     var negsCur = filterRows(SRC.negs, r, true, true);
     var comp = compliance(r), compPrev = compliance(p);
     var att = filterRows(SRC.attendance, r, true, true);
-    var visits = filterRows(SRC.visits, r, true, false);
+    var visits = filterRows(SRC.visits, r, true, true);
 
     var cards = [
       { l: 'إجمالي المبيعات', i: 'payments', v: nf(cur.sales) + ' ر.س', p: nf(prv.sales) + ' ر.س', d: dlt(cur.sales, prv.sales), g: 'up', z: !prv.sales },
       { l: 'عدد الفواتير', i: 'receipt_long', v: nf(cur.orders), p: nf(prv.orders), d: dlt(cur.orders, prv.orders), g: 'up', z: !prv.orders },
       { l: 'متوسط الفاتورة', i: 'calculate', v: nf1(cur.avg) + ' ر.س', p: nf1(prv.avg) + ' ر.س', d: dlt(cur.avg, prv.avg), g: 'up', z: !prv.avg },
-      { l: 'نسبة الالتزام بالتشيكلست', i: 'fact_check',
+      { l: 'نسبة الالتزام بقوائم التحقق', i: 'fact_check',
         v: comp && comp.pct != null ? comp.pct + '%' : (comp && comp.hourlyExcluded ? 'غير متاح' : '—'),
         p: compPrev && compPrev.pct != null ? compPrev.pct + '%' : '—',
         d: comp && compPrev && comp.pct != null && compPrev.pct != null ? dlt(comp.pct, compPrev.pct) : null, g: 'up', z: false },
@@ -870,18 +893,68 @@
 
   /* ══════════ التبويبات ══════════ */
   var TAB_NAMES = ['1. أداء الفروع والمبيعات', '2. الرقابة التشغيلية', '3. شكاوى العملاء',
-                   '4. الهدر والمخزون', '5. الموظفون والمعدات', '6. خطة الأسبوع القادم'];
+                   '4. الهدر', '5. الموظفون والمعدات', '6. خطة الأسبوع القادم'];
+  var TAB_LABELS = ['الأداء', 'الرقابة', 'العملاء', 'الهدر', 'الفريق', 'الخطة'];
+  var TAB_HINTS = [
+    'قارن المبيعات والفواتير ومتوسط الفاتورة بين الفروع والورديات والأيام.',
+    'راجع الالتزام والزيارات ونتائج البنود والمخالفات والإجراءات المفتوحة.',
+    'تابع الشكاوى وحالتها وما اتخذته الفروع لتحسين تجربة العملاء.',
+    'استعرض سجلات الهدر وكمياته حسب وحدة القياس وأسبابه وتكلفته عند توفرها.',
+    'راجع الحضور ومشاكل الشفت واحتياجات الفريق والمعدات.',
+    'دوّن أهداف الأسبوع القادم ومؤشراتها ومسؤولياتها ومواعيدها.'
+  ];
 
   function renderTabs() {
     var t = $('#tabs');
     if (!t) return;
+    t.setAttribute('role', 'tablist');
+    t.setAttribute('aria-label', 'محاور التقرير الأسبوعي');
+    t.setAttribute('aria-orientation', 'horizontal');
     t.innerHTML = TAB_NAMES.map(function (n, i) {
-      return '<button class="tabbtn px-md py-xs rounded-full border border-outline-variant text-body-sm ' +
-        (state.tab === i + 1 ? 'on' : '') + '" data-tab="' + (i + 1) + '">' + n + '</button>';
+      var active = state.tab === i + 1;
+      return '<button id="weekly-tab-' + (i + 1) + '" role="tab" aria-label="' + esc(n) + '" title="' + esc(n) + '" aria-selected="' + active + '" aria-controls="panes" tabindex="' + (active ? '0' : '-1') + '" class="tabbtn px-md py-xs rounded-full border border-outline-variant text-body-sm ' +
+        (active ? 'on' : '') + '" data-tab="' + (i + 1) + '"><span>' + (i + 1) + '</span><span>' + esc(TAB_LABELS[i]) + '</span></button>';
     }).join('');
     $$('.tabbtn', t).forEach(function (b) {
-      b.addEventListener('click', function () { state.tab = +b.getAttribute('data-tab'); renderTabs(); renderPanes(); });
+      b.addEventListener('click', function () {
+        selectTab(+b.getAttribute('data-tab'), true);
+      });
+      b.addEventListener('keydown', function (event) {
+        var index = Number(b.getAttribute('data-tab')) - 1, next = index;
+        if (event.key === 'ArrowLeft') next = (index + 1) % TAB_NAMES.length;
+        else if (event.key === 'ArrowRight') next = (index + TAB_NAMES.length - 1) % TAB_NAMES.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = TAB_NAMES.length - 1;
+        else return;
+        event.preventDefault();
+        selectTab(next + 1, true);
+      });
     });
+  }
+
+  function renderSectionContext() {
+    var el = $('#sectionContext');
+    if (!el) return;
+    var index = Math.max(0, Math.min(TAB_NAMES.length - 1, state.tab - 1));
+    var pct = Math.round((index + 1) / TAB_NAMES.length * 100);
+    el.innerHTML = '<div class="section-context-copy"><div class="section-context-kicker">المحور ' + (index + 1) + ' من ' + TAB_NAMES.length + '</div>' +
+      '<div class="section-context-hint">' + esc(TAB_HINTS[index]) + '</div>' +
+      '<div class="section-context-track" role="progressbar" aria-label="التقدم في محاور التقرير" aria-valuemin="1" aria-valuemax="' + TAB_NAMES.length + '" aria-valuenow="' + (index + 1) + '"><i style="width:' + pct + '%"></i></div></div>' +
+      '<div class="section-context-actions"><button type="button" id="sectionPrev" class="slicer px-sm py-xs rounded-full border border-outline-variant text-body-sm"' + (index === 0 ? ' disabled' : '') + ' aria-label="المحور السابق">السابق</button>' +
+      '<button type="button" id="sectionNext" class="px-sm py-xs rounded-full bg-primary text-on-primary text-body-sm font-bold"' + (index === TAB_NAMES.length - 1 ? ' disabled' : '') + ' aria-label="المحور التالي">التالي</button></div>';
+    var prev = $('#sectionPrev', el), next = $('#sectionNext', el);
+    if (prev) prev.addEventListener('click', function () { selectTab(state.tab - 1, false); });
+    if (next) next.addEventListener('click', function () { selectTab(state.tab + 1, false); });
+  }
+
+  function selectTab(tab, focusTab) {
+    state.tab = Math.max(1, Math.min(TAB_NAMES.length, Number(tab) || 1));
+    renderTabs();
+    renderPanes();
+    if (focusTab) {
+      var focusTarget = document.getElementById('weekly-tab-' + state.tab);
+      if (focusTarget) focusTarget.focus();
+    }
   }
 
   /* ───────── محور 1 ───────── */
@@ -895,13 +968,10 @@
     var totalOrders = list.reduce(function (a, b) { return a + b.orders; }, 0);
     var totalShifts = list.reduce(function (a, b) { return a + b.shifts; }, 0);
     var maxSales = list.length ? list[0].sales : 0;
-    var activeBranches = list.filter(function (b) { return b.shifts > 0; }).length;
 
     var curAgg = agg(SRC.reports, r), prvAgg = agg(SRC.reports, p);
-    var perShift = curAgg.shiftCount ? curAgg.sales / curAgg.shiftCount : 0;
-    var prvPerShift = prvAgg.shiftCount ? prvAgg.sales / prvAgg.shiftCount : 0;
-    var ordersPerShift = curAgg.shiftCount ? curAgg.orders / curAgg.shiftCount : 0;
-
+    var curSalesPerShift = curAgg.shiftCount ? curAgg.sales / curAgg.shiftCount : 0;
+    var prevSalesPerShift = prvAgg.shiftCount ? prvAgg.sales / prvAgg.shiftCount : 0;
     /* أقوى/أضعف يوم داخل الفترة */
     var byDay = {};
     SRC.reports.forEach(function (x) {
@@ -918,45 +988,21 @@
     var worst = list.filter(function (b) { return b.shifts > 0; }).sort(function (a, b) { return a.sales - b.sales; })[0];
     var drill = state.drill ? cur.filter(function (b) { return b.id === state.drill; })[0] : null;
 
-    /* ── شريط مؤشرات المبيعات ── */
-    function salesKpi(label, icon, value, prevTxt, delta, goodDir, prevZero, sub) {
-      return '<div class="sales-kpi">' +
-        '<div class="sales-kpi-head"><span class="material-symbols-outlined">' + icon + '</span>' + label + '</div>' +
-        '<div class="sales-kpi-value">' + value + '</div>' +
-        '<div class="sales-kpi-foot">' + (delta == null ? '' : deltaChip(delta, goodDir, prevZero)) +
-        '<span class="sales-kpi-prev">' + (prevTxt || '') + '</span></div>' +
-        '<div class="sales-kpi-sub">' + (sub || '') + '</div></div>';
-    }
-    var kpiStrip = '<div class="sales-kpis">' +
-      salesKpi('إجمالي المبيعات', 'payments', nf(totalSales) + ' <small>ر.س</small>',
-        'السابق: ' + nf(prvAgg.sales) + ' ر.س', dlt(totalSales, prvAgg.sales), 'up', !prvAgg.sales,
-        activeBranches ? 'موزّع على ' + activeBranches + ' فرع مسجّل' : 'لا توجد فروع بمبيعات') +
-      salesKpi('عدد الفواتير', 'receipt_long', nf(totalOrders),
-        'السابق: ' + nf(prvAgg.orders), dlt(totalOrders, prvAgg.orders), 'up', !prvAgg.orders,
-        curAgg.shiftCount ? nf1(ordersPerShift) + ' فاتورة لكل شفت' : 'لا توجد شفتات مسجّلة') +
-      salesKpi('متوسط الفاتورة', 'calculate', nf1(curAgg.avg) + ' <small>ر.س</small>',
-        'السابق: ' + nf1(prvAgg.avg) + ' ر.س', dlt(curAgg.avg, prvAgg.avg), 'up', !prvAgg.avg,
-        'هدف الجودة: رفع متوسط الفاتورة') +
-      salesKpi('متوسط المبيعات لكل شفت', 'speed', nf1(perShift) + ' <small>ر.س</small>',
-        'السابق: ' + nf1(prvPerShift) + ' ر.س', dlt(perShift, prvPerShift), 'up', !prvPerShift,
-        totalShifts ? 'من ' + nf(totalShifts) + ' شفت مسجّلة' : 'لا توجد شفتات مسجّلة') +
-      '</div>';
-
     /* ── جدول أداء الفروع ── */
+    function compareLine(current, previous, formatter, goodDir) {
+      return '<div class="row-sub">السابق: ' + formatter(previous) + (previous ? ' · ' + deltaChip(dlt(current, previous), goodDir) : ' · —') + '</div>';
+    }
     var rows = list.map(function (b) {
       var pb = pmap[b.id] || { sales: 0, orders: 0, avg: 0, shifts: 0 };
       var share = totalSales ? (b.sales / totalSales * 100) : 0;
       var w = maxSales ? (b.sales / maxSales * 100) : 0;
       return '<tr class="branch-table-row' + (state.drill === b.id ? ' is-drill' : '') + '" data-branch="' + esc(b.id) + '">' +
-        '<td class="px-md py-sm"><b>' + esc(b.name) + '</b>' +
-        '<div class="row-sub">' + nf(b.shifts) + ' شفت · ' + nf1(b.salesPerShift) + ' ر.س/شفت</div></td>' +
-        '<td class="px-md py-sm num">' + nf(b.orders) + '</td>' +
-        '<td class="px-md py-sm">' + (pb.orders ? deltaChip(dlt(b.orders, pb.orders), 'up') : '<span class="text-on-surface-variant">—</span>') + '</td>' +
-        '<td class="px-md py-sm num strong">' + nf(b.sales) + '</td>' +
-        '<td class="px-md py-sm">' + (pb.sales ? deltaChip(dlt(b.sales, pb.sales), 'up') : '<span class="text-on-surface-variant">—</span>') + '</td>' +
-        '<td class="px-md py-sm num">' + nf1(b.avg) + '</td>' +
-        '<td class="px-md py-sm">' + (pb.avg ? deltaChip(dlt(b.avg, pb.avg), 'up') : '<span class="text-on-surface-variant">—</span>') + '</td>' +
-        '<td class="px-md py-sm num">' + nf1(b.salesPerShift) + '</td>' +
+        '<td class="px-md py-sm"><button type="button" class="branch-drill font-semibold" data-branch="' + esc(b.id) + '" aria-expanded="' + (state.drill === b.id) + '" aria-label="عرض تفاصيل ' + esc(b.name) + '"><b>' + esc(b.name) + '</b></button>' +
+        '<div class="row-sub">' + nf(b.shifts) + ' شفت</div></td>' +
+        '<td class="px-md py-sm num"><b>' + nf(b.orders) + '</b>' + compareLine(b.orders, pb.orders, nf, 'up') + '</td>' +
+        '<td class="px-md py-sm num strong"><b>' + nf(b.sales) + ' ر.س</b>' + compareLine(b.sales, pb.sales, nf, 'up') + '</td>' +
+        '<td class="px-md py-sm num"><b>' + nf1(b.avg) + ' ر.س</b>' + compareLine(b.avg, pb.avg, nf1, 'up') + '</td>' +
+        '<td class="px-md py-sm num"><b>' + nf1(b.salesPerShift) + '</b>' + compareLine(b.salesPerShift, pb.salesPerShift, nf1, 'up') + '</td>' +
         '<td class="px-md py-sm share-cell"><span>' + nf1(share) + '%</span>' +
         '<div class="share-track"><i style="width:' + w.toFixed(1) + '%"></i></div></td>' +
         '</tr>';
@@ -980,7 +1026,7 @@
     }
     var daysStrip = '<div class="days-grid">' +
       dayCard('أقوى يوم', 'trending_up', bestDay ? bestDay.d : '', bestDay ? bestDay.v : 0, 'is-good') +
-      dayCard('متوسط اليوم', 'straighten', '', avgDay, 'is-neutral') +
+      dayCard('متوسط اليوم المسجل', 'straighten', '', avgDay, 'is-neutral') +
       dayCard('أضعف يوم', 'trending_down', worstDay ? worstDay.d : '', worstDay ? worstDay.v : 0, 'is-bad') +
       '</div>';
 
@@ -1018,23 +1064,19 @@
 
     return '<div class="card overflow-hidden fadein"><div class="bg-primary text-on-primary px-md py-sm font-title-md">1. أداء الفروع والمبيعات</div>' +
       '<div class="p-md space-y-md">' +
-      kpiStrip +
-      '<div class="overflow-x-auto"><table class="w-full text-body-sm sales-table">' +
+      '<div class="mobile-table-hint no-print">اسحب الجدول أفقيًا لرؤية بقية المؤشرات.</div>' +
+      '<div class="overflow-x-auto" role="region" tabindex="0" aria-label="جدول أداء الفروع؛ مرر أفقيًا لعرض جميع المؤشرات"><table class="w-full text-body-sm sales-table">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant">' +
       '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الفواتير</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">مقارنة</th><th class="text-right px-md py-sm font-label-bold">المبيعات ر.س</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">مقارنة</th><th class="text-right px-md py-sm font-label-bold">متوسط الفاتورة</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">مقارنة</th><th class="text-right px-md py-sm font-label-bold">ر.س/شفت</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">المبيعات</th><th class="text-right px-md py-sm font-label-bold">متوسط الفاتورة</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">ر.س/شفت</th>' +
       '<th class="text-right px-md py-sm font-label-bold">نصيب الفرع</th>' +
-      '</tr></thead><tbody>' + (rows || '<tr><td colspan="9" class="px-md py-lg text-center text-on-surface-variant">لا توجد بيانات في هذه الفترة</td></tr>') + '</tbody>' +
+      '</tr></thead><tbody>' + (rows || '<tr><td colspan="6" class="px-md py-lg text-center text-on-surface-variant">لا توجد بيانات في هذه الفترة</td></tr>') + '</tbody>' +
       '<tfoot class="bg-surface-container font-bold"><tr><td class="px-md py-sm">الإجمالي</td>' +
-      '<td class="px-md py-sm num">' + nf(totalOrders) + '</td>' +
-      '<td class="px-md py-sm">' + deltaChip(dlt(totalOrders, prvAgg.orders), 'up') + '</td>' +
-      '<td class="px-md py-sm num">' + nf(totalSales) + '</td>' +
-      '<td class="px-md py-sm">' + deltaChip(dlt(totalSales, prvAgg.sales), 'up') + '</td>' +
-      '<td class="px-md py-sm num">' + nf1(totalOrders ? totalSales / totalOrders : 0) + '</td>' +
-      '<td class="px-md py-sm">—</td>' +
-      '<td class="px-md py-sm num">' + nf1(totalShifts ? totalSales / totalShifts : 0) + '</td>' +
+      '<td class="px-md py-sm num"><b>' + nf(totalOrders) + '</b>' + compareLine(totalOrders, prvAgg.orders, nf, 'up') + '</td>' +
+      '<td class="px-md py-sm num"><b>' + nf(totalSales) + ' ر.س</b>' + compareLine(totalSales, prvAgg.sales, nf, 'up') + '</td>' +
+      '<td class="px-md py-sm num"><b>' + nf1(curAgg.avg) + ' ر.س</b>' + compareLine(curAgg.avg, prvAgg.avg, nf1, 'up') + '</td>' +
+      '<td class="px-md py-sm num">' + nf1(curSalesPerShift) + '<div class="row-sub">السابق: ' + nf1(prevSalesPerShift) + ' ر.س/شفت</div></td>' +
       '<td class="px-md py-sm">100%</td></tr></tfoot></table></div>' +
 
       '<div class="grid lg:grid-cols-2 gap-md">' +
@@ -1066,7 +1108,7 @@
     var r = resolveRange();
     var cur = agg(SRC.reports, r);
     var issues = filterRows(SRC.issues, r, true, true);
-    var visits = filterRows(SRC.visits, r, true, false);
+    var visits = filterRows(SRC.visits, r, true, true);
     var comp = compliance(r);
     var tpl = complianceByTemplate(r);
     var dueTotal = comp ? comp.expected : 0;
@@ -1092,8 +1134,9 @@
           allNotes.push({ visit: v, note: n });
           visitRows += '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(v.date) + '</td>' +
             '<td class="px-md py-sm">' + esc(branchName(v.branch)) + '</td>' +
+            '<td class="px-md py-sm">' + esc(v.shiftType === 'Morning' ? 'صباحي' : (v.shiftType === 'Evening' ? 'مسائي' : 'غير محدد')) + '</td>' +
             '<td class="px-md py-sm">' + esc(v.visitor || '—') + '</td>' +
-            '<td class="px-md py-sm font-bold">' + (v.score ? v.score + '%' : '—') + '</td>' +
+            '<td class="px-md py-sm font-bold">' + (v.score != null ? v.score + '%' : '—') + '</td>' +
             '<td class="px-md py-sm text-on-surface-variant">' + esc(n.text || v.observation || '—') + '</td>' +
             '<td class="px-md py-sm">' + esc(n.action || '—') + '</td>' +
             '<td class="px-md py-sm">' + esc(n.owner || '—') + '</td>' +
@@ -1103,8 +1146,9 @@
       } else {
         visitRows += '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(v.date) + '</td>' +
           '<td class="px-md py-sm">' + esc(branchName(v.branch)) + '</td>' +
+          '<td class="px-md py-sm">' + esc(v.shiftType === 'Morning' ? 'صباحي' : (v.shiftType === 'Evening' ? 'مسائي' : 'غير محدد')) + '</td>' +
           '<td class="px-md py-sm">' + esc(v.visitor || '—') + '</td>' +
-          '<td class="px-md py-sm font-bold">' + (v.score ? v.score + '%' : '—') + '</td>' +
+          '<td class="px-md py-sm font-bold">' + (v.score != null ? v.score + '%' : '—') + '</td>' +
           '<td class="px-md py-sm text-on-surface-variant">' + esc(v.observation || '—') + '</td>' +
           '<td class="px-md py-sm">' + esc(v.action || '—') + '</td>' +
           '<td class="px-md py-sm">' + esc(v.owner || '—') + '</td>' +
@@ -1112,11 +1156,50 @@
           '<td class="px-md py-sm">' + esc(v.status) + '</td></tr>';
       }
     });
-    var todayStr = dstr(new Date());
-    var openNotes = allNotes.filter(function (x) { return /مفتوحة|قيد/.test(x.note.status || ''); }).length;
+    var visitById = Object.create(null);
+    visits.forEach(function (visit) { visitById[String(visit.id)] = visit; });
+    var visitResults = (SRC.visitResults || []).filter(function (row) { return !!visitById[String(row.visitId)]; })
+      .map(function (row) { return Object.assign({}, row, { visit: visitById[String(row.visitId)] }); });
+    var visitActions = (SRC.visitActions || []).filter(function (row) { return !!visitById[String(row.visitId)]; })
+      .map(function (row) { return Object.assign({}, row, { visit: visitById[String(row.visitId)] }); });
+    var violationCount = visitResults.filter(function (row) { return row.violation; }).length;
+    var attentionResults = visitResults.filter(function (row) {
+      return row.violation || /غير|جزئي/.test(norm(row.result));
+    }).sort(function (a, b) {
+      return Number(!!b.violation) - Number(!!a.violation) ||
+        (a.score == null ? 1 : (b.score == null ? -1 : num(a.score) - num(b.score))) ||
+        String(b.visit.date).localeCompare(String(a.visit.date));
+    });
+    var attentionRows = attentionResults.slice(0, 60).map(function (row) {
+      var visit = row.visit;
+      return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(visit.date) + '</td>' +
+        '<td class="px-md py-sm">' + esc(branchName(visit.branch)) + '</td>' +
+        '<td class="px-md py-sm">' + esc(visit.shiftType === 'Morning' ? 'صباحي' : (visit.shiftType === 'Evening' ? 'مسائي' : 'غير محدد')) + '</td>' +
+        '<td class="px-md py-sm">' + esc(row.category) + '</td><td class="px-md py-sm font-semibold">' + esc(row.title) + '</td>' +
+        '<td class="px-md py-sm font-bold">' + (row.score != null ? esc(String(row.score)) : '—') + '</td>' +
+        '<td class="px-md py-sm">' + esc(row.result || '—') + '</td>' +
+        '<td class="px-md py-sm">' + (row.violation ? '<span class="diag-badge">مخالفة</span>' : '—') + '</td>' +
+        '<td class="px-md py-sm text-on-surface-variant">' + esc(row.note || '—') + '</td></tr>';
+    }).join('');
+    function isActionClosed(status) { return /^(مغلقة|مغلق|ملغاة|ملغي|closed|cancelled|canceled|completed|complete|done|resolved|منتهية|منتهي|مكتمل|مكتملة|منجز|تمت المعالجة|تمت معالجتها|تمت معالجته|تم المعالجة|تم الحل|تم حلها|تم الإغلاق)$/i.test(norm(status)); }
+    var openActions = visitActions.filter(function (action) { return !isActionClosed(action.status); });
+    var todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    var openNotes = allNotes.filter(function (x) { return /مفتوحة|قيد|بانتظار|open|pending/i.test(x.note.status || ''); }).length;
     var lateNotes = allNotes.filter(function (x) {
-      return x.note.due && x.note.due < todayStr && !/مغلقة/.test(x.note.status || '');
+      return x.note.due && x.note.due < todayStr && !isActionClosed(x.note.status);
     }).length;
+    var lateActions = openActions.filter(function (action) { return action.due && action.due < todayStr; }).length;
+    var actionRows = openActions.slice().sort(function (a, b) {
+      var p = { 'حرجة': 0, 'عالية': 1, 'متوسطة': 2, 'منخفضة': 3 };
+      return (p[a.priority] == null ? 4 : p[a.priority]) - (p[b.priority] == null ? 4 : p[b.priority]) ||
+        String(a.due || '9999-99-99').localeCompare(String(b.due || '9999-99-99'));
+    }).slice(0, 10).map(function (action) {
+      var visit = action.visit;
+      return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(visit.date) + '</td>' +
+        '<td class="px-md py-sm">' + esc(branchName(visit.branch)) + '</td><td class="px-md py-sm font-semibold">' + esc(action.title) + '</td>' +
+        '<td class="px-md py-sm">' + esc(action.priority || '—') + '</td><td class="px-md py-sm">' + esc(action.assignedTo || '—') + '</td>' +
+        '<td class="px-md py-sm">' + esc(action.due || '—') + '</td><td class="px-md py-sm">' + esc(action.status || '—') + '</td></tr>';
+    }).join('');
 
     var issueRowsAll = issues.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
     var issueRows = issueRowsAll.slice(0, 25).map(function (i) {
@@ -1138,10 +1221,13 @@
       (comp && comp.pct != null ? comp.pct + '%' : (hourlyExcluded ? 'غير متاح' : '—')) + '<div class="text-body-sm text-on-surface-variant">مكتمل ' + doneTotal + ' · مستحق ' + dueTotal + '</div></div></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">غير مكتملة</div><div class="font-display-lg text-primary mt-xs">' + incompleteTotal + '</div></div>' +
       '</div>' +
-      '<div class="grid md:grid-cols-4 gap-md">' +
+      '<div class="grid md:grid-cols-3 gap-md">' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">ملاحظات الزيارات</div><div class="font-display-lg text-primary mt-xs">' + allNotes.length + '</div></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">ملاحظات مفتوحة</div><div class="font-display-lg text-primary mt-xs">' + openNotes + '</div></div>' +
       '<div class="bg-error-container/30 rounded-lg p-md"><div class="text-body-sm text-on-error-container">متأخرة عن الموعد</div><div class="font-display-lg text-error mt-xs">' + lateNotes + '</div></div>' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">بنود التقييم</div><div class="font-display-lg text-primary mt-xs">' + visitResults.length + '</div></div>' +
+      '<div class="bg-error-container/30 rounded-lg p-md"><div class="text-body-sm text-on-error-container">مخالفات مسجلة في الزيارات</div><div class="font-display-lg text-error mt-xs">' + violationCount + '</div></div>' +
+      '<div class="bg-error-container/30 rounded-lg p-md"><div class="text-body-sm text-on-error-container">إجراءات مفتوحة / متأخرة</div><div class="font-display-lg text-error mt-xs">' + openActions.length + ' / ' + lateActions + '</div></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">سجل الزيارات</div>' +
       '<a href="../branch-visits-new/index.html" class="text-body-sm font-bold text-primary underline mt-xs inline-block">فتح صفحة الزيارات ←</a></div>' +
       '</div>' +
@@ -1151,12 +1237,26 @@
       (!tpl.length && !hourlyExcluded ? '<p class="text-body-sm text-on-surface-variant mt-xs">لا توجد مهام مستحقة ضمن الجلسات المسجلة في الفترة.</p>' : '') + '</div>' +
       '<div><div class="font-title-md text-primary mb-xs">نتائج الزيارات الإشرافية</div><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">المشرف</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الوردية</th><th class="text-right px-md py-sm font-label-bold">المشرف</th>' +
       '<th class="text-right px-md py-sm font-label-bold">التقييم</th><th class="text-right px-md py-sm font-label-bold">الملاحظة</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الإجراء التصحيحي</th><th class="text-right px-md py-sm font-label-bold">المسؤول</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الموعد</th><th class="text-right px-md py-sm font-label-bold">الحالة</th></tr></thead><tbody>' +
-      (visitRows || '<tr><td colspan="9" class="px-md py-lg text-center text-on-surface-variant">لا توجد زيارات مسجلة — تُسجَّل في جدول supervisory_visits</td></tr>') +
+      (visitRows || '<tr><td colspan="10" class="px-md py-lg text-center text-on-surface-variant">لا توجد زيارات مسجلة — تُسجَّل في جدول supervisory_visits</td></tr>') +
       '</tbody></table></div></div>' +
+      '<div><div class="font-title-md text-primary mb-xs">تفاصيل بنود الزيارات التي تحتاج متابعة</div><p class="text-body-sm text-on-surface-variant mb-xs">تظهر هنا المخالفات والنتائج غير المطابقة أو الجزئية أو غير المكتملة، مع درجة البند والفرع والوردية لربطها بالزيارة.</p><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
+      '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">تاريخ الزيارة</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الوردية</th><th class="text-right px-md py-sm font-label-bold">الفئة</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">بند التقييم</th><th class="text-right px-md py-sm font-label-bold">الدرجة</th><th class="text-right px-md py-sm font-label-bold">النتيجة</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">مخالفة</th><th class="text-right px-md py-sm font-label-bold">ملاحظة</th></tr></thead><tbody>' +
+      (attentionRows || '<tr><td colspan="9" class="px-md py-lg text-center text-on-surface-variant">' + (visitResults.length ? 'لا توجد بنود تحتاج متابعة في الزيارات المسجلة.' : 'لا توجد نتائج تقييم للزيارات في الفترة المحددة.') + '</td></tr>') +
+      '</tbody></table></div>' + (attentionResults.length > 60 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض أعلى 60 بندًا يحتاج متابعة من ' + attentionResults.length + '.</p>' : '') + '</div>' +
+      '<div><div class="font-title-md text-primary mb-xs">الإجراءات التصحيحية المفتوحة</div><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
+      '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">تاريخ الزيارة</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الإجراء</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">الأولوية</th><th class="text-right px-md py-sm font-label-bold">المسؤول</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">الموعد</th><th class="text-right px-md py-sm font-label-bold">الحالة</th></tr></thead><tbody>' +
+      (actionRows || '<tr><td colspan="7" class="px-md py-lg text-center text-on-surface-variant">لا توجد إجراءات مفتوحة مرتبطة بالزيارات في الفترة</td></tr>') +
+      '</tbody></table></div>' + (openActions.length > 10 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض التقرير أعلى 10 إجراءات مفتوحة من إجمالي ' + openActions.length + '.</p>' : '') + '</div>' +
       '<div><div class="font-title-md text-primary mb-xs">أبرز الملاحظات والمخالفات التشغيلية</div><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">النوع</th>' +
@@ -1220,7 +1320,7 @@
       '<th class="text-right px-md py-sm font-label-bold">معلقة</th><th class="text-right px-md py-sm font-label-bold">تقييمات إيجابية</th>' +
       '<th class="text-right px-md py-sm font-label-bold">أبرز التعليقات</th><th class="text-right px-md py-sm font-label-bold">إجراء تحسين التجربة</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table></div>' +
-      '<div><div class="font-title-md text-primary mb-xs">سجل الشكاوى وحالة المعالجة</div><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
+      '<div><div class="font-title-md text-primary mb-xs">سجل الشكاوى وحالة المعالجة</div><div class="overflow-x-auto"><table class="w-full text-body-sm complaint-log-table">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">تعليق العميل</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الحالة</th><th class="text-right px-md py-sm font-label-bold">الإجراء</th>' +
@@ -1326,8 +1426,8 @@
         '<td class="px-md py-sm">' + (x.unitCost != null ? nf2(x.qty * x.unitCost) + ' ر.س' : '—') + '</td></tr>';
     }).join('');
 
-    return '<div class="card overflow-hidden fadein"><div class="bg-primary text-on-primary px-md py-sm font-title-md">4. الهدر والمخزون</div>' +
-      '<div class="p-md space-y-md"><div class="grid md:grid-cols-4 gap-md">' +
+    return '<div class="card overflow-hidden fadein"><div class="bg-primary text-on-primary px-md py-sm font-title-md">4. الهدر</div>' +
+      '<div class="p-md space-y-md"><div class="gap-banner"><span class="material-symbols-outlined gap-icon">info</span><div class="gap-text"><b>نطاق المحور</b><div>يعرض سجلات الهدر وكمياتها وتكلفتها عند توفرها. لا يتضمن قياس نفاد المنتجات أو تقدير المبيعات الفائتة لعدم توفر سجل موثوق لذلك.</div></div></div><div class="grid md:grid-cols-4 gap-md">' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">سجلات الهدر في الفترة</div><div class="font-display-lg text-primary mt-xs">' + w.length + '</div></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">أصناف متأثرة</div><div class="font-display-lg text-primary mt-xs">' + (function () {
         var s = {}; w.forEach(function (x) { s[x.item || 'غير محدد'] = 1; }); return Object.keys(s).length;
@@ -1346,14 +1446,14 @@
         return '<div class="flex justify-between text-body-sm py-xs border-b border-outline-variant"><span>' + esc(k.split('|')[0]) + '</span><span class="font-bold">' + nf(byRoot[k]) + ' ' + esc(rootUnit[k]) + '</span></div>';
       }).join('') || '<div class="text-body-sm text-on-surface-variant">لم تُسجَّل أسباب جذرية بعد (root_cause)</div>') + '</div>' +
       '</div><div><div class="font-title-md text-primary mb-sm">أعلى 3 شفتات هدراً داخل كل فرع</div><p class="text-body-sm text-on-surface-variant mb-sm">الترتيب منفصل حسب وحدة القياس (جرام/لتر/قطعة) — لا تتم مقارنة الجرام باللتر أو القطعة.</p><div class="grid md:grid-cols-2 xl:grid-cols-3 gap-md">' + shiftWasteHtml + '</div></div>' +
-      '<div class="overflow-x-auto"><table class="w-full text-body-sm">' +
+      '<div><div class="font-title-md text-primary mb-sm">سجلات الهدر بالتفصيل</div><div class="overflow-x-auto"><table class="w-full text-body-sm waste-log-table">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الصنف</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الكمية</th><th class="text-right px-md py-sm font-label-bold">السبب</th>' +
       '<th class="text-right px-md py-sm font-label-bold">السبب الجذري</th><th class="text-right px-md py-sm font-label-bold">الإجراء التصحيحي</th>' +
       '<th class="text-right px-md py-sm font-label-bold">قيمة الهدر</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="8" class="px-md py-lg text-center text-on-surface-variant">لا توجد سجلات هدر في هذه الفترة</td></tr>') +
-      '</tbody></table></div>' + (visibleWaste.length > 60 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض أحدث 60 من ' + visibleWaste.length + ' سجل هدر؛ تم إخفاء ' + (visibleWaste.length - 60) + ' سجلًا.</p>' : '') + '</div></div>';
+      '</tbody></table></div>' + (visibleWaste.length > 60 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض أحدث 60 من ' + visibleWaste.length + ' سجل هدر؛ تم إخفاء ' + (visibleWaste.length - 60) + ' سجلًا.</p>' : '') + '</div></div></div>';
   }
 
   /* ───────── محور 5 ───────── */
@@ -1485,15 +1585,21 @@
       '<div class="text-body-sm mt-xs" contenteditable="true" spellcheck="true" data-edit="managerNote-' + tab + '">—</div>';
     el.appendChild(managerNote);
     if (tab === 1) {
-      $$('.branch-table-row', el).forEach(function (row) {
-        row.addEventListener('click', function () {
-          var k = row.getAttribute('data-branch');
+      $$('.branch-drill', el).forEach(function (button) {
+        button.addEventListener('click', function () {
+          var k = button.getAttribute('data-branch');
           state.drill = (state.drill === k) ? null : k;
           renderPanes();
+          var restored = document.querySelector('.branch-drill[data-branch="' + k + '"]');
+          if (restored) restored.focus();
         });
       });
       var closeBtn = el.querySelector('#drillClose');
-      if (closeBtn) closeBtn.addEventListener('click', function () { state.drill = null; renderPanes(); });
+      if (closeBtn) closeBtn.addEventListener('click', function () {
+        var k = state.drill; state.drill = null; renderPanes();
+        var restored = k ? document.querySelector('.branch-drill[data-branch="' + k + '"]') : null;
+        if (restored) restored.focus();
+      });
     }
     if (tab === 2) {
       var checks = el.querySelector('#paneChecks');
@@ -1505,12 +1611,36 @@
       }
     }
     restoreEdits();
+    $$('.bg-surface-container', el).forEach(function (container) {
+      var editable = container.querySelectorAll('[data-edit]');
+      if (editable.length !== 1 || !container.querySelector('label')) return;
+      function syncEmptyEditCard() {
+        var text = editable[0].textContent.trim();
+        container.classList.toggle('print-edit-empty', !text || text === '—');
+      }
+      syncEmptyEditCard();
+      editable[0].addEventListener('input', syncEmptyEditCard);
+    });
     bindPlanSaves();
+    var footerNav = document.createElement('nav');
+    footerNav.className = 'pane-footer-nav no-print';
+    footerNav.setAttribute('aria-label', 'التنقل بين محاور التقرير');
+    footerNav.innerHTML = '<button type="button" class="slicer px-sm py-xs rounded-full border border-outline-variant text-body-sm"' + (tab === 1 ? ' disabled' : '') + '>← السابق</button>' +
+      '<span class="text-body-sm text-on-surface-variant">' + tab + ' / ' + TAB_NAMES.length + '</span>' +
+      '<button type="button" class="px-sm py-xs rounded-full bg-primary text-on-primary text-body-sm font-bold"' + (tab === TAB_NAMES.length ? ' disabled' : '') + '>التالي ←</button>';
+    var footerButtons = footerNav.querySelectorAll('button');
+    if (footerButtons[0]) footerButtons[0].addEventListener('click', function () { selectTab(tab - 1, false); });
+    if (footerButtons[1]) footerButtons[1].addEventListener('click', function () { selectTab(tab + 1, false); });
+    el.appendChild(footerNav);
   }
 
   function renderPanes() {
     var el = $('#panes');
     if (!el) return;
+    renderSectionContext();
+    el.setAttribute('role', 'tabpanel');
+    el.setAttribute('aria-labelledby', 'weekly-tab-' + state.tab);
+    el.setAttribute('tabindex', '0');
     el.innerHTML = PANES[state.tab]();
     decoratePane(el, state.tab);
   }
@@ -1540,7 +1670,7 @@
     if (!el) return function () {};
     var originalTab = state.tab;
     var originalHTML = el.innerHTML;
-    var titles = ['', '1. أداء الفروع والمبيعات', '2. الرقابة التشغيلية', '3. شكاوى العملاء', '4. الهدر والمخزون', '5. الموظفون والمعدات', '6. خطة الأسبوع القادم'];
+    var titles = ['', '1. أداء الفروع والمبيعات', '2. الرقابة التشغيلية', '3. شكاوى العملاء', '4. الهدر', '5. الموظفون والمعدات', '6. خطة الأسبوع القادم'];
     el.innerHTML = '';
     for (var tab = 1; tab <= 6; tab++) {
       var pane = document.createElement('section');
@@ -1643,6 +1773,8 @@
     renderSlicers();
     var r = resolveRange(), p = prevRange(r);
     var lbl = $('#rangeLabel');
+    var printRange = document.getElementById('printPeriod');
+    if (printRange) printRange.textContent = r.from + ' ← ' + r.to;
     if (lbl) {
       var span0 = dataSpan();
       lbl.textContent = 'من ' + r.from + ' إلى ' + r.to + '  ·  المقارنة: ' + p.from + ' — ' + p.to +

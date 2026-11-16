@@ -16,6 +16,8 @@
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js?v=20261116205000"></script>
+<script src="../assets/checklist-schedule.js?v=20261116212000"></script>
+<script src="../assets/checklist-dashboard.js?v=20261116214500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (!['Owner','Admin','Manager'].includes(currentUser.role)) {
@@ -100,62 +102,91 @@ if (currentUser.role === 'Owner') {
 }
 
 async function loadDashboard() {
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = ZamChecklistSchedule.riyadhDateString(now);
 
-    const [branches, templates, todayLogsRes, todayReportsRes, openIssuesRes] = await Promise.all([
+    const [branches, templates, todayLogsRes, todayReportsRes, openIssuesRes, staffRes, categoriesRes] = await Promise.all([
         ZamAPI.getBranches(),
         ZamAPI.getTemplates(),
-        zamClient.from('checklist_logs').select('branch_id, template_id, photo_url, status, created_at, profiles(full_name)').eq('execution_date', today),
+        zamClient.from('checklist_logs').select('branch_id, template_id, executed_by, shift_type, execution_date, status, photo_url, created_at').eq('execution_date', today),
         zamClient.from('daily_reports').select('branch_id, total_sales').eq('report_date', today),
-        zamClient.from('shift_issues').select('id, branch_id').gte('created_at', today)
+        zamClient.from('shift_issues').select('id, branch_id').gte('created_at', today),
+        zamClient.from('profiles').select('id, branch_id, role, shift_type').eq('status', 'active').in('role', ['Barista', 'Waiter', 'Kitchen']),
+        zamClient.from('employee_task_categories').select('profile_id, category')
     ]);
 
     const todayLogs = todayLogsRes.data || [];
     const todayReports = todayReportsRes.data || [];
     const openIssues = openIssuesRes.data || [];
+    const staff = staffRes.data || [];
+    const categoriesBy = {};
+    (categoriesRes.data || []).forEach(row => {
+        (categoriesBy[row.profile_id] = categoriesBy[row.profile_id] || []).push(row.category);
+    });
+    const hourlyResults = await Promise.all(branches.map(async branch => {
+        try {
+            return { branchId: branch.id, logs: await ZamAPI.getHourlyChecklistLogs({ branchId: branch.id, date: today }), error: null };
+        } catch (error) {
+            return { branchId: branch.id, logs: [], error };
+        }
+    }));
+    const hourlyByBranch = new Map(hourlyResults.map(item => [item.branchId, item]));
 
     const totalSales = todayReports.reduce((s, r) => s + (Number(r.total_sales) || 0), 0);
 
     document.getElementById('branch-count').textContent = branches.length;
-    document.getElementById('today-sales').textContent = totalSales.toLocaleString('ar-EG') + ' ر.س';
-    document.getElementById('open-issues').textContent = openIssues.length;
+    document.getElementById('today-sales').textContent = todayReportsRes.error ? 'غير متاح' : totalSales.toLocaleString('ar-EG') + ' ر.س';
+    document.getElementById('open-issues').textContent = openIssuesRes.error ? 'غير متاح' : openIssues.length;
 
     const cardsEl = document.getElementById('branch-cards');
     let sumPct = 0;
+    let comparableBranches = 0;
 
     cardsEl.innerHTML = branches.map(branch => {
-        // قوالب هذا الفرع = القوالب العامة + القوالب الخاصة بيه فقط (التشيك ليست ممكن يختلف من فرع لآخر)
-        const branchTemplates = templates.filter(t => !t.branch_id || t.branch_id === branch.id);
         const logsForBranch = todayLogs.filter(l => l.branch_id === branch.id);
-        const doneTemplateIds = new Set(logsForBranch.map(l => l.template_id));
-        const pct = branchTemplates.length ? Math.round((doneTemplateIds.size / branchTemplates.length) * 100) : 0;
-        sumPct += pct;
+        const hourlyResult = hourlyByBranch.get(branch.id) || { logs: [], error: new Error('Hourly checklist logs unavailable') };
+        const progressAvailable = !todayLogsRes.error && !staffRes.error && !categoriesRes.error && !hourlyResult.error;
+        const progress = progressAvailable ? ZamChecklistDashboard.branchProgress({
+            templates, staff, categoriesBy, branchId: branch.id, branchName: branch.name,
+            logs: logsForBranch, hourlyLogs: hourlyResult.logs, now
+        }) : { total: 0, done: 0, pct: null };
+        const pct = progress.pct;
+        if (pct !== null) { sumPct += pct; comparableBranches++; }
         const salesForBranch = todayReports.filter(r => r.branch_id === branch.id).reduce((s, r) => s + (Number(r.total_sales) || 0), 0);
-        const color = pct >= 80 ? 'text-tertiary-container' : pct >= 50 ? 'text-primary' : 'text-error';
-        const barColor = pct >= 80 ? 'bg-tertiary-container' : pct >= 50 ? 'bg-primary' : 'bg-error';
+        const color = pct === null ? 'text-on-surface-variant' : pct >= 80 ? 'text-tertiary-container' : pct >= 50 ? 'text-primary' : 'text-error';
+        const barColor = pct === null ? 'bg-surface-container-highest' : pct >= 80 ? 'bg-tertiary-container' : pct >= 50 ? 'bg-primary' : 'bg-error';
         // الضغط على أي فرع من لوحة التحكم يفتح داشبورد الفرع التفصيلي لجميع الأدوار الإدارية.
         const branchPage = '../supervisor-dashboard/index.html';
         const branchHref = `${branchPage}?branch=${encodeURIComponent(branch.id)}&name=${encodeURIComponent(branch.name)}`;
+        const branchName = dashboardEscape(branch.name);
+        const progressText = pct === null
+            ? (progressAvailable ? 'لا توجد مهام مستحقة' : 'تعذر حساب الإنجاز — البيانات غير مكتملة')
+            : `${progress.done} من ${progress.total} مهمة مستحقة`;
+        const progressLabel = pct === null ? '—' : `${pct}%`;
 
         return `
         <a href="${branchHref}"
-           aria-label="فتح تفاصيل ${branch.name}"
+           aria-label="فتح تفاصيل ${branchName}"
            class="block bg-surface-container-lowest border border-outline-variant rounded-xl p-md hover:shadow-md hover:border-primary transition-all">
             <div class="flex justify-between items-start mb-sm">
-                <h3 class="font-title-md text-title-md text-on-surface">${branch.name}</h3>
-                <span class="text-xl font-bold ${color}">${pct}%</span>
+                <h3 class="font-title-md text-title-md text-on-surface">${branchName}</h3>
+                <span class="text-xl font-bold ${color}">${progressLabel}</span>
             </div>
             <div class="w-full bg-surface-container-high rounded-full h-2 mb-sm">
-                <div class="${barColor} h-2 rounded-full" style="width:${pct}%"></div>
+                <div class="${barColor} h-2 rounded-full" style="width:${pct === null ? 0 : pct}%" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct === null ? 0 : pct}" aria-label="إنجاز ${branchName}"></div>
             </div>
             <div class="flex justify-between text-body-sm text-on-surface-variant">
-                <span>${doneTemplateIds.size} من ${branchTemplates.length} مهمة</span>
-                <span>${salesForBranch.toLocaleString('ar-EG')} ر.س اليوم</span>
+                <span>${dashboardEscape(progressText)}</span>
+                <span>${todayReportsRes.error ? 'مبيعات غير متاحة' : salesForBranch.toLocaleString('ar-EG') + ' ر.س اليوم'}</span>
             </div>
         </a>`;
     }).join('');
 
-    document.getElementById('avg-completion').textContent = branches.length ? Math.round(sumPct / branches.length) + '%' : '—';
+    document.getElementById('avg-completion').textContent = comparableBranches ? Math.round(sumPct / comparableBranches) + '%' : '—';
+}
+
+function dashboardEscape(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
 }
 
 loadDashboard().catch(err => {

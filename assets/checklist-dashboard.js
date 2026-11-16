@@ -126,6 +126,27 @@
     return completed;
   }
 
+  function branchProgress({
+    templates, staff, categoriesBy = {}, branchId, branchName = '', logs = [], hourlyLogs = [], now = new Date()
+  } = {}) {
+    const result = { total: 0, done: 0, pct: null, byShift: {} };
+    if (!branchId) return result;
+    ['Morning', 'Evening'].forEach(shiftType => {
+      const shiftStaff = (staff || []).filter(employee => employee.branch_id === branchId && isEmployeeOnShift(employee, shiftType));
+      const tasks = dashboardTasks({
+        templates, staff: shiftStaff, categoriesBy, branchId, branchName, shiftType,
+        currentUserRole: 'Manager', now
+      });
+      const completed = completedTaskKeys(tasks, logs, hourlyLogs, { branchId, shiftType, now });
+      const done = tasks.filter(task => completed.has(taskKey(task, now))).length;
+      result.byShift[shiftType] = { total: tasks.length, done };
+      result.total += tasks.length;
+      result.done += done;
+    });
+    result.pct = result.total ? Math.round(result.done / result.total * 100) : null;
+    return result;
+  }
+
   return {
     assignedCategories,
     isEmployeeOnShift,
@@ -133,6 +154,7 @@
     isSupervisorTaskVisible,
     dashboardTasks,
     taskKey,
-    completedTaskKeys
+    completedTaskKeys,
+    branchProgress
   };
 });

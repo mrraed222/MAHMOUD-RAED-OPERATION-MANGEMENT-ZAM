@@ -1,0 +1,112 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import {
+  buildChecklistShiftSummary,
+  buildPendingEmployeeTasks,
+  escapeHtml,
+  isChecklistComplete,
+  isScheduledChecklistTask,
+} from '../supabase-functions/run-scheduled-automations/automation-helpers.mjs';
+
+const branchId = 'branch-1';
+const date = '2026-11-16'; // Monday
+const baseTask = (overrides = {}) => ({
+  id: 'task-1',
+  category: 'الصالة',
+  task_title: 'فحص الطاولات',
+  branch_id: branchId,
+  shift_type: 'Morning',
+  frequency: 'daily',
+  is_active: true,
+  ...overrides,
+});
+
+test('daily, archived, hourly and inventory-request templates are classified safely', () => {
+  assert.equal(isScheduledChecklistTask(baseTask(), new Date('2026-11-16T09:00:00+03:00')), true);
+  assert.equal(isScheduledChecklistTask(baseTask({ is_active: false })), false);
+  assert.equal(isScheduledChecklistTask(baseTask({ active: false })), false);
+  assert.equal(isScheduledChecklistTask(baseTask({ frequency: 'hourly' })), false);
+  assert.equal(isScheduledChecklistTask(baseTask({ task_type: 'inventory_request' })), false);
+  assert.equal(isScheduledChecklistTask(baseTask({ frequency: 'unknown' })), false);
+});
+
+test('weekly and monthly due dates use Riyadh calendar days, including month-end clamping', () => {
+  const mondayEarlyRiyadh = new Date('2026-11-15T21:30:00.000Z');
+  assert.equal(isScheduledChecklistTask(baseTask({ frequency: 'weekly', day_of_week: 1 }), mondayEarlyRiyadh), true);
+  assert.equal(isScheduledChecklistTask(baseTask({ frequency: 'weekly', day_of_week: 0 }), mondayEarlyRiyadh), false);
+  const november30Riyadh = new Date('2026-11-29T21:30:00.000Z');
+  assert.equal(isScheduledChecklistTask(baseTask({ frequency: 'monthly', day_of_month: 31 }), november30Riyadh), true);
+  assert.equal(isScheduledChecklistTask(baseTask({ frequency: 'monthly', day_of_month: 30 }), november30Riyadh), true);
+  assert.equal(isScheduledChecklistTask(baseTask({ frequency: 'monthly', day_of_month: 29 }), november30Riyadh), false);
+});
+
+test('summary splits Both tasks by shift and counts only matching completed logs', () => {
+  const tasks = [
+    baseTask({ id: 'morning', frequency: 'daily' }),
+    baseTask({ id: 'both', category: 'البار', shift_type: 'Both' }),
+    baseTask({ id: 'hourly', category: 'الصالة', frequency: 'hourly' }),
+    baseTask({ id: 'archived', category: 'الصالة', is_active: false }),
+  ];
+  const logs = [
+    { template_id: 'morning', branch_id: branchId, execution_date: date, shift_type: 'Morning', status: 'Completed' },
+    { template_id: 'both', branch_id: branchId, execution_date: date, shift_type: 'Morning', status: 'مكتمل' },
+    { template_id: 'both', branch_id: branchId, execution_date: date, shift_type: 'Evening', status: 'flagged' },
+    { template_id: 'morning', branch_id: branchId, execution_date: date, shift_type: 'Evening', status: 'Completed' },
+  ];
+  assert.deepEqual(buildChecklistShiftSummary(tasks, logs, { branchId, shiftType: 'Morning', date }), [
+    { category: 'البار', total: 1, done: 1 },
+    { category: 'الصالة', total: 1, done: 1 },
+  ]);
+  assert.deepEqual(buildChecklistShiftSummary(tasks, logs, { branchId, shiftType: 'Evening', date }), [
+    { category: 'البار', total: 1, done: 0 },
+  ]);
+});
+
+test('pending tasks require the employee, branch, shift, category and a completed matching occurrence', () => {
+  const tasks = [
+    baseTask({ id: 'done' }),
+    baseTask({ id: 'pending' }),
+    baseTask({ id: 'evening', shift_type: 'Evening' }),
+    baseTask({ id: 'hourly', frequency: 'hourly' }),
+    baseTask({ id: 'other-branch', branch_id: 'branch-2' }),
+    baseTask({ id: 'other-category', category: 'البار' }),
+  ];
+  const employee = { id: 'waiter-1', role: 'Waiter', shift_type: 'Morning' };
+  const logs = [
+    { template_id: 'done', branch_id: branchId, execution_date: date, shift_type: 'Morning', executed_by: employee.id, status: 'done' },
+    { template_id: 'pending', branch_id: branchId, execution_date: date, shift_type: 'Morning', executed_by: employee.id, status: 'flagged' },
+    { template_id: 'pending', branch_id: branchId, execution_date: date, shift_type: 'Morning', executed_by: 'someone-else', status: 'completed' },
+  ];
+  const pending = buildPendingEmployeeTasks(tasks, logs, employee, { branchId, date });
+  assert.deepEqual(pending.map(row => row.task.id), ['pending']);
+  assert.equal(pending[0].shiftType, 'Morning');
+  assert.deepEqual(buildPendingEmployeeTasks([tasks.find(task => task.id === 'other-branch')], logs, employee, { branchId, date }), []);
+});
+
+test('Both-shift employees see separate occurrences; a morning completion does not close evening', () => {
+  const task = baseTask({ shift_type: 'Both' });
+  const employee = { id: 'waiter-2', role: 'Waiter', shift_type: 'Both' };
+  const logs = [{ template_id: task.id, branch_id: branchId, execution_date: date, shift_type: 'Morning', executed_by: employee.id, status: 'completed' }];
+  assert.deepEqual(buildPendingEmployeeTasks([task], logs, employee, { branchId, date }).map(row => row.shiftType), ['Evening']);
+});
+
+test('legacy no-shift logs do not close a Both-shift task twice', () => {
+  const task = baseTask({ shift_type: 'Both' });
+  const employee = { id: 'waiter-3', role: 'Waiter', shift_type: 'Both' };
+  const legacyLog = { template_id: task.id, branch_id: branchId, execution_date: date, shift_type: null, executed_by: employee.id, status: 'completed' };
+  assert.deepEqual(buildPendingEmployeeTasks([task], [legacyLog], employee, { branchId, date }).map(row => row.shiftType), ['Morning', 'Evening']);
+});
+
+test('status matching is case-insensitive and HTML output escapes untrusted text', () => {
+  assert.equal(isChecklistComplete('Completed'), true);
+  assert.equal(isChecklistComplete('flagged'), false);
+  assert.equal(escapeHtml(`<a title="x">O'Reilly & Co</a>`), '&lt;a title=&quot;x&quot;&gt;O&#39;Reilly &amp; Co&lt;/a&gt;');
+});
+
+test('scheduled email escapes supervisor names and target times before HTML interpolation', () => {
+  const source = readFileSync(new URL('../supabase-functions/run-scheduled-automations/index.ts', import.meta.url), 'utf8');
+  assert.match(source, /escapeHtml\(sup\.full_name \|\| ''\)/);
+  assert.match(source, /escapeHtml\(String\(t\.target_time\)\.slice\(0, 5\)\)/);
+  assert.match(source, /escapeHtml\(String\(t\)\.slice\(0, 5\)\)/);
+});

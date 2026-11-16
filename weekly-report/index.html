@@ -26,7 +26,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js?v=20261116205000"></script>
 <script src="../assets/weekly-report-metrics.js?v=20261116212000"></script>
-<script src="../assets/weekly-report-core.js?v=20261116212000"></script>
+<script src="../assets/weekly-report-core.js?v=20261116230030"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // التقرير التنفيذي خاص بمالك النظام فقط.
@@ -64,8 +64,9 @@
     return null;
   })();
 </script>
-<style>
-  body { font-family:'Tajawal',sans-serif; background:#f5f1ed; }
+<style id="zam-design-system">
+  :root { --zam-coffee:#33210d; --zam-coffee-light:#4b3621; --zam-focus:#c0583a; --zam-surface:#fcf9f8; }
+  body.zam-page { font-family:'Tajawal',sans-serif; background:#f5f1ed; text-rendering:optimizeLegibility; }
   .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; vertical-align:middle; }
   .card { background:#fff; border:1px solid #d2c4ba; border-radius:.75rem; box-shadow:0 8px 24px rgba(51,33,13,.06); }
   .report-header { background:linear-gradient(135deg,#33210d 0%,#4b3621 62%,#725a42 100%); color:#fff; }
@@ -76,6 +77,40 @@
   .slicer:hover { background:#f6f3f2; }
   .slicer.on { background:#4b3621; color:#fff; border-color:#4b3621; }
   .tabbtn.on { background:#4b3621; color:#fff; }
+  .tabbtn:focus-visible { outline:3px solid #bd9f83; outline-offset:2px; }
+  .tab-strip { display:flex; gap:8px; flex-wrap:nowrap; overflow-x:auto; overscroll-behavior-inline:contain; scroll-snap-type:inline proximity; scrollbar-width:thin; padding:4px 4px 10px; }
+  .tabbtn { display:inline-flex; align-items:center; gap:8px; flex:0 0 auto; min-height:44px; scroll-snap-align:start; font-weight:600; }
+  .tabbtn > span:first-child { display:inline-grid; place-items:center; width:22px; height:22px; border-radius:999px; background:#f0eded; color:#5b3518; font-size:11px; }
+  .tabbtn.on { box-shadow:inset 0 -3px 0 #bd9f83; font-weight:800; }
+  .tabbtn.on > span:first-child { background:rgba(255,255,255,.2); color:#fff; }
+  .section-context { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px; align-items:center; padding:14px 16px; border:1px solid #d2c4ba; border-radius:14px; background:linear-gradient(110deg,#fff 0%,#fffaf5 100%); box-shadow:0 5px 16px rgba(51,33,13,.05); }
+  .section-context-copy { min-width:0; }
+  .section-context-kicker { color:#5b3518; font-size:12px; font-weight:800; }
+  .section-context-hint { margin-top:4px; color:#70655d; font-size:13px; line-height:1.7; }
+  .section-context-track { height:7px; margin-top:9px; overflow:hidden; border-radius:999px; background:#e9e3de; }
+  .section-context-track i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#bd9f83,#33210d); transition:width .2s ease; }
+  .section-context-actions,.pane-footer-nav { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .section-context-actions button,.pane-footer-nav button { min-height:40px; white-space:nowrap; }
+  .section-context-actions button:disabled,.pane-footer-nav button:disabled { opacity:.45; cursor:not-allowed; }
+  .pane-footer-nav { margin-top:16px; padding-top:12px; border-top:1px solid #e4d9cf; }
+  .branch-drill { color:#33210d; text-align:right; }
+  .branch-drill:hover { text-decoration:underline; }
+  #panes .overflow-x-auto { -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
+  #panes .sales-table { min-width:720px; }
+  .mobile-table-hint { display:none; }
+  @media (max-width:640px) {
+    .section-context { grid-template-columns:1fr; gap:10px; padding:12px; }
+    .section-context-actions { justify-content:space-between; }
+    .tabbtn { font-size:13px; padding-inline:12px; }
+    #panes .sales-table { min-width:560px; }
+    #panes .sales-table th, #panes .sales-table td { padding-inline:8px !important; }
+    .mobile-table-hint { display:block; margin:-6px 0 8px; color:#70655d; font-size:12px; }
+  }
+  .dashboard-note-card { display:flex; flex-direction:column; gap:8px; padding:14px; border:1px solid #d2c4ba; border-radius:14px; background:#fffdfb; min-height:118px; }
+  .dashboard-note-card > span { color:#5b3518; font-weight:800; font-size:13px; }
+  .dashboard-note-card > div { color:#70655d; line-height:1.8; outline:none; }
+  .dashboard-note-card > div:empty::before { content:attr(data-placeholder); color:#a1958d; }
+  .dashboard-note-card > div:focus { border-bottom:2px solid #5b3518; color:#33210d; }
   [contenteditable="true"] { outline:none; border-radius:4px; }
   [contenteditable="true"]:hover { background:#fdf6ec; }
   [contenteditable="true"]:focus { background:#fff; box-shadow:0 0 0 2px #bd9f83; }
@@ -112,19 +147,9 @@
   .gap-banner .gap-icon { font-size:24px; color:#b8860b; }
   .gap-banner .gap-text { flex:1 1 320px; font-size:13px; line-height:1.7; }
   .gap-banner .gap-actions { display:flex; gap:8px; flex-wrap:wrap; }
-  .sales-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; }
-  .sales-kpi { border:1px solid #e4d9cf; border-radius:12px; padding:12px 14px; background:linear-gradient(180deg,#fffdfb 0%,#fff 100%); }
-  .sales-kpi-head { display:flex; align-items:center; gap:6px; color:#70655d; font-size:12.5px; font-weight:700; }
-  .sales-kpi-head .material-symbols-outlined { font-size:18px; color:#5b3518; }
-  .sales-kpi-value { margin-top:6px; color:#33210d; font-size:26px; font-weight:800; line-height:1.1; font-variant-numeric:tabular-nums; }
-  .sales-kpi-value small { font-size:13px; font-weight:700; color:#70655d; }
-  .sales-kpi-foot { display:flex; align-items:center; gap:8px; margin-top:6px; }
-  .sales-kpi-prev { color:#80756c; font-size:11.5px; }
-  .sales-kpi-sub { margin-top:4px; color:#80756c; font-size:11.5px; }
   .sales-table .num { font-variant-numeric:tabular-nums; white-space:nowrap; }
   .sales-table .strong { font-weight:800; color:#33210d; }
   .sales-table .row-sub { color:#80756c; font-size:11px; font-weight:400; }
-  .branch-table-row { cursor:pointer; }
   .branch-table-row:hover { background:#faf6f2; }
   .branch-table-row.is-drill { background:#f4ece3; box-shadow:inset 3px 0 0 #5b3518; }
   .share-cell { min-width:120px; }
@@ -186,7 +211,7 @@
     html, body { background:#fff !important; color:#1b1c1c; }
     body { font-size:10pt; }
     .no-print, aside, #notification-bell-container { display:none !important; }
-    #overviewKpis, #overviewCharts, #overviewBranchCharts, #dashboardNotes, #snapshotsSection { display:none !important; }
+    #overviewCharts, #overviewBranchCharts, #dashboardNotes, #snapshotsSection { display:none !important; }
     #emptyState { display:none !important; }
     .plan-save { display:none !important; }
     .print-brand { display:flex; align-items:center; gap:12px; padding:0 0 8mm; border-bottom:2px solid #33210d; margin-bottom:6mm; }
@@ -203,8 +228,14 @@
     #panes > .print-pane:first-child { break-before:auto; page-break-before:auto; }
     #panes > .print-pane .no-print { display:none !important; }
     #panes .card { margin-bottom:5mm; }
+    .print-edit-empty { display:none !important; }
     table { width:100% !important; font-size:8pt; }
     th, td { padding:2.5mm 2mm !important; }
+    .complaint-log-table th, .complaint-log-table td { padding:1.2mm 1mm !important; font-size:7.5pt !important; line-height:1.2 !important; }
+    .waste-log-table th, .waste-log-table td { padding:1.2mm 1mm !important; font-size:7.5pt !important; line-height:1.2 !important; }
+    .print-pane .grid[class*="md:grid-cols-2"] { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+    .print-pane .grid[class*="md:grid-cols-3"], .print-pane .grid[class*="xl:grid-cols-3"] { grid-template-columns:repeat(3,minmax(0,1fr)) !important; }
+    .print-pane .grid[class*="md:grid-cols-4"] { grid-template-columns:repeat(4,minmax(0,1fr)) !important; }
     .overflow-x-auto { overflow:visible !important; }
     svg { max-width:100%; }
     .chart-list, .check-list, .reason-list { break-inside:avoid; }
@@ -220,30 +251,23 @@
     .print-pane:first-child { break-before:auto; page-break-before:auto; }
   .print-section-heading { display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #5b3518; padding:0 0 10px; margin:0 0 14px; color:#5b3518; }
   .print-section-heading span { font-size:12px; color:#70655d; }
-  .dashboard-note-card { display:flex; flex-direction:column; gap:8px; padding:14px; border:1px solid #d2c4ba; border-radius:14px; background:#fffdfb; min-height:118px; }
-  .dashboard-note-card > span { color:#5b3518; font-weight:800; font-size:13px; }
-  .dashboard-note-card > div { color:#70655d; line-height:1.8; outline:none; }
-  .dashboard-note-card > div:empty::before { content:attr(data-placeholder); color:#a1958d; }
-  .dashboard-note-card > div:focus { border-bottom:2px solid #5b3518; color:#33210d; }
-
     /* جدول أداء الفروع — عرض ثابت حتى لا يخرج عن حدود الصفحة */
-    .sales-table { table-layout:fixed !important; width:100% !important; font-size:7.2pt !important; }
+    #panes .overflow-x-auto table { min-width:0 !important; }
+    .sales-table { table-layout:fixed !important; width:100% !important; min-width:0 !important; font-size:8pt !important; }
     .sales-table th, .sales-table td { padding:1.3mm 0.9mm !important; overflow:hidden; }
     .sales-table th:nth-child(1), .sales-table td:nth-child(1) { width:17%; white-space:nowrap; }
-    .sales-table th:nth-child(4), .sales-table td:nth-child(4) { width:11%; }
-    .sales-table th:nth-child(9), .sales-table td:nth-child(9) { width:13%; }
-    .sales-table .row-sub { font-size:6.4pt !important; white-space:nowrap; }
+    .sales-table th:nth-child(2), .sales-table td:nth-child(2) { width:14%; }
+    .sales-table th:nth-child(3), .sales-table td:nth-child(3) { width:21%; }
+    .sales-table th:nth-child(4), .sales-table td:nth-child(4) { width:20%; }
+    .sales-table th:nth-child(5), .sales-table td:nth-child(5) { width:15%; }
+    .sales-table th:nth-child(6), .sales-table td:nth-child(6) { width:13%; }
+    .sales-table .row-sub { font-size:6.8pt !important; white-space:normal; }
     .sales-table .num { white-space:nowrap; }
     .sales-table .share-cell { min-width:0 !important; }
     .sales-table .share-cell span { font-size:6.6pt; }
     .sales-table .share-track { height:5px !important; }
     .sales-table .inline-flex { font-size:6.6pt !important; padding:0 3px !important; gap:1px !important; }
     .sales-table .inline-flex .material-symbols-outlined { font-size:9px !important; }
-    .sales-kpi { padding:6px 8px !important; }
-    .sales-kpi-value { font-size:15pt !important; }
-    .sales-kpi-value small { font-size:7pt !important; }
-    .sales-kpi-head, .sales-kpi-prev, .sales-kpi-sub { font-size:6.8pt !important; }
-    .sales-kpi-sub { margin-top:2px !important; }
     .split-row { grid-template-columns:minmax(70px,1fr) minmax(100px,2fr) auto !important; }
     .split-name { font-size:7pt !important; }
     .split-legend { font-size:6.4pt !important; }
@@ -258,14 +282,14 @@
   }
 </style>
 </head>
-<body class="bg-background text-on-surface overflow-x-hidden">
+<body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <aside class="fixed right-0 top-0 h-full w-[280px] bg-white border-l border-[#d2c4ba] flex flex-col py-8 px-4 gap-2 z-50 hidden md:flex"><div class="flex items-center gap-3 mb-6 px-1"><img src="../assets/logo/zam-logo.png" alt="شعار زام" class="w-14 h-14 rounded-xl object-contain bg-white border border-[#d2c4ba] p-1"><div><div class="text-[#33210d] font-bold text-lg leading-tight">ZAM Operations</div><div class="text-[#70655d] text-sm">إدارة العمليات</div></div></div><nav class="flex flex-col gap-1 overflow-y-auto"><a href="../dashboard/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">dashboard</span> لوحة التحكم</a><a href="../reports-log/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">assessment</span> سجل التقارير</a><a href="../analytics/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">insights</span> داشبورد التحليلات</a><a href="index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#33210d] font-bold border-r-4 border-[#33210d] bg-[#f0eded]"><span class="material-symbols-outlined">summarize</span> التقرير الأسبوعي</a><a href="../branch-visits-new/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">fact_check</span> زيارات الفروع</a><a href="../staff-management/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">groups</span> إدارة الطاقم</a></nav><a href="../index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#8d332c] hover:bg-[#fff0ed]"><span class="material-symbols-outlined">logout</span> تسجيل الخروج</a></aside>
 <div id="notification-bell-container"></div>
 
 <main class="mr-[280px] min-h-screen">
 
   <!-- ================= HEADER ================= -->
-  <div class="print-brand"><img src="../assets/logo/zam-logo.png" alt="شعار زام"><div><h1>التقرير الأسبوعي لإدارة التشغيل</h1><p>نظام زام للعمليات · تقرير إداري معتمد للطباعة</p><p>مدير التشغيل: <span id="printManagerName">مدير التشغيل</span> · البريد: <span id="printManagerEmail">—</span> · الهاتف: <span id="printManagerPhone">—</span></p></div></div>
+  <div class="print-brand"><img src="../assets/logo/zam-logo.png" alt="شعار زام"><div><h1>التقرير الأسبوعي لإدارة التشغيل</h1><p>نظام زام للعمليات · تقرير إداري معتمد للطباعة</p><p>فترة التقرير: <span id="printPeriod">—</span></p><p>مدير التشغيل: <span id="printManagerName">مدير التشغيل</span> · البريد: <span id="printManagerEmail">—</span> · الهاتف: <span id="printManagerPhone">0563505653</span></p></div></div>
   <header class="no-print sticky top-0 z-40 report-header shadow-sm">
     <div class="header-inner px-margin-desktop py-3 flex items-center justify-between gap-4 flex-wrap">
       <div class="flex items-center gap-md">
@@ -405,8 +429,9 @@
     </section>
     <!-- ============ TABS ================= -->
     <section>
-      <div id="tabs" class="no-print flex gap-xs flex-wrap mb-md border-b border-outline-variant pb-sm"></div>
-      <div id="panes"></div>
+      <div id="tabs" role="tablist" aria-label="محاور التقرير الأسبوعي" aria-orientation="horizontal" class="no-print tab-strip mb-sm border-b border-outline-variant"></div>
+      <div id="sectionContext" class="section-context no-print mb-md" aria-live="polite"></div>
+      <div id="panes" role="tabpanel" tabindex="0"></div>
     </section>
 
     <!-- ============ النسخ المحفوظة ============ -->
