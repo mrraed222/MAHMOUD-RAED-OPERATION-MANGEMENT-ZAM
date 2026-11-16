@@ -25,7 +25,8 @@
 }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js?v=20261116205000"></script>
-<script src="../assets/weekly-report-core.js?v=20261115194000"></script>
+<script src="../assets/weekly-report-metrics.js?v=20261116212000"></script>
+<script src="../assets/weekly-report-core.js?v=20261116212000"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // التقرير التنفيذي خاص بمالك النظام فقط.
@@ -78,6 +79,7 @@
   [contenteditable="true"] { outline:none; border-radius:4px; }
   [contenteditable="true"]:hover { background:#fdf6ec; }
   [contenteditable="true"]:focus { background:#fff; box-shadow:0 0 0 2px #bd9f83; }
+  [data-edit], .dashboard-note-card > div { white-space:pre-wrap; }
   .fadein { animation:f .3s ease; }  .chart-legend { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin-bottom:14px; color:#5e604d; font-size:13px; }
   .chart-legend span { display:inline-flex; align-items:center; gap:6px; }
   .chart-legend i { width:12px; height:8px; border-radius:999px; display:inline-block; }
@@ -184,6 +186,9 @@
     html, body { background:#fff !important; color:#1b1c1c; }
     body { font-size:10pt; }
     .no-print, aside, #notification-bell-container { display:none !important; }
+    #overviewKpis, #overviewCharts, #overviewBranchCharts, #dashboardNotes, #snapshotsSection { display:none !important; }
+    #emptyState { display:none !important; }
+    .plan-save { display:none !important; }
     .print-brand { display:flex; align-items:center; gap:12px; padding:0 0 8mm; border-bottom:2px solid #33210d; margin-bottom:6mm; }
     .print-brand img { width:22mm; height:22mm; object-fit:contain; }
     .print-brand h1 { margin:0; color:#33210d; font-size:18pt; }
@@ -322,7 +327,7 @@
   <section class="px-margin-desktop py-lg space-y-lg">
 
     <!-- ============ KPI ============ -->
-    <section>
+    <section id="overviewKpis">
       <div class="flex items-center justify-between mb-sm flex-wrap gap-2">
         <h3 class="font-title-md text-primary flex items-center gap-xs">
           <span class="material-symbols-outlined">monitoring</span> المؤشرات الرئيسية
@@ -344,7 +349,7 @@
     </section>
 
     <!-- ============ CHARTS ============ -->
-    <section class="grid lg:grid-cols-3 gap-md">
+    <section id="overviewCharts" class="grid lg:grid-cols-3 gap-md">
       <div class="card p-md lg:col-span-2">
         <div class="flex items-center justify-between mb-sm flex-wrap gap-2">
           <h3 class="font-title-md text-primary flex items-center gap-xs">
@@ -365,7 +370,7 @@
       </div>
     </section>
 
-    <section class="grid lg:grid-cols-2 gap-md">
+    <section id="overviewBranchCharts" class="grid lg:grid-cols-2 gap-md">
       <div class="card p-md">
         <h3 class="font-title-md text-primary flex items-center gap-xs mb-sm">
           <span class="material-symbols-outlined">bar_chart</span> المبيعات حسب الفرع — مقارنة بالفترة السابقة
@@ -381,7 +386,7 @@
       </div>
     </section>
 
-    <section class="card p-md mt-md" aria-labelledby="dashboardNotesTitle">
+    <section id="dashboardNotes" class="card p-md mt-md" aria-labelledby="dashboardNotesTitle">
       <div class="flex items-center justify-between gap-md mb-sm">
         <div>
           <h2 id="dashboardNotesTitle" class="font-title-md text-primary">ملاحظات مدير التشغيل على المؤشرات</h2>
@@ -405,7 +410,7 @@
     </section>
 
     <!-- ============ النسخ المحفوظة ============ -->
-    <section class="card p-md">
+    <section id="snapshotsSection" class="card p-md">
       <h3 class="font-title-md text-primary flex items-center gap-xs mb-sm">
         <span class="material-symbols-outlined">history</span> النسخ المحفوظة من التقارير
       </h3>

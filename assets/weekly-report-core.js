@@ -16,6 +16,8 @@
  * ===================================================================== */
 (function (global) {
   'use strict';
+  var METRICS = global.ZamWeeklyMetrics;
+  if (!METRICS) throw new Error('weekly-report-metrics.js must load before weekly-report-core.js');
 
   /* ══════════ ثوابت العرض ══════════ */
 
@@ -36,7 +38,8 @@
     'فرع الحي': 'زام الحي', 'زام الحي': 'زام الحي',
     'فرع المنح': 'زام المنح', 'زام المنح': 'زام المنح',
     'فرع البرج': 'زام البرج', 'زام البرج': 'زام البرج',
-    'فرع تجربة زام': 'تجربة زام', 'تجربة زام': 'تجربة زام'
+    'فرع تجربة زام': 'تجربة زام', 'تجربة زام': 'تجربة زام',
+    'الفرع الرئسي': 'زام الرئيسي'
   };
 
   var COLORS = { primary: '#33210d', brown: '#4b3621', outline: '#80756c', track: '#e4e2e1',
@@ -189,14 +192,15 @@
       reports.forEach(function (r) { repById[r.id] = r; });
       function repInfo(child) {
         var rep = repById[child.report_id];
+        var shift = rep ? normalizeShift(rep.shift_type) : '';
         return rep ? { date: String(rep.report_date || '').slice(0, 10), branch: rep.branch_id,
-          shiftType: /evening/i.test(rep.shift_type || '') ? 'Evening' : (rep.shift_type || 'Morning') } : { date: '', branch: '', shiftType: 'غير محدد' };
+          shiftType: shift === 'Evening' ? 'Evening' : 'Morning' } : { date: '', branch: '', shiftType: 'غير محدد' };
       }
 
       var R = reports.map(function (r) {
         return { date: String(r.report_date || '').slice(0, 10), branch: r.branch_id,
           branchName: branchName(r.branch_id), shift: r.shift_type || 'Morning',
-          shiftType: /evening/i.test(r.shift_type || '') ? 'Evening' : 'Morning',
+          shiftType: normalizeShift(r.shift_type) === 'Evening' ? 'Evening' : 'Morning',
           supervisor: r.supervisor_name || '', sales: num(r.total_sales), orders: num(r.orders_count),
           avg: num(r.avg_ticket) || (r.orders_count ? num(r.total_sales) / num(r.orders_count) : 0),
           team: r.team_status || '', pos: num(r.positive_reviews) };
@@ -205,15 +209,16 @@
       var W = waste.map(function (w) { var i = repInfo(w); return {
         date: i.date, branch: i.branch, shiftType: i.shiftType, item: w.item_name || '', qty: num(w.quantity),
         unit: w.unit || '', reason: w.reason || '', rootCause: w.root_cause || '',
-        action: w.corrective_action || '', owner: w.owner || '', unitCost: num(w.unit_cost) }; })
+        action: w.corrective_action || '', owner: w.owner || '',
+        unitCost: w.unit_cost == null || w.unit_cost === '' ? null : num(w.unit_cost) }; })
         .filter(function (x) { return x.date; });
 
       var I = issues.map(function (x) { var i = repInfo(x); return {
-        date: i.date, branch: i.branch, type: x.issue_type || '', desc: x.description || '',
+        id: x.id || '', reportId: x.report_id || '', date: i.date, branch: i.branch, type: x.issue_type || '', desc: x.description || '',
         priority: x.priority || '', action: x.action_taken || '' }; }).filter(function (x) { return x.date; });
 
       var N = negs.map(function (x) { var i = repInfo(x); return {
-        date: i.date, branch: i.branch, text: x.comment_text || '', status: x.status || 'معلقة',
+        id: x.id || '', date: i.date, branch: i.branch, shiftType: i.shiftType, text: x.comment_text || '', status: x.status || 'معلقة',
         owner: x.owner || '', action: x.action_taken || '', rating: num(x.customer_rating) }; })
         .filter(function (x) { return x.text; });
 
@@ -241,7 +246,7 @@
           .filter(function (v) { return v.date; }),
         attendance: attendance.map(function (a) { return {
           date: String(a.work_date || '').slice(0, 10), branch: a.branch_id,
-          employee: a.employee_name || '', shiftType: a.shift_type || 'Morning',
+          employee: a.employee_name || '', shiftType: normalizeShift(a.shift_type) === 'Evening' ? 'Evening' : 'Morning',
           status: a.status || 'حاضر', notes: a.notes || '' }; }).filter(function (a) { return a.date; }),
         plans: plans.map(function (p) { return {
           weekStart: p.week_start || '', rowNo: num(p.row_no) || 1, objective: p.objective || '',
@@ -349,7 +354,7 @@
   function filterRows(rows, r, useBranch, useShift) {
     return (rows || []).filter(function (x) {
       if (!inRange(x.date, r)) return false;
-      if (useBranch && x.branch && !state.branches.has(x.branch)) return false;
+      if (useBranch && !state.branches.has(x.branch)) return false;
       if (useShift && state.shift !== 'all' && x.shiftType !== state.shift) return false;
       return true;
     });
@@ -383,28 +388,8 @@
   }
 
   /* ══════════ الالتزام بالتشيكلست — القوالب المسندة فقط ══════════ */
-  function dayOfWeek(date) { return parseD(date).getUTCDay(); }
   function normalizeShift(value) {
-    var s = norm(value).toLowerCase();
-    if (!s || /all|both|كل|كلاهما|الكل/.test(s)) return 'All';
-    if (/evening|night|مسائ|ليل/.test(s)) return 'Evening';
-    if (/morning|صباح/.test(s)) return 'Morning';
-    return s;
-  }
-  function logIsDone(status) {
-    var s = norm(status).toLowerCase();
-    return /completed|complete|done|finished|مكتمل|منفذ|منج[ززة]/.test(s);
-  }
-  function templateDue(t, date, branch, shift) {
-    if (t.is_active === false || t.active === false) return false;
-    if (t.branch_id && t.branch_id !== branch) return false;
-    var templateShift = normalizeShift(t.shift_type);
-    var sessionShift = normalizeShift(shift);
-    if (templateShift !== 'All' && sessionShift !== 'All' && templateShift !== sessionShift) return false;
-    var f = String(t.frequency || 'daily').toLowerCase();
-    if (f === 'weekly' && t.day_of_week != null && Number(t.day_of_week) !== dayOfWeek(date)) return false;
-    if (f === 'monthly' && t.day_of_month != null && Number(t.day_of_month) !== parseD(date).getUTCDate()) return false;
-    return true;
+    return METRICS.normalizeShift(value);
   }
   function workedSessions(r, branchFilter) {
     var out = {};
@@ -417,9 +402,12 @@
     (SRC.logs || []).forEach(function (l) {
       var date = String(l.execution_date || '').slice(0, 10), branch = l.branch_id;
       if (!inRange(date, r) || (branchFilter && branch !== branchFilter)) return;
-      var t = (SRC.templates || []).filter(function (x) { return x.id === l.template_id; })[0];
-      var shift = t ? normalizeShift(t.shift_type) : 'Morning';
-      if (shift === 'All') shift = 'Morning';
+      var t = (SRC.templates || []).filter(function (x) { return String(x.id) === String(l.template_id); })[0];
+      if (t && String(t.frequency || 'daily').toLowerCase() === 'hourly') return;
+      var shift = l.shift_type ? normalizeShift(l.shift_type) : (t ? normalizeShift(t.shift_type) : '');
+      // A legacy Both-shifts log without shift_type cannot safely identify a session.
+      if (shift !== 'Morning' && shift !== 'Evening') return;
+      if (state.shift !== 'all' && shift !== normalizeShift(state.shift)) return;
       var key = date + '|' + branch + '|' + shift;
       if (!out[key]) out[key] = { date: date, branch: branch, shift: shift };
     });
@@ -430,41 +418,24 @@
     if (!templates.length) return null;
     var stats = complianceByTemplate(r, branchFilter), expected = 0, done = 0, flagged = 0;
     stats.forEach(function (s) { expected += s.total; done += s.done; flagged += s.flagged; });
-    if (!expected) return null;
-    return { expected: expected, done: done, flagged: flagged,
-             pct: Math.min(100, Math.round(done / expected * 100)) };
+    var hourlyExcluded = stats.hourlyExcluded || 0;
+    if (!expected && !hourlyExcluded) return null;
+    return { expected: expected, done: done, flagged: flagged, hourlyExcluded: hourlyExcluded,
+             pct: expected ? Math.min(100, Math.round(done / expected * 100)) : null };
   }
   /** تفصيل الالتزام لكل قالب مسند، حتى لو لم يُسجّل له تنفيذ */
   function complianceByTemplate(r, branchFilter) {
     var templates = SRC.templates || [], logs = SRC.logs || [];
     if (!templates.length) return [];
-    var stats = {};
     var branchesForPeriod = branchFilter ? [branchFilter] : BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) { return b.id; });
-    templates.forEach(function (t) {
-      stats[t.id] = { title: t.task_title || t.name || 'مهمة بدون اسم', category: t.category || '—', total: 0, done: 0, flagged: 0 };
-      dayList(r).forEach(function (date) {
-        branchesForPeriod.forEach(function (branch) {
-          var shift = normalizeShift(t.shift_type);
-          if (state.shift !== 'all' && shift !== 'All' && shift !== normalizeShift(state.shift)) return;
-          if (templateDue(t, date, branch, shift)) stats[t.id].total++;
-        });
-      });
+    var sessionMap = workedSessions(r, branchFilter);
+    var sessions = Object.keys(sessionMap).map(function (key) { return sessionMap[key]; });
+    var result = METRICS.calculateCompliance(templates, sessions, logs, {
+      branchFilter: branchFilter, branches: branchesForPeriod, shiftFilter: state.shift
     });
-    var seen = {};
-    logs.forEach(function (l) {
-      var date = String(l.execution_date || '').slice(0, 10), t = templates.filter(function (x) { return x.id === l.template_id; })[0];
-      if (!t || !inRange(date, r) || (branchFilter && l.branch_id !== branchFilter)) return;
-      var logShift = normalizeShift(t.shift_type);
-      if (state.shift !== 'all' && logShift !== 'All' && logShift !== normalizeShift(state.shift)) return;
-      if (branchFilter && l.branch_id !== branchFilter) return;
-      if (!templateDue(t, date, l.branch_id, logShift)) return;
-      var key = l.template_id + '|' + date + '|' + l.branch_id;
-      if (seen[key]) return;
-      seen[key] = true;
-      if (/flagged|معلّم|مرفوض|مخالفة/i.test(String(l.status || ''))) stats[t.id].flagged++;
-      else if (logIsDone(l.status)) stats[t.id].done++;
-    });
-    return Object.keys(stats).map(function (k) { return stats[k]; }).filter(function (s) { return s.total > 0; });
+    var stats = result.stats;
+    stats.hourlyExcluded = result.hourlyExcluded;
+    return stats;
   }
 
   /**
@@ -538,7 +509,7 @@
     var r = resolveRange();
     var cur = agg(SRC.reports, r), prv = agg(SRC.reports, prevRange(r));
     var comp = compliance(r);
-    var wasteRows = filterRows(SRC.waste, r, true, false);
+    var wasteRows = filterRows(SRC.waste, r, true, true);
     var wasteByUnit = {};
     wasteRows.forEach(function (w) {
       var u = w.unit || 'غير محدد';
@@ -554,7 +525,7 @@
         compliance: comp ? comp.pct : null,
         complianceExpected: comp ? comp.expected : null,
         complianceDone: comp ? comp.done : null,
-        complaints: filterRows(SRC.negs, r, true, false).length,
+        complaints: filterRows(SRC.negs, r, true, true).length,
         wasteRecords: wasteRows.length,
         wasteByUnit: wasteByUnit
       },
@@ -640,6 +611,7 @@
   }
   function saveNote(noteKey, body) {
     var rk = reportKey(resolveRange());
+    body = String(body == null ? '' : body);
     if (!SRC.noteMap) SRC.noteMap = {};
     SRC.noteMap[noteKey] = body;
     try { localStorage.setItem(NOTES_KEY + ':' + rk, JSON.stringify(SRC.noteMap)); } catch (e) {}
@@ -648,7 +620,7 @@
       return CFG.client.rpc('save_weekly_note', {
         p_report_key: rk, p_note_key: noteKey, p_body: body,
         p_updated_by: (CFG.user && (CFG.user.full_name || CFG.user.email)) || null
-      }).then(function () { return true; })
+      }).then(function (res) { return !(res && res.error); })
         .catch(function () { return false; });
     }
     return Promise.resolve(false);
@@ -677,7 +649,7 @@
   }
   /** أشرطة عامة (تُستخدم للتشيكلست الديناميكي) */
   function bars(el, items) {
-    el.innerHTML=items.length?'<div class="check-list">'+items.map(function(it){var p=it.total?Math.min(100,it.done/it.total*100):0;var col=p>=90?'good':p>=70?'mid':'bad';return '<div class="check-row"><div class="check-head"><span>'+esc(String(it.label))+'</span><strong>'+p.toFixed(0)+'% <small>'+it.done+'/'+it.total+'</small></strong></div><div class="check-track"><span class="'+col+'" style="width:'+p+'%"></span></div></div>';}).join('')+'</div>':'<div class="empty-chart">لا توجد جلسات تشيك ليست في الفترة المحددة</div>';
+    el.innerHTML=items.length?'<div class="check-list">'+items.map(function(it){var total=Number(it.total)||0,done=Number(it.done)||0,p=total?Math.min(100,done/total*100):0,pending=Math.max(0,total-done);var col=p>=90?'good':p>=70?'mid':'bad';return '<div class="check-row"><div class="check-head"><span>'+esc(String(it.label))+'</span><strong>'+p.toFixed(0)+'% <small>مكتمل '+done+'/'+total+' · غير مكتمل '+pending+'</small></strong></div><div class="check-track"><span class="'+col+'" style="width:'+p+'%"></span></div></div>';}).join('')+'</div>':'<div class="empty-chart">لا توجد مهام غير مكتملة للعرض</div>';
   }
   /* ══════════ العرض ══════════ */
   function deltaChip(d, goodDir, prevZero) {
@@ -809,11 +781,11 @@
   function renderKpis() {
     var r = resolveRange(), p = prevRange(r);
     var cur = agg(SRC.reports, r), prv = agg(SRC.reports, p);
-    var curW = filterRows(SRC.waste, r, true, false);
-    var prvW = filterRows(SRC.waste, p, true, false);
-    var negsCur = filterRows(SRC.negs, r, true, false);
+    var curW = filterRows(SRC.waste, r, true, true);
+    var prvW = filterRows(SRC.waste, p, true, true);
+    var negsCur = filterRows(SRC.negs, r, true, true);
     var comp = compliance(r), compPrev = compliance(p);
-    var att = filterRows(SRC.attendance, r, true, false);
+    var att = filterRows(SRC.attendance, r, true, true);
     var visits = filterRows(SRC.visits, r, true, false);
 
     var cards = [
@@ -821,8 +793,9 @@
       { l: 'عدد الفواتير', i: 'receipt_long', v: nf(cur.orders), p: nf(prv.orders), d: dlt(cur.orders, prv.orders), g: 'up', z: !prv.orders },
       { l: 'متوسط الفاتورة', i: 'calculate', v: nf1(cur.avg) + ' ر.س', p: nf1(prv.avg) + ' ر.س', d: dlt(cur.avg, prv.avg), g: 'up', z: !prv.avg },
       { l: 'نسبة الالتزام بالتشيكلست', i: 'fact_check',
-        v: comp ? comp.pct + '%' : '—', p: compPrev ? compPrev.pct + '%' : '—',
-        d: comp && compPrev ? dlt(comp.pct, compPrev.pct) : null, g: 'up', z: false },
+        v: comp && comp.pct != null ? comp.pct + '%' : (comp && comp.hourlyExcluded ? 'غير متاح' : '—'),
+        p: compPrev && compPrev.pct != null ? compPrev.pct + '%' : '—',
+        d: comp && compPrev && comp.pct != null && compPrev.pct != null ? dlt(comp.pct, compPrev.pct) : null, g: 'up', z: false },
       { l: 'عدد الشكاوى', i: 'sentiment_dissatisfied', v: String(negsCur.length), p: '—', d: null, g: 'down', z: false },
       { l: 'سجلات الهدر', i: 'delete_sweep', v: curW.length + ' سجل', p: prvW.length + ' سجل', d: dlt(curW.length, prvW.length), g: 'down', z: !prvW.length },
       { l: 'الزيارات الإشرافية', i: 'travel_explore', v: String(visits.length), p: '—', d: null, g: 'up', z: false },
@@ -852,7 +825,7 @@
     });
     if ($('#chartTrend')) lineChart($('#chartTrend'), cur.map(function (c) { return c.d; }), cur, prev);
 
-    var wrows = filterRows(SRC.waste, r, true, false);
+    var wrows = filterRows(SRC.waste, r, true, true);
     var wasteNotice = !wrows.length
       ? '<div class="text-body-sm text-on-surface-variant mb-sm">لا توجد سجلات هدر في الفترة والفرع المحددين.</div>'
       : '';
@@ -1014,7 +987,7 @@
     /* ── تفصيل الفرع ── */
     var detail = '';
     if (drill) {
-      var drillRows = SRC.reports.filter(function (x) { return inRange(x.date, r) && x.branch === drill.id; })
+      var drillRows = SRC.reports.filter(function (x) { return inRange(x.date, r) && x.branch === drill.id && (state.shift === 'all' || x.shiftType === state.shift); })
         .sort(function (a, b) { return a.date < b.date ? 1 : -1; });
       var body = drillRows.map(function (x) {
         return '<tr><td>' + esc(x.date) + '</td><td>' + (x.shiftType === 'Morning' ? 'صباحي' : 'مسائي') + '</td>' +
@@ -1092,10 +1065,15 @@
   function pane2() {
     var r = resolveRange();
     var cur = agg(SRC.reports, r);
-    var issues = filterRows(SRC.issues, r, true, false);
+    var issues = filterRows(SRC.issues, r, true, true);
     var visits = filterRows(SRC.visits, r, true, false);
     var comp = compliance(r);
     var tpl = complianceByTemplate(r);
+    var dueTotal = comp ? comp.expected : 0;
+    var doneTotal = comp ? comp.done : 0;
+    var incompleteTotal = Math.max(0, dueTotal - doneTotal);
+    var topIncomplete = METRICS.topIncomplete(tpl, 5);
+    var hourlyExcluded = (tpl && tpl.hourlyExcluded) || (comp && comp.hourlyExcluded) || 0;
 
     var teamEntries = {};
     cur.rows.forEach(function (x) { if (x.team) teamEntries[x.team] = (teamEntries[x.team] || 0) + 1; });
@@ -1140,14 +1118,16 @@
       return x.note.due && x.note.due < todayStr && !/مغلقة/.test(x.note.status || '');
     }).length;
 
-    var issueRows = issues.slice(0, 25).map(function (i) {
+    var issueRowsAll = issues.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+    var issueRows = issueRowsAll.slice(0, 25).map(function (i) {
       return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(i.date) + '</td>' +
         '<td class="px-md py-sm">' + esc(branchName(i.branch)) + '</td>' +
         '<td class="px-md py-sm">' + esc(i.type || '—') + '</td>' +
         '<td class="px-md py-sm text-on-surface-variant">' + esc(i.desc) + '</td>' +
         '<td class="px-md py-sm">' + esc(i.priority || '—') + '</td>' +
         '<td class="px-md py-sm">' + esc(i.action || '—') + '</td>' +
-        '<td class="px-md py-sm" data-edit="issueOwner">—</td><td class="px-md py-sm" data-edit="issueDue">—</td></tr>';
+          '<td class="px-md py-sm" data-edit="issueOwner-' + esc(i.id || (i.date + '|' + i.branch + '|' + i.desc)) + '">—</td>' +
+          '<td class="px-md py-sm" data-edit="issueDue-' + esc(i.id || (i.date + '|' + i.branch + '|' + i.desc)) + '">—</td></tr>';
     }).join('');
 
     return '<div class="card overflow-hidden fadein"><div class="bg-primary text-on-primary px-md py-sm font-title-md">2. الرقابة التشغيلية</div>' +
@@ -1155,8 +1135,8 @@
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">عدد الزيارات الإشرافية</div><div class="font-display-lg text-primary mt-xs">' + visits.length + '</div></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">الشفتات المفحوصة</div><div class="font-display-lg text-primary mt-xs">' + cur.count + '</div></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">نسبة الالتزام (منفذة ÷ مستحقة)</div><div class="font-display-lg text-primary mt-xs">' +
-      (comp ? comp.pct + '%' : '—') + (comp ? '<div class="text-body-sm text-on-surface-variant">' + comp.done + '/' + comp.expected + ' مهمة</div>' : '') + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">غير منفذة</div><div class="font-display-lg text-primary mt-xs">' + (comp ? Math.max(0, comp.expected - comp.done) : 0) + '</div></div>' +
+      (comp && comp.pct != null ? comp.pct + '%' : (hourlyExcluded ? 'غير متاح' : '—')) + '<div class="text-body-sm text-on-surface-variant">مكتمل ' + doneTotal + ' · مستحق ' + dueTotal + '</div></div></div>' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">غير مكتملة</div><div class="font-display-lg text-primary mt-xs">' + incompleteTotal + '</div></div>' +
       '</div>' +
       '<div class="grid md:grid-cols-4 gap-md">' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">ملاحظات الزيارات</div><div class="font-display-lg text-primary mt-xs">' + allNotes.length + '</div></div>' +
@@ -1165,8 +1145,10 @@
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">سجل الزيارات</div>' +
       '<a href="../branch-visits-new/index.html" class="text-body-sm font-bold text-primary underline mt-xs inline-block">فتح صفحة الزيارات ←</a></div>' +
       '</div>' +
-      '<div><div class="font-title-md text-primary mb-xs">نسبة الالتزام لكل مهمة من قوالب التشيك ليست</div><div id="paneChecks"></div>' +
-      (tpl.length ? '' : '<p class="text-body-sm text-on-surface-variant mt-xs">لا توجد قوالب مهام مسندة أو سجلات تنفيذ في هذه الفترة.</p>') + '</div>' +
+      '<div><div class="font-title-md text-primary mb-xs">أبرز المهام غير المكتملة — بحد أقصى 5</div><div id="paneChecks"></div>' +
+      (hourlyExcluded ? '<p class="text-body-sm text-on-surface-variant mt-xs">استُبعدت ' + hourlyExcluded + ' مهمة ساعية من النسبة؛ لا تتوفر سجلات الساعات اللازمة لاحتسابها بدقة.</p>' : '') +
+      (tpl.length && !topIncomplete.length ? '<p class="text-body-sm text-on-surface-variant mt-xs">اكتملت جميع المهام المستحقة في الجلسات المسجلة.</p>' : '') +
+      (!tpl.length && !hourlyExcluded ? '<p class="text-body-sm text-on-surface-variant mt-xs">لا توجد مهام مستحقة ضمن الجلسات المسجلة في الفترة.</p>' : '') + '</div>' +
       '<div><div class="font-title-md text-primary mb-xs">نتائج الزيارات الإشرافية</div><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">المشرف</th>' +
@@ -1183,6 +1165,7 @@
       '<th class="text-right px-md py-sm font-label-bold">الموعد</th></tr></thead><tbody>' +
       (issueRows || '<tr><td colspan="8" class="px-md py-lg text-center text-on-surface-variant">لا توجد ملاحظات مسجلة في هذه الفترة</td></tr>') +
       '</tbody></table></div></div>' +
+      (issueRowsAll.length > 25 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض أحدث 25 من ' + issueRowsAll.length + ' مشكلة؛ تم إخفاء ' + (issueRowsAll.length - 25) + ' صفًا.</p>' : '') +
       '<div><div class="font-title-md text-primary mb-xs">تقييم حالة أداء الفريق</div><table class="w-full text-body-sm">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التقييم</th>' +
       '<th class="text-right px-md py-sm font-label-bold">عدد الشفتات</th><th class="text-right px-md py-sm font-label-bold">النسبة</th></tr></thead>' +
@@ -1191,17 +1174,30 @@
   }
 
   /* ───────── محور 3 ───────── */
+  function isComplaintClosed(status) {
+    return ['closed', 'resolved', 'done', 'completed', 'مغلقة', 'مغلق', 'معالجة', 'تمت المعالجة',
+      'تمت معالجتها', 'تمت معالجته', 'تم المعالجة', 'تم الحل', 'تم حلها', 'تم الإغلاق', 'منتهية', 'منتهي']
+      .indexOf(norm(status).toLowerCase()) >= 0;
+  }
   function pane3() {
     var r = resolveRange();
-    var negs = filterRows(SRC.negs, r, true, false);
+    var negs = filterRows(SRC.negs, r, true, true);
     var positiveReports = filterRows(SRC.reports, r, true, true);
     var posTotal = positiveReports.reduce(function (a, x) { return a + x.pos; }, 0);
-    var closed = negs.filter(function (n) { return /مغلقة|معالجة|تم/.test(n.status); }).length;
+    var closed = negs.filter(function (n) { return isComplaintClosed(n.status); }).length;
     var pending = negs.length - closed;
+    var complaintRows = negs.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); })
+      .slice(0, 100).map(function (n) {
+        return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(n.date) + '</td>' +
+          '<td class="px-md py-sm">' + esc(branchName(n.branch)) + '</td>' +
+          '<td class="px-md py-sm text-on-surface-variant">' + esc(n.text) + '</td>' +
+          '<td class="px-md py-sm">' + esc(n.status || 'معلقة') + '</td>' +
+          '<td class="px-md py-sm">' + esc(n.action || '—') + '</td><td class="px-md py-sm">' + esc(n.owner || '—') + '</td></tr>';
+      }).join('');
 
     var rows = BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
       var mine = negs.filter(function (x) { return x.branch === b.id; });
-      var cl = mine.filter(function (n) { return /مغلقة|معالجة|تم/.test(n.status); }).length;
+      var cl = mine.filter(function (n) { return isComplaintClosed(n.status); }).length;
       var posMine = positiveReports.filter(function (x) { return x.branch === b.id; }).reduce(function (a, x) { return a + x.pos; }, 0);
       return '<tr class="border-b border-outline-variant"><td class="px-md py-sm font-semibold">' + esc(b.name) + '</td>' +
         '<td class="px-md py-sm">' + mine.length + '</td>' +
@@ -1224,6 +1220,13 @@
       '<th class="text-right px-md py-sm font-label-bold">معلقة</th><th class="text-right px-md py-sm font-label-bold">تقييمات إيجابية</th>' +
       '<th class="text-right px-md py-sm font-label-bold">أبرز التعليقات</th><th class="text-right px-md py-sm font-label-bold">إجراء تحسين التجربة</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table></div>' +
+      '<div><div class="font-title-md text-primary mb-xs">سجل الشكاوى وحالة المعالجة</div><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
+      '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">تعليق العميل</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">الحالة</th><th class="text-right px-md py-sm font-label-bold">الإجراء</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">المسؤول</th></tr></thead><tbody>' +
+      (complaintRows || '<tr><td colspan="6" class="px-md py-lg text-center text-on-surface-variant">لا توجد شكاوى مسجلة</td></tr>') +
+      '</tbody></table></div>' + (negs.length > 100 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض أحدث 100 من ' + negs.length + ' شكوى؛ تم إخفاء ' + (negs.length - 100) + ' صفًا.</p>' : '') + '</div>' +
       '<div class="bg-surface-container rounded-lg p-md"><label class="font-label-bold text-on-surface-variant">إجراءات تحسين تجربة العملاء المتخذة</label>' +
       '<div class="text-body-sm mt-1" data-edit="cxAction">—</div></div></div></div>';
   }
@@ -1231,11 +1234,11 @@
   /* ───────── محور 4 ───────── */
   function pane4() {
     var r = resolveRange();
-    var w = filterRows(SRC.waste, r, true, false);
+    var w = filterRows(SRC.waste, r, true, true);
     /* تجميع منفصل حسب وحدة القياس: لا نخلط جراماً بلتر أو قطعة.
        المفتاح = (الاسم + الوحدة) والقيمة = الكمية. */
     var byItem = {}, byReason = {}, byRoot = {}, itemUnit = {}, reasonUnit = {}, rootUnit = {};
-    var cost = 0, hasCost = false;
+    var cost = 0, hasCost = false, missingCostRows = 0;
     w.forEach(function (x) {
       var u = x.unit || 'غير محدد';
       var k = x.item || 'غير محدد';
@@ -1248,7 +1251,8 @@
         var rck = x.rootCause + '|' + u;
         byRoot[rck] = (byRoot[rck] || 0) + (x.qty || 0); rootUnit[rck] = u;
       }
-      if (x.unitCost) { hasCost = true; cost += (x.qty || 0) * x.unitCost; }
+      if (x.unitCost != null) { hasCost = true; cost += (x.qty || 0) * x.unitCost; }
+      else missingCostRows++;
     });
     /* ترتيب البنود داخل كل وحدة على حدة */
     var itemsByUnit = {};
@@ -1260,10 +1264,6 @@
       itemsByUnit[u].sort(function (a, b) { return b[1] - a[1]; });
       itemsByUnit[u] = itemsByUnit[u].slice(0, 12);
     });
-    var topItems = [];
-    Object.keys(itemsByUnit).forEach(function (u) {
-      itemsByUnit[u].forEach(function (row) { topItems.push(row); });
-    });
     var barsHtml = Object.keys(itemsByUnit).map(function (u) {
       var maxV = Math.max.apply(null, [1].concat(itemsByUnit[u].map(function (x) { return x[1]; })));
       return '<div class="mb-sm"><div class="font-label-bold text-on-surface-variant mb-xs">وحدة القياس: ' + esc(u) + '</div>' +
@@ -1272,7 +1272,10 @@
             '<div class="h-2 bg-surface-container-high rounded-full overflow-hidden"><div class="h-full bg-primary" style="width:' + (x[1] / maxV * 100) + '%"></div></div></div>';
         }).join('') + '</div>';
     }).join('');
-    var topItem = topItems.length ? topItems.slice().sort(function (a, b) { return b[1] - a[1]; })[0] : null;
+    var topByUnit = Object.keys(itemsByUnit).sort().map(function (unit) { return itemsByUnit[unit][0]; });
+    var topItemText = topByUnit.map(function (item) {
+      return esc(item[0]) + ' (' + nf(item[1]) + ' ' + esc(item[2]) + ')';
+    }).join('<br>');
 
     // ترتيب مستقل داخل كل فرع AND كل وحدة قياس؛ لا تتم مقارنة الجرام باللتر أو القطعة.
     var shiftUnits = {};
@@ -1311,7 +1314,8 @@
         }).join('') : '<div class="text-body-sm text-on-surface-variant">لا توجد بيانات شفت لهذا الفرع</div>') + '</div>';
     }).join('');
 
-    var rows = w.slice(0, 60).map(function (x) {
+    var visibleWaste = w.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+    var rows = visibleWaste.slice(0, 60).map(function (x) {
       return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(x.date) + '</td>' +
         '<td class="px-md py-sm">' + esc(branchName(x.branch)) + '</td>' +
         '<td class="px-md py-sm font-semibold">' + esc(x.item) + '</td>' +
@@ -1319,7 +1323,7 @@
         '<td class="px-md py-sm text-on-surface-variant">' + esc(x.reason) + '</td>' +
         '<td class="px-md py-sm text-on-surface-variant">' + esc(x.rootCause || '—') + '</td>' +
         '<td class="px-md py-sm">' + esc(x.action || '—') + '</td>' +
-        '<td class="px-md py-sm">' + (x.unitCost ? nf2(x.qty * x.unitCost) + ' ر.س' : '—') + '</td></tr>';
+        '<td class="px-md py-sm">' + (x.unitCost != null ? nf2(x.qty * x.unitCost) + ' ر.س' : '—') + '</td></tr>';
     }).join('');
 
     return '<div class="card overflow-hidden fadein"><div class="bg-primary text-on-primary px-md py-sm font-title-md">4. الهدر والمخزون</div>' +
@@ -1328,9 +1332,9 @@
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">أصناف متأثرة</div><div class="font-display-lg text-primary mt-xs">' + (function () {
         var s = {}; w.forEach(function (x) { s[x.item || 'غير محدد'] = 1; }); return Object.keys(s).length;
       })() + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">قيمة الهدر (بالريال)</div><div class="font-display-lg text-primary mt-xs">' +
-      (hasCost ? nf2(cost) + ' ر.س' : 'تحتاج تكلفة الوحدة') + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">أعلى صنف</div><div class="font-body-lg font-bold text-primary mt-xs">' + (topItem ? esc(topItem[0]) + ' (' + esc(topItem[2]) + ')' : '—') + '</div></div>' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">قيمة الهدر المسجلة (بالريال)</div><div class="font-display-lg text-primary mt-xs">' +
+      (hasCost ? nf2(cost) + ' ر.س' : 'تحتاج تكلفة الوحدة') + (hasCost && missingCostRows ? '<div class="text-body-sm text-on-surface-variant">قيمة جزئية؛ تكلفة غير متوفرة لـ ' + missingCostRows + ' سجل</div>' : '') + '</div></div>' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">الأعلى داخل كل وحدة قياس</div><div class="font-body-lg font-bold text-primary mt-xs">' + (topItemText || '—') + '</div></div>' +
       '</div><div class="grid md:grid-cols-3 gap-md">' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="font-title-md text-primary mb-sm">أعلى الأصناف هدراً</div>' + (barsHtml || '<div class="text-body-sm text-on-surface-variant">لا توجد بيانات</div>') + '</div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="font-title-md text-primary mb-sm">توزيع الأسباب</div>' +
@@ -1342,8 +1346,6 @@
         return '<div class="flex justify-between text-body-sm py-xs border-b border-outline-variant"><span>' + esc(k.split('|')[0]) + '</span><span class="font-bold">' + nf(byRoot[k]) + ' ' + esc(rootUnit[k]) + '</span></div>';
       }).join('') || '<div class="text-body-sm text-on-surface-variant">لم تُسجَّل أسباب جذرية بعد (root_cause)</div>') + '</div>' +
       '</div><div><div class="font-title-md text-primary mb-sm">أعلى 3 شفتات هدراً داخل كل فرع</div><p class="text-body-sm text-on-surface-variant mb-sm">الترتيب منفصل حسب وحدة القياس (جرام/لتر/قطعة) — لا تتم مقارنة الجرام باللتر أو القطعة.</p><div class="grid md:grid-cols-2 xl:grid-cols-3 gap-md">' + shiftWasteHtml + '</div></div>' +
-      '<div class="border-2 border-error-container rounded-lg p-md bg-error-container/20"><label class="font-label-bold text-on-error-container">أثر نفاد المنتجات على التشغيل</label>' +
-      '<div class="text-body-sm mt-1" data-edit="stockImpact">—</div></div>' +
       '<div class="overflow-x-auto"><table class="w-full text-body-sm">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الصنف</th>' +
@@ -1351,15 +1353,15 @@
       '<th class="text-right px-md py-sm font-label-bold">السبب الجذري</th><th class="text-right px-md py-sm font-label-bold">الإجراء التصحيحي</th>' +
       '<th class="text-right px-md py-sm font-label-bold">قيمة الهدر</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="8" class="px-md py-lg text-center text-on-surface-variant">لا توجد سجلات هدر في هذه الفترة</td></tr>') +
-      '</tbody></table></div></div></div>';
+      '</tbody></table></div>' + (visibleWaste.length > 60 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض أحدث 60 من ' + visibleWaste.length + ' سجل هدر؛ تم إخفاء ' + (visibleWaste.length - 60) + ' سجلًا.</p>' : '') + '</div></div>';
   }
 
   /* ───────── محور 5 ───────── */
   function pane5() {
     var r = resolveRange();
     var rows = filterRows(SRC.reports, r, true, true);
-    var issues = filterRows(SRC.issues, r, true, false);
-    var att = filterRows(SRC.attendance, r, true, false);
+    var issues = filterRows(SRC.issues, r, true, true);
+    var att = filterRows(SRC.attendance, r, true, true);
     var equip = issues.filter(function (i) { return /عطل|معدات|ماكينة|جهاز|تكييف|ثلاجة|grinder|espresso/i.test((i.type || '') + (i.desc || '')); });
     var staff = issues.filter(function (i) { return /موظف|غياب|نقص|تغطية|دوام|استقالة/i.test((i.type || '') + (i.desc || '')); });
 
@@ -1426,13 +1428,21 @@
   }
 
   /* ───────── محور 6 ───────── */
+  function nextWeekStartAfter(dateStr) {
+    var d = parseD(dateStr), dow = d.getUTCDay();
+    var daysToSaturday = (6 - dow + 7) % 7;
+    if (!daysToSaturday) daysToSaturday = 7;
+    d.setUTCDate(d.getUTCDate() + daysToSaturday);
+    return dstr(d);
+  }
   function pane6() {
     var r = resolveRange();
-    var weekStart = r.from;
+    var weekStart = nextWeekStartAfter(r.to);
     var existing = (SRC.plans || []).filter(function (p) { return p.weekStart === weekStart; });
     var byRow = {};
     existing.forEach(function (p) { byRow[p.rowNo] = p; });
-    var maxRow = Math.max(7, existing.length);
+    var highestRow = existing.reduce(function (max, p) { return Math.max(max, Number(p.rowNo) || 0); }, 0);
+    var maxRow = Math.min(50, Math.max(7, highestRow));
 
     var rows = '';
     for (var i = 1; i <= maxRow; i++) {
@@ -1450,7 +1460,8 @@
 
     return '<div class="card overflow-hidden fadein"><div class="bg-primary text-on-primary px-md py-sm font-title-md">6. خطة العمل للأسبوع القادم</div>' +
       '<div class="p-md space-y-md">' +
-      '<p class="text-body-sm text-on-surface-variant">تُحفظ البنود في جدول <b>weekly_plans</b> — بياناتها تظهر لكل من يفتح التقرير، ولا تُحفظ في المتصفح فقط.</p>' +
+      '<p class="text-body-sm text-on-surface-variant">الأسبوع المستهدف: <b>' + esc(weekStart) + '</b>. تُحفظ البنود في جدول <b>weekly_plans</b> — بياناتها تظهر لكل من يفتح التقرير.</p>' +
+      (highestRow > maxRow ? '<p class="text-body-sm text-on-surface-variant">تم إخفاء ' + (highestRow - maxRow) + ' صفوف تتجاوز الحد الآمن لعرض الخطة.</p>' : '') +
       '<div class="overflow-x-auto"><table class="w-full text-body-sm">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">م</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الهدف التشغيلي المستهدف</th><th class="text-right px-md py-sm font-label-bold">الفرع / النطاق</th>' +
@@ -1488,7 +1499,7 @@
       var checks = el.querySelector('#paneChecks');
       if (checks) {
         var tpl = complianceByTemplate(resolveRange());
-        bars(checks, tpl.map(function (t) {
+        bars(checks, METRICS.topIncomplete(tpl, 5).map(function (t) {
           return { label: t.title, done: t.done, total: t.total };
         }));
       }
@@ -1555,7 +1566,7 @@
   function saveEdits() {
     try {
       var o = {};
-      $$('[data-edit]').forEach(function (el) { o[el.getAttribute('data-edit')] = el.innerHTML; });
+      $$('[data-edit]').forEach(function (el) { o[el.getAttribute('data-edit')] = el.innerText != null ? el.innerText : el.textContent; });
       localStorage.setItem(EDIT_KEY + ':' + reportKey(resolveRange()), JSON.stringify(o));
     } catch (e) {}
   }
@@ -1565,7 +1576,7 @@
     $$('[data-edit]').forEach(function (el) {
       var k = el.getAttribute('data-edit');
       var v = (SRC.noteMap && SRC.noteMap[k]) || o[k];
-      if (v != null && v !== '' && v !== '—') el.innerHTML = v;
+      if (v != null && v !== '' && v !== '—') el.textContent = String(v);
     });
   }
   /* حالة حفظ الملاحظات (تظهر في الترويسة) */
@@ -1583,37 +1594,41 @@
   }
   function bindEdits() {
     document.addEventListener('input', function (e) {
-      var el = e.target;
-      if (el.closest && el.closest('[data-edit]')) {
-        var k = el.getAttribute('data-edit');
-        if (!SRC.noteMap) SRC.noteMap = {};
-        SRC.noteMap[k] = el.innerHTML;
-        saveEdits();
-        try { localStorage.setItem(NOTES_KEY + ':' + reportKey(resolveRange()), JSON.stringify(SRC.noteMap)); } catch (err) {}
-        clearTimeout(bindEdits._t);
-        bindEdits._t = setTimeout(function () {
-          saveNote(k, el.innerHTML).then(function (dbOk) { setNotesStatus(dbOk); });
-        }, 1200);
-      }
+      var el = e.target && e.target.closest ? e.target.closest('[data-edit]') : null;
+      if (!el) return;
+      var k = el.getAttribute('data-edit');
+      var body = el.innerText != null ? el.innerText : el.textContent;
+      if (!SRC.noteMap) SRC.noteMap = {};
+      SRC.noteMap[k] = body;
+      saveEdits();
+      try { localStorage.setItem(NOTES_KEY + ':' + reportKey(resolveRange()), JSON.stringify(SRC.noteMap)); } catch (err) {}
+      if (!bindEdits._timers) bindEdits._timers = Object.create(null);
+      clearTimeout(bindEdits._timers[k]);
+      bindEdits._timers[k] = setTimeout(function () {
+        saveNote(k, body).then(function (dbOk) { setNotesStatus(dbOk); });
+      }, 1200);
     });
   }
   function bindPlanSaves() {
     $$('.plan-save').forEach(function (b) {
       b.addEventListener('click', function () {
         var tr = b.closest('tr'), rowNo = +tr.getAttribute('data-plan-row');
-        function get(name) { var el = tr.querySelector('[data-plan="' + name + '"]'); return el ? el.innerHTML.trim() : ''; }
+        function get(name) { var el = tr.querySelector('[data-plan="' + name + '"]'); return el ? String(el.innerText != null ? el.innerText : el.textContent).trim() : ''; }
         var needs = /اعتماد|نعم/i.test(get('approve'));
         if (!CFG.client || typeof CFG.client.rpc !== 'function') {
           notify('الحفظ في القاعدة غير متاح في هذه النسخة.', 'error'); return;
         }
         b.disabled = true;
         CFG.client.rpc('save_weekly_plan', {
-          p_week_start: resolveRange().from, p_row_no: rowNo,
+          p_week_start: nextWeekStartAfter(resolveRange().to), p_row_no: rowNo,
           p_objective: get('objective'), p_scope: get('scope'), p_kpi: get('kpi'),
           p_owner: get('owner'), p_due_date: get('due') || null,
           p_needs_approval: needs, p_notes: null,
           p_updated_by: (CFG.user && (CFG.user.full_name || CFG.user.email)) || null
-        }).then(function () { notify('تم حفظ بند الخطة في قاعدة البيانات.', 'ok'); return boot(); })
+        }).then(function (res) {
+          if (res && res.error) { notify('تعذّر حفظ بند الخطة: ' + res.error.message, 'error'); return; }
+          notify('تم حفظ بند الخطة في قاعدة البيانات.', 'ok'); return boot();
+        })
           .catch(function (e) { notify('تعذّر الحفظ: ' + (e && e.message ? e.message : e), 'error'); })
           .then(function () { b.disabled = false; });
       });

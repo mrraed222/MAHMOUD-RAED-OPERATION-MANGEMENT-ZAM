@@ -225,6 +225,7 @@ var BRANCH_MAP = {
   'الفرع الرئيسي': 'زام الرئيسي',
   'فرع الرئيسي': 'زام الرئيسي',
   'زام الرئيسي': 'زام الرئيسي',
+  'الفرع الرئسي': 'زام الرئيسي',
   'فرع البلد': 'زام البلد',
   'زام البلد': 'زام البلد',
   'فرع الحي': 'زام الحي',
@@ -308,7 +309,7 @@ function toReportRow(r, branchIds) {
   var branchId = branchIds[branchName];
   if (!branchId) return null;
 
-  var shiftTxt = txt(val(r, ['الفت', 'الوردية', 'shift', 'shift_type']));
+  var shiftTxt = txt(val(r, ['الشفت', 'الفت', 'الوردية', 'shift', 'shift_type']));
   var shiftType = /مسائي|evening/i.test(shiftTxt) ? 'Evening' : 'Morning';
 
   var sales = num(val(r, ['إجمالي المبيعات', 'المبيعات', 'total_sales', 'totalSales']));
@@ -374,9 +375,9 @@ function toIssueRow(r) {
   if (!desc) return null;
   return {
     description: desc,
-    action_taken: txt(val(r, ['الإجراء', 'action', 'issue_action', 'action_taken'])),
+    action_taken: txt(val(r, ['الإجراء المتخذ', 'الإجراء', 'action', 'issue_action', 'action_taken'])),
     priority: txt(val(r, ['الأولوية', 'priority', 'issue_priority'])),
-    type: txt(val(r, ['النوع', 'type', 'issue_type'])),
+    type: txt(val(r, ['نوع المشكلة', 'النوع', 'type', 'issue_type'])),
     date: toISO(val(r, ['التاريخ', 'تاريخ', 'date'])),
     branchRaw: txt(val(r, ['الفرع', 'فرع', 'branch'])),
     sheet_row: r.__row
@@ -715,6 +716,5 @@ function diagnose() {
     Logger.log('أعمدة ' + t + ' غير مدعومة: ' + (missing.length ? missing.join('، ') : 'لا شيء — الجدول كامل'));
   });
 }
-
 
 
