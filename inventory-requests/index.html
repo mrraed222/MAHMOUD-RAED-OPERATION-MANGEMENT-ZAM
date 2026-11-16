@@ -56,6 +56,10 @@
     .material-symbols-outlined { vertical-align: middle; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
     input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .4); outline-offset: 2px; }
     .request-item { break-inside: avoid; }
+    .print-branding { align-items: center; border-bottom: 1px solid #d2c4ba; display: flex; justify-content: space-between; margin-bottom: 1rem; padding-bottom: .75rem; }
+    .print-zam-logo { display: block; max-height: 100px; max-width: 78px; object-fit: contain; }
+    .print-employee-photo { border: 1px solid #777; border-radius: 50%; height: 60px; object-fit: cover; width: 60px; }
+    .print-employee-line { align-items: center; display: flex; gap: .65rem; }
     .inventory-access-pending body { visibility: hidden; }
     @media print {
       @page { size: A4 portrait; margin: 12mm; }
@@ -68,6 +72,10 @@
       #order-preview th, #order-preview td { border: 1px solid #777 !important; padding: 7px !important; color: #111 !important; }
       #order-preview thead { display: table-header-group; }
       #order-preview tr { break-inside: avoid; }
+      .print-branding, .print-employee-line { break-inside: avoid; }
+      .print-branding { margin-bottom: 3mm; padding-bottom: 2mm; }
+      .print-zam-logo { max-height: 24mm; max-width: 19mm; }
+      .print-employee-photo { height: 18mm; width: 18mm; }
     }
   </style>
 </head>
@@ -162,6 +170,10 @@
       </section>
 
       <section id="order-preview" class="hidden rounded-2xl border border-outline-variant bg-white p-4 shadow-sm md:p-6">
+        <div class="print-branding" aria-label="شعار زام وصورة الموظف">
+          <img id="print-zam-logo" class="print-zam-logo" src="../assets/logo/zam-logo.png" alt="شعار زام" />
+          <img id="print-employee-avatar" class="print-employee-photo hidden" alt="صورة الموظف المسجل دخوله" />
+        </div>
         <div class="mb-5 flex flex-col gap-4 border-b border-outline-variant pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p class="text-sm font-bold text-secondary">طلب جرد داخلي</p>
@@ -183,7 +195,7 @@
           <div class="rounded-lg bg-surface-container-low p-3"><dt class="text-xs text-on-surface-variant">الوردية</dt><dd id="print-shift" class="mt-1 font-bold"></dd></div>
           <div class="rounded-lg bg-surface-container-low p-3"><dt class="text-xs text-on-surface-variant">التاريخ والوقت</dt><dd id="print-date" class="mt-1 font-bold"></dd></div>
         </dl>
-        <p class="mb-3 text-sm"><span class="font-bold">مُعدّ الطلب:</span> <span id="print-supervisor"></span></p>
+        <div class="print-employee-line mb-3 text-sm"><span class="font-bold">مُعدّ الطلب:</span> <span id="print-supervisor"></span></div>
         <div class="overflow-x-auto">
           <table class="w-full min-w-[640px] border-collapse text-right text-sm">
             <thead class="bg-surface-container text-primary">
@@ -234,6 +246,8 @@
     const itemsList = document.getElementById('items-list');
     const historyList = document.getElementById('history-list');
     const preview = document.getElementById('order-preview');
+    const printEmployeePhoto = document.getElementById('print-employee-avatar');
+    printEmployeePhoto.addEventListener('error', () => printEmployeePhoto.classList.add('hidden'));
     const taskRequestedShift = new URLSearchParams(window.location.search).get('shift');
     let selectedShift = ['Morning', 'Evening'].includes(taskRequestedShift)
       ? taskRequestedShift
@@ -356,6 +370,13 @@
 
     function renderOrderPreview(request, items, supervisorName = currentUser?.full_name || '—') {
       selectedOrder = { request, items, supervisorName };
+      if (currentUser?.avatar_url) {
+        printEmployeePhoto.src = currentUser.avatar_url;
+        printEmployeePhoto.classList.remove('hidden');
+      } else {
+        printEmployeePhoto.removeAttribute('src');
+        printEmployeePhoto.classList.add('hidden');
+      }
       const shortId = String(request.id || '').slice(0, 8).toUpperCase();
       document.getElementById('order-number').textContent = `رقم الطلب: ${shortId ? `#${shortId}` : '—'}`;
       document.getElementById('print-branch').textContent = displayBranch(request.branch_id);
@@ -600,8 +621,18 @@
       }
     });
 
-    document.getElementById('print-order-btn').addEventListener('click', () => {
-      if (selectedOrder) window.print();
+    document.getElementById('print-order-btn').addEventListener('click', async () => {
+      if (!selectedOrder) return;
+      const printImages = [document.getElementById('print-zam-logo')];
+      if (!printEmployeePhoto.classList.contains('hidden')) printImages.push(printEmployeePhoto);
+      await Promise.all(printImages.map(async image => {
+        if (typeof image.decode !== 'function') return;
+        try { await image.decode(); }
+        catch (error) {
+          if (image === printEmployeePhoto) printEmployeePhoto.classList.add('hidden');
+        }
+      }));
+      window.print();
     });
 
     document.getElementById('whatsapp-order-btn').addEventListener('click', () => {
