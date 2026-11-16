@@ -97,7 +97,7 @@ const ZAM_NAV_ITEMS = [
     { key: 'branches', label: 'الفروع', icon: 'storefront', href: 'branches-checklists/index.html', roles: ['Owner', 'Admin', 'Supervisor'], perm: 'can_manage_branches' },
     { key: 'my-checklist', label: 'مهامي اليومية', icon: 'task_alt', href: 'my-checklist/index.html', roles: ['Barista', 'Kitchen', 'Waiter'], perm: null },
     { key: 'supervisor-checklist', label: 'قوائم المهام', icon: 'checklist', href: 'supervisor-checklist/index.html', roles: ['Admin', 'Manager', 'Supervisor'], perm: null },
-    { key: 'inventory-requests', label: 'الجرد والطلبيات', icon: 'inventory_2', href: 'inventory-requests/index.html', roles: ['Supervisor'], perm: null },
+    { key: 'inventory-requests', label: 'الجرد والطلبيات', icon: 'inventory_2', href: 'inventory-requests/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor', 'Quality', 'Quality Manager', 'Barista', 'Kitchen', 'Waiter'], perm: 'can_manage_inventory' },
     { key: 'supervisor-dashboard', label: 'داشبورد الفرع', icon: 'space_dashboard', href: 'supervisor-dashboard/index.html', roles: ['Supervisor', 'Manager'], perm: null },
     { key: 'manage-templates', label: 'إدارة قوائم التحقق', icon: 'edit_note', href: 'manage-templates/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_manage_templates' },
     { key: 'daily-report', label: 'التقارير اليومية', icon: 'assignment', href: 'daily-report/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: null },
@@ -122,6 +122,7 @@ const ZAM_OWNER_NAV_KEYS = new Set([
     'reports-monitor',
     'analytics',
     'weekly-report',
+    'inventory-requests',
     'branch-visits',
     'staff-management',
     'automation-settings',
@@ -147,6 +148,7 @@ async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
     const items = ZAM_NAV_ITEMS.filter(i => {
         if (role === 'Owner') return ZAM_OWNER_NAV_KEYS.has(i.key);
         if (!i.roles.includes(role)) return false;
+        if (i.key === 'inventory-requests' && role === 'Supervisor') return true;
         if (i.perm) {
             return !!(permsRow && permsRow[i.perm]);
         }
