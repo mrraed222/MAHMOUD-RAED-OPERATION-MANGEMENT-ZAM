@@ -9,12 +9,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script src="../assets/supabase-config.js?v=20261115193000"></script>
+  <script src="../assets/supabase-config.js?v=20261116134500"></script>
   <script>
     const currentUser = ZamSession.requireAuth('../index.html');
-    if (currentUser && currentUser.role !== 'Supervisor') {
-      window.location.href = '../supervisor-dashboard/index.html';
-    }
+    if (currentUser) document.documentElement.classList.add('inventory-access-pending');
   </script>
   <script>
     tailwind.config = {
@@ -58,6 +56,7 @@
     .material-symbols-outlined { vertical-align: middle; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
     input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .4); outline-offset: 2px; }
     .request-item { break-inside: avoid; }
+    .inventory-access-pending body { visibility: hidden; }
     @media print {
       @page { size: A4 portrait; margin: 12mm; }
       html, body { background: #fff !important; color: #111 !important; }
@@ -101,19 +100,19 @@
     <div id="page-content" class="mx-auto max-w-6xl space-y-5 p-4 pb-24 md:p-8 md:pb-10">
       <section class="no-print flex flex-col gap-3 border-b border-outline-variant pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p class="mb-1 text-sm font-bold text-secondary">للمشرفين — جميع الورديات</p>
+          <p id="page-audience" class="mb-1 text-sm font-bold text-secondary">للمشرفين — جميع الورديات</p>
           <h1 class="text-3xl font-black text-primary">الجرد والطلبيات</h1>
-          <p class="mt-2 max-w-2xl text-on-surface-variant">سجّل الرصيد الحالي والكمية المطلوبة لكل صنف، ثم احفظ الطلب واطبعه أو جهّز نصه للمشاركة داخلياً عبر واتساب.</p>
+          <p id="page-description" class="mt-2 max-w-2xl text-on-surface-variant">سجّل الرصيد الحالي والكمية المطلوبة لكل صنف، ثم احفظ الطلب واطبعه أو جهّز نصه للمشاركة داخلياً عبر واتساب.</p>
         </div>
         <div class="rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-3 text-sm">
-          <span class="font-bold">المشرف:</span> <span id="supervisor-name">—</span>
+          <span id="user-label" class="font-bold">المشرف:</span> <span id="supervisor-name">—</span>
         </div>
       </section>
 
       <div id="page-error" class="hidden rounded-xl border border-error bg-error-container p-4 text-sm font-bold text-error" role="alert"></div>
       <div id="page-message" class="hidden rounded-xl border border-outline-variant bg-secondary-container p-4 text-sm font-bold text-on-surface" role="status"></div>
 
-      <section class="no-print rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm md:p-6">
+      <section id="request-section" class="no-print rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm md:p-6">
         <div class="mb-5 flex flex-col gap-3 border-b border-outline-variant pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 class="text-xl font-extrabold text-primary">إنشاء طلب جرد جديد</h2>
@@ -206,10 +205,13 @@
       <section class="no-print rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm md:p-6">
         <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 class="text-xl font-extrabold text-primary">آخر طلبات الفرع</h2>
-            <p class="mt-1 text-sm text-on-surface-variant">تظهر طلبات الصباح والليل لهذا الفرع فقط.</p>
+            <h2 id="history-title" class="text-xl font-extrabold text-primary">سجل طلبات الجرد</h2>
+            <p id="history-description" class="mt-1 text-sm text-on-surface-variant">تظهر طلبات الصباح والليل لهذا الفرع فقط.</p>
           </div>
-          <button id="refresh-history-btn" type="button" class="rounded-lg border border-outline-variant px-3 py-2 text-sm font-bold text-primary hover:bg-surface-container">تحديث السجل</button>
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="history-branch-filter" class="hidden rounded-lg border-outline-variant bg-white px-3 py-2 text-sm font-bold text-primary" aria-label="تصفية سجل الجرد حسب الفرع"></select>
+            <button id="refresh-history-btn" type="button" class="rounded-lg border border-outline-variant px-3 py-2 text-sm font-bold text-primary hover:bg-surface-container">تحديث السجل</button>
+          </div>
         </div>
         <div id="history-list" class="divide-y divide-outline-variant rounded-xl border border-outline-variant">
           <p class="p-4 text-sm text-on-surface-variant">جارٍ تحميل سجل الطلبات…</p>
@@ -237,6 +239,8 @@
       ? taskRequestedShift
       : (currentUser?.shift_type === 'Evening' ? 'Evening' : 'Morning');
     let selectedOrder = null;
+    let inventoryAccess = null;
+    const branchNames = new Map();
 
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, character => ({
@@ -244,8 +248,8 @@
       }[character]));
     }
 
-    function displayBranch() {
-      return currentUser?.branches?.name || 'فرع المستخدم';
+    function displayBranch(branchId = currentUser?.branch_id) {
+      return branchNames.get(branchId) || (branchId === currentUser?.branch_id ? currentUser?.branches?.name : null) || 'الفرع المصرح به';
     }
 
     function setMessage(message, isError = false) {
@@ -354,7 +358,7 @@
       selectedOrder = { request, items, supervisorName };
       const shortId = String(request.id || '').slice(0, 8).toUpperCase();
       document.getElementById('order-number').textContent = `رقم الطلب: ${shortId ? `#${shortId}` : '—'}`;
-      document.getElementById('print-branch').textContent = displayBranch();
+      document.getElementById('print-branch').textContent = displayBranch(request.branch_id);
       document.getElementById('print-supplier').textContent = request.supplier || '—';
       document.getElementById('print-shift').textContent = SHIFT_LABELS[request.shift_type] || '—';
       document.getElementById('print-date').textContent = formatDate(request.created_at || new Date());
@@ -377,7 +381,7 @@
       const { request, items, supervisorName } = selectedOrder;
       const lines = [
         'طلب جرد داخلي — ZAM',
-        `الفرع: ${displayBranch()}`,
+        `الفرع: ${displayBranch(request.branch_id)}`,
         `جهة التوريد: ${request.supplier}`,
         `الوردية: ${SHIFT_LABELS[request.shift_type] || ''}`,
         `التاريخ: ${formatDate(request.created_at || new Date())}`,
@@ -388,23 +392,109 @@
       return lines.join('\n');
     }
 
+    async function resolveInventoryAccess() {
+      const { data: authData, error: authError } = await zamClient.auth.getSession();
+      if (authError) throw authError;
+      if (!authData?.session?.user?.id || authData.session.user.id !== currentUser?.id) {
+        ZamSession.clear();
+        window.location.href = '../index.html';
+        return null;
+      }
+
+      const isSupervisor = currentUser.role === 'Supervisor';
+      let permission = {};
+      if (currentUser.role !== 'Owner') {
+        const { data, error } = await zamClient.from('admin_permissions')
+          .select('can_manage_inventory,can_view_all_inventory,inventory_branch_ids')
+          .eq('profile_id', currentUser.id)
+          .maybeSingle();
+        if (error) throw error;
+        permission = data || {};
+      }
+
+      const hasInventoryPermission = currentUser.role === 'Owner' || !!permission.can_manage_inventory;
+      const allBranches = currentUser.role === 'Owner'
+        || (hasInventoryPermission && !!permission.can_view_all_inventory);
+      const branchIds = new Set();
+      if (isSupervisor && currentUser.branch_id) branchIds.add(currentUser.branch_id);
+      if (hasInventoryPermission && !allBranches && Array.isArray(permission.inventory_branch_ids)) {
+        permission.inventory_branch_ids.forEach(id => branchIds.add(id));
+      }
+      if (!allBranches && !branchIds.size) {
+        window.location.href = `../${zamRoleHomePath(currentUser.role)}`;
+        return null;
+      }
+
+      const { data: branches, error: branchesError } = await zamClient.from('branches')
+        .select('id,name').order('name');
+      if (branchesError) throw branchesError;
+      (branches || []).forEach(branch => branchNames.set(branch.id, branch.name));
+      if (currentUser.branch_id && currentUser.branches?.name) {
+        branchNames.set(currentUser.branch_id, currentUser.branches.name);
+      }
+
+      inventoryAccess = {
+        canCreate: isSupervisor && !!currentUser.branch_id,
+        allBranches,
+        branchIds: [...branchIds]
+      };
+      const allowedBranches = allBranches
+        ? (branches || [])
+        : (branches || []).filter(branch => branchIds.has(branch.id));
+      const filter = document.getElementById('history-branch-filter');
+      if (allBranches || allowedBranches.length > 1) {
+        filter.innerHTML = `<option value="">${allBranches ? 'كل الفروع' : 'كل الفروع المصرح بها'}</option>`
+          + allowedBranches.map(branch => `<option value="${escapeHtml(branch.id)}">${escapeHtml(branch.name)}</option>`).join('');
+        filter.classList.remove('hidden');
+      } else {
+        filter.classList.add('hidden');
+      }
+
+      document.getElementById('request-section').classList.toggle('hidden', !inventoryAccess.canCreate);
+      document.getElementById('shift-chip').classList.toggle('hidden', !inventoryAccess.canCreate);
+      document.getElementById('user-label').textContent = inventoryAccess.canCreate ? 'المشرف:' : 'المخوّل:';
+      document.getElementById('page-audience').textContent = inventoryAccess.canCreate
+        ? 'للمشرفين — جميع الورديات'
+        : 'صلاحية الاطلاع على سجلات الجرد';
+      document.getElementById('page-description').textContent = inventoryAccess.canCreate
+        ? 'سجّل الرصيد الحالي والكمية المطلوبة لكل صنف، ثم احفظ الطلب واطبعه أو جهّز نصه للمشاركة داخلياً عبر واتساب.'
+        : 'استعرض طلبات الجرد واطبع تفاصيلها ضمن نطاق الفروع المصرح به لحسابك.';
+      document.getElementById('history-description').textContent = allBranches
+        ? 'تظهر طلبات الجرد من جميع الفروع.'
+        : (allowedBranches.length > 1 ? 'تظهر الطلبات من الفروع المصرح بها فقط.' : 'تظهر طلبات الصباح والليل لهذا الفرع فقط.');
+      document.getElementById('branch-label').textContent = allBranches
+        ? 'كل الفروع'
+        : (allowedBranches.length === 1 ? allowedBranches[0].name : 'عدة فروع مصرح بها');
+      document.getElementById('supervisor-name').textContent = currentUser?.full_name || '—';
+      document.documentElement.classList.remove('inventory-access-pending');
+      return inventoryAccess;
+    }
+
     async function loadHistory() {
       historyList.innerHTML = '<p class="p-4 text-sm text-on-surface-variant">جارٍ تحميل سجل الطلبات…</p>';
-      const { data, error } = await zamClient.from('inventory_requests')
-        .select('id,branch_id,created_by,shift_type,supplier,created_at')
-        .eq('branch_id', currentUser.branch_id)
-        .order('created_at', { ascending: false })
-        .limit(30);
+      let query = zamClient.from('inventory_requests')
+        .select('id,branch_id,created_by,shift_type,supplier,created_at,branches(name)')
+        .order('created_at', { ascending: false });
+      const selectedBranchId = document.getElementById('history-branch-filter').value;
+      if (selectedBranchId) query = query.eq('branch_id', selectedBranchId);
+      else if (!inventoryAccess.allBranches) {
+        if (!inventoryAccess.branchIds.length) {
+          historyList.innerHTML = '<p class="p-4 text-sm text-on-surface-variant">لا توجد فروع ضمن نطاق صلاحيتك.</p>';
+          return;
+        }
+        query = query.in('branch_id', inventoryAccess.branchIds);
+      }
+      const { data, error } = await query.limit(50);
       if (error) throw error;
       if (!data?.length) {
-        historyList.innerHTML = '<p class="p-4 text-sm text-on-surface-variant">لا توجد طلبات محفوظة لهذا الفرع بعد.</p>';
+        historyList.innerHTML = '<p class="p-4 text-sm text-on-surface-variant">لا توجد طلبات محفوظة ضمن نطاق الفروع المصرح به.</p>';
         return;
       }
       historyList.innerHTML = data.map(request => `
         <div class="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
           <div class="min-w-0">
             <p class="font-extrabold text-primary">${escapeHtml(request.supplier)} <span class="text-xs font-normal text-on-surface-variant">#${escapeHtml(String(request.id).slice(0, 8).toUpperCase())}</span></p>
-            <p class="mt-1 text-xs text-on-surface-variant">${escapeHtml(SHIFT_LABELS[request.shift_type] || '—')} · ${escapeHtml(formatDate(request.created_at))}</p>
+            <p class="mt-1 text-xs text-on-surface-variant">${escapeHtml(request.branches?.name || displayBranch(request.branch_id))} · ${escapeHtml(SHIFT_LABELS[request.shift_type] || '—')} · ${escapeHtml(formatDate(request.created_at))}</p>
           </div>
           <button type="button" class="view-order-btn shrink-0 rounded-lg border border-outline-variant px-4 py-2 text-sm font-bold text-primary hover:bg-surface-container" data-order-id="${escapeHtml(request.id)}">عرض وطباعة</button>
         </div>`).join('');
@@ -417,21 +507,17 @@
       clearMessages();
       try {
         const [requestResult, itemsResult] = await Promise.all([
-          zamClient.from('inventory_requests').select('id,branch_id,created_by,shift_type,supplier,created_at')
-            .eq('id', orderId).eq('branch_id', currentUser.branch_id).maybeSingle(),
+          zamClient.from('inventory_requests').select('id,branch_id,created_by,shift_type,supplier,created_at,branches(name)')
+            .eq('id', orderId).maybeSingle(),
           zamClient.from('inventory_request_items').select('line_number,product_name,current_quantity,requested_quantity,unit,urgency')
             .eq('request_id', orderId).order('line_number', { ascending: true })
         ]);
         if (requestResult.error) throw requestResult.error;
         if (itemsResult.error) throw itemsResult.error;
         if (!requestResult.data || !itemsResult.data?.length) throw new Error('لم يتم العثور على الطلب أو أصنافه.');
-        let supervisorName = 'مشرف الوردية';
-        if (requestResult.data.created_by === currentUser.id) {
-          supervisorName = currentUser.full_name || supervisorName;
-        } else {
-          const { data: creator } = await zamClient.from('profiles').select('full_name').eq('id', requestResult.data.created_by).maybeSingle();
-          supervisorName = creator?.full_name || supervisorName;
-        }
+        const supervisorName = requestResult.data.created_by === currentUser.id
+          ? (currentUser.full_name || 'مشرف الوردية')
+          : 'مشرف الوردية';
         renderOrderPreview(requestResult.data, itemsResult.data, supervisorName);
       } catch (error) {
         console.error(error);
@@ -452,10 +538,19 @@
       try { await loadHistory(); }
       catch (error) { console.error(error); setMessage('تعذّر تحديث سجل الطلبات.', true); }
     });
+    document.getElementById('history-branch-filter').addEventListener('change', async () => {
+      clearMessages();
+      try { await loadHistory(); }
+      catch (error) { console.error(error); setMessage('تعذّر تحميل طلبات هذا الفرع.', true); }
+    });
 
     document.getElementById('request-form').addEventListener('submit', async event => {
       event.preventDefault();
       clearMessages();
+      if (!inventoryAccess?.canCreate || currentUser?.role !== 'Supervisor') {
+        setMessage('إنشاء طلبات الجرد متاح لمشرفي الورديات فقط.', true);
+        return;
+      }
       if (!currentUser?.branch_id) {
         setMessage('حسابك غير مرتبط بفرع؛ لا يمكن حفظ الطلب.', true);
         return;
@@ -515,20 +610,27 @@
       window.open(url, '_blank', 'noopener,noreferrer');
     });
 
-    document.getElementById('branch-label').textContent = displayBranch();
-    document.getElementById('supervisor-name').textContent = currentUser?.full_name || '—';
-    updateShiftButtons();
-    addItemRow();
     (async () => {
-      const slot = document.getElementById('notif-bell-slot');
-      if (slot) {
-        try {
-          slot.innerHTML = await renderNotificationBell();
-          attachNotificationBellHandlers();
-        } catch (error) { console.warn('Notification bell could not be loaded:', error); }
+      try {
+        const access = await resolveInventoryAccess();
+        if (!access) return;
+        updateShiftButtons();
+        if (access.canCreate) addItemRow();
+        const slot = document.getElementById('notif-bell-slot');
+        if (slot && currentUser.role === 'Supervisor') {
+          try {
+            slot.innerHTML = await renderNotificationBell();
+            attachNotificationBellHandlers();
+          } catch (error) { console.warn('Notification bell could not be loaded:', error); }
+        }
+        await loadHistory();
+      } catch (error) {
+        console.error(error);
+        document.getElementById('request-section').classList.add('hidden');
+        document.documentElement.classList.remove('inventory-access-pending');
+        setMessage('تعذّر التحقق من صلاحية الجرد أو تحميل السجلات. حدّث الصفحة أو سجّل الدخول مجدداً.', true);
+        historyList.innerHTML = '<p class="p-4 text-sm font-bold text-error">تعذّر تحميل سجل الطلبات.</p>';
       }
-      try { await loadHistory(); }
-      catch (error) { console.error(error); historyList.innerHTML = '<p class="p-4 text-sm font-bold text-error">تعذّر تحميل سجل الطلبات.</p>'; }
     })();
   </script>
 </body>

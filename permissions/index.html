@@ -15,7 +15,7 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261115193000"></script>
+<script src="../assets/supabase-config.js?v=20261116134500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (currentUser.role !== 'Owner') {
@@ -128,6 +128,7 @@ const PERMS = [
     { key: 'can_manage_reports', label: 'تعديل/حذف التقارير' },
     { key: 'can_manage_branch_visits', label: 'إسناد وإدارة تكليفات الزيارات' },
     { key: 'can_review_visit_actions', label: 'مراجعة إثباتات المخالفات وإغلاقها أو إعادتها' },
+    { key: 'can_manage_inventory', label: 'إدارة الجرد والاطلاع على سجلات الطلبات' },
     { key: 'can_view_all_reports', label: 'الاطلاع على كل التقارير' },
 ];
 
@@ -171,6 +172,12 @@ function permsCellHTML(emp) {
     if (emp.role === 'Owner') return '<span class="text-outline text-[11px]">—</span>';
     const p = permsCache[emp.id] || {};
     return `<button class="edit-perms-btn text-primary hover:underline text-[12px] font-bold" data-id="${emp.id}">تحديد الصلاحيات</button>`;
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    }[character]));
 }
 
 async function openPermsEditor(empId, empName) {
@@ -232,6 +239,25 @@ async function openPermsEditor(empId, empName) {
                 </div>
             </div>
 
+            <div id="inventory-scope-panel" class="mb-md rounded-lg border border-outline-variant bg-surface-container-low p-sm ${p.can_manage_inventory ? '' : 'hidden'}">
+                <h4 class="font-bold text-sm text-primary mb-xs">نطاق صلاحية إدارة الجرد</h4>
+                <label for="inventory-scope-mode" class="text-body-sm text-on-surface-variant">السجلات المسموح بالاطلاع عليها</label>
+                <select id="inventory-scope-mode" class="mt-xs w-full rounded-lg border-outline-variant bg-white p-2">
+                    <option value="all" ${p.can_view_all_inventory ? 'selected' : ''}>كل الفروع</option>
+                    <option value="selected" ${!p.can_view_all_inventory ? 'selected' : ''}>فروع محددة</option>
+                </select>
+                <div id="inventory-branch-options" class="mt-sm flex max-h-36 flex-col gap-xs overflow-y-auto ${p.can_view_all_inventory ? 'hidden' : ''}">
+                    ${branchesCache.map(branch => {
+                        const checked = Array.isArray(p.inventory_branch_ids) && p.inventory_branch_ids.includes(branch.id);
+                        return `<label class="flex items-center gap-sm rounded p-1 text-body-sm hover:bg-white">
+                            <input type="checkbox" class="inventory-branch-checkbox h-4 w-4 text-primary" value="${escapeHtml(branch.id)}" ${checked ? 'checked' : ''}/>
+                            <span>${escapeHtml(branch.name)}</span>
+                        </label>`;
+                    }).join('')}
+                </div>
+                <p class="mt-xs text-[11px] text-on-surface-variant">عند اختيار فروع محددة، لا تظهر الطلبات إلا من الفروع المحددة. للمشرف صلاحية سجلات فرعه بالإضافة إلى النطاق الممنوح.</p>
+            </div>
+
             <div class="flex gap-sm justify-end border-t border-outline-variant pt-sm">
                 <button id="cancel-perms" class="px-md py-xs rounded-lg text-on-surface-variant hover:bg-surface-container">إلغاء</button>
                 <button id="save-perms" class="px-md py-xs bg-primary text-on-primary rounded-lg font-bold hover:bg-primary-hover">حفظ التغييرات</button>
@@ -239,11 +265,34 @@ async function openPermsEditor(empId, empName) {
         </div>`;
     document.body.appendChild(modal);
 
+    const inventoryPermissionCheckbox = modal.querySelector('.perm-checkbox[data-key="can_manage_inventory"]');
+    const inventoryScopeMode = modal.querySelector('#inventory-scope-mode');
+    const inventoryScopePanel = modal.querySelector('#inventory-scope-panel');
+    const inventoryBranchOptions = modal.querySelector('#inventory-branch-options');
+    const syncInventoryScope = () => {
+        const enabled = !!inventoryPermissionCheckbox?.checked;
+        inventoryScopePanel.classList.toggle('hidden', !enabled);
+        inventoryBranchOptions.classList.toggle('hidden', !enabled || inventoryScopeMode.value !== 'selected');
+    };
+    inventoryPermissionCheckbox?.addEventListener('change', syncInventoryScope);
+    inventoryScopeMode.addEventListener('change', syncInventoryScope);
+    syncInventoryScope();
+
     document.getElementById('cancel-perms').addEventListener('click', () => modal.remove());
     document.getElementById('save-perms').addEventListener('click', async () => {
         // Collect selected admin permissions
         const payload = { profile_id: empId };
         modal.querySelectorAll('.perm-checkbox').forEach(cb => { payload[cb.dataset.key] = cb.checked; });
+        const inventoryScopeMode = modal.querySelector('#inventory-scope-mode').value;
+        const selectedInventoryBranches = [...modal.querySelectorAll('.inventory-branch-checkbox:checked')].map(cb => cb.value);
+        if (payload.can_manage_inventory && inventoryScopeMode === 'selected' && !selectedInventoryBranches.length) {
+            alert('اختر فرعاً واحداً على الأقل، أو حدّد خيار كل الفروع.');
+            return;
+        }
+        payload.can_view_all_inventory = !!payload.can_manage_inventory && inventoryScopeMode === 'all';
+        payload.inventory_branch_ids = payload.can_manage_inventory && inventoryScopeMode === 'selected'
+            ? selectedInventoryBranches
+            : [];
 
         // Collect selected categories
         const selectedCats = [];
