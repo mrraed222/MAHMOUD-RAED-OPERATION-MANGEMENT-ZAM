@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>ZAM Operations - التقرير الأسبوعي لإدارة التشغيل</title>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script id="tailwind-config">try{
@@ -17,7 +17,7 @@
                 },
                 "borderRadius": {"DEFAULT": "0.125rem","lg": "0.25rem","xl": "0.5rem","full": "0.75rem"},
                 "spacing": {"margin-mobile": "16px","xl": "64px","sm": "12px","margin-desktop": "32px","lg": "40px","gutter": "24px","base": "8px","xs": "4px","md": "24px"},
-                "fontFamily": {"title-md": ["Noto Sans Arabic", "Montserrat"],"headline-lg": ["Noto Sans Arabic", "Montserrat"],"label-bold": ["Noto Sans Arabic", "Montserrat"],"display-lg": ["Noto Sans Arabic", "Montserrat"],"body-lg": ["Noto Sans Arabic", "Montserrat"],"body-sm": ["Noto Sans Arabic", "Montserrat"]},
+                "fontFamily": {"title-md": ["Tajawal", "sans-serif"],"headline-lg": ["Tajawal", "sans-serif"],"label-bold": ["Tajawal", "sans-serif"],"display-lg": ["Tajawal", "sans-serif"],"body-lg": ["Tajawal", "sans-serif"],"body-sm": ["Tajawal", "sans-serif"]},
                 "fontSize": {"title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],"headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],"label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],"display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],"body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],"body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]}
             }
         }
@@ -25,7 +25,7 @@
 }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js?v=20261115193000"></script>
-<script src="../assets/weekly-report-core.js?v=20261112-1"></script>
+<script src="../assets/weekly-report-core.js?v=20261115194000"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // التقرير التنفيذي خاص بمالك النظام فقط.
@@ -34,7 +34,7 @@
   if (!ZAM_WEEKLY_ALLOWED) {
     // رسالة واضحة بدل تحويل صامت — مع الحفاظ على منع الوصول للبيانات.
     document.addEventListener('DOMContentLoaded', function () {
-      document.body.innerHTML = '<div style="max-width:560px;margin:12vh auto;text-align:center;font-family:Noto Sans Arabic,sans-serif">' +
+      document.body.innerHTML = '<div style="max-width:560px;margin:12vh auto;text-align:center;font-family:Tajawal,sans-serif">' +
         '<div style="font-size:42px">🔒</div>' +
         '<h1 style="font-size:22px;color:#33210d;margin:12px 0">التقرير الأسبوعي متاح لمالك النظام فقط</h1>' +
         '<p style="color:#70655d;line-height:1.9">دورك الحالي: <b>' + (currentUser.role || 'غير محدد') + '</b><br>' +
@@ -64,7 +64,7 @@
   })();
 </script>
 <style>
-  body { font-family:'Noto Sans Arabic','Montserrat',sans-serif; background:#f5f1ed; }
+  body { font-family:'Tajawal',sans-serif; background:#f5f1ed; }
   .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; vertical-align:middle; }
   .card { background:#fff; border:1px solid #d2c4ba; border-radius:.75rem; box-shadow:0 8px 24px rgba(51,33,13,.06); }
   .report-header { background:linear-gradient(135deg,#33210d 0%,#4b3621 62%,#725a42 100%); color:#fff; }
@@ -97,8 +97,11 @@
   .reason-list,.check-list { display:flex; flex-direction:column; gap:12px; }.reason-head,.check-head { display:flex; justify-content:space-between; gap:12px; color:#33210d; font-size:13px; font-weight:700; }.reason-head b,.check-head strong { white-space:nowrap; }.reason-track { margin-top:6px; }.reason-track span { background:#725a42; }.chart-total { margin-top:14px; padding-top:10px; border-top:1px solid #e4d9cf; color:#5e604d; font-size:13px; }.empty-chart { border:1px dashed #c9bdb2; border-radius:10px; padding:22px; text-align:center; color:#80756c; }.check-head small { color:#80756c; font-weight:400; }.check-track { margin-top:6px; height:10px; }.check-track .good { background:#17633b; }.check-track .mid { background:#a27b1c; }.check-track .bad { background:#a52c2c; }
   @keyframes f { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
   @media (max-width: 900px) {
-    main { margin-right:0 !important; }
     .report-header .header-inner { padding-left:16px; padding-right:16px; }
+  }
+  @media (max-width: 767px) {
+    html { overflow-x: clip; }
+    main { margin-right:0 !important; }
   }
   /* ── تقرير الأسبوع: مؤشرات المبيعات وتحليل الفروع ── */
   .chip-count { display:inline-block; min-width:20px; padding:0 5px; margin-inline-start:4px; border-radius:999px; background:#e9e3de; color:#4e453d; font-size:11px; font-weight:700; }
@@ -251,7 +254,7 @@
 </style>
 </head>
 <body class="bg-background text-on-surface overflow-x-hidden">
-<aside class="fixed right-0 top-0 h-full w-[280px] bg-white border-l border-[#d2c4ba] flex flex-col py-8 px-4 gap-2 z-50 hidden md:flex"><div class="flex items-center gap-3 mb-6 px-1"><img src="../assets/logo/zam-logo.png" alt="شعار زام" class="w-14 h-14 rounded-xl object-contain bg-white border border-[#d2c4ba] p-1"><div><div class="text-[#33210d] font-bold text-lg leading-tight">ZAM Operations</div><div class="text-[#70655d] text-sm">إدارة العمليات</div></div></div><nav class="flex flex-col gap-1 overflow-y-auto"><a href="../dashboard/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">dashboard</span> لوحة التحكم</a><a href="../reports-log/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">assessment</span> سجل التقارير</a><a href="../analytics/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">insights</span> داشبورد التحليلات</a><a href="index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#33210d] font-bold border-r-4 border-[#33210d] bg-[#f0eded]"><span class="material-symbols-outlined">summarize</span> التقرير الأسبوعي</a><a href="../branch-visits/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">fact_check</span> زيارات الفروع</a><a href="../staff-management/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">groups</span> إدارة الطاقم</a></nav><a href="../index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#8d332c] hover:bg-[#fff0ed]"><span class="material-symbols-outlined">logout</span> تسجيل الخروج</a></aside>
+<aside class="fixed right-0 top-0 h-full w-[280px] bg-white border-l border-[#d2c4ba] flex flex-col py-8 px-4 gap-2 z-50 hidden md:flex"><div class="flex items-center gap-3 mb-6 px-1"><img src="../assets/logo/zam-logo.png" alt="شعار زام" class="w-14 h-14 rounded-xl object-contain bg-white border border-[#d2c4ba] p-1"><div><div class="text-[#33210d] font-bold text-lg leading-tight">ZAM Operations</div><div class="text-[#70655d] text-sm">إدارة العمليات</div></div></div><nav class="flex flex-col gap-1 overflow-y-auto"><a href="../dashboard/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">dashboard</span> لوحة التحكم</a><a href="../reports-log/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">assessment</span> سجل التقارير</a><a href="../analytics/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">insights</span> داشبورد التحليلات</a><a href="index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#33210d] font-bold border-r-4 border-[#33210d] bg-[#f0eded]"><span class="material-symbols-outlined">summarize</span> التقرير الأسبوعي</a><a href="../branch-visits-new/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">fact_check</span> زيارات الفروع</a><a href="../staff-management/index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#70655d] hover:bg-[#f0eded]"><span class="material-symbols-outlined">groups</span> إدارة الطاقم</a></nav><a href="../index.html" class="flex items-center gap-3 p-3 rounded-lg text-[#8d332c] hover:bg-[#fff0ed]"><span class="material-symbols-outlined">logout</span> تسجيل الخروج</a></aside>
 <div id="notification-bell-container"></div>
 
 <main class="mr-[280px] min-h-screen">
@@ -435,7 +438,3 @@ if (ZAM_WEEKLY_ALLOWED) {
 </script>
 </body>
 </html>
-
-
-
-

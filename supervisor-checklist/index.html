@@ -297,6 +297,13 @@ function escHtml(v) {
     return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+function safeImageUrl(value) {
+    if (!value || !String(value).trim()) return '';
+    try {
+        const url = new URL(String(value || ''), location.origin);
+        return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+    } catch { return ''; }
+}
 function riyadhMinuteOfDay(date = new Date()) {
     const parts = new Intl.DateTimeFormat('en-GB', {
         timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
@@ -367,7 +374,7 @@ function renderChecklist(templates, logsByTemplate) {
                         ${item.instructions ? `<p class="text-body-sm text-on-surface-variant">${escHtml(item.instructions)}</p>` : ''}
                     </div>
                 </div>
-                <div class="fridge-panel mt-sm pr-10" data-id="${item.id}" data-allows-notes="${!!item.allows_notes}">
+                <div class="fridge-panel mt-sm pr-10" data-id="${escHtml(item.id)}" data-allows-notes="${!!item.allows_notes}">
                     <p class="text-body-sm text-on-surface-variant">جارِ تحميل الثلاجات...</p>
                 </div>
             </div>`;
@@ -379,7 +386,7 @@ function renderChecklist(templates, logsByTemplate) {
                     <div class="flex items-center gap-md flex-1">
                         ${item.task_type === 'inventory_request'
                             ? `<span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-primary'}">${completed ? 'task_alt' : 'inventory_2'}</span>`
-                            : `<input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${item.id}" ${completed ? 'checked disabled' : ''}/>`}
+                            : `<input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${escHtml(item.id)}" ${completed ? 'checked disabled' : ''}/>`}
                         <div class="flex-1">
                             <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${escHtml(item.task_title)}</h4>
                             ${item.target_time ? `<p class="text-[11px] font-bold text-secondary">موعد التنفيذ: ${escHtml(String(item.target_time).slice(0, 5))}</p>` : ''}
@@ -392,7 +399,7 @@ function renderChecklist(templates, logsByTemplate) {
                     </div>
                 </div>
                 ${!completed && item.task_type !== 'inventory_request' ? `
-                <div class="mt-xs pr-10 flex items-center gap-sm flex-wrap task-actions" data-id="${item.id}" data-requires-photo="${item.requires_photo}">
+                <div class="mt-xs pr-10 flex items-center gap-sm flex-wrap task-actions" data-id="${escHtml(item.id)}" data-requires-photo="${item.requires_photo}">
                     ${item.requires_photo ? `
                         <label class="flex items-center gap-xs cursor-pointer px-sm py-1 bg-surface-container border border-outline rounded-lg text-[12px] font-bold text-primary hover:bg-surface-container-high transition-all">
                             <span class="material-symbols-outlined text-[16px]">photo_camera</span>
@@ -400,7 +407,7 @@ function renderChecklist(templates, logsByTemplate) {
                             <input type="file" accept="image/*" capture="environment" class="hidden evidence-input"/>
                         </label>
                     ` : ''}
-                    ${item.allows_notes ? `<textarea rows="2" class="task-note w-full border border-outline-variant rounded-lg p-sm text-body-sm" data-id="${item.id}" placeholder="ملاحظة أو تعليق (اختياري) — اكتبها قبل التأشير"></textarea>` : ''}
+                    ${item.allows_notes ? `<textarea rows="2" class="task-note w-full border border-outline-variant rounded-lg p-sm text-body-sm" data-id="${escHtml(item.id)}" placeholder="ملاحظة أو تعليق (اختياري) — اكتبها قبل التأشير"></textarea>` : ''}
                     <span class="task-status text-error text-[11px]"></span>
                     <span class="loading-indicator text-primary text-[11px] font-bold hidden"><span class="material-symbols-outlined animate-spin text-sm">sync</span> جارِ رفع الصورة والحفظ...</span>
                 </div>` : ''}
@@ -411,11 +418,11 @@ function renderChecklist(templates, logsByTemplate) {
                 <div class="flex items-center gap-md">
                     <span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-outline'}">${completed ? 'check_circle' : 'radio_button_unchecked'}</span>
                     <div>
-                        <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${item.task_title}</h4>
-                        <p class="text-body-sm text-on-surface-variant">${item.category}${completed && log.profiles ? ' • نفّذها: ' + log.profiles.full_name : ''}</p>
+                        <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${escHtml(item.task_title)}</h4>
+                        <p class="text-body-sm text-on-surface-variant">${escHtml(item.category)}${completed && log.profiles ? ' • نفّذها: ' + escHtml(log.profiles.full_name) : ''}</p>
                     </div>
                 </div>
-                ${log && log.photo_url ? `<button class="text-primary hover:underline zoomable-btn flex items-center gap-1" data-src="${log.photo_url}"><span class="material-symbols-outlined">image</span> عرض الصورة</button>` : ''}
+                ${log && log.photo_url ? `<button class="text-primary hover:underline zoomable-btn flex items-center gap-1" data-src="${escHtml(safeImageUrl(log.photo_url))}"><span class="material-symbols-outlined">image</span> عرض الصورة</button>` : ''}
             </div>`;
         }
     }).join('');
@@ -484,7 +491,7 @@ function renderChecklist(templates, logsByTemplate) {
     } else {
         document.querySelectorAll('.zoomable-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.getElementById('modal-img').src = btn.dataset.src;
+                document.getElementById('modal-img').src = safeImageUrl(btn.dataset.src) || 'about:blank';
                 document.getElementById('image-modal').classList.remove('hidden');
                 document.getElementById('image-modal').classList.add('flex');
             });
@@ -703,17 +710,17 @@ async function loadRecentNotes() {
         listEl.innerHTML = notes.map(n => {
             const time = n.created_at ? new Date(n.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '';
             const date = n.created_at ? new Date(n.created_at).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }) : '';
-            const avatar = n.profiles?.avatar_url || avatarFallback;
+            const avatar = safeImageUrl(n.profiles?.avatar_url) || avatarFallback;
             const name = n.profiles?.full_name || '—';
             return `
             <div class="p-sm flex gap-sm hover:bg-surface-container-low transition-colors">
-                <img src="${avatar}" class="w-8 h-8 rounded-full object-cover border border-outline-variant shrink-0"/>
+                <img src="${escHtml(avatar)}" class="w-8 h-8 rounded-full object-cover border border-outline-variant shrink-0"/>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-sm mb-xs">
-                        <span class="font-bold text-on-surface text-[12px]">${name}</span>
-                        <span class="text-[10px] text-on-surface-variant">${date} · ${time}</span>
+                        <span class="font-bold text-on-surface text-[12px]">${escHtml(name)}</span>
+                        <span class="text-[10px] text-on-surface-variant">${escHtml(date)} · ${escHtml(time)}</span>
                     </div>
-                    <p class="text-body-sm text-on-surface-variant">${n.note}</p>
+                    <p class="text-body-sm text-on-surface-variant">${escHtml(n.note)}</p>
                 </div>
             </div>`;
         }).join('');

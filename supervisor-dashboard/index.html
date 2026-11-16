@@ -538,6 +538,13 @@ visitActionForm.addEventListener('submit', async event => {
     }
 });
 
+function safeImageUrl(value) {
+    if (!value || !String(value).trim()) return '';
+    try {
+        const url = new URL(String(value || ''), location.origin);
+        return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+    } catch { return ''; }
+}
 function renderNotes() {
     const notesList = document.getElementById('notes-list');
     const notes = cache.notes || [];
@@ -566,13 +573,13 @@ function noteCardHTML(n) {
     const date = n.created_at ? new Date(n.created_at).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }) : '';
     return `
     <div class="p-md flex gap-sm hover:bg-surface-container-low transition-colors">
-        <img src="${n.authorAvatar}" class="w-9 h-9 rounded-full object-cover border border-outline-variant shrink-0 mt-xs"/>
+        <img src="${escapeHtml(safeImageUrl(n.authorAvatar) || avatarFallback)}" class="w-9 h-9 rounded-full object-cover border border-outline-variant shrink-0 mt-xs"/>
         <div class="flex-1 min-w-0">
             <div class="flex items-center gap-sm mb-xs">
-                <span class="font-bold text-on-surface text-body-sm">${n.authorName}</span>
-                <span class="text-[10px] text-on-surface-variant">${date} · ${time}</span>
+                <span class="font-bold text-on-surface text-body-sm">${escapeHtml(n.authorName)}</span>
+                <span class="text-[10px] text-on-surface-variant">${escapeHtml(date)} · ${escapeHtml(time)}</span>
             </div>
-            <p class="text-body-sm text-on-surface-variant leading-relaxed">${n.note}</p>
+            <p class="text-body-sm text-on-surface-variant leading-relaxed">${escapeHtml(n.note)}</p>
         </div>
     </div>`;
 }
