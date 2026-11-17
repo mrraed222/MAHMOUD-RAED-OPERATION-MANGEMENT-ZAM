@@ -15,7 +15,7 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261116205000"></script>
+<script src="../assets/supabase-config.js?v=20261117165000"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: admin without this permission is sent home
@@ -94,6 +94,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     <h3 class="font-title-md text-title-md text-primary mb-md" id="branch-modal-title">فرع جديد</h3>
     <label class="text-body-sm text-on-surface-variant">اسم الفرع</label>
     <input id="branch-name-input" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-md" placeholder="مثال: زام - حي النرجس"/>
+    <p class="text-[11px] text-on-surface-variant mb-md">الوردية الصباحية 05:30–15:30، والمسائية 15:30–02:30 بتوقيت الرياض. تختفي مهام الموظف بعد ساعة من نهاية الوردية.</p>
     <div class="flex gap-sm justify-end">
       <button id="cancel-branch-modal" class="px-md py-sm rounded-lg text-on-surface-variant">إلغاء</button>
       <button id="save-branch-btn" class="px-md py-sm bg-primary text-on-primary rounded-lg font-bold">حفظ</button>
@@ -123,16 +124,18 @@ document.getElementById('save-branch-btn').addEventListener('click', async () =>
     const name = document.getElementById('branch-name-input').value.trim();
     if (!name) { alert('اكتب اسم الفرع.'); return; }
     try {
+        let result;
         if (editingBranchId) {
-            await zamClient.from('branches').update({ name }).eq('id', editingBranchId);
+            result = await zamClient.from('branches').update({ name }).eq('id', editingBranchId);
         } else {
-            await zamClient.from('branches').insert([{ name }]);
+            result = await zamClient.from('branches').insert([{ name }]);
         }
+        if (result.error) throw result.error;
         closeBranchModal();
         await loadBranches();
     } catch (err) {
         console.error(err);
-        alert('حدث خطأ أثناء الحفظ. تأكد إن عندك صلاحية "إدارة الفروع".');
+        alert('تعذّر حفظ اسم الفرع. تحقق من صلاحية إدارة الفروع.');
     }
 });
 

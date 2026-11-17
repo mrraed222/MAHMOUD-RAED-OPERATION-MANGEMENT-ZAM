@@ -3,9 +3,9 @@
 <meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>ZAM Operations - داشبورد الفرع</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261116205000"></script>
-<script src="../assets/checklist-schedule.js?v=20261116205000"></script>
-<script src="../assets/checklist-dashboard.js?v=20261116202000"></script>
+<script src="../assets/supabase-config.js?v=20261117165000"></script>
+<script src="../assets/checklist-schedule.js?v=20261117170500"></script>
+<script src="../assets/checklist-dashboard.js?v=20261117170000"></script>
 <script>
   let currentUser = ZamSession.requireAuth('../index.html');
   // المالك والأدمن يفتحان فرعاً محدداً من لوحة التحكم للمتابعة التفصيلية فقط.
@@ -264,7 +264,7 @@ const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/20
 
 let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both'
     ? currentUser.shift_type
-    : (ZamChecklistSchedule.riyadhParts().hour < 16 ? 'Morning' : 'Evening');
+    : (ZamChecklistSchedule.riyadhMinuteOfDay() < ZamChecklistSchedule.EVENING_START_MINUTE ? 'Morning' : 'Evening');
 let cache = { staff: [], catsBy: {}, templates: [], logs: [], hourlyLogs: [], reports: [], notes: [], visitActions: [], branchName: '' };
 
 // زر الورديتين يظهر فقط لمن يغطي الورديتين فعليًا
@@ -296,12 +296,13 @@ function empCategories(emp) {
     return ROLE_CATEGORY[emp.role] ? [ROLE_CATEGORY[emp.role]] : [];
 }
 
-function tasksFor(emp, now = new Date()) {
+function tasksFor(emp, now = new Date(), includeExpired = true) {
     return ZamChecklistDashboard.tasksForEmployee(cache.templates, emp, {
         branchId: urlBranchId || currentUser.branch_id,
         branchName: cache.branchName,
         categoriesBy: cache.catsBy,
         shiftType: currentShift,
+        includeExpired,
         now
     });
 }
@@ -313,6 +314,7 @@ async function loadAll() {
     if (!branchId) throw new Error('حسابك غير مرتبط بفرع. تواصل مع الإدارة لإسناد الحساب إلى الفرع الصحيح.');
     const now = new Date();
     const today = ZamChecklistSchedule.riyadhDateString(now);
+    const yesterday = ZamChecklistSchedule.riyadhDateString(new Date(now.getTime() - 24 * 60 * 60 * 1000));
     let actionsQuery = zamClient.from('visit_action_items').select('id,visit_id,title,description,item_type,priority,status,shift_type,due_date,created_at,assigned_to,assigned_role,completion_note,completion_submitted_at,review_note')
         .eq('branch_id', branchId)
         .not('status', 'in', '("مغلقة","ملغاة")').order('created_at', { ascending: false }).limit(100);
@@ -322,9 +324,9 @@ async function loadAll() {
             .in('role', ['Barista', 'Waiter', 'Kitchen']),
         zamClient.from('employee_task_categories').select('profile_id, category'),
         ZamAPI.getTemplates(null, null, branchId),
-        zamClient.from('checklist_logs').select('template_id, branch_id, executed_by, status, execution_date, shift_type')
-            .eq('branch_id', branchId).eq('execution_date', today),
-        ZamAPI.getHourlyChecklistLogs({ branchId, date: today }),
+        zamClient.from('checklist_logs').select('template_id, branch_id, executed_by, status, execution_date, created_at, shift_type')
+            .eq('branch_id', branchId).gte('execution_date', yesterday).lte('execution_date', today),
+        ZamAPI.getHourlyChecklistLogs({ branchId, dateFrom: yesterday, dateTo: today }),
         zamClient.from('daily_reports').select('id, shift_type, report_date').eq('branch_id', branchId).eq('report_date', today),
         zamClient.from('branches').select('name').eq('id', branchId).maybeSingle(),
         zamClient.from('team_notes').select('id, profile_id, note, created_at, profiles(full_name, avatar_url)')

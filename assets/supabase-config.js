@@ -650,12 +650,14 @@ const ZamAPI = {
         }) : data);
     },
 
-    async getHourlyChecklistLogs({ branchId = null, date = null, shiftType = null } = {}) {
+    async getHourlyChecklistLogs({ branchId = null, date = null, dateFrom = null, dateTo = null, shiftType = null } = {}) {
         return readAllRows(() => {
             let q = zamClient.from('hourly_checklist_logs')
                 .select('id,template_id,template_title,template_category,branch_id,executed_by,status,notes,photo_url,execution_date,occurrence_hour,shift_type,created_at,checklist_templates(task_title,category,shift_type),profiles(full_name,role),branches(name)')
                 .order('execution_date', { ascending: false }).order('occurrence_hour', { ascending: false });
             if (date) q = q.eq('execution_date', date);
+            if (dateFrom) q = q.gte('execution_date', dateFrom);
+            if (dateTo) q = q.lte('execution_date', dateTo);
             if (branchId) q = q.eq('branch_id', branchId);
             if (shiftType) q = q.eq('shift_type', shiftType);
             return q;
@@ -747,6 +749,18 @@ const ZamAPI = {
         return data;
     },
 
+    async getDailyReportMatches({ branchId, reportDate, shiftType }) {
+        if (!branchId || !reportDate || !shiftType) throw new Error('بيانات الفرع والتاريخ والوردية مطلوبة للتحقق من التكرار.');
+        const { data, error } = await zamClient.from('daily_reports')
+            .select('id, branch_id, report_date, shift_type')
+            .eq('branch_id', branchId)
+            .eq('report_date', reportDate)
+            .eq('shift_type', shiftType)
+            .limit(2);
+        if (error) throw error;
+        return data || [];
+    },
+
     async getAnalyticsReports({ branchId = null, dateFrom = null, dateTo = null } = {}) {
         // جدول التقارير في التحليلات يقرأ بيانات التقرير الأصلية نفسها، لا ملخصاً مشتقاً من الهدر.
         let query = zamClient
@@ -789,27 +803,45 @@ const ZamAPI = {
 
     async submitDailyReport({ core, custom_fields = {}, waste = [], issues = [] }) {
         // submitted_by يربط التقرير بمقدّمه الفعلي — عليه يقوم تقييد رؤية المشرف لتقاريره فقط
+        if (!core?.branch_id || !core?.report_date || !['Morning', 'Evening'].includes(core?.shift_type)) {
+            throw new Error('بيانات الفرع والتاريخ والوردية مطلوبة لحفظ التقرير.');
+        }
         const me = ZamSession.get();
+        const sheetKey = `zam-web-daily-report-v1:${core.branch_id}:${core.report_date}:${core.shift_type}`;
         const { data: report, error } = await zamClient
             .from('daily_reports')
-            .insert([{ ...core, custom_fields, submitted_by: me ? me.id : null }])
+            .insert([{ ...core, sheet_key: sheetKey, custom_fields, submitted_by: me ? me.id : null }])
             .select()
             .single();
-        if (error) throw error;
+        if (error) {
+            const errorContext = `${error.constraint || ''} ${error.message || ''} ${error.details || ''}`;
+            if (error.code === '23505' && /daily_reports_sheet_key_uidx|sheet_key/i.test(errorContext)) {
+                const duplicate = new Error('يوجد تقرير محفوظ لهذا الفرع والتاريخ والوردية.');
+                duplicate.duplicateReport = true;
+                duplicate.cause = error;
+                throw duplicate;
+            }
+            throw error;
+        }
+
+        function partialReportError(cause) {
+            const wrapped = new Error(`Report ${report.id} was created, but saving its detail rows failed: ${(cause && cause.message) || cause}`);
+            wrapped.reportId = report.id;
+            wrapped.partialSave = true;
+            wrapped.cause = cause;
+            return wrapped;
+        }
 
         if (waste.length) {
             const rows = waste.map(w => ({ ...w, report_id: report.id }));
             const { error: wErr } = await zamClient.from('waste_logs').insert(rows);
-            if (wErr) throw wErr;
+            if (wErr) throw partialReportError(wErr);
         }
         if (issues.length) {
             const rows = issues.map(i => ({ ...i, report_id: report.id }));
             const { error: iErr } = await zamClient.from('shift_issues').insert(rows);
-            if (iErr) throw iErr;
+            if (iErr) throw partialReportError(iErr);
         }
-        // إرسال نسخة فورية للمالك والأدمن — لا يوقف العملية لو فشل
-        zamClient.functions.invoke('send-report-copy', { body: { report_id: report.id } })
-          .catch(err => console.warn('Immediate report email failed:', err));
         return report;
     },
 
@@ -1060,11 +1092,24 @@ const ZamAPI = {
     },
 
     async getTechnicalIssues(branchId, { onlyOpen = true } = {}) {
-        let q = zamClient.from('technical_issues').select('*').eq('branch_id', branchId)
-            .order('created_at', { ascending: false }).limit(50);
+        let q = zamClient.from('technical_issues').select('*')
+            .order('created_at', { ascending: false }).limit(100);
+        if (branchId) q = q.eq('branch_id', branchId);
         if (onlyOpen) q = q.eq('status', 'open');
         const { data, error } = await q;
         if (error) throw error;
         return data || [];
+    },
+    async updateTechnicalIssue(id, { status }) {
+        if (!id || !['open', 'resolved'].includes(status)) throw new Error('الحالة غير صالحة.');
+        const payload = {
+            status,
+            resolved_at: status === 'resolved' ? new Date().toISOString() : null
+        };
+        const { data, error } = await zamClient.from('technical_issues')
+            .update(payload).eq('id', id).select('id').maybeSingle();
+        if (error) throw error;
+        if (!data) throw new Error('لم يُحفظ التعديل؛ تحقق من صلاحية تحديث البلاغ.');
+        return data;
     }
 };

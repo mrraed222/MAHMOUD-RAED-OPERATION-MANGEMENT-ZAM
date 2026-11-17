@@ -21,6 +21,55 @@
     return d;
   }
 
+  function dateStringInZone(value, timeZone) {
+    var raw = String(value == null ? '' : value).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return dateParts(raw) ? raw : '';
+    var date = new Date(raw);
+    if (isNaN(date.getTime())) return '';
+    try {
+      var parts = new Intl.DateTimeFormat('en', {
+        timeZone: timeZone || 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit'
+      }).formatToParts(date);
+      var values = {};
+      parts.forEach(function (part) { values[part.type] = part.value; });
+      var result = values.year + '-' + values.month + '-' + values.day;
+      return dateParts(result) ? result : '';
+    } catch (_) { return ''; }
+  }
+
+  function expectedSessions(range, branches, options) {
+    options = options || {};
+    var from = dateStringInZone(range && range.from, 'Asia/Riyadh');
+    var requestedTo = dateStringInZone(range && range.to, 'Asia/Riyadh');
+    var today = dateStringInZone(options.today, 'Asia/Riyadh');
+    if (!from || !requestedTo || !today) return { sessions: [], unknownBranches: [], from: from, to: '', today: today };
+    var to = requestedTo < today ? requestedTo : today;
+    if (from > to) return { sessions: [], unknownBranches: [], from: from, to: to, today: today };
+
+    var shiftFilter = normalizeShift(options.shiftFilter || 'All');
+    var shifts = shiftFilter === 'All' ? ['Morning', 'Evening'] :
+      (shiftFilter === 'Morning' || shiftFilter === 'Evening' ? [shiftFilter] : []);
+    var sessions = [], unknownBranches = [], seenBranches = Object.create(null);
+    (branches || []).forEach(function (branch) {
+      if (!branch) return;
+      var id = branch.id != null ? branch.id : branch.branch;
+      if (!id || seenBranches[String(id)]) return;
+      seenBranches[String(id)] = true;
+      if (options.branchFilter && String(id) !== String(options.branchFilter)) return;
+      var created = dateStringInZone(branch.createdDate || branch.created_at || branch.createdAt, 'Asia/Riyadh');
+      if (!created) { unknownBranches.push(String(id)); return; }
+      var start = created > from ? created : from;
+      if (start > to) return;
+      var d = dateParts(start), end = dateParts(to);
+      while (d && end && d <= end) {
+        var date = d.toISOString().slice(0, 10);
+        shifts.forEach(function (shift) { sessions.push({ date: date, branch: id, shift: shift }); });
+        d.setUTCDate(d.getUTCDate() + 1);
+      }
+    });
+    return { sessions: sessions, unknownBranches: unknownBranches, from: from, to: to, today: today };
+  }
+
   function isTaskScheduled(task, date) {
     if (!task || task.is_active === false || task.active === false) return false;
     var d = dateParts(date);
@@ -61,20 +110,20 @@
     var branchFilter = options.branchFilter || null;
     var shiftFilter = normalizeShift(options.shiftFilter || 'All');
     var allowedBranches = options.branches ? options.branches.slice() : null;
-    var allowedBranchSet = allowedBranches ? new Set(allowedBranches) : null;
+    var allowedBranchSet = allowedBranches ? new Set(allowedBranches.map(String)) : null;
     var byId = Object.create(null), statsById = Object.create(null);
     var expected = Object.create(null), statusByKey = Object.create(null);
-    var hourlyExcluded = 0;
+    var hourlyById = Object.create(null), sessionKeys = Object.create(null);
 
     (templates || []).forEach(function (t, index) {
       if (!t || t.is_active === false || t.active === false) return;
       var id = String(t.id != null ? t.id : 'template-' + index);
       var taskShift = normalizeShift(t.shift_type);
-      if (branchFilter && t.branch_id && t.branch_id !== branchFilter) return;
-      if (allowedBranchSet && t.branch_id && !allowedBranchSet.has(t.branch_id)) return;
+      if (branchFilter && t.branch_id && String(t.branch_id) !== String(branchFilter)) return;
+      if (allowedBranchSet && t.branch_id && !allowedBranchSet.has(String(t.branch_id))) return;
       if (shiftFilter !== 'All' && taskShift !== 'All' && taskShift !== shiftFilter) return;
       if (String(t.frequency || 'daily').toLowerCase() === 'hourly') {
-        hourlyExcluded++;
+        hourlyById[id] = t;
         return;
       }
       byId[id] = t;
@@ -90,14 +139,15 @@
       };
     });
 
-    var sessionKeys = Object.create(null);
+    var hourlySessions = Object.create(null), hourlyTemplateSessions = 0, hourlyApplicableTemplates = Object.create(null);
     (sessions || []).forEach(function (session) {
       if (!session || !session.date || !session.branch) return;
       var date = String(session.date).slice(0, 10), branch = session.branch;
+      if (!dateParts(date)) return;
       var shift = normalizeShift(session.shift || session.shiftType);
       if (shift !== 'Morning' && shift !== 'Evening') return;
-      if (branchFilter && branch !== branchFilter) return;
-      if (allowedBranchSet && !allowedBranchSet.has(branch)) return;
+      if (branchFilter && String(branch) !== String(branchFilter)) return;
+      if (allowedBranchSet && !allowedBranchSet.has(String(branch))) return;
       if (shiftFilter !== 'All' && shift !== shiftFilter) return;
       var sessionKey = [date, branch, shift].join('|');
       if (sessionKeys[sessionKey]) return;
@@ -106,13 +156,26 @@
       Object.keys(statsById).forEach(function (id) {
         var task = byId[id];
         var taskShift = normalizeShift(task.shift_type);
-        if (task.branch_id && task.branch_id !== branch) return;
+        if (task.branch_id && String(task.branch_id) !== String(branch)) return;
         if (taskShift !== 'All' && taskShift !== shift) return;
         if (!isTaskScheduled(task, date)) return;
         var key = occurrenceKey(id, date, branch, shift);
         expected[key] = { id: id, date: date, branch: branch, shift: shift };
         statsById[id].total++;
       });
+
+      var matchedHourly = false;
+      Object.keys(hourlyById).forEach(function (id) {
+        var task = hourlyById[id];
+        var taskShift = normalizeShift(task.shift_type);
+        if (task.branch_id && String(task.branch_id) !== String(branch)) return;
+        if (taskShift !== 'All' && taskShift !== shift) return;
+        if (!isTaskScheduled(task, date)) return;
+        matchedHourly = true;
+        hourlyApplicableTemplates[id] = true;
+        hourlyTemplateSessions++;
+      });
+      if (matchedHourly) hourlySessions[sessionKey] = true;
     });
 
     (logs || []).forEach(function (log) {
@@ -122,11 +185,11 @@
       if (!task) return;
       var date = String(log.execution_date || '').slice(0, 10), branch = log.branch_id;
       var shift = logShiftForOccurrence(log, task);
-      if (!date || !branch || !shift) return;
-      if (branchFilter && branch !== branchFilter) return;
-      if (allowedBranchSet && !allowedBranchSet.has(branch)) return;
+      if (!dateParts(date) || !branch || !shift) return;
+      if (branchFilter && String(branch) !== String(branchFilter)) return;
+      if (allowedBranchSet && !allowedBranchSet.has(String(branch))) return;
       if (shiftFilter !== 'All' && shift !== shiftFilter) return;
-      if (task.branch_id && task.branch_id !== branch) return;
+      if (task.branch_id && String(task.branch_id) !== String(branch)) return;
       if (!isTaskScheduled(task, date)) return;
       var key = occurrenceKey(id, date, branch, shift);
       if (!expected[key]) return;
@@ -148,7 +211,38 @@
       item.pending = Math.max(0, item.total - item.done);
       return item;
     }).filter(function (item) { return item.total > 0; });
-    return { stats: stats, hourlyExcluded: hourlyExcluded };
+
+    var unknownBranchIds = Array.from(new Set((options.unknownBranchIds || []).map(String)));
+    var unknownCouldAffect = unknownBranchIds.some(function (branchId) {
+      return Object.keys(byId).concat(Object.keys(hourlyById)).some(function (id) {
+        var task = byId[id] || hourlyById[id];
+        return !task.branch_id || String(task.branch_id) === branchId;
+      });
+    });
+    var hourlyTemplateCount = Object.keys(hourlyApplicableTemplates).length;
+    var reasons = [];
+    if (hourlyTemplateSessions) reasons.push('hourly_occurrences_unavailable');
+    if (unknownCouldAffect) reasons.push('branch_creation_date_missing');
+    var totalExpected = stats.reduce(function (sum, item) { return sum + item.total; }, 0);
+    var totalDone = stats.reduce(function (sum, item) { return sum + item.done; }, 0);
+    var complete = reasons.length === 0;
+    return {
+      stats: stats,
+      hourlyExcluded: hourlyTemplateCount,
+      hourlyTemplateCount: hourlyTemplateCount,
+      hourlyAffectedSessions: Object.keys(hourlySessions).length,
+      hourlyTemplateSessions: hourlyTemplateSessions,
+      unknownBranchCount: unknownCouldAffect ? unknownBranchIds.length : 0,
+      unknownBranchIds: unknownBranchIds,
+      coverageIncomplete: !complete,
+      complete: complete,
+      reasons: reasons,
+      nonHourlyExpected: totalExpected,
+      nonHourlyDone: totalDone,
+      nonHourlyPending: Math.max(0, totalExpected - totalDone),
+      nonHourlyPct: totalExpected ? Math.min(100, Math.round(totalDone / totalExpected * 100)) : null,
+      pct: complete && totalExpected ? Math.min(100, Math.round(totalDone / totalExpected * 100)) : null
+    };
   }
 
   function topIncomplete(stats, limit) {
@@ -173,6 +267,8 @@
 
   return {
     normalizeShift: normalizeShift,
+    dateStringInZone: dateStringInZone,
+    expectedSessions: expectedSessions,
     isTaskScheduled: isTaskScheduled,
     isCompletedStatus: isCompletedStatus,
     isFlaggedStatus: isFlaggedStatus,

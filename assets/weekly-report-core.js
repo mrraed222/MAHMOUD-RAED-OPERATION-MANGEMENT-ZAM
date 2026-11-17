@@ -10,7 +10,7 @@
  *     عبر weekly_report_notes، مع localStorage كاحتياطي offline
  *   • محور 6 (خطة الأسبوع) يُقرأ/يُحفظ من weekly_plans عبر RPC
  *   • محور 2 يعرض الزيارات الإشرافية (supervisory_visits)
- *   • محور 5 يعرض الحضور والغياب (attendance_records)
+ *   • محور 5 يعرض نقص الكادر من بلاغات الشفت والمشكلات التقنية اليدوية
  *   • محور 3 يعرض حالة الشكوى (معلقة/معالجة/مغلقة)
  *   • محور 4 يعرض السبب الجذري والإجراء التصحيحي وتكلفة الوحدة
  * ===================================================================== */
@@ -62,6 +62,11 @@
   var num = function (v) { var n = parseFloat(String(v == null ? '' : v).replace(/[^\d.\-]/g, '')); return isNaN(n) ? 0 : n; };
   var norm = function (s) { return String(s == null ? '' : s).trim().replace(/\s+/g, ' '); };
   function dlt(cur, prev) { return prev ? ((cur - prev) / prev) * 100 : (cur ? 100 : 0); }
+  function isIssueType(issue, expectedType) {
+    return !!issue && norm(issue.type).toLowerCase() === expectedType;
+  }
+  function isStaffShortageIssue(issue) { return isIssueType(issue, 'موظف'); }
+  function isTechnicalShiftIssue(issue) { return isIssueType(issue, 'تقنية'); }
 
   /* ══════════ حالة عامة ══════════ */
   /* المصدر الوحيد: Supabase عبر جلسة المستخدم المصادَق.
@@ -72,7 +77,7 @@
   var SRC = {
     label: 'غير محدد', kind: 'none', note: '',
     branches: [], reports: [], waste: [], issues: [], negs: [],
-    visits: [], visitResults: [], visitActions: [], attendance: [], plans: [], notes: [], snapshots: [],
+    visits: [], visitResults: [], visitActions: [], technicalIssues: [], plans: [], notes: [], snapshots: [],
     templates: [], logs: []
   };
   var BRANCHES = [];             /* [{id,name,short}] — ديناميكي */
@@ -154,13 +159,12 @@
       return readPage(0, []);
     }
     return Promise.all([
-      q('branches', 'id,name'),
+      q('branches', 'id,name,created_at'),
       q('daily_reports', 'id,branch_id,report_date,shift_type,supervisor_name,total_sales,orders_count,avg_ticket,team_status,positive_reviews,custom_fields,sheet_key', 'report_date'),
       q('waste_logs', 'id,report_id,item_name,quantity,unit,reason,root_cause,corrective_action,owner,unit_cost'),
       q('shift_issues', 'id,report_id,description,action_taken,priority,issue_type'),
       q('negative_reviews', 'id,report_id,comment_text,review_type,status,owner,action_taken,customer_rating,closed_at'),
       q('supervisory_visits', '*'),
-      q('attendance_records', '*'),
       q('weekly_plans', '*'),
       q('weekly_report_notes', '*'),
       q('weekly_reports', '*'),
@@ -170,24 +174,25 @@
       q('supervisory_visit_results', '*'),
       q('visit_action_items', '*'),
       q('visit_checklist_templates', 'id,title,category,sort_order'),
-      q('profiles', 'id,full_name,role')
+      q('profiles', 'id,full_name,role'),
+      q('technical_issues', 'id,branch_id,title,description,priority,status,created_at,source')
     ]).then(function (res) {
       var branches = res[0], reports = res[1], waste = res[2], issues = res[3], negs = res[4],
-          visits = res[5], attendance = res[6], plans = res[7], notes = res[8],
-          snapshots = res[9], templates = res[10], logs = res[11], visitNotes = res[12],
-          visitResults = res[13], visitActions = res[14], visitTemplates = res[15], profiles = res[16];
+          visits = res[5], plans = res[6], notes = res[7], snapshots = res[8], templates = res[9],
+          logs = res[10], visitNotes = res[11], visitResults = res[12], visitActions = res[13],
+          visitTemplates = res[14], profiles = res[15], technicalIssues = res[16];
 
       // إن وُجدت فروع على الأقل نُبقي المصدر (حتى لو كانت جداول التقارير فارغة)
       // حتى لا نخسر الفروع الديناميكية؛ وإن فشل الاتصال تماماً نرجع null
       // كي تتولّى خطة GAS ثم CSV.
       var hasAny = reports.length || waste.length || issues.length || negs.length ||
-        visits.length || visitResults.length || visitActions.length || attendance.length || plans.length || notes.length ||
+        visits.length || visitResults.length || visitActions.length || technicalIssues.length || plans.length || notes.length ||
         templates.length || logs.length;
       if (!hasAny && !branches.length) return null;
 
       /* الفروع ديناميكياً */
       BRANCHES = branches.map(function (b) {
-        return { id: b.id, name: b.name, short: b.name.replace(/^فرع\s*/, '').replace(/^زام\s*/, '') };
+        return { id: b.id, name: b.name, short: b.name.replace(/^فرع\s*/, '').replace(/^زام\s*/, ''), created_at: b.created_at || '' };
       });
       if (!BRANCHES.length) BRANCHES = FALLBACK_BRANCHES;
       buildBranchMaps();
@@ -222,10 +227,17 @@
         id: x.id || '', reportId: x.report_id || '', date: i.date, branch: i.branch, type: x.issue_type || '', desc: x.description || '',
         priority: x.priority || '', action: x.action_taken || '' }; }).filter(function (x) { return x.date; });
 
-      var N = negs.map(function (x) { var i = repInfo(x); return {
-        id: x.id || '', date: i.date, branch: i.branch, shiftType: i.shiftType, text: x.comment_text || '', status: x.status || 'معلقة',
+      var N = negs.filter(function (x) { var type = norm(x.review_type).toLowerCase(); return !type || type === 'negative'; })
+        .map(function (x) { var i = repInfo(x); return {
+        id: x.id || '', reviewType: x.review_type || 'negative', date: i.date, branch: i.branch, shiftType: i.shiftType, text: x.comment_text || '', status: x.status || 'معلقة',
         owner: x.owner || '', action: x.action_taken || '', rating: num(x.customer_rating) }; })
         .filter(function (x) { return x.text; });
+
+      var T = (technicalIssues || []).map(function (x) { return {
+        id: x.id || '', date: METRICS.dateStringInZone(x.created_at, 'Asia/Riyadh') || String(x.created_at || '').slice(0, 10),
+        branch: x.branch_id || '', title: x.title || '', desc: x.description || '',
+        priority: x.priority || '', status: x.status || '', source: x.source || ''
+      }; }).filter(function (x) { return x.date && x.branch; });
 
       /* ملاحظات كل زيارة (جدول supervisory_visit_notes) — هي مصدر التفاصيل */
       var notesByVisit = {};
@@ -267,10 +279,7 @@
             assignedTo: assigned.full_name || row.assigned_role || (row.assigned_to ? 'موظف محدد' : '—'),
             shiftType: row.shift_type || '', due: row.due_date || '', status: row.status || 'مفتوحة', createdAt: row.created_at || '' };
         }),
-        attendance: attendance.map(function (a) { return {
-          date: String(a.work_date || '').slice(0, 10), branch: a.branch_id,
-          employee: a.employee_name || '', shiftType: normalizeShift(a.shift_type) === 'Evening' ? 'Evening' : 'Morning',
-          status: a.status || 'حاضر', notes: a.notes || '' }; }).filter(function (a) { return a.date; }),
+        technicalIssues: T,
         plans: plans.map(function (p) { return {
           weekStart: p.week_start || '', rowNo: num(p.row_no) || 1, objective: p.objective || '',
           scope: p.scope || '', kpi: p.kpi || '', owner: p.owner || '', due: p.due_date || '',
@@ -293,7 +302,7 @@
       SRC = { label: 'تعذّر تحميل البيانات', kind: 'none',
         note: 'تأكد من تسجيل الدخول ومن صلاحيات القراءة في Supabase.',
         branches: BRANCHES, reports: [], waste: [], issues: [], negs: [],
-        visits: [], attendance: [], plans: [], notes: [], snapshots: [],
+        visits: [], technicalIssues: [], plans: [], notes: [], snapshots: [],
         templates: [], logs: [] };
       return SRC;
     });
@@ -320,7 +329,7 @@
   /** نطاق التواريخ المتاح فعلياً في البيانات المحمّلة */
   function dataSpan() {
     var ds = [];
-    ['reports', 'waste', 'issues', 'negs', 'visits', 'attendance'].forEach(function (k) {
+    ['reports', 'waste', 'issues', 'negs', 'visits', 'technicalIssues'].forEach(function (k) {
       (SRC[k] || []).forEach(function (x) { if (x && x.date) ds.push(String(x.date).slice(0, 10)); });
     });
     (SRC.logs || []).forEach(function (x) {
@@ -410,61 +419,69 @@
     });
   }
 
-  /* ══════════ الالتزام بقوائم التحقق — القوالب المسندة فقط ══════════ */
+  /* ══════════ الالتزام بقوائم التحقق — جلسات تقويمية لا تعتمد على وجود تقرير ══════════ */
   function normalizeShift(value) {
     return METRICS.normalizeShift(value);
   }
-  function workedSessions(r, branchFilter) {
-    var out = {};
-    filterRows(SRC.reports, r, true, true).forEach(function (x) {
-      if (branchFilter && x.branch !== branchFilter) return;
-      out[x.date + '|' + x.branch + '|' + x.shiftType] = { date: x.date, branch: x.branch, shift: x.shiftType };
-    });
-    /* بعض أيام التشيك ليست مرتبطة بتقرير يومي؛ نستخدم سجل التنفيذ نفسه
-       كجلسة تشغيل حتى لا تظهر نسبة الالتزام صفراً رغم وجود تنفيذ فعلي. */
-    (SRC.logs || []).forEach(function (l) {
-      var date = String(l.execution_date || '').slice(0, 10), branch = l.branch_id;
-      if (!inRange(date, r) || (branchFilter && branch !== branchFilter)) return;
-      var t = (SRC.templates || []).filter(function (x) { return String(x.id) === String(l.template_id); })[0];
-      if (t && String(t.frequency || 'daily').toLowerCase() === 'hourly') return;
-      var shift = l.shift_type ? normalizeShift(l.shift_type) : (t ? normalizeShift(t.shift_type) : '');
-      // A legacy Both-shifts log without shift_type cannot safely identify a session.
-      if (shift !== 'Morning' && shift !== 'Evening') return;
-      if (state.shift !== 'all' && shift !== normalizeShift(state.shift)) return;
-      var key = date + '|' + branch + '|' + shift;
-      if (!out[key]) out[key] = { date: date, branch: branch, shift: shift };
-    });
-    return out;
+  function currentRiyadhDate() {
+    return METRICS.dateStringInZone(new Date().toISOString(), 'Asia/Riyadh');
   }
   function compliance(r, branchFilter) {
     var templates = SRC.templates || [];
     if (!templates.length) return null;
     var stats = complianceByTemplate(r, branchFilter), expected = 0, done = 0, flagged = 0;
     stats.forEach(function (s) { expected += s.total; done += s.done; flagged += s.flagged; });
-    var hourlyExcluded = stats.hourlyExcluded || 0;
-    if (!expected && !hourlyExcluded) return null;
-    return { expected: expected, done: done, flagged: flagged, hourlyExcluded: hourlyExcluded,
-             pct: expected ? Math.min(100, Math.round(done / expected * 100)) : null };
+    var hourlyExcluded = stats.hourlyTemplateCount || 0;
+    if (!expected && !hourlyExcluded && !stats.coverageIncomplete) return null;
+    return {
+      expected: expected, done: done, flagged: flagged, pending: Math.max(0, expected - done),
+      nonHourlyExpected: expected, nonHourlyDone: done, hourlyExcluded: hourlyExcluded,
+      hourlyTemplateCount: stats.hourlyTemplateCount || 0,
+      hourlyAffectedSessions: stats.hourlyAffectedSessions || 0,
+      hourlyTemplateSessions: stats.hourlyTemplateSessions || 0,
+      unknownBranchCount: stats.unknownBranchCount || 0,
+      coverageIncomplete: !!stats.coverageIncomplete,
+      complete: stats.complete !== false,
+      reasons: stats.incompleteReasons || [],
+      nonHourlyPct: expected ? Math.min(100, Math.round(done / expected * 100)) : null,
+      pct: stats.complete !== false && expected ? Math.min(100, Math.round(done / expected * 100)) : null,
+      historicalTemplateWarning: !!stats.historicalTemplateWarning
+    };
   }
   /** تفصيل الالتزام لكل قالب مسند، حتى لو لم يُسجّل له تنفيذ */
   function complianceByTemplate(r, branchFilter) {
     var templates = SRC.templates || [], logs = SRC.logs || [];
     if (!templates.length) return [];
-    var branchesForPeriod = branchFilter ? [branchFilter] : BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) { return b.id; });
-    var sessionMap = workedSessions(r, branchFilter);
-    var sessions = Object.keys(sessionMap).map(function (key) { return sessionMap[key]; });
-    var result = METRICS.calculateCompliance(templates, sessions, logs, {
-      branchFilter: branchFilter, branches: branchesForPeriod, shiftFilter: state.shift
+    var branchesForPeriod = branchFilter
+      ? BRANCHES.filter(function (b) { return String(b.id) === String(branchFilter); })
+      : BRANCHES.filter(function (b) { return state.branches.has(b.id); });
+    var today = currentRiyadhDate();
+    var generated = METRICS.expectedSessions(r, branchesForPeriod, { today: today, shiftFilter: state.shift, branchFilter: branchFilter });
+    var result = METRICS.calculateCompliance(templates, generated.sessions, logs, {
+      branchFilter: branchFilter, branches: branchesForPeriod.map(function (b) { return b.id; }),
+      shiftFilter: state.shift, unknownBranchIds: generated.unknownBranches
     });
     var stats = result.stats;
-    stats.hourlyExcluded = result.hourlyExcluded;
+    stats.hourlyExcluded = result.hourlyTemplateCount;
+    stats.hourlyTemplateCount = result.hourlyTemplateCount;
+    stats.hourlyAffectedSessions = result.hourlyAffectedSessions;
+    stats.hourlyTemplateSessions = result.hourlyTemplateSessions;
+    stats.unknownBranchCount = result.unknownBranchCount;
+    stats.coverageIncomplete = result.coverageIncomplete;
+    stats.complete = result.complete;
+    stats.incompleteReasons = result.reasons;
+    stats.nonHourlyExpected = result.nonHourlyExpected;
+    stats.nonHourlyDone = result.nonHourlyDone;
+    stats.nonHourlyPending = result.nonHourlyPending;
+    stats.nonHourlyPct = result.nonHourlyPct;
+    stats.expectedSessionCount = generated.sessions.length;
+    stats.historicalTemplateWarning = !!(generated.from && generated.from < today);
     return stats;
   }
 
   /**
    * بطاقة التزام مستقلة لكل فرع — إجمالي القوائم المسندة عبر كل الأقسام.
-   * لا نستخدم رقماً ثابتاً ولا نخلط بين فروع مختلفة؛ القوالب العامة والقوالب
-   * الخاصة بالفرع تدخل فقط عندما تكون مستحقة في جلسات التشغيل الفعلية للفترة.
+   * القوالب العامة والخاصة بالفرع تدخل في جلسات التقويم حتى عند غياب تقرير الوردية.
    */
   function complianceByBranch(r) {
     return BRANCHES.filter(function (branch) { return state.branches.has(branch.id); }).map(function (branch) {
@@ -486,7 +503,12 @@
       return {
         id: branch.id, name: branch.name, short: branch.short,
         expected: expected, done: done, flagged: flagged,
-        pct: expected ? Math.min(100, Math.round(done / expected * 100)) : null,
+        pct: templateStats.complete !== false && expected ? Math.min(100, Math.round(done / expected * 100)) : null,
+        coverageIncomplete: !!templateStats.coverageIncomplete,
+        hourlyTemplateCount: templateStats.hourlyTemplateCount || 0,
+        hourlyAffectedSessions: templateStats.hourlyAffectedSessions || 0,
+        hourlyTemplateSessions: templateStats.hourlyTemplateSessions || 0,
+        unknownBranchCount: templateStats.unknownBranchCount || 0,
         categories: categoryRows
       };
     });
@@ -542,14 +564,23 @@
       period: { from: r.from, to: r.to },
       kpis: {
         sales: cur.sales, orders: cur.orders,
-        avgTicket: cur.orders ? cur.sales / cur.orders : 0,
-        prevSales: prv.sales, prevOrders: prv.orders,
-        prevAvgTicket: prv.orders ? prv.sales / prv.orders : 0,
-        compliance: comp ? comp.pct : null,
-        complianceExpected: comp ? comp.expected : null,
-        complianceDone: comp ? comp.done : null,
-        complaints: filterRows(SRC.negs, r, true, true).length,
-        wasteRecords: wasteRows.length,
+      avgTicket: cur.orders ? cur.sales / cur.orders : 0,
+      prevSales: prv.sales, prevOrders: prv.orders,
+      prevAvgTicket: prv.orders ? prv.sales / prv.orders : 0,
+      compliance: comp ? comp.pct : null,
+      complianceExpected: comp ? comp.expected : null,
+      complianceDone: comp ? comp.done : null,
+      complianceComplete: comp ? comp.complete : null,
+      complianceNonHourlyExpected: comp ? comp.nonHourlyExpected : null,
+      complianceNonHourlyDone: comp ? comp.nonHourlyDone : null,
+      complianceNonHourlyPending: comp ? comp.nonHourlyPending : null,
+      complianceHourlyTemplateCount: comp ? comp.hourlyTemplateCount : null,
+      complianceHourlyAffectedSessions: comp ? comp.hourlyAffectedSessions : null,
+      complianceUnknownBranchCount: comp ? comp.unknownBranchCount : null,
+      complianceReasons: comp ? comp.reasons : [],
+      complianceHistoricalTemplateWarning: comp ? comp.historicalTemplateWarning : false,
+      complaints: filterRows(SRC.negs, r, true, true).length,
+      wasteRecords: wasteRows.length,
         wasteByUnit: wasteByUnit
       },
       branches: byBranch(SRC.reports, r).map(function (b) {
@@ -603,17 +634,31 @@
       '<th class="text-right px-md py-sm font-label-bold">المبيعات</th>' +
       '<th class="text-right px-md py-sm font-label-bold">متوسط الفاتورة</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الالتزام</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">تفاصيل التغطية</th>' +
       '<th class="text-right px-md py-sm font-label-bold">سُجّل في</th></tr></thead><tbody>' +
       list.map(function (s) {
         var k = (s.body && s.body.kpis) || {};
         var per = s.start && s.end ? (s.start + ' → ' + s.end) : (s.start || '—');
         var status = s.status === 'draft' ? 'مسودة' : s.status;
+        var complianceLabel = k.complianceComplete === false ? 'غير مكتمل' :
+          (k.compliance != null ? k.compliance + '%' : '—');
+        var coverageDetails = [];
+        if (k.complianceNonHourlyExpected != null) {
+          coverageDetails.push('غير ساعي: ' + (k.complianceNonHourlyDone || 0) + '/' + k.complianceNonHourlyExpected);
+        }
+        if (k.complianceHourlyTemplateCount) {
+          coverageDetails.push(k.complianceHourlyTemplateCount + ' قالب ساعي؛ ' + (k.complianceHourlyAffectedSessions || 0) + ' جلسة متأثرة، لا تمثل عدد الوقوعات');
+        }
+        if (k.complianceUnknownBranchCount) coverageDetails.push('تاريخ إنشاء غير متاح لـ' + k.complianceUnknownBranchCount + ' فرع');
+        if (k.complianceHistoricalTemplateWarning) coverageDetails.push('القوالب النشطة حاليًا؛ لا يوجد أرشيف تاريخي للقوالب');
+        if (!coverageDetails.length) coverageDetails.push(k.complianceComplete === true ? 'لا توجد قيود تغطية معروفة' : 'تفاصيل التغطية غير متاحة');
         return '<tr class="border-b border-outline-variant">' +
           '<td class="px-md py-sm font-semibold">' + esc(per) + '</td>' +
           '<td class="px-md py-sm">' + esc(status) + '</td>' +
           '<td class="px-md py-sm">' + (k.sales != null ? nf(k.sales) : '—') + '</td>' +
           '<td class="px-md py-sm">' + (k.avgTicket != null ? nf1(k.avgTicket) : '—') + '</td>' +
-          '<td class="px-md py-sm">' + (k.compliance != null ? k.compliance + '%' : '—') + '</td>' +
+          '<td class="px-md py-sm">' + complianceLabel + '</td>' +
+          '<td class="px-md py-sm text-on-surface-variant">' + esc(coverageDetails.join(' · ')) + '</td>' +
           '<td class="px-md py-sm text-on-surface-variant">' + esc(String(s.createdAt || '').slice(0, 10)) + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
@@ -801,6 +846,20 @@
     el.innerHTML = body;
   }
 
+  function complianceCoverageMessage(comp) {
+    if (!comp) return '';
+    var parts = [];
+    if (comp.coverageIncomplete) {
+      parts.push('النسبة الإجمالية غير مكتملة؛ الجزء غير الساعي: ' + (comp.nonHourlyDone || 0) + '/' + (comp.nonHourlyExpected || 0) + ' مهمة مستحقة.');
+    }
+    if (comp.hourlyTemplateCount) {
+      parts.push('استُبعد ' + comp.hourlyTemplateCount + ' قالب ساعي؛ تأثرت ' + comp.hourlyAffectedSessions + ' جلسة، وهذا ليس عدد الوقوعات.');
+    }
+    if (comp.unknownBranchCount) parts.push('لا يتوفر تاريخ إنشاء لعدد ' + comp.unknownBranchCount + ' فرع.');
+    if (comp.historicalTemplateWarning) parts.push('تنبيه: للفترات السابقة تُستخدم القوالب النشطة الحالية لغياب أرشيف تاريخي للقوالب.');
+    return parts.join(' ');
+  }
+
   function renderKpis() {
     var r = resolveRange(), p = prevRange(r);
     var cur = agg(SRC.reports, r), prv = agg(SRC.reports, p);
@@ -808,7 +867,7 @@
     var prvW = filterRows(SRC.waste, p, true, true);
     var negsCur = filterRows(SRC.negs, r, true, true);
     var comp = compliance(r), compPrev = compliance(p);
-    var att = filterRows(SRC.attendance, r, true, true);
+    var staffShortage = filterRows(SRC.issues, r, true, true).filter(isStaffShortageIssue).length;
     var visits = filterRows(SRC.visits, r, true, true);
 
     var cards = [
@@ -816,13 +875,14 @@
       { l: 'عدد الفواتير', i: 'receipt_long', v: nf(cur.orders), p: nf(prv.orders), d: dlt(cur.orders, prv.orders), g: 'up', z: !prv.orders },
       { l: 'متوسط الفاتورة', i: 'calculate', v: nf1(cur.avg) + ' ر.س', p: nf1(prv.avg) + ' ر.س', d: dlt(cur.avg, prv.avg), g: 'up', z: !prv.avg },
       { l: 'نسبة الالتزام بقوائم التحقق', i: 'fact_check',
-        v: comp && comp.pct != null ? comp.pct + '%' : (comp && comp.hourlyExcluded ? 'غير متاح' : '—'),
+        v: comp && comp.pct != null ? comp.pct + '%' : (comp && comp.coverageIncomplete ? 'غير مكتمل' : '—'),
+        detail: complianceCoverageMessage(comp),
         p: compPrev && compPrev.pct != null ? compPrev.pct + '%' : '—',
         d: comp && compPrev && comp.pct != null && compPrev.pct != null ? dlt(comp.pct, compPrev.pct) : null, g: 'up', z: false },
       { l: 'عدد الشكاوى', i: 'sentiment_dissatisfied', v: String(negsCur.length), p: '—', d: null, g: 'down', z: false },
       { l: 'سجلات الهدر', i: 'delete_sweep', v: curW.length + ' سجل', p: prvW.length + ' سجل', d: dlt(curW.length, prvW.length), g: 'down', z: !prvW.length },
       { l: 'الزيارات الإشرافية', i: 'travel_explore', v: String(visits.length), p: '—', d: null, g: 'up', z: false },
-      { l: 'سجلات الحضور', i: 'how_to_reg', v: String(att.length), p: '—', d: null, g: 'up', z: false }
+      { l: 'بلاغات نقص الكادر (تقرير الشفت)', i: 'groups', v: String(staffShortage), p: '—', d: null, g: 'up', z: false }
     ];
     var el = $('#kpis');
     if (!el) return;
@@ -830,6 +890,7 @@
       return '<div class="card p-md"><div class="flex items-center gap-xs text-body-sm text-on-surface-variant">' +
         '<span class="material-symbols-outlined text-[18px]">' + c.i + '</span>' + c.l + '</div>' +
         '<div class="font-display-lg text-primary mt-xs leading-none">' + c.v + '</div>' +
+        (c.detail ? '<div class="text-body-sm text-on-surface-variant mt-sm">' + esc(c.detail) + '</div>' : '') +
         '<div class="flex items-center justify-between mt-sm"><span class="text-body-sm text-on-surface-variant">السابق: ' + c.p + '</span>' +
         (c.d == null ? '' : deltaChip(c.d, c.g, c.z)) + '</div></div>';
     }).join('');
@@ -872,20 +933,26 @@
       var pn = $('#panes'); if (pn) global.scrollTo({ top: pn.offsetTop - 80, behavior: 'smooth' }); });
 
     var branchCompliance = complianceByBranch(r);
+    var overallCompliance = compliance(r);
     if ($('#chartChecks')) {
       var checkEl = $('#chartChecks');
-      checkEl.innerHTML = '<div class="branch-compliance-grid">' + branchCompliance.map(function (b) {
-        var tone = b.pct == null ? 'neutral' : (b.pct >= 90 ? 'good' : (b.pct >= 70 ? 'mid' : 'bad'));
-        var score = b.pct == null ? '—' : b.pct + '%';
+      var coverageMessage = complianceCoverageMessage(overallCompliance);
+      checkEl.innerHTML = (coverageMessage ? '<div class="text-body-sm text-on-surface-variant mb-sm">' + esc(coverageMessage) + '</div>' : '') +
+        '<div class="branch-compliance-grid">' + branchCompliance.map(function (b) {
+        var tone = b.coverageIncomplete || b.pct == null ? 'neutral' : (b.pct >= 90 ? 'good' : (b.pct >= 70 ? 'mid' : 'bad'));
+        var score = b.coverageIncomplete ? 'غير مكتمل' : (b.pct == null ? '—' : b.pct + '%');
         var categories = b.categories.length ? b.categories.map(function (c) {
           var cp = c.expected ? Math.min(100, Math.round(c.done / c.expected * 100)) : 0;
           return '<div class="branch-compliance-category"><span>' + esc(c.name) + '</span><b>' + c.done + '/' + c.expected + '</b><i><em style="width:' + cp + '%"></em></i></div>';
-        }).join('') : '<div class="text-body-sm text-on-surface-variant">لا توجد جلسات مسجلة في الفترة</div>';
+        }).join('') : '<div class="text-body-sm text-on-surface-variant">لا توجد مهام غير ساعية مستحقة في الفترة</div>';
+        var complianceGap = b.hourlyTemplateCount
+          ? '<p class="text-body-sm text-on-surface-variant mt-xs">' + b.hourlyTemplateCount + ' قالب ساعي غير محتسب؛ ' + b.hourlyAffectedSessions + ' جلسة متأثرة. لا يمثّل ذلك عدد الوقوعات.</p>'
+          : (b.unknownBranchCount ? '<p class="text-body-sm text-on-surface-variant mt-xs">تاريخ إنشاء فرع غير متاح لعدد ' + b.unknownBranchCount + ' فرع.</p>' : '');
         return '<article class="branch-compliance-card ' + tone + '">' +
           '<div class="branch-compliance-head"><div><strong>' + esc(b.name) + '</strong><small>كل الأقسام والقوائم المسندة</small></div>' +
           '<div class="branch-compliance-score">' + score + '</div></div>' +
           '<div class="branch-compliance-track"><i style="width:' + (b.pct || 0) + '%"></i></div>' +
-          '<div class="branch-compliance-meta"><span>منفذة <b>' + b.done + '</b></span><span>غير منفذة <b>' + Math.max(0, b.expected - b.done) + '</b></span><span>مستحقة <b>' + b.expected + '</b></span></div>' +
+          '<div class="branch-compliance-meta"><span>منفذة غير ساعية <b>' + b.done + '</b></span><span>غير منفذة غير ساعية <b>' + Math.max(0, b.expected - b.done) + '</b></span><span>مستحقة غير ساعية <b>' + b.expected + '</b></span></div>' + complianceGap +
           '<div class="branch-compliance-categories">' + categories + '</div></article>';
       }).join('') + '</div>';
     }
@@ -900,7 +967,7 @@
     'راجع الالتزام والزيارات ونتائج البنود والمخالفات والإجراءات المفتوحة.',
     'تابع الشكاوى وحالتها وما اتخذته الفروع لتحسين تجربة العملاء.',
     'استعرض سجلات الهدر وكمياته حسب وحدة القياس وأسبابه وتكلفته عند توفرها.',
-    'راجع الحضور ومشاكل الشفت واحتياجات الفريق والمعدات.',
+    'راجع تقييم الفريق وبلاغات الشفت ونقص الكادر والبلاغات التقنية والمعدات.',
     'دوّن أهداف الأسبوع القادم ومؤشراتها ومسؤولياتها ومواعيدها.'
   ];
 
@@ -1116,6 +1183,7 @@
     var incompleteTotal = Math.max(0, dueTotal - doneTotal);
     var topIncomplete = METRICS.topIncomplete(tpl, 5);
     var hourlyExcluded = (tpl && tpl.hourlyExcluded) || (comp && comp.hourlyExcluded) || 0;
+    var complianceNote = complianceCoverageMessage(comp);
 
     var teamEntries = {};
     cur.rows.forEach(function (x) { if (x.team) teamEntries[x.team] = (teamEntries[x.team] || 0) + 1; });
@@ -1217,10 +1285,11 @@
       '<div class="p-md space-y-md"><div class="grid md:grid-cols-4 gap-md">' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">عدد الزيارات الإشرافية</div><div class="font-display-lg text-primary mt-xs">' + visits.length + '</div></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">الشفتات المفحوصة</div><div class="font-display-lg text-primary mt-xs">' + cur.count + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">نسبة الالتزام (منفذة ÷ مستحقة)</div><div class="font-display-lg text-primary mt-xs">' +
-      (comp && comp.pct != null ? comp.pct + '%' : (hourlyExcluded ? 'غير متاح' : '—')) + '<div class="text-body-sm text-on-surface-variant">مكتمل ' + doneTotal + ' · مستحق ' + dueTotal + '</div></div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">غير مكتملة</div><div class="font-display-lg text-primary mt-xs">' + incompleteTotal + '</div></div>' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">نسبة الالتزام الإجمالية</div><div class="font-display-lg text-primary mt-xs">' +
+      (comp && comp.pct != null ? comp.pct + '%' : (comp && comp.coverageIncomplete ? 'غير مكتمل' : '—')) + '<div class="text-body-sm text-on-surface-variant">الجزء غير الساعي: منفذ ' + doneTotal + ' · مستحق ' + dueTotal + '</div></div></div>' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">غير مكتملة من المهام غير الساعية</div><div class="font-display-lg text-primary mt-xs">' + incompleteTotal + '</div></div>' +
       '</div>' +
+      (complianceNote ? '<p class="text-body-sm text-on-surface-variant">' + esc(complianceNote) + '</p>' : '') +
       '<div class="grid md:grid-cols-3 gap-md">' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">ملاحظات الزيارات</div><div class="font-display-lg text-primary mt-xs">' + allNotes.length + '</div></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">ملاحظات مفتوحة</div><div class="font-display-lg text-primary mt-xs">' + openNotes + '</div></div>' +
@@ -1231,10 +1300,9 @@
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">سجل الزيارات</div>' +
       '<a href="../branch-visits-new/index.html" class="text-body-sm font-bold text-primary underline mt-xs inline-block">فتح صفحة الزيارات ←</a></div>' +
       '</div>' +
-      '<div><div class="font-title-md text-primary mb-xs">أبرز المهام غير المكتملة — بحد أقصى 5</div><div id="paneChecks"></div>' +
-      (hourlyExcluded ? '<p class="text-body-sm text-on-surface-variant mt-xs">استُبعدت ' + hourlyExcluded + ' مهمة ساعية من النسبة؛ لا تتوفر سجلات الساعات اللازمة لاحتسابها بدقة.</p>' : '') +
-      (tpl.length && !topIncomplete.length ? '<p class="text-body-sm text-on-surface-variant mt-xs">اكتملت جميع المهام المستحقة في الجلسات المسجلة.</p>' : '') +
-      (!tpl.length && !hourlyExcluded ? '<p class="text-body-sm text-on-surface-variant mt-xs">لا توجد مهام مستحقة ضمن الجلسات المسجلة في الفترة.</p>' : '') + '</div>' +
+      '<div><div class="font-title-md text-primary mb-xs">أبرز المهام غير الساعية غير المكتملة — بحد أقصى 5</div><div id="paneChecks"></div>' +
+      (tpl.length && !topIncomplete.length ? '<p class="text-body-sm text-on-surface-variant mt-xs">اكتملت جميع المهام غير الساعية المستحقة في الجلسات التقويمية.</p>' : '') +
+      (!tpl.length && !hourlyExcluded ? '<p class="text-body-sm text-on-surface-variant mt-xs">لا توجد مهام غير ساعية مستحقة ضمن الجلسات التقويمية في الفترة.</p>' : '') + '</div>' +
       '<div><div class="font-title-md text-primary mb-xs">نتائج الزيارات الإشرافية</div><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الوردية</th><th class="text-right px-md py-sm font-label-bold">المشرف</th>' +
@@ -1461,28 +1529,10 @@
     var r = resolveRange();
     var rows = filterRows(SRC.reports, r, true, true);
     var issues = filterRows(SRC.issues, r, true, true);
-    var att = filterRows(SRC.attendance, r, true, true);
-    var equip = issues.filter(function (i) { return /عطل|معدات|ماكينة|جهاز|تكييف|ثلاجة|grinder|espresso/i.test((i.type || '') + (i.desc || '')); });
-    var staff = issues.filter(function (i) { return /موظف|غياب|نقص|تغطية|دوام|استقالة/i.test((i.type || '') + (i.desc || '')); });
-
-    var attByBranch = {};
-    att.forEach(function (a) {
-      var b = attByBranch[a.branch] || (attByBranch[a.branch] = { present: 0, absent: 0, late: 0, other: 0 });
-      if (a.status === 'حاضر') b.present++;
-      else if (a.status === 'غائب') b.absent++;
-      else if (a.status === 'متأخر') b.late++;
-      else b.other++;
-    });
-    var attRows = BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
-      var a = attByBranch[b.id] || { present: 0, absent: 0, late: 0, other: 0 };
-      var tot = a.present + a.absent + a.late + a.other;
-      var rate = tot ? Math.round(a.present / tot * 100) : null;
-      return '<tr class="border-b border-outline-variant"><td class="px-md py-sm font-semibold">' + esc(b.name) + '</td>' +
-        '<td class="px-md py-sm">' + (rate == null ? '—' : rate + '%') + '</td>' +
-        '<td class="px-md py-sm">' + a.present + '</td>' +
-        '<td class="px-md py-sm text-error font-bold">' + (a.absent || '—') + '</td>' +
-        '<td class="px-md py-sm text-on-surface-variant">' + (a.late || '—') + '</td></tr>';
-    }).join('');
+    var technicalIssues = filterRows(SRC.technicalIssues || [], r, true, false)
+      .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+    var equip = issues.filter(isTechnicalShiftIssue);
+    var staff = issues.filter(isStaffShortageIssue);
 
     var teamRows = BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
       var rs = rows.filter(function (x) { return x.branch === b.id; });
@@ -1490,7 +1540,7 @@
       rs.forEach(function (x) { if (x.team) ts[x.team] = (ts[x.team] || 0) + 1; });
       var bad = ts['🔴 سيء'] || 0;
       function mine(arr) {
-        var m = arr.filter(function (i) { return i.branch === b.id; });
+        var m = arr.filter(function (i) { return i.branch === b.id; }).sort(function (a, c) { return String(c.date).localeCompare(String(a.date)); });
         return m.length ? esc(m[0].desc) : '—';
       }
       return '<tr class="border-b border-outline-variant"><td class="px-md py-sm font-semibold">' + esc(b.name) + '</td>' +
@@ -1502,27 +1552,49 @@
         '<td class="px-md py-sm" data-edit="need-' + b.id + '">—</td></tr>';
     }).join('');
 
+    var technicalRows = technicalIssues.slice(0, 100).map(function (issue) {
+      return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(issue.date) + '</td>' +
+        '<td class="px-md py-sm">' + esc(branchName(issue.branch)) + '</td>' +
+        '<td class="px-md py-sm font-semibold">' + esc(issue.title || '—') + '</td>' +
+        '<td class="px-md py-sm text-on-surface-variant">' + esc(issue.desc || '—') + '</td>' +
+        '<td class="px-md py-sm">' + esc(issue.priority || '—') + '</td>' +
+        '<td class="px-md py-sm">' + esc(issue.status || '—') + '</td>' +
+        '<td class="px-md py-sm">' + (issue.source === 'fridge' ? 'مصدر الثلاجات' : 'يدوي') + '</td></tr>';
+    }).join('');
+    var shiftIssueRows = issues.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); }).slice(0, 100).map(function (issue) {
+      return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(issue.date) + '</td>' +
+        '<td class="px-md py-sm">' + esc(branchName(issue.branch)) + '</td>' +
+        '<td class="px-md py-sm">' + esc(issue.type || 'غير محدد') + '</td>' +
+        '<td class="px-md py-sm text-on-surface-variant">' + esc(issue.desc || '—') + '</td>' +
+        '<td class="px-md py-sm">' + esc(issue.priority || '—') + '</td>' +
+        '<td class="px-md py-sm">' + esc(issue.action || '—') + '</td></tr>';
+    }).join('');
+
     return '<div class="card overflow-hidden fadein"><div class="bg-primary text-on-primary px-md py-sm font-title-md">5. الموظفون والمعدات</div>' +
       '<div class="p-md space-y-md"><div class="grid md:grid-cols-4 gap-md">' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">إجمالي الشفتات</div><div class="font-display-lg text-primary mt-xs">' + rows.length + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">مشاكل مرتبطة بالمعدات</div><div class="font-display-lg text-primary mt-xs">' + equip.length + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">مشاكل مرتبطة بالكادر</div><div class="font-display-lg text-primary mt-xs">' + staff.length + '</div></div>' +
-      '<div class="bg-secondary-container rounded-lg p-md"><div class="text-body-sm text-on-secondary-container">سجلات الحضور</div><div class="font-display-lg text-primary mt-xs">' + att.length + '</div></div>' +
-      '</div>' +
-      '<div><div class="font-title-md text-primary mb-xs">الحضور والغياب</div>' +
-      (att.length ? '<div class="overflow-x-auto"><table class="w-full text-body-sm">' +
-        '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">الفرع</th>' +
-        '<th class="text-right px-md py-sm font-label-bold">نسبة الحضور</th><th class="text-right px-md py-sm font-label-bold">حاضر</th>' +
-        '<th class="text-right px-md py-sm font-label-bold">غائب</th><th class="text-right px-md py-sm font-label-bold">متأخر</th></tr></thead>' +
-        '<tbody>' + attRows + '</tbody></table></div>'
-        : '<p class="text-body-sm text-on-surface-variant">لا توجد سجلات حضور — تُسجَّل في جدول attendance_records (شُغّل SQL v2 أولاً).</p>') +
-      '</div>' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">بلاغات الشفت من النوع «تقنية»</div><div class="font-display-lg text-primary mt-xs">' + equip.length + '</div></div>' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">نقص الكادر — issue_type=موظف</div><div class="font-display-lg text-primary mt-xs">' + staff.length + '</div></div>' +
+      '<div class="bg-secondary-container rounded-lg p-md"><div class="text-body-sm text-on-secondary-container">بلاغات technical_issues</div><div class="font-display-lg text-primary mt-xs">' + technicalIssues.length + '</div></div>' +
+      '</div>' + (state.shift !== 'all' ? '<p class="text-body-sm text-on-surface-variant">بلاغات technical_issues لا تحتوي حقل وردية؛ يطبّق عليها فلتر التاريخ والفرع فقط.</p>' : '') +
       '<div class="overflow-x-auto"><table class="w-full text-body-sm">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">الفرع</th>' +
       '<th class="text-right px-md py-sm font-label-bold">تغطية الشفتات</th><th class="text-right px-md py-sm font-label-bold">تقييم أداء الفريق</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">تقييمات سلبية</th><th class="text-right px-md py-sm font-label-bold">أبرز عطل</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">تقييم أداء شديد الانخفاض</th><th class="text-right px-md py-sm font-label-bold">أبرز بلاغ من نوع تقنية</th>' +
       '<th class="text-right px-md py-sm font-label-bold">أبرز نقص كوادر</th><th class="text-right px-md py-sm font-label-bold">الاحتياج الذي يتطلب تدخل الإدارة</th></tr></thead>' +
       '<tbody>' + teamRows + '</tbody></table></div>' +
+      '<div><div class="font-title-md text-primary mb-xs">البلاغات التقنية المستقلة — التاريخ والفرع والحالة</div><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
+      '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th><th class="text-right px-md py-sm font-label-bold">الفرع</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">العنوان</th><th class="text-right px-md py-sm font-label-bold">التفاصيل</th><th class="text-right px-md py-sm font-label-bold">الأولوية</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">الحالة</th><th class="text-right px-md py-sm font-label-bold">المصدر</th></tr></thead><tbody>' +
+      (technicalRows || '<tr><td colspan="7" class="px-md py-lg text-center text-on-surface-variant">لا توجد بلاغات تقنية في الفترة</td></tr>') + '</tbody></table></div>' +
+      (technicalIssues.length > 100 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض أحدث 100 من ' + technicalIssues.length + ' بلاغًا.</p>' : '') + '</div>' +
+      '<div><div class="font-title-md text-primary mb-xs">مشاكل الشفت المصنّفة صراحةً</div><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
+      '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th><th class="text-right px-md py-sm font-label-bold">الفرع</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">النوع</th><th class="text-right px-md py-sm font-label-bold">الوصف</th><th class="text-right px-md py-sm font-label-bold">الأولوية</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">الإجراء المسجل</th></tr></thead><tbody>' +
+      (shiftIssueRows || '<tr><td colspan="6" class="px-md py-lg text-center text-on-surface-variant">لا توجد مشاكل شفت مسجلة في الفترة</td></tr>') + '</tbody></table></div>' +
+      (issues.length > 100 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض أحدث 100 من ' + issues.length + ' مشكلة شفت.</p>' : '') + '</div>' +
       '<div class="bg-surface-container rounded-lg p-md"><label class="font-label-bold text-on-surface-variant">تنسيق مع قسم التدريب</label>' +
       '<div class="text-body-sm mt-1" data-edit="training">—</div></div></div></div>';
   }
@@ -1785,12 +1857,13 @@
     renderPanes();
     renderSnapshots();
     var hasSource = SRC.reports.length || SRC.waste.length || SRC.issues.length || SRC.negs.length ||
-                    SRC.visits.length || SRC.attendance.length || SRC.plans.length;
+                    SRC.visits.length || SRC.technicalIssues.length || SRC.plans.length;
     var inPeriod = SRC.reports.some(function (x) { return inRange(x.date, r); }) ||
                    SRC.waste.some(function (x) { return inRange(x.date, r); }) ||
                    SRC.issues.some(function (x) { return inRange(x.date, r); }) ||
                    SRC.negs.some(function (x) { return inRange(x.date, r); }) ||
-                   SRC.visits.some(function (x) { return inRange(x.date, r); });
+                   SRC.visits.some(function (x) { return inRange(x.date, r); }) ||
+                   SRC.technicalIssues.some(function (x) { return inRange(x.date, r); });
     var es = $('#emptyState');
     if (es) {
       es.classList.toggle('hidden', !!(hasSource && inPeriod));
@@ -1816,7 +1889,7 @@
     var color = SRC.kind === 'live' ? 'text-tertiary-container' : SRC.kind === 'cache' ? 'text-on-surface-variant' : 'text-error';
     chip.className = 'flex items-center gap-xs bg-surface-container-low px-md py-xs rounded-full border border-outline-variant text-body-sm ' + color;
     lbl.textContent = SRC.label;
-    var total = SRC.reports.length + SRC.waste.length + SRC.issues.length + SRC.negs.length + SRC.visits.length;
+    var total = SRC.reports.length + SRC.waste.length + SRC.issues.length + SRC.negs.length + SRC.visits.length + SRC.technicalIssues.length;
     chip.title = SRC.label + ' — ' + (SRC.note || '') + ' — إجمالي السجلات: ' + total;
   }
 

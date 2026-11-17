@@ -176,7 +176,7 @@ begin
   v_local_now := pg_catalog.timezone('Asia/Riyadh', pg_catalog.now());
   v_expected_shift := case
     when v_profile.shift_type in ('Morning', 'Evening') then v_profile.shift_type
-    else case when extract(hour from v_local_now) >= 16 then 'Evening' else 'Morning' end
+    else case when (extract(hour from v_local_now)::int * 60 + extract(minute from v_local_now)::int) >= 930 then 'Evening' else 'Morning' end
   end;
   if p_shift_type is distinct from v_expected_shift then
     raise exception 'الوردية لا تطابق وردية حسابك';
@@ -266,8 +266,12 @@ create table if not exists daily_reports (
   team_status text,
   positive_reviews integer default 0,
   custom_fields jsonb default '{}'::jsonb,
+  sheet_key text,
   created_at timestamptz default now()
 );
+create unique index if not exists daily_reports_sheet_key_uidx
+  on daily_reports (sheet_key)
+  where sheet_key is not null and sheet_key <> '';
 
 -- 7. سجلات الهدر (Waste Logs)
 create table if not exists waste_logs (

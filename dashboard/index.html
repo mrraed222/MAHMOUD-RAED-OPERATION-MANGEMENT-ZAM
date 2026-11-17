@@ -15,9 +15,9 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261116205000"></script>
-<script src="../assets/checklist-schedule.js?v=20261116212000"></script>
-<script src="../assets/checklist-dashboard.js?v=20261116214500"></script>
+<script src="../assets/supabase-config.js?v=20261117165000"></script>
+<script src="../assets/checklist-schedule.js?v=20261117170500"></script>
+<script src="../assets/checklist-dashboard.js?v=20261117170000"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (!['Owner','Admin','Manager'].includes(currentUser.role)) {
@@ -74,6 +74,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
       <p class="text-body-sm text-on-surface-variant">متوسط الإنجاز اليوم</p>
       <p class="text-2xl font-bold text-primary" id="avg-completion">—</p>
+      <p class="text-body-sm text-on-surface-variant" id="avg-completion-note">تُعرض النسبة كغير مكتملة إذا تعذّر عدّ كل وقوعات المهام الساعية.</p>
     </div>
     <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
       <p class="text-body-sm text-on-surface-variant">عدد الفروع</p>
@@ -105,33 +106,17 @@ async function loadDashboard() {
     const now = new Date();
     const today = ZamChecklistSchedule.riyadhDateString(now);
 
-    const [branches, templates, todayLogsRes, todayReportsRes, openIssuesRes, staffRes, categoriesRes] = await Promise.all([
+    const [branches, templates, todayLogsRes, todayReportsRes, openIssuesRes] = await Promise.all([
         ZamAPI.getBranches(),
         ZamAPI.getTemplates(),
         zamClient.from('checklist_logs').select('branch_id, template_id, executed_by, shift_type, execution_date, status, photo_url, created_at').eq('execution_date', today),
         zamClient.from('daily_reports').select('branch_id, total_sales').eq('report_date', today),
-        zamClient.from('shift_issues').select('id, branch_id').gte('created_at', today),
-        zamClient.from('profiles').select('id, branch_id, role, shift_type').eq('status', 'active').in('role', ['Barista', 'Waiter', 'Kitchen']),
-        zamClient.from('employee_task_categories').select('profile_id, category')
+        zamClient.from('shift_issues').select('id, branch_id').gte('created_at', today)
     ]);
 
     const todayLogs = todayLogsRes.data || [];
     const todayReports = todayReportsRes.data || [];
     const openIssues = openIssuesRes.data || [];
-    const staff = staffRes.data || [];
-    const categoriesBy = {};
-    (categoriesRes.data || []).forEach(row => {
-        (categoriesBy[row.profile_id] = categoriesBy[row.profile_id] || []).push(row.category);
-    });
-    const hourlyResults = await Promise.all(branches.map(async branch => {
-        try {
-            return { branchId: branch.id, logs: await ZamAPI.getHourlyChecklistLogs({ branchId: branch.id, date: today }), error: null };
-        } catch (error) {
-            return { branchId: branch.id, logs: [], error };
-        }
-    }));
-    const hourlyByBranch = new Map(hourlyResults.map(item => [item.branchId, item]));
-
     const totalSales = todayReports.reduce((s, r) => s + (Number(r.total_sales) || 0), 0);
 
     document.getElementById('branch-count').textContent = branches.length;
@@ -141,17 +126,18 @@ async function loadDashboard() {
     const cardsEl = document.getElementById('branch-cards');
     let sumPct = 0;
     let comparableBranches = 0;
+    let hasIncompleteProgress = false;
 
     cardsEl.innerHTML = branches.map(branch => {
         const logsForBranch = todayLogs.filter(l => l.branch_id === branch.id);
-        const hourlyResult = hourlyByBranch.get(branch.id) || { logs: [], error: new Error('Hourly checklist logs unavailable') };
-        const progressAvailable = !todayLogsRes.error && !staffRes.error && !categoriesRes.error && !hourlyResult.error;
+        const progressAvailable = !todayLogsRes.error;
         const progress = progressAvailable ? ZamChecklistDashboard.branchProgress({
-            templates, staff, categoriesBy, branchId: branch.id, branchName: branch.name,
-            logs: logsForBranch, hourlyLogs: hourlyResult.logs, now
-        }) : { total: 0, done: 0, pct: null };
+            templates, branchId: branch.id, branchName: branch.name,
+            logs: logsForBranch, now
+        }) : { total: 0, done: 0, pct: null, hourlyTemplateCount: 0, incompleteHourly: false };
         const pct = progress.pct;
         if (pct !== null) { sumPct += pct; comparableBranches++; }
+        if (progress.incompleteHourly) hasIncompleteProgress = true;
         const salesForBranch = todayReports.filter(r => r.branch_id === branch.id).reduce((s, r) => s + (Number(r.total_sales) || 0), 0);
         const color = pct === null ? 'text-on-surface-variant' : pct >= 80 ? 'text-tertiary-container' : pct >= 50 ? 'text-primary' : 'text-error';
         const barColor = pct === null ? 'bg-surface-container-highest' : pct >= 80 ? 'bg-tertiary-container' : pct >= 50 ? 'bg-primary' : 'bg-error';
@@ -159,10 +145,13 @@ async function loadDashboard() {
         const branchPage = '../supervisor-dashboard/index.html';
         const branchHref = `${branchPage}?branch=${encodeURIComponent(branch.id)}&name=${encodeURIComponent(branch.name)}`;
         const branchName = dashboardEscape(branch.name);
-        const progressText = pct === null
-            ? (progressAvailable ? 'لا توجد مهام مستحقة' : 'تعذر حساب الإنجاز — البيانات غير مكتملة')
-            : `${progress.done} من ${progress.total} مهمة مستحقة`;
-        const progressLabel = pct === null ? '—' : `${pct}%`;
+        const progressText = !progressAvailable
+            ? 'تعذر حساب الإنجاز — سجل التنفيذ غير متاح'
+            : progress.incompleteHourly
+                ? `${progress.done} من ${progress.total} مهمة غير ساعية؛ ${progress.hourlyTemplateCount} قالب ساعي غير محسوب — الإجمالي غير مكتمل`
+                : pct === null ? 'لا توجد مهام مستحقة' : `${progress.done} من ${progress.total} مهمة مستحقة`;
+        const progressLabel = progress.incompleteHourly ? 'غير مكتمل' : (pct === null ? '—' : `${pct}%`);
+        const progressBarAttrs = pct === null ? 'aria-hidden="true"' : `role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="إنجاز ${branchName}"`;
 
         return `
         <a href="${branchHref}"
@@ -173,7 +162,7 @@ async function loadDashboard() {
                 <span class="text-xl font-bold ${color}">${progressLabel}</span>
             </div>
             <div class="w-full bg-surface-container-high rounded-full h-2 mb-sm">
-                <div class="${barColor} h-2 rounded-full" style="width:${pct === null ? 0 : pct}%" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct === null ? 0 : pct}" aria-label="إنجاز ${branchName}"></div>
+                <div class="${barColor} h-2 rounded-full" style="width:${pct === null ? 0 : pct}%" ${progressBarAttrs}></div>
             </div>
             <div class="flex justify-between text-body-sm text-on-surface-variant">
                 <span>${dashboardEscape(progressText)}</span>
@@ -182,7 +171,10 @@ async function loadDashboard() {
         </a>`;
     }).join('');
 
-    document.getElementById('avg-completion').textContent = comparableBranches ? Math.round(sumPct / comparableBranches) + '%' : '—';
+    document.getElementById('avg-completion').textContent = hasIncompleteProgress ? 'غير مكتمل' : (comparableBranches ? Math.round(sumPct / comparableBranches) + '%' : '—');
+    document.getElementById('avg-completion-note').textContent = hasIncompleteProgress
+        ? 'تعذّر احتساب الإجمالي في فرع به قالب ساعي؛ الأعداد الظاهرة تخص المهام غير الساعية فقط.'
+        : 'تعرض النسبة مهام التشيك ليست المنطبقة على الفروع، دون اشتراط وجود ملف موظف.';
 }
 
 function dashboardEscape(value) {

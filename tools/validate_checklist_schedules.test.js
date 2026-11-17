@@ -65,16 +65,28 @@ test('مهمة جرد الصباح تظهر عند 12:00 بتوقيت الريا
   assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T16:00:00+03:00')), true);
 });
 
-test('مهمة جرد الليل تبدأ عند 00:00 وتبقى متاحة بعد بداية الوردية 16:00', () => {
+test('مهمة جرد الليل لا تظهر قبل منتصف الليل وتُتاح عند 00:00 في الوردية المسائية', () => {
   const task = { task_type: 'inventory_request', shift_type: 'Evening', target_time: '00:00:00' };
   assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-15T23:59:00+03:00')), false);
   assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T00:00:00+03:00')), true);
-  assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T15:59:00+03:00')), true);
-  assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T16:00:00+03:00')), false);
+  assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T15:29:00+03:00')), false);
+  assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T15:30:00+03:00')), false);
   assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-16T23:59:00+03:00')), false);
   assert.equal(schedule.isInventoryTaskVisible(task, atRiyadh('2026-11-17T00:00:00+03:00')), true);
-  assert.match(supervisorPage, /currentShift === 'Evening'\) targetMinute = nowMinute < 16 \* 60 \? 16 \* 60 : 24 \* 60/);
+  assert.match(supervisorPage, /currentShift === 'Evening'\) targetMinute = nowMinute < ZamChecklistSchedule\.EVENING_START_MINUTE \? ZamChecklistSchedule\.EVENING_START_MINUTE : 24 \* 60/);
   assert.match(supervisorPage, /currentUser\.role === 'Supervisor'/);
+});
+
+test('حدود الوردية ثابتة عند 15:30 بتوقيت الرياض', () => {
+  const before = atRiyadh('2026-11-16T15:29:00+03:00');
+  const atStart = atRiyadh('2026-11-16T15:30:00+03:00');
+  assert.equal(schedule.riyadhMinuteOfDay(before) < schedule.EVENING_START_MINUTE, true);
+  assert.equal(schedule.riyadhMinuteOfDay(atStart) < schedule.EVENING_START_MINUTE, false);
+  assert.equal(schedule.getShiftWindow('Morning', {}, before).endMinute, 15 * 60 + 30);
+  assert.equal(schedule.getShiftWindow('Evening', {}, atStart).startMinute, 15 * 60 + 30);
+  assert.match(employeePage, /riyadhMinuteOfDay\(\) < ZamChecklistSchedule\.EVENING_START_MINUTE/);
+  assert.match(supervisorPage, /riyadhMinuteOfDay\(\) < ZamChecklistSchedule\.EVENING_START_MINUTE/);
+  assert.match(dashboardPage, /riyadhMinuteOfDay\(\) < ZamChecklistSchedule\.EVENING_START_MINUTE/);
 });
 
 test('مهام حمامات الإدارة في الفرع الرئيسي تظهر عند 09:00 و12:00 فقط من موعدها', () => {
@@ -100,10 +112,11 @@ test('جولة الحمام كل ساعة خاصة بزام الرئيسي وم�
 });
 
 test('زام الحي لا تظهر له مهام حمامات، لكن تبقى مهام الصالة العادية ظاهرة', () => {
+  const now = atRiyadh('2026-11-16T10:00:00+03:00');
   const restroom = { task_type: 'restroom_check', category: 'الصالة', shift_type: 'Morning', branch_id: HAY_ID, frequency: 'daily' };
-  assert.equal(schedule.isTemplateVisibleForEmployee(restroom, waiter(HAY_ID, 'زام الحي')), false);
+  assert.equal(schedule.isTemplateVisibleForEmployee(restroom, waiter(HAY_ID, 'زام الحي'), now), false);
   const lounge = { task_type: 'standard', category: 'الصالة', shift_type: 'Morning', branch_id: HAY_ID, frequency: 'daily' };
-  assert.equal(schedule.isTemplateVisibleForEmployee(lounge, waiter(HAY_ID, 'زام الحي')), true);
+  assert.equal(schedule.isTemplateVisibleForEmployee(lounge, waiter(HAY_ID, 'زام الحي'), now), true);
   assert.match(migration, /'زام الحي'[\s\S]*?لا توجد مهام دورة مياه لهذا الفرع/);
 });
 
@@ -227,7 +240,8 @@ test('المهام وبطاقات الموظفين تحترم الإسناد ا�
     { id: 'kitchen-task', category: 'المطبخ', shift_type: 'Morning', branch_id: MAIN_ID, task_type: 'standard', frequency: 'daily' }
   ];
   const employee = { id: 'multi-role-1', role: 'Barista', shift_type: 'Morning' };
-  assert.deepEqual(dashboard.tasksForEmployee(templates, employee, { branchId: MAIN_ID, branchName: 'زام الرئيسي', categoriesBy: { [employee.id]: ['المطبخ'] }, shiftType: 'Morning' }).map(t => t.id), ['kitchen-task']);
+  const now = atRiyadh('2026-11-16T10:00:00+03:00');
+  assert.deepEqual(dashboard.tasksForEmployee(templates, employee, { branchId: MAIN_ID, branchName: 'زام الرئيسي', categoriesBy: { [employee.id]: ['المطبخ'] }, shiftType: 'Morning', now }).map(t => t.id), ['kitchen-task']);
 });
 
 test('السجل الساعي يحسب الساعة والوردية الحالية فقط، والمجموع العام يختلف عن بطاقة الموظف', () => {
@@ -243,7 +257,14 @@ test('السجل الساعي يحسب الساعة والوردية الحال�
   assert.equal(dashboard.completedTaskKeys([task], [], logs, { branchId: MAIN_ID, shiftType: 'Morning', now }).has(dashboard.taskKey(task, now)), true);
   assert.equal(dashboard.completedTaskKeys([task], [], logs, { branchId: MAIN_ID, shiftType: 'Morning', now, executedBy: 'waiter-1' }).size, 1);
   assert.equal(dashboard.completedTaskKeys([task], [], logs, { branchId: MAIN_ID, shiftType: 'Morning', now, executedBy: 'waiter-2' }).size, 0);
-  assert.equal(dashboard.completedTaskKeys([task], [], logs, { branchId: MAIN_ID, shiftType: 'Evening', now }).size, 1, 'only the current hour’s evening entry counts for evening');
+  const afterMidnight = atRiyadh('2026-11-17T00:30:00+03:00');
+  const eveningLogs = [
+    { template_id: task.id, branch_id: MAIN_ID, execution_date: '2026-11-16', occurrence_hour: 0, shift_type: 'Evening', executed_by: 'waiter-1', status: 'Completed' },
+    { template_id: task.id, branch_id: MAIN_ID, execution_date: '2026-11-16', occurrence_hour: 23, shift_type: 'Evening', executed_by: 'waiter-2', status: 'Completed' },
+    { template_id: task.id, branch_id: MAIN_ID, execution_date: '2026-11-15', occurrence_hour: 0, shift_type: 'Evening', executed_by: 'waiter-2', status: 'Completed' }
+  ];
+  assert.equal(dashboard.taskKey(task, afterMidnight), 'hourly-restroom:hour:0');
+  assert.equal(dashboard.completedTaskKeys([task], [], eveningLogs, { branchId: MAIN_ID, shiftType: 'Evening', now: afterMidnight }).size, 1, 'only the current-hour evening entry on the prior business date counts after midnight');
 });
 
 test('عدادات الجرد تظهر للمشرف فقط وبعد موعد الورديّة وفي الفرع المحدد', () => {
@@ -262,10 +283,23 @@ test('عدادات الجرد تظهر للمشرف فقط وبعد موعد ا�
 test('لوحة الفرع تربط السجلات الفعلية وتعرض عداداتًا محدثة دوريًا', () => {
   assert.match(dashboardPage, /ZamChecklistDashboard\.dashboardTasks/);
   assert.match(dashboardPage, /ZamChecklistDashboard\.completedTaskKeys/);
-  assert.match(dashboardPage, /getHourlyChecklistLogs\(\{ branchId, date: today \}\)/);
+  assert.match(dashboardPage, /getHourlyChecklistLogs\(\{ branchId, dateFrom: yesterday, dateTo: today \}\)/);
   assert.match(dashboardPage, /window\.setInterval\(refreshDashboard,\s*60000\)/);
   assert.match(dashboardPage, /if \(refreshRunning \|\| document\.hidden\) return/);
   assert.match(dashboardPage, /const today = ZamChecklistSchedule\.riyadhDateString\(now\)/);
+  assert.match(dashboardPage, /select\('template_id, branch_id, executed_by, status, execution_date, created_at, shift_type'\)/);
+  assert.match(dashboardPage, /dateFrom: yesterday, dateTo: today/);
+});
+
+test('سجلات ما بعد منتصف الليل تُنسب لسياق الوردية المسائية وتبقى المتأخرات ظاهرة للإدارة', () => {
+  const task = { id: 'evening-task', category: 'الصالة', shift_type: 'Evening', branch_id: MAIN_ID, frequency: 'daily', task_type: 'standard' };
+  const staff = { id: 'waiter-evening', role: 'Waiter', shift_type: 'Evening' };
+  const atOneAm = atRiyadh('2026-11-17T01:00:00+03:00');
+  assert.equal(dashboard.logInsideShift({ created_at: '2026-11-17T01:15:00+03:00' }, 'Evening', {}, atOneAm), true);
+  assert.equal(dashboard.logInsideShift({ created_at: '2026-11-17T14:00:00+03:00' }, 'Evening', {}, atOneAm), false);
+  const context = { branchId: MAIN_ID, branchName: 'زام الرئيسي', shiftType: 'Evening', now: atRiyadh('2026-11-17T04:00:00+03:00') };
+  assert.equal(dashboard.tasksForEmployee([task], staff, context).length, 0, 'employee checklist is hidden after the one-hour grace');
+  assert.equal(dashboard.dashboardTasks({ ...context, templates: [task], staff: [staff], currentUserRole: 'Manager' }).length, 1, 'manager still sees the unfinished shift task');
 });
 
 test('إنشاء الجولة الساعية خادمي فقط: لا يقبل هوية أو فرعًا أو ساعة من المتصفح ويتحقق من صورة المالك', () => {
@@ -291,7 +325,7 @@ test('إنشاء الجولة الساعية خادمي فقط: لا يقبل ه
   assert.match(migration, /CREATE POLICY "Users can update own logs"[\s\S]*?USING \(executed_by = \(SELECT auth\.uid\(\)\) AND branch_id = public\.current_user_branch_id\(\)\)[\s\S]*?WITH CHECK \([\s\S]*?branch_id = public\.current_user_branch_id\(\)[\s\S]*?NOT public\.is_hourly_checklist_template\(template_id\)/i);
   assert.match(schema, /create or replace function public\.create_hourly_checklist_log\([\s\S]*?set search_path = ''/i);
   assert.match(schema, /not public\.is_hourly_checklist_template\(template_id\)/i);
-  assert.match(schema, /v_expected_shift := case[\s\S]*?when v_profile\.shift_type in \('Morning', 'Evening'\)[\s\S]*?extract\(hour from v_local_now\) >= 16/i);
+  assert.match(schema, /v_expected_shift := case[\s\S]*?when v_profile\.shift_type in \('Morning', 'Evening'\)[\s\S]*?\) >= 930 then 'Evening'/i);
   assert.match(schema, /grant select on hourly_checklist_logs to authenticated/i);
   assert.doesNotMatch(schema, /grant select, insert on hourly_checklist_logs/i);
 });

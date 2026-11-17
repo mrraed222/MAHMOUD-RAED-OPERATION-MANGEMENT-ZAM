@@ -30,8 +30,10 @@
   function tasksForEmployee(templates, employee, {
     branchId,
     branchName,
+    branchHours,
     categoriesBy = {},
     shiftType,
+    includeExpired = false,
     now = new Date()
   } = {}) {
     if (!employee || !shiftType) return [];
@@ -39,21 +41,25 @@
       role: employee.role,
       branchId,
       branchName,
+      branchHours,
       categories: assignedCategories(employee, categoriesBy),
       shiftType
     };
+    const isVisible = includeExpired
+      ? schedule.isTemplateScheduledForEmployee
+      : schedule.isTemplateVisibleForEmployee;
     return (templates || []).filter(task =>
-      task && task.is_active !== false &&
-      schedule.isTemplateVisibleForEmployee(task, context, now)
+      task && task.is_active !== false && isVisible(task, context, now)
     );
   }
 
-  function isSupervisorTaskVisible(task, { branchId, shiftType, now = new Date() } = {}) {
-    return task && task.is_active !== false && task.task_type === 'inventory_request' &&
-      (!task.branch_id || task.branch_id === branchId) &&
-      [shiftType, 'Both'].includes(task.shift_type) &&
-      schedule.isTaskDueToday(task, now) &&
-      schedule.isInventoryTaskVisible(task, now);
+  function isSupervisorTaskVisible(task, { branchId, branchHours, shiftType, includeExpired = false, now = new Date() } = {}) {
+    if (!task || task.is_active === false || task.task_type !== 'inventory_request') return false;
+    if (task.branch_id && task.branch_id !== branchId) return false;
+    if (!shiftType || ![shiftType, 'Both'].includes(task.shift_type)) return false;
+    return includeExpired
+      ? schedule.isInventoryTaskScheduled(task, now, branchHours, shiftType)
+      : schedule.isInventoryTaskVisible(task, now, branchHours, shiftType);
   }
 
   function dashboardTasks({
@@ -62,19 +68,26 @@
     categoriesBy = {},
     branchId,
     branchName,
+    branchHours,
     shiftType,
     currentUserRole,
     now = new Date()
   } = {}) {
     const tasksById = new Map();
+    // Branch totals represent due work, not only categories with an active employee profile.
+    (templates || []).filter(task =>
+      schedule.isTemplateVisibleInBranch(task, { branchId, branchName, branchHours, shiftType }, now)
+    ).forEach(task => tasksById.set(task.id, task));
+
     (staff || []).filter(employee => isEmployeeOnShift(employee, shiftType)).forEach(employee => {
-      tasksForEmployee(templates, employee, { branchId, branchName, categoriesBy, shiftType, now })
+      // Manager summaries retain due tasks after the employee-facing deadline.
+      tasksForEmployee(templates, employee, { branchId, branchName, branchHours, categoriesBy, shiftType, includeExpired: true, now })
         .forEach(task => tasksById.set(task.id, task));
     });
 
     // Only an active Supervisor can complete inventory requests through the guarded RPC.
     if (currentUserRole === 'Supervisor') {
-      (templates || []).filter(task => isSupervisorTaskVisible(task, { branchId, shiftType, now }))
+      (templates || []).filter(task => isSupervisorTaskVisible(task, { branchId, branchHours, shiftType, includeExpired: true, now }))
         .forEach(task => tasksById.set(task.id, task));
     }
     return [...tasksById.values()];
@@ -87,18 +100,24 @@
 
   function logMatchesShift(log, task, shiftType) {
     if (log.shift_type) return log.shift_type === shiftType;
-    // A legacy no-shift log is attributable only to a single-shift template;
-    // never let it mark a Both-shifts task complete in both shifts.
     return task.shift_type !== 'Both' && task.shift_type === shiftType;
+  }
+
+  function logInsideShift(log, shiftType, branchHours, now) {
+    const window = schedule.getShiftWindow(shiftType, branchHours, now);
+    if (!window.valid) return false;
+    if (!log?.created_at) return String(log?.execution_date).slice(0, 10) === window.businessDate;
+    const createdAt = Date.parse(log.created_at);
+    return Number.isFinite(createdAt) && createdAt >= window.startAt.getTime() && createdAt < window.graceEndAt.getTime();
   }
 
   function completedTaskKeys(tasks, logs, hourlyLogs, {
     branchId,
+    branchHours,
     shiftType,
     now = new Date(),
     executedBy = null
   } = {}) {
-    const riyadhDate = schedule.riyadhDateString(now);
     const currentHour = schedule.riyadhParts(now).hour;
     const completed = new Set();
 
@@ -106,9 +125,9 @@
       const key = taskKey(task, now);
       if (task.frequency === 'hourly') {
         const found = (hourlyLogs || []).some(log =>
-          log.template_id === task.id && log.branch_id === branchId &&
-          String(log.execution_date).slice(0, 10) === riyadhDate &&
+          String(log.template_id) === String(task.id) && log.branch_id === branchId &&
           Number(log.occurrence_hour) === currentHour && log.shift_type === shiftType &&
+          logInsideShift(log, shiftType, branchHours, now) &&
           (!executedBy || log.executed_by === executedBy) && isCompleted(log)
         );
         if (found) completed.add(key);
@@ -116,9 +135,8 @@
       }
 
       const found = (logs || []).some(log =>
-        log.template_id === task.id && log.branch_id === branchId &&
-        String(log.execution_date).slice(0, 10) === riyadhDate &&
-        logMatchesShift(log, task, shiftType) &&
+        String(log.template_id) === String(task.id) && log.branch_id === branchId &&
+        logMatchesShift(log, task, shiftType) && logInsideShift(log, shiftType, branchHours, now) &&
         (!executedBy || log.executed_by === executedBy) && isCompleted(log)
       );
       if (found) completed.add(key);
@@ -127,23 +145,33 @@
   }
 
   function branchProgress({
-    templates, staff, categoriesBy = {}, branchId, branchName = '', logs = [], hourlyLogs = [], now = new Date()
+    templates, staff, categoriesBy = {}, branchId, branchName = '', branchHours = {}, logs = [], hourlyLogs = [], now = new Date()
   } = {}) {
-    const result = { total: 0, done: 0, pct: null, byShift: {} };
+    const result = {
+      total: 0, done: 0, pct: null, nonHourlyPct: null,
+      hourlyTemplateCount: 0, hourlyShiftPairs: 0, incompleteHourly: false, byShift: {}
+    };
     if (!branchId) return result;
     ['Morning', 'Evening'].forEach(shiftType => {
-      const shiftStaff = (staff || []).filter(employee => employee.branch_id === branchId && isEmployeeOnShift(employee, shiftType));
-      const tasks = dashboardTasks({
-        templates, staff: shiftStaff, categoriesBy, branchId, branchName, shiftType,
-        currentUserRole: 'Manager', now
-      });
-      const completed = completedTaskKeys(tasks, logs, hourlyLogs, { branchId, shiftType, now });
-      const done = tasks.filter(task => completed.has(taskKey(task, now))).length;
-      result.byShift[shiftType] = { total: tasks.length, done };
-      result.total += tasks.length;
+      const context = { branchId, branchName, branchHours, shiftType };
+      const applicable = (templates || []).filter(task =>
+        schedule.isTemplateVisibleInBranch(task, context, now)
+      );
+      const hourly = applicable.filter(task => String(task.frequency || '').toLowerCase() === 'hourly');
+      const ordinary = applicable.filter(task => String(task.frequency || '').toLowerCase() !== 'hourly');
+      const completed = completedTaskKeys(ordinary, logs, [], { branchId, branchHours, shiftType, now });
+      const done = ordinary.filter(task => completed.has(taskKey(task, now))).length;
+      result.byShift[shiftType] = { total: ordinary.length, done, hourlyTemplates: hourly.length };
+      result.total += ordinary.length;
       result.done += done;
+      result.hourlyShiftPairs += hourly.length;
+      hourly.forEach(task => { result._hourlyIds = result._hourlyIds || new Set(); result._hourlyIds.add(String(task.id)); });
     });
-    result.pct = result.total ? Math.round(result.done / result.total * 100) : null;
+    result.hourlyTemplateCount = result._hourlyIds ? result._hourlyIds.size : 0;
+    delete result._hourlyIds;
+    result.incompleteHourly = result.hourlyTemplateCount > 0;
+    result.nonHourlyPct = result.total ? Math.round(result.done / result.total * 100) : null;
+    result.pct = result.incompleteHourly ? null : result.nonHourlyPct;
     return result;
   }
 
@@ -154,6 +182,8 @@
     isSupervisorTaskVisible,
     dashboardTasks,
     taskKey,
+    logMatchesShift,
+    logInsideShift,
     completedTaskKeys,
     branchProgress
   };

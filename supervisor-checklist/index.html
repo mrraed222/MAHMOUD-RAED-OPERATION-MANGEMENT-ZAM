@@ -2,8 +2,8 @@
 <html class="light" dir="rtl" lang="ar"><head>
 <meta charset="utf-8"/><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/checklist-schedule.js?v=20261116205000"></script>
-<script src="../assets/supabase-config.js?v=20261116205000"></script>
+<script src="../assets/checklist-schedule.js?v=20261117170500"></script>
+<script src="../assets/supabase-config.js?v=20261117165000"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // صفحة قوائم المهام مخصصة للمشرفين — المالك/الأدمن يتابعان الأداء من الداشبورد
@@ -248,7 +248,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   <img id="modal-img" src="" class="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"/>
 </div>
 <script>
-let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : (ZamChecklistSchedule.riyadhParts().hour < 16 ? 'Morning' : 'Evening');
+let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : (ZamChecklistSchedule.riyadhMinuteOfDay() < ZamChecklistSchedule.EVENING_START_MINUTE ? 'Morning' : 'Evening');
 let currentCategory = '';
 let activeSubTab = 'my-tasks'; // الصفحة الآن لمهام المشرف فقط — متابعة الفريق في داشبورد الفرع
 
@@ -328,7 +328,7 @@ function scheduleInventoryTaskVisibility() {
     const nowMinute = parts.hour * 60 + parts.minute;
     let targetMinute = null;
     if (currentShift === 'Morning') targetMinute = nowMinute < 12 * 60 ? 12 * 60 : 36 * 60;
-    if (currentShift === 'Evening') targetMinute = nowMinute < 16 * 60 ? 16 * 60 : 24 * 60;
+    if (currentShift === 'Evening') targetMinute = nowMinute < ZamChecklistSchedule.EVENING_START_MINUTE ? ZamChecklistSchedule.EVENING_START_MINUTE : 24 * 60;
     if (targetMinute === null) return;
     let minutes = targetMinute - nowMinute;
     if (minutes <= 0) minutes += 24 * 60;
@@ -346,13 +346,13 @@ function renderChecklist(templates, logsByTemplate) {
     } else {
         filteredTemplates = templates.filter(t => !['المشرف', 'إشراف', 'مهام المشرفين'].includes(t.category));
     }
-    if (activeSubTab === 'my-tasks') {
-        if (currentShift === 'Evening') {
-            filteredTemplates.sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
-        } else {
-            filteredTemplates.sort((a, b) => String(a.target_time || '99:99').slice(0, 5).localeCompare(String(b.target_time || '99:99').slice(0, 5)));
-        }
-    }
+    filteredTemplates.sort((a, b) => {
+        const weeklyOrder = Number(a.frequency === 'weekly') - Number(b.frequency === 'weekly');
+        if (weeklyOrder) return weeklyOrder;
+        if (activeSubTab !== 'my-tasks') return 0;
+        if (currentShift === 'Evening') return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+        return String(a.target_time || '99:99').slice(0, 5).localeCompare(String(b.target_time || '99:99').slice(0, 5));
+    });
     if (!filteredTemplates.length) {
         container.innerHTML = `<p class="p-md text-on-surface-variant text-body-sm text-center">لا توجد مهام ${activeSubTab === 'my-tasks' ? 'إشرافية خاصة بك' : 'للفريق لربطها بمتابعتك'} مسندة في هذه الوردية حالياً.</p>`;
         progressLabel.textContent = 'لا توجد مهام';
@@ -360,16 +360,20 @@ function renderChecklist(templates, logsByTemplate) {
     }
     const done = filteredTemplates.filter(t => logsByTemplate[t.id]).length;
     progressLabel.textContent = `تم إنجاز ${done} من ${filteredTemplates.length} مهام`;
-    container.innerHTML = filteredTemplates.map(item => {
+    const renderTaskCard = item => {
         const log = logsByTemplate[item.id];
         const completed = !!log;
+        const weekDays = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+        const selectedDays = item.day_of_week !== null && item.day_of_week !== undefined ? [Number(item.day_of_week)] : [];
+        const weeklyLabel = item.frequency === 'weekly' && selectedDays.length
+            ? `<span class="rounded-full bg-secondary-container px-sm py-[2px] text-[11px] font-bold text-on-secondary-container">أسبوعي · ${selectedDays.filter(day => day >= 0 && day <= 6).map(day => weekDays[day]).join('، ')}</span>` : '';
         if (activeSubTab === 'my-tasks' && item.task_type === 'fridge_temps') {
             return `
-            <div class="p-md ${completed ? 'bg-tertiary-fixed/10' : ''}">
+            <div class="checklist-item rounded-xl border border-outline-variant p-md ${completed ? 'bg-tertiary-fixed/10' : 'bg-surface-container-lowest'}">
                 <div class="flex items-center gap-md">
                     <span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-outline'}">${completed ? 'check_circle' : 'device_thermostat'}</span>
                     <div class="flex-1">
-                        <h4 class="font-body-lg font-bold text-on-surface">${escHtml(item.task_title)}</h4>
+                        <div class="flex flex-wrap items-center gap-xs"><h4 class="font-body-lg font-bold text-on-surface">${escHtml(item.task_title)}</h4>${weeklyLabel}</div>
                         ${item.target_time ? `<p class="text-[11px] font-bold text-secondary">موعد التنفيذ: ${escHtml(String(item.target_time).slice(0, 5))}</p>` : ''}
                         ${item.instructions ? `<p class="text-body-sm text-on-surface-variant">${escHtml(item.instructions)}</p>` : ''}
                     </div>
@@ -381,14 +385,14 @@ function renderChecklist(templates, logsByTemplate) {
         }
         if (activeSubTab === 'my-tasks') {
             return `
-            <div class="checklist-item p-md ${completed ? 'bg-tertiary-fixed/10' : ''}">
+            <div class="checklist-item rounded-xl border border-outline-variant p-md ${completed ? 'bg-tertiary-fixed/10' : 'bg-surface-container-lowest'}">
                 <div class="flex items-center justify-between gap-md">
                     <div class="flex items-center gap-md flex-1">
                         ${item.task_type === 'inventory_request'
                             ? `<span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-primary'}">${completed ? 'task_alt' : 'inventory_2'}</span>`
                             : `<input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${escHtml(item.id)}" ${completed ? 'checked disabled' : ''}/>`}
                         <div class="flex-1">
-                            <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${escHtml(item.task_title)}</h4>
+                            <div class="flex flex-wrap items-center gap-xs"><h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${escHtml(item.task_title)}</h4>${weeklyLabel}</div>
                             ${item.target_time ? `<p class="text-[11px] font-bold text-secondary">موعد التنفيذ: ${escHtml(String(item.target_time).slice(0, 5))}</p>` : ''}
                             ${item.instructions ? `<p class="text-body-sm text-on-surface-variant">${escHtml(item.instructions)}</p>` : ''}
                             ${item.task_type === 'inventory_request' ? `<a href="../inventory-requests/index.html?shift=${currentShift}" class="mt-2 inline-flex items-center gap-1 rounded-lg bg-secondary-container px-3 py-2 text-sm font-bold text-primary"><span class="material-symbols-outlined text-base">open_in_new</span> فتح صفحة الجرد والطلبيات</a>` : ''}
@@ -414,7 +418,7 @@ function renderChecklist(templates, logsByTemplate) {
             </div>`;
         } else {
             return `
-            <div class="checklist-item group flex items-center justify-between p-md hover:bg-surface-container-low transition-all">
+            <div class="checklist-item group flex items-center justify-between rounded-xl border border-outline-variant bg-surface-container-lowest p-md hover:bg-surface-container-low transition-all">
                 <div class="flex items-center gap-md">
                     <span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-outline'}">${completed ? 'check_circle' : 'radio_button_unchecked'}</span>
                     <div>
@@ -425,6 +429,26 @@ function renderChecklist(templates, logsByTemplate) {
                 ${log && log.photo_url ? `<button class="text-primary hover:underline zoomable-btn flex items-center gap-1" data-src="${escHtml(safeImageUrl(log.photo_url))}"><span class="material-symbols-outlined">image</span> عرض الصورة</button>` : ''}
             </div>`;
         }
+    };
+    const templatesByCategory = new Map();
+    filteredTemplates.forEach(item => {
+        const category = item.category || 'مهام أخرى';
+        if (!templatesByCategory.has(category)) templatesByCategory.set(category, []);
+        templatesByCategory.get(category).push(item);
+    });
+    container.innerHTML = [...templatesByCategory.entries()].sort(([a], [b]) => a.localeCompare(b, 'ar')).map(([category, items], index) => {
+        const routine = items.filter(item => item.frequency !== 'weekly');
+        const weekly = items.filter(item => item.frequency === 'weekly');
+        return `<details class="mb-sm overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-sm" ${index === 0 ? 'open' : ''}>
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-sm bg-surface-container-low px-md py-md hover:bg-surface-container transition-colors">
+            <span class="flex min-w-0 items-center gap-sm"><span class="material-symbols-outlined text-primary" aria-hidden="true">checklist</span><span class="truncate font-bold text-body-lg text-on-surface">${escHtml(category)}</span></span>
+            <span class="flex shrink-0 items-center gap-sm text-[12px] font-bold text-on-surface-variant"><span>${items.length} مهمة</span><span class="material-symbols-outlined text-primary" aria-hidden="true">expand_more</span></span>
+          </summary>
+          <div class="space-y-sm p-sm sm:p-md">
+            ${routine.length ? `<section><h3 class="mb-xs border-b border-outline-variant pb-xs text-[12px] font-bold text-on-surface-variant">مهام الوردية</h3><div class="space-y-xs">${routine.map(renderTaskCard).join('')}</div></section>` : ''}
+            ${weekly.length ? `<section class="border-t border-outline-variant pt-sm"><h3 class="mb-xs text-[12px] font-bold text-primary">القائمة الأسبوعية (${weekly.length})</h3><div class="space-y-xs">${weekly.map(renderTaskCard).join('')}</div></section>` : ''}
+          </div>
+        </details>`;
     }).join('');
 
     if (activeSubTab === 'my-tasks') {

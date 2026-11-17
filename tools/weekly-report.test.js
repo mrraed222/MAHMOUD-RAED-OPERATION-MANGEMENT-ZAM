@@ -14,6 +14,34 @@ function testScheduleRules() {
   assert.equal(metrics.isTaskScheduled({ frequency: 'monthly', day_of_month: 31 }, '2026-02-27'), false);
 }
 
+function testCalendarSessionsWithoutReportsAndFilters() {
+  const range = { from: '2026-01-19', to: '2026-01-20' };
+  const branches = [
+    { id: 'b1', created_at: '2026-01-19T00:00:00Z' },
+    { id: 'b2', created_at: '2026-01-19T00:00:00Z' },
+  ];
+  const all = metrics.expectedSessions(range, branches, { today: '2026-01-20', shiftFilter: 'Both' });
+  assert.equal(all.sessions.length, 8, 'expected sessions come from branch calendar even when no shift report exists');
+  assert.equal(all.sessions.filter(s => s.branch === 'b1' && s.date === '2026-01-19').length, 2, 'Both creates distinct morning and evening sessions');
+
+  const filtered = metrics.expectedSessions(range, branches, {
+    today: '2026-01-20', shiftFilter: 'Evening', branchFilter: 'b2',
+  });
+  assert.deepEqual(filtered.sessions, [
+    { date: '2026-01-19', branch: 'b2', shift: 'Evening' },
+    { date: '2026-01-20', branch: 'b2', shift: 'Evening' },
+  ], 'branch and shift filters must scope expected sessions');
+
+  const missingCreatedAt = metrics.expectedSessions(range, [{ id: 'b3' }], { today: '2026-01-20', shiftFilter: 'All' });
+  const coverage = metrics.calculateCompliance(
+    [{ id: 'global', shift_type: 'Both', frequency: 'daily' }], missingCreatedAt.sessions, [],
+    { unknownBranchIds: missingCreatedAt.unknownBranches }
+  );
+  assert.equal(coverage.coverageIncomplete, true, 'unknown branch start dates must make coverage explicitly incomplete');
+  assert.equal(coverage.pct, null, 'do not publish a total ratio when coverage is incomplete');
+  assert.ok(coverage.reasons.includes('branch_creation_date_missing'));
+}
+
 function testComplianceByActualShiftSessions() {
   const templates = [
     { id: 1, task_title: 'صباح يومي', frequency: 'daily', shift_type: 'Morning', is_active: true },
@@ -41,6 +69,9 @@ function testComplianceByActualShiftSessions() {
   ];
   const result = metrics.calculateCompliance(templates, sessions, logs, { branches: ['b1'], shiftFilter: 'all' });
   assert.equal(result.hourlyExcluded, 1, 'hourly templates must be disclosed rather than guessed');
+  assert.equal(result.coverageIncomplete, true, 'hourly templates make the total compliance coverage incomplete');
+  assert.equal(result.pct, null, 'the non-hourly ratio must not be presented as an overall percentage');
+  assert.equal(result.nonHourlyPct, 25, 'the available non-hourly segment remains measurable');
   assert.equal(result.stats.reduce((n, x) => n + x.total, 0), 8, 'Both tasks should be due separately in morning/evening sessions');
   assert.equal(result.stats.reduce((n, x) => n + x.done, 0), 2, 'duplicate and wrong-shift logs must not inflate completion');
   assert.equal(result.stats.reduce((n, x) => n + x.flagged, 0), 1);
@@ -88,6 +119,13 @@ function testReportWiringAndPrintSafety() {
   assert.match(core, /METRICS\.topIncomplete\(tpl, 5\)/);
   assert.match(core, /غير مكتمل '\+pending/);
   assert.match(core, /comp\.hourlyExcluded/);
+  assert.match(core, /النسبة الإجمالية غير مكتملة؛ الجزء غير الساعي/);
+  assert.match(core, /غياب أرشيف تاريخي للقوالب/);
+  assert.match(core, /complianceNonHourlyExpected/);
+  assert.match(core, /complianceHourlyTemplateCount/);
+  assert.match(core, /complianceReasons/);
+  assert.match(core, /تفاصيل التغطية/);
+  assert.match(core, /لا تمثل عدد الوقوعات/);
   assert.match(core, /var visits = filterRows\(SRC\.visits, r, true, true\)/, 'visit KPIs and the report must honor the selected shift');
   assert.match(core, /el\.textContent = String\(v\)/, 'restored note values must be text, not HTML');
   assert.doesNotMatch(core, /stockImpact|أثر نفاد المنتجات على التشغيل/);
@@ -108,6 +146,112 @@ function testReportWiringAndPrintSafety() {
   assert.match(html, /\.waste-log-table th, \.waste-log-table td/);
   assert.match(html, /\.print-pane \.grid\[class\*="md:grid-cols-4"\]/);
   assert.match(html, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+}
+
+function testIssuesComplaintsAndSupervisorForm() {
+  const core = fs.readFileSync(path.join(__dirname, '..', 'assets', 'weekly-report-core.js'), 'utf8');
+  const form = fs.readFileSync(path.join(__dirname, '..', 'daily-report', 'index.html'), 'utf8');
+  const api = fs.readFileSync(path.join(__dirname, '..', 'assets', 'supabase-config.js'), 'utf8');
+  assert.doesNotMatch(core, /attendance_records|SRC\.attendance|Jisr|بصمة/);
+  assert.match(core, /q\('technical_issues', 'id,branch_id,title,description,priority,status,created_at,source'\)/);
+  assert.match(core, /filterRows\(SRC\.technicalIssues \|\| \[\], r, true, false\)/, 'technical reports have no shift filter field');
+  assert.match(core, /isStaffShortageIssue\(issue\)/);
+  assert.match(core, /isIssueType\(issue, 'موظف'\)/, 'staff shortage classification must use issue_type=موظف');
+  assert.match(core, /norm\(x\.review_type\)\.toLowerCase\(\)/, 'normalize review type before isolating complaints');
+  assert.match(form, /issue_type: 'issue-type'/);
+  assert.match(form, /option value="موظف">موظف \/ نقص كادر/);
+  assert.match(form, /اختر نوع كل مشكلة قبل إرسال التقرير/);
+  assert.match(form, /review-status/);
+  assert.match(form, /review-owner/);
+  assert.match(form, /review-action/);
+  assert.match(form, /reviewType\.value === 'negative'/, 'complaint fields must not appear active for positive reviews');
+  assert.match(form, /status: r\.review_type === 'negative'/);
+  assert.match(form, /owner: r\.review_type === 'negative'/);
+  assert.match(form, /action_taken: r\.review_type === 'negative'/);
+  const copyCallCount = (form.match(/functions\.invoke\('send-report-copy'/g) || []).length;
+  assert.equal(copyCallCount, 1, 'the report copy must be requested exactly once');
+  assert.doesNotMatch(api, /functions\.invoke\('send-report-copy'/, 'the save API must not send before reviews are saved');
+  assert.ok(form.indexOf("functions.invoke('send-report-copy'") > form.indexOf("from('negative_reviews').insert"), 'send the report copy only after reviews are saved');
+  assert.match(form, /const \{ error: reviewError \}/, 'review insert errors must not be silently ignored');
+  assert.match(form, /sessionStorage\.setItem\(submissionKey/);
+  assert.match(form, /لتجنب التكرار/);
+  assert.match(form, /await ZamAPI\.getDailyReportMatches\(\{/);
+  assert.match(form, /تعذّر التحقق من وجود تقرير سابق؛ لم يتم الإرسال/);
+  assert.match(form, /existingReportGuards\.set\(submissionKey, existingId\)/);
+  assert.match(form, /if \(reportSubmitting\) return/);
+  assert.ok(form.indexOf('await ZamAPI.getDailyReportMatches') < form.indexOf('await ZamAPI.submitDailyReport'), 'duplicate lookup must complete before any report insert');
+  assert.match(form, /const canEditComplaints = \['Owner', 'Supervisor', 'Manager', 'Admin'\]/);
+  assert.match(form, /const canResolveTechnicalIssues = \['Owner', 'Manager', 'Admin'\]/);
+  assert.match(form, /const branchId = canViewAllTechnicalIssues \? null : currentUser\.branch_id/);
+  assert.match(form, /action_taken: row\.querySelector\('\.complaint-action'\)/);
+  assert.match(form, /ZamAPI\.updateTechnicalIssue\(btn\.dataset\.id/);
+  assert.match(api, /async getDailyReportMatches\(\{ branchId, reportDate, shiftType \}\)/);
+  assert.match(api, /const sheetKey = `zam-web-daily-report-v1:/);
+  assert.match(api, /sheet_key: sheetKey/);
+  assert.match(api, /duplicate\.duplicateReport = true/);
+  assert.match(form, /if \(err && err\.duplicateReport\)/);
+  assert.match(api, /async updateTechnicalIssue\(id, \{ status \}\)/);
+  assert.doesNotMatch(api, /description: String\(description \|\| ''\)/, 'technical status updates must preserve the original description');
+  assert.doesNotMatch(form, /technical-description/, 'the technical issue description must remain read-only until a separate notes field is available');
+  assert.match(form, /حفظ الحالة/);
+  assert.match(form, /min-w-\[760px\]/);
+  assert.match(form, /min-w-\[660px\]/);
+  assert.match(api, /wrapped\.reportId = report\.id/);
+  assert.match(api, /wrapped\.partialSave = true/);
+}
+
+function testReportFormRestoresAfterIssueTypeRejection() {
+  const form = fs.readFileSync(path.join(__dirname, '..', 'daily-report', 'index.html'), 'utf8');
+  const helperStart = form.indexOf('function restoreReportSubmissionForm(');
+  const helperEnd = form.indexOf('\n        }', helperStart);
+  assert.ok(helperStart >= 0 && helperEnd > helperStart, 'the shared form-restoration helper should exist');
+  const helperSource = form.slice(helperStart, helperEnd + '\n        }'.length);
+
+  function runRestore(knownId) {
+    const button = {
+      disabled: true,
+      textContent: 'جارِ التحقق...',
+      title: 'مؤقت',
+      removeAttribute(name) { if (name === 'title') this.title = ''; }
+    };
+    const dateInput = { disabled: true, value: '2026-11-17' };
+    const shiftInput = { disabled: true, value: 'Morning' };
+    const context = {
+      reportSubmitting: true,
+      button,
+      dateInput,
+      shiftInput,
+      document: { getElementById(id) { return ({ submitReportBtn: button, reportDate: dateInput, shiftType: shiftInput })[id]; } },
+      partialSubmissionKey: () => 'branch:date:shift',
+      partialSubmissionId: () => '',
+      existingReportId: () => knownId,
+      syncPartialSubmissionGuard() {
+        button.disabled = !!knownId;
+        button.textContent = knownId ? 'يوجد تقرير محفوظ — الإرسال متوقف' : 'إرسال التقرير';
+      }
+    };
+    vm.runInNewContext(`${helperSource}\nrestoreReportSubmissionForm(button, dateInput, shiftInput);`, context);
+    return { button, dateInput, shiftInput, reportSubmitting: context.reportSubmitting };
+  }
+
+  const rejected = runRestore('');
+  assert.equal(rejected.reportSubmitting, false, 'a rejected issue type must clear the submitting lock');
+  assert.equal(rejected.dateInput.disabled, false, 'report date must be editable again');
+  assert.equal(rejected.shiftInput.disabled, false, 'shift must be editable again');
+  assert.equal(rejected.button.disabled, false, 'the submit button must be available for correction');
+  assert.equal(rejected.button.textContent, 'إرسال التقرير');
+
+  const duplicate = runRestore('existing-report-id');
+  assert.equal(duplicate.dateInput.disabled, false);
+  assert.equal(duplicate.shiftInput.disabled, false);
+  assert.equal(duplicate.button.disabled, true, 'restoration must preserve the duplicate-report guard');
+  assert.match(duplicate.button.textContent, /يوجد تقرير محفوظ/);
+
+  const invalidBlockStart = form.indexOf('if (rawIssueRows.some(i => i.description && !i.issue_type))');
+  const invalidBlockEnd = form.indexOf('const issueRows =', invalidBlockStart);
+  assert.ok(invalidBlockStart >= 0 && invalidBlockEnd > invalidBlockStart);
+  assert.match(form.slice(invalidBlockStart, invalidBlockEnd), /restoreReportSubmissionForm\(btn, dateInput, shiftInput\)/,
+    'rejecting a missing issue type must use the tested restoration path');
 }
 
 function testSalesTableMobileAndPrint() {
@@ -190,6 +334,7 @@ function testPrintPeriodAndAccessibleSixTabs() {
 }
 
 testScheduleRules();
+testCalendarSessionsWithoutReportsAndFilters();
 testComplianceByActualShiftSessions();
 testTopIncompleteCap();
 testAppsScriptMappingsWithoutNetwork();
@@ -197,4 +342,6 @@ testReportWiringAndPrintSafety();
 testSalesTableMobileAndPrint();
 testVisitWiringFiltersAndTableShape();
 testPrintPeriodAndAccessibleSixTabs();
+testIssuesComplaintsAndSupervisorForm();
+testReportFormRestoresAfterIssueTypeRejection();
 console.log('weekly-report tests: all checks passed');

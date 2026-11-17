@@ -13,10 +13,10 @@
                 }
             }
         }
-    }catch(_e){}</script>
+}catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/checklist-schedule.js?v=20261116205000"></script>
-<script src="../assets/supabase-config.js?v=20261116205000"></script>
+<script src="../assets/checklist-schedule.js?v=20261117170500"></script>
+<script src="../assets/supabase-config.js?v=20261117165000"></script>
 <script>
   let currentUser = ZamSession.requireAuth('../index.html');
   // دور المالك متابعة وإدارة فقط؛ لا ينفذ قائمة مهام يومية.
@@ -110,7 +110,7 @@ document.getElementById('user-branch-label').textContent = currentUser.branches?
 
 let currentShift = ['Morning', 'Evening'].includes(currentUser.shift_type)
   ? currentUser.shift_type
-  : (ZamChecklistSchedule.riyadhParts().hour < 16 ? 'Morning' : 'Evening');
+  : (ZamChecklistSchedule.riyadhMinuteOfDay() < ZamChecklistSchedule.EVENING_START_MINUTE ? 'Morning' : 'Evening');
 if (!isSupervisorLike) {
   document.querySelectorAll('.shift-btn').forEach(b => b.style.display = b.dataset.shift === currentShift ? '' : 'none');
 }
@@ -132,7 +132,7 @@ let visibleTemplatesById = new Map();
             ZamSession.save(currentUser);
             currentShift = ['Morning', 'Evening'].includes(freshProfile.shift_type)
                 ? freshProfile.shift_type
-                : (ZamChecklistSchedule.riyadhParts().hour < 16 ? 'Morning' : 'Evening');
+                : (ZamChecklistSchedule.riyadhMinuteOfDay() < ZamChecklistSchedule.EVENING_START_MINUTE ? 'Morning' : 'Evening');
             updateShiftButtons();
             myCategories.length = 0;
             // الفئات تُقرأ من جدول employee_task_categories (يدعم تعدد الفئات)
@@ -146,6 +146,7 @@ let visibleTemplatesById = new Map();
             freshCats.forEach(c => myCategories.push(c));
             document.getElementById('user-branch-label').textContent = currentUser.branches?.name || 'بدون فرع محدد';
             loadMyChecklist();
+            scheduleChecklistRefresh();
         }
     } catch (e) {
         console.error('Error refreshing profile:', e);
@@ -167,6 +168,7 @@ document.querySelectorAll('.shift-btn').forEach(btn => {
         currentShift = btn.dataset.shift;
         updateShiftButtons();
         loadMyChecklist();
+        scheduleChecklistRefresh();
     });
 });
 
@@ -184,6 +186,16 @@ async function uploadEvidence(file) {
 
 async function saveTaskCompletion(templateId, notes = null, photo_url = null) {
     const task = visibleTemplatesById.get(templateId);
+    const visibility = {
+        role: currentUser.role,
+        branchId: currentUser.branch_id,
+        branchName: currentUser.branches?.name,
+        categories: myCategories,
+        shiftType: currentShift
+    };
+    if (!task || !ZamChecklistSchedule.isTemplateVisibleForEmployee(task, visibility, new Date())) {
+        throw new Error('انتهت مهلة تنفيذ المهمة أو لم تعد مستحقة لهذه الوردية.');
+    }
     const base = {
         template_id: templateId,
         branch_id: currentUser.branch_id,
@@ -205,6 +217,8 @@ async function loadMyChecklist() {
 
     try {
         const allTemplates = await ZamAPI.getTemplates(null, currentShift, currentUser.branch_id);
+        const now = new Date();
+        const shiftWindow = ZamChecklistSchedule.getShiftWindow(currentShift, {}, now);
         const visibility = {
             role: currentUser.role,
             branchId: currentUser.branch_id,
@@ -212,16 +226,23 @@ async function loadMyChecklist() {
             categories: myCategories,
             shiftType: currentShift
         };
-        const templates = allTemplates.filter(t => ZamChecklistSchedule.isTemplateVisibleForEmployee(t, visibility));
+        const scheduledTemplates = allTemplates.filter(t => ZamChecklistSchedule.isTemplateScheduledForEmployee(t, visibility, now));
+        const templates = scheduledTemplates.filter(t => ZamChecklistSchedule.isTemplateVisibleForEmployee(t, visibility, now));
+        const summaryTemplates = shiftWindow.valid && now.getTime() >= shiftWindow.startAt.getTime() ? scheduledTemplates : [];
         visibleTemplatesById = new Map(templates.map(task => [task.id, task]));
-        const today = ZamChecklistSchedule.riyadhDateString();
         const [logs, hourlyLogs] = await Promise.all([
-            ZamAPI.getTodayLogs(currentUser.branch_id),
-            ZamAPI.getHourlyChecklistLogs({ branchId: currentUser.branch_id, date: today })
+            ZamAPI.getChecklistLogs({ branchId: currentUser.branch_id, dateFrom: shiftWindow.dateFrom, dateTo: shiftWindow.dateTo, shiftType: currentShift }),
+            ZamAPI.getHourlyChecklistLogs({ branchId: currentUser.branch_id, dateFrom: shiftWindow.dateFrom, dateTo: shiftWindow.dateTo, shiftType: currentShift })
         ]);
+        const logBelongsToShift = log => {
+            const created = Date.parse(log.created_at || '');
+            if (Number.isFinite(created)) return created >= shiftWindow.startAt.getTime() && created < shiftWindow.graceEndAt.getTime();
+            return String(log.execution_date).slice(0, 10) === shiftWindow.businessDate;
+        };
         const logsByTemplate = {};
         logs.forEach(l => {
-            const task = visibleTemplatesById.get(l.template_id);
+            if (!logBelongsToShift(l)) return;
+            const task = scheduledTemplates.find(item => String(item.id) === String(l.template_id));
             const matchesShift = l.shift_type
                 ? l.shift_type === currentShift
                 : !!task && task.shift_type !== 'Both' && task.shift_type === currentShift;
@@ -229,20 +250,22 @@ async function loadMyChecklist() {
         });
         const currentHour = ZamChecklistSchedule.riyadhParts().hour;
         hourlyLogs.forEach(l => {
-            if (Number(l.occurrence_hour) === currentHour && l.shift_type === currentShift) logsByTemplate[l.template_id] = l;
+            if (Number(l.occurrence_hour) === currentHour && l.shift_type === currentShift && logBelongsToShift(l)) logsByTemplate[l.template_id] = l;
         });
 
         if (!templates.length) {
-            container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">لا توجد مهام مسندة لهذه الوردية حالياً.</p>';
-            progressLabel.textContent = '';
-            return;
+            const message = summaryTemplates.length
+                ? 'انتهت مهلة عرض المهام لهذه الوردية؛ راجع حالة الإنجاز في ملخص الإدارة.'
+                : 'لا توجد مهام مستحقة أو متاحة لهذه الوردية الآن.';
+            container.innerHTML = `<p class="p-md text-on-surface-variant text-body-sm">${message}</p>`;
+            progressLabel.textContent = summaryTemplates.length ? 'انتهت مهلة العرض — تبقى المهام غير المكتملة في الملخص' : '';
+        } else {
+            const done = templates.filter(t => logsByTemplate[t.id]).length;
+            progressLabel.textContent = `تم إنجاز ${done} من ${templates.length} مهام`;
         }
 
-        const done = templates.filter(t => logsByTemplate[t.id]).length;
-        progressLabel.textContent = `تم إنجاز ${done} من ${templates.length} مهام`;
-
         // تفعيل كارت إرسال الإيميل للإدارة
-        document.getElementById('email-summary-card').classList.remove('hidden');
+        document.getElementById('email-summary-card').classList.toggle('hidden', !summaryTemplates.length);
         const sendBtn = document.getElementById('send-summary-email-btn');
         sendBtn.onclick = async () => {
             sendBtn.disabled = true;
@@ -255,9 +278,9 @@ async function loadMyChecklist() {
 
                 if (!emails.length) emails.push('operations@zam.sa');
 
-                const completedCount = templates.filter(t => logsByTemplate[t.id]).length;
+                const completedCount = summaryTemplates.filter(t => logsByTemplate[t.id]).length;
 
-                let tasksHtml = templates.map(t => {
+                let tasksHtml = summaryTemplates.map(t => {
                     const comp = !!logsByTemplate[t.id];
                     const log = logsByTemplate[t.id];
                     return `
@@ -285,7 +308,8 @@ async function loadMyChecklist() {
                             <p style="margin: 5px 0;"><strong>👤 الموظف:</strong> ${currentUser.full_name}</p>
                             <p style="margin: 5px 0;"><strong>📍 الفرع:</strong> ${currentUser.branches?.name || 'بدون فرع'}</p>
                             <p style="margin: 5px 0;"><strong>⏰ الوردية:</strong> ${currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية'}</p>
-                            <p style="margin: 5px 0;"><strong>📊 نسبة الإنجاز:</strong> تم إنجاز ${completedCount} من أصل ${templates.length} مهام</p>
+                            <p style="margin: 5px 0;"><strong>📅 تاريخ الوردية:</strong> ${shiftWindow.businessDate}</p>
+                            <p style="margin: 5px 0;"><strong>📊 نسبة الإنجاز:</strong> تم إنجاز ${completedCount} من أصل ${summaryTemplates.length} مهام</p>
                         </div>
 
                         <table style="width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0; text-align: right;">
@@ -324,23 +348,37 @@ async function loadMyChecklist() {
             }
         };
 
-        container.innerHTML = templates.map(t => {
+        const checklistEsc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const checklistWeekDays = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+        const getWeeklyDays = task => {
+            const day = Number(task.day_of_week);
+            return Number.isInteger(day) && day >= 0 && day <= 6 ? [day] : [];
+        };
+        function renderStaffTask(t) {
             const log = logsByTemplate[t.id];
             const completed = !!log;
+            const taskId = checklistEsc(t.id);
+            const frequencyLabel = { daily: 'يومي', hourly: 'كل ساعة', weekly: 'أسبوعي', monthly: 'شهري' }[t.frequency || 'daily'];
+            const weeklyDay = t.frequency === 'weekly' && getWeeklyDays(t).length
+                ? ` · ${getWeeklyDays(t).map(day => checklistWeekDays[day]).join('، ')}` : '';
             return `
-            <div class="checklist-item p-md ${completed ? 'bg-tertiary-fixed/10' : ''}">
+            <div class="checklist-item rounded-xl p-md ${completed ? 'bg-tertiary-fixed/10' : 'bg-surface-container-lowest'}">
                 <div class="flex items-center justify-between gap-md">
                     <div class="flex items-center gap-md flex-1">
-                        <input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${t.id}" ${completed ? 'checked disabled' : ''}/>
+                        <input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${taskId}" ${completed ? 'checked disabled' : ''}/>
                         <div class="flex-1">
-                            <h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${t.task_title}</h4>
-                    ${t.frequency === 'hourly' ? '<p class="text-body-sm text-secondary">مهمة تتكرر كل ساعة — يُسجّل إنجاز هذه الساعة فقط</p>' : ''}
-                    ${t.requires_photo ? '<p class="text-body-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-sm">photo_camera</span> يتطلب صورة إثبات</p>' : ''}
+                            <h4 class="font-body-lg font-bold text-on-surface leading-6 ${completed ? 'line-through opacity-60' : ''}">${checklistEsc(t.task_title)}</h4>
+                            <div class="mt-xs flex flex-wrap items-center gap-xs">
+                              <span class="rounded-full bg-secondary-container px-sm py-[2px] text-[11px] font-bold text-on-secondary-container">${frequencyLabel}${weeklyDay}</span>
+                              ${t.target_time ? `<span class="rounded-full bg-warning-container px-sm py-[2px] text-[11px] font-bold text-on-warning">موعد ${checklistEsc(String(t.target_time).slice(0, 5))}</span>` : ''}
+                            </div>
+                            ${t.frequency === 'hourly' ? '<p class="mt-xs text-body-sm text-secondary">تتكرر كل ساعة — يُسجّل إنجاز الساعة الحالية فقط</p>' : ''}
+                            ${t.requires_photo ? '<p class="mt-xs text-body-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-sm">photo_camera</span> يتطلب صورة إثبات</p>' : ''}
                         </div>
                     </div>
                 </div>
                 ${!completed ? `
-                <div class="mt-xs pr-10 flex items-center gap-sm flex-wrap task-actions" data-id="${t.id}" data-requires-photo="${t.requires_photo}">
+                <div class="mt-sm pr-10 flex items-center gap-sm flex-wrap task-actions" data-id="${taskId}" data-requires-photo="${t.requires_photo}">
                     ${t.requires_photo ? `
                         <label class="flex items-center gap-xs cursor-pointer px-sm py-1 bg-surface-container border border-outline rounded-lg text-[12px] font-bold text-primary hover:bg-surface-container-high transition-all">
                             <span class="material-symbols-outlined text-[16px]">photo_camera</span>
@@ -348,12 +386,38 @@ async function loadMyChecklist() {
                             <input type="file" accept="image/*" capture="environment" class="hidden evidence-input"/>
                         </label>
                     ` : ''}
-                    ${t.allows_notes ? `<textarea rows="2" class="task-note w-full border border-outline-variant rounded-lg p-sm text-body-sm" data-id="${t.id}" placeholder="ملاحظة أو عطل أو نقص (اختياري)"></textarea>` : ''}
+                    ${t.allows_notes ? `<textarea rows="2" class="task-note w-full border border-outline-variant rounded-lg p-sm text-body-sm" data-id="${taskId}" placeholder="ملاحظة أو عطل أو نقص (اختياري)"></textarea>` : ''}
                     <span class="task-status text-error text-[11px]"></span>
                     <span class="loading-indicator text-primary text-[11px] font-bold hidden"><span class="material-symbols-outlined animate-spin text-sm">sync</span> جارِ رفع الصورة والحفظ...</span>
                 </div>` : ''}
             </div>`;
-        }).join('');
+        }
+
+        const templatesByCategory = new Map();
+        templates.forEach(task => {
+            const category = task.category || 'مهام أخرى';
+            if (!templatesByCategory.has(category)) templatesByCategory.set(category, []);
+            templatesByCategory.get(category).push(task);
+        });
+        const categoryGroups = [...templatesByCategory.entries()].sort(([a], [b]) => a.localeCompare(b, 'ar'));
+        const frequencyRank = { daily: 0, hourly: 1, monthly: 2, weekly: 3 };
+        const renderCategory = ([category, tasks], index) => {
+            const sorted = tasks.slice().sort((a, b) => (frequencyRank[a.frequency || 'daily'] ?? 4) - (frequencyRank[b.frequency || 'daily'] ?? 4)
+                || (a.frequency === 'weekly' && b.frequency === 'weekly' ? (getWeeklyDays(a)[0] ?? 0) - (getWeeklyDays(b)[0] ?? 0) : 0));
+            const weekly = sorted.filter(task => task.frequency === 'weekly');
+            const routine = sorted.filter(task => task.frequency !== 'weekly');
+            return `<details class="checklist-category mb-sm overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-sm" ${index === 0 ? 'open' : ''}>
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-sm bg-surface-container-low px-md py-md hover:bg-surface-container transition-colors">
+                <span class="flex min-w-0 items-center gap-sm"><span class="material-symbols-outlined text-primary" aria-hidden="true">checklist</span><span class="truncate font-bold text-body-lg text-on-surface">${checklistEsc(category)}</span></span>
+                <span class="flex shrink-0 items-center gap-sm text-[12px] font-bold text-on-surface-variant"><span>${tasks.length} مهمة</span><span class="material-symbols-outlined text-primary" aria-hidden="true">expand_more</span></span>
+              </summary>
+              <div class="space-y-sm p-sm sm:p-md">
+                ${routine.length ? `<section><h3 class="mb-xs border-b border-outline-variant pb-xs text-[12px] font-bold text-on-surface-variant">مهام اليوم والمهام الأخرى</h3><div class="space-y-xs">${routine.map(renderStaffTask).join('')}</div></section>` : ''}
+                ${weekly.length ? `<section class="border-t border-outline-variant pt-sm"><h3 class="mb-xs text-[12px] font-bold text-primary">القائمة الأسبوعية (${weekly.length})</h3><div class="space-y-xs">${weekly.map(renderStaffTask).join('')}</div></section>` : ''}
+              </div>
+            </details>`;
+        };
+        container.innerHTML = templates.length ? categoryGroups.map(renderCategory).join('') : container.innerHTML;
 
 
         container.querySelectorAll('.evidence-input').forEach(input => {
@@ -421,13 +485,18 @@ async function loadMyChecklist() {
 
 
 updateShiftButtons();
-loadMyChecklist();
-function refreshAtNextHour() {
-    setTimeout(() => {
-        loadMyChecklist();
-        refreshAtNextHour();
-    }, ZamChecklistSchedule.millisecondsUntilNextRiyadhHour());
+let checklistRefreshTimeout = null;
+function scheduleChecklistRefresh() {
+    clearTimeout(checklistRefreshTimeout);
+    const now = new Date();
+    const delay = Math.min(
+        ZamChecklistSchedule.millisecondsUntilNextRiyadhHour(now),
+        ZamChecklistSchedule.millisecondsUntilNextVisibilityChange(currentShift, {}, now)
+    );
+    checklistRefreshTimeout = setTimeout(() => {
+        loadMyChecklist().finally(scheduleChecklistRefresh);
+    }, delay);
 }
-refreshAtNextHour();
+loadMyChecklist().finally(scheduleChecklistRefresh);
 </script>
 </body></html>

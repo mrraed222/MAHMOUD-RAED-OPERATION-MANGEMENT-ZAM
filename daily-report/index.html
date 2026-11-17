@@ -2,7 +2,7 @@
 
 <html dir="rtl" lang="ar"><head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261116205000"></script>
+<script src="../assets/supabase-config.js?v=20261117165000"></script>
 <script>
   // حماية الشاشة: لازم تسجيل دخول قبل الوصول
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -254,16 +254,19 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <span class="material-symbols-outlined text-[18px]">add</span> إضافة
                         </button>
 </div>
-<table class="w-full text-right" id="google-table">
+<div class="overflow-x-auto"><table class="w-full min-w-[760px] text-right" id="google-table">
 <thead>
 <tr class="text-on-surface-variant text-label-bold border-b border-outline-variant">
 <th class="py-sm px-sm">النوع</th>
 <th class="py-sm px-sm">التعليق</th>
+<th class="py-sm px-sm">الحالة</th>
+<th class="py-sm px-sm">المسؤول</th>
+<th class="py-sm px-sm">الإجراء</th>
 <th class="py-sm px-sm"></th>
 </tr>
 </thead>
 <tbody id="google-tbody"></tbody>
-</table>
+</table></div>
 </div>
 <!-- Shift Issues -->
 <div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant">
@@ -275,9 +278,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <span class="material-symbols-outlined text-[18px]">add</span> إضافة
                         </button>
 </div>
-<table class="w-full text-right" id="issues-table">
+<div class="overflow-x-auto"><table class="w-full min-w-[660px] text-right" id="issues-table">
 <thead>
 <tr class="text-on-surface-variant text-label-bold border-b border-outline-variant">
+<th class="py-sm px-sm">نوع المشكلة</th>
 <th class="py-sm px-sm">المشكلة</th>
 <th class="py-sm px-sm">الإجراء المتخذ</th>
 <th class="py-sm px-sm">الأولوية</th>
@@ -285,7 +289,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </tr>
 </thead>
 <tbody id="issues-tbody"></tbody>
-</table>
+</table></div>
 </div>
 <!-- Technical Issues -->
 <div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant" id="tech-issues-card">
@@ -315,6 +319,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </div>
 </div>
 <div id="tech-list"><p class="text-body-sm text-on-surface-variant">جارِ التحميل...</p></div>
+</div>
+<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant" id="complaint-management-card">
+    <h3 class="font-title-md text-title-md text-primary border-b border-outline-variant pb-base mb-md">متابعة الشكاوى وحالة المعالجة</h3>
+    <p class="text-[12px] text-on-surface-variant mb-sm">يمكن للمشرف تحديث شكاوى فرعه؛ وتخضع صلاحيات الإدارة لسياسات النظام الحالية.</p>
+    <div id="complaint-list"><p class="text-body-sm text-on-surface-variant">جارِ تحميل الشكاوى...</p></div>
 </div>
 </div>
 <div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant flex flex-col md:flex-row items-center justify-between gap-md">
@@ -357,12 +366,23 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
                     </select>
                 </td>
                 <td class="py-sm px-sm"><input type="text" placeholder="أدخل التعليق" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs review-comment"></td>
+                <td class="py-sm px-sm"><select class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs review-status"><option value="معلقة" selected>معلقة</option><option value="قيد المعالجة">قيد المعالجة</option><option value="مغلقة">مغلقة</option></select></td>
+                <td class="py-sm px-sm"><input type="text" placeholder="المسؤول عن المعالجة" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs review-owner"></td>
+                <td class="py-sm px-sm"><input type="text" placeholder="إجراء المعالجة" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs review-action"></td>
                 <td class="py-sm px-sm"><button type="button" class="remove-row-btn text-error material-symbols-outlined text-[18px]">close</button></td>
             `;
         }
 
         function issueRowHTML() {
             return `
+                <td class="py-sm px-sm">
+                    <select class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs issue-type" required>
+                        <option value="">اختر نوع المشكلة</option>
+                        <option value="تقنية">تقنية / معدات</option>
+                        <option value="عميل">عميل</option>
+                        <option value="موظف">موظف / نقص كادر</option>
+                    </select>
+                </td>
                 <td class="py-sm px-sm"><input type="text" placeholder="وصف المشكلة" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs issue-desc"></td>
                 <td class="py-sm px-sm"><input type="text" placeholder="ماذا فعلت؟" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs issue-action"></td>
                 <td class="py-sm px-sm">
@@ -383,6 +403,18 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
             const newRow = tbody.insertRow();
             newRow.innerHTML = ROW_BUILDERS[tableId]();
             newRow.querySelector('.remove-row-btn').addEventListener('click', () => newRow.remove());
+            const reviewType = newRow.querySelector('.review-type');
+            if (reviewType) {
+                const syncReviewFields = () => {
+                    const isComplaint = reviewType.value === 'negative';
+                    ['.review-status', '.review-owner', '.review-action'].forEach(selector => {
+                        const field = newRow.querySelector(selector);
+                        if (field) field.disabled = !isComplaint;
+                    });
+                };
+                reviewType.addEventListener('change', syncReviewFields);
+                syncReviewFields();
+            }
             newRow.style.opacity = '0';
             newRow.style.transform = 'translateY(10px)';
             newRow.style.transition = 'all 0.3s ease';
@@ -398,6 +430,44 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
         if (currentUser.role === 'Supervisor' && ['Morning', 'Evening'].includes(currentUser.shift_type)) {
             document.getElementById('shiftType').value = currentUser.shift_type;
         }
+        let reportSubmitting = false;
+        let partialSubmission = null;
+        function partialSubmissionKey(date, shift) {
+            return 'zamDailyReportPartial:' + currentUser.branch_id + ':' + (date || '') + ':' + (shift || '');
+        }
+        const existingReportGuards = new Map();
+        function existingReportId(key) {
+            let value = existingReportGuards.get(key) || '';
+            try { value = value || sessionStorage.getItem('zamDailyReportExisting:' + key) || ''; } catch (_) {}
+            return value;
+        }
+        function partialSubmissionId(key) {
+            let value = '';
+            try { value = sessionStorage.getItem(key) || ''; } catch (_) {}
+            return value || (partialSubmission && partialSubmission.key === key ? partialSubmission.reportId : '');
+        }
+        function syncPartialSubmissionGuard() {
+            if (reportSubmitting) return;
+            const btn = document.getElementById('submitReportBtn');
+            const date = document.getElementById('reportDate').value;
+            const shift = document.getElementById('shiftType').value;
+            const key = partialSubmissionKey(date, shift);
+            const partialId = partialSubmissionId(key);
+            const existingId = partialId || existingReportId(key);
+            btn.disabled = !!existingId;
+            btn.textContent = partialId ? 'تقرير محفوظ جزئيًا — الإرسال متوقف' : (existingId ? 'يوجد تقرير محفوظ — الإرسال متوقف' : 'إرسال التقرير');
+            if (existingId) btn.title = 'التقرير ' + existingId + ' موجود لهذا الفرع والتاريخ والوردية؛ لا تعاود الإرسال.';
+            else btn.removeAttribute('title');
+        }
+        function restoreReportSubmissionForm(btn, dateInput, shiftInput) {
+            reportSubmitting = false;
+            dateInput.disabled = false;
+            shiftInput.disabled = false;
+            syncPartialSubmissionGuard();
+        }
+        document.getElementById('reportDate').addEventListener('change', syncPartialSubmissionGuard);
+        document.getElementById('shiftType').addEventListener('change', syncPartialSubmissionGuard);
+        syncPartialSubmissionGuard();
         addRow('waste-table');
         addRow('google-table');
         addRow('issues-table');
@@ -416,12 +486,55 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
         document.getElementById('submitReportBtn').addEventListener('click', async () => {
             const btn = document.getElementById('submitReportBtn');
+            const dateInput = document.getElementById('reportDate');
+            const shiftInput = document.getElementById('shiftType');
+            if (reportSubmitting) return;
+            const submissionDate = document.getElementById('reportDate').value;
+            const submissionShift = document.getElementById('shiftType').value;
+            const submissionKey = partialSubmissionKey(submissionDate, submissionShift);
+            const priorPartialId = partialSubmissionId(submissionKey);
+            if (priorPartialId) {
+                alert('التقرير ' + priorPartialId + ' محفوظ جزئيًا. لا تعاود إرساله؛ راجع سجل التقارير مع الإدارة.');
+                return;
+            }
             if (!document.getElementById('confirmCheck').checked) {
                 alert('من فضلك أقر بصحة البيانات قبل الإرسال.');
                 return;
             }
             if (!currentUser.branch_id) {
                 alert('حسابك غير مرتبط بفرع، تواصل مع الإدارة.');
+                return;
+            }
+            const knownReportId = existingReportId(submissionKey);
+            if (knownReportId) {
+                alert('يوجد تقرير محفوظ (' + knownReportId + ') لهذا الفرع والتاريخ والوردية؛ لن يُرسل تقرير مكرر.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'جارِ التحقق من التقرير السابق...';
+            dateInput.disabled = true;
+            shiftInput.disabled = true;
+            reportSubmitting = true;
+            let matches;
+            try {
+                matches = await ZamAPI.getDailyReportMatches({
+                    branchId: currentUser.branch_id,
+                    reportDate: submissionDate,
+                    shiftType: submissionShift
+                });
+            } catch (checkError) {
+                console.error('Daily report duplicate check failed:', checkError);
+                restoreReportSubmissionForm(btn, dateInput, shiftInput);
+                alert('تعذّر التحقق من وجود تقرير سابق؛ لم يتم الإرسال. تحقق من الاتصال وحاول لاحقًا.');
+                return;
+            }
+            if (matches.length) {
+                const existingId = String(matches[0].id);
+                existingReportGuards.set(submissionKey, existingId);
+                try { sessionStorage.setItem('zamDailyReportExisting:' + submissionKey, existingId); } catch (_) {}
+                restoreReportSubmissionForm(btn, dateInput, shiftInput);
+                alert('يوجد تقرير محفوظ (' + existingId + ') لهذا الفرع والتاريخ والوردية؛ لن يُرسل تقرير مكرر.');
                 return;
             }
 
@@ -433,25 +546,31 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
                 .filter(w => w.item_name && w.quantity)
                 .map(w => ({ item_name: w.item_name, quantity: parseFloat(w.quantity) || 0, unit: w.unit, reason: w.reason || null }));
 
-            const reviewRows = collectRows('google-table', { review_type: 'review-type', comment_text: 'review-comment' })
+            const reviewRows = collectRows('google-table', { review_type: 'review-type', comment_text: 'review-comment', status: 'review-status', owner: 'review-owner', action_taken: 'review-action' })
                 .filter(r => r.comment_text);
 
-            const issueRows = collectRows('issues-table', { description: 'issue-desc', action_taken: 'issue-action', priority: 'issue-priority' })
+            const rawIssueRows = collectRows('issues-table', { issue_type: 'issue-type', description: 'issue-desc', action_taken: 'issue-action', priority: 'issue-priority' });
+            if (rawIssueRows.some(i => i.description && !i.issue_type)) {
+                restoreReportSubmissionForm(btn, dateInput, shiftInput);
+                alert('اختر نوع كل مشكلة قبل إرسال التقرير. استخدم «موظف» لنقص الكادر.');
+                return;
+            }
+            const issueRows = rawIssueRows
                 .filter(i => i.description)
-                .map(i => ({ description: i.description, action_taken: i.action_taken || null, priority: i.priority }));
+                .map(i => ({ issue_type: i.issue_type, description: i.description, action_taken: i.action_taken || null, priority: i.priority }));
 
             const positiveCount = reviewRows.filter(r => r.review_type === 'positive').length;
 
-            btn.disabled = true;
             btn.textContent = 'جارِ الإرسال...';
+            let savedReportId = '';
 
             try {
                 const report = await ZamAPI.submitDailyReport({
                     core: {
                         branch_id: currentUser.branch_id,
                         supervisor_name: document.getElementById('supervisorName').value.trim(),
-                        report_date: document.getElementById('reportDate').value,
-                        shift_type: document.getElementById('shiftType').value,
+                        report_date: submissionDate,
+                        shift_type: submissionShift,
                         total_sales: totalSales,
                         orders_count: ordersCount,
                         avg_ticket: avgTicket,
@@ -462,12 +581,27 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
                     waste: wasteRows,
                     issues: issueRows,
                 });
+                savedReportId = report.id;
 
                 // حفظ التقييمات (إيجابية وسلبية) مصنّفة في الجدول
                 if (reviewRows.length) {
-                    await zamClient.from('negative_reviews').insert(
-                        reviewRows.map(r => ({ report_id: report.id, comment_text: r.comment_text, review_type: r.review_type }))
+                    const { error: reviewError } = await zamClient.from('negative_reviews').insert(
+                        reviewRows.map(r => ({
+                            report_id: report.id,
+                            comment_text: r.comment_text,
+                            review_type: r.review_type,
+                            status: r.review_type === 'negative' ? (r.status || 'معلقة') : null,
+                            owner: r.review_type === 'negative' ? (r.owner || null) : null,
+                            action_taken: r.review_type === 'negative' ? (r.action_taken || null) : null
+                        }))
                     );
+                    if (reviewError) {
+                        const partialError = new Error('تعذّر حفظ تقييمات العميل بعد إنشاء التقرير: ' + reviewError.message);
+                        partialError.reportId = report.id;
+                        partialError.partialSave = true;
+                        partialError.cause = reviewError;
+                        throw partialError;
+                    }
                 }
 
                 // إرسال نسخة PDF فورية للإدارة (لا يوقف العملية لو فشل)
@@ -477,9 +611,38 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
                 window.location.href = '../reports-log/index.html';
             } catch (err) {
                 console.error(err);
+                if (err && err.duplicateReport) {
+                    let duplicateId = '';
+                    try {
+                        const duplicates = await ZamAPI.getDailyReportMatches({
+                            branchId: currentUser.branch_id,
+                            reportDate: submissionDate,
+                            shiftType: submissionShift
+                        });
+                        if (duplicates.length) duplicateId = String(duplicates[0].id);
+                    } catch (lookupError) {
+                        console.error('Could not retrieve the concurrently saved report:', lookupError);
+                    }
+                    if (duplicateId) {
+                        existingReportGuards.set(submissionKey, duplicateId);
+                        try { sessionStorage.setItem('zamDailyReportExisting:' + submissionKey, duplicateId); } catch (_) {}
+                    }
+                    restoreReportSubmissionForm(btn, dateInput, shiftInput);
+                    alert(duplicateId
+                        ? 'يوجد تقرير محفوظ (' + duplicateId + ') لهذه الوردية؛ منعت قاعدة البيانات إرسال نسخة مكررة.'
+                        : 'منعت قاعدة البيانات إرسال تقرير مكرر لهذه الوردية. لم تُحفظ نسخة ثانية؛ حدّث الصفحة وراجع سجل التقارير.');
+                    return;
+                }
+                const partialReportId = (err && err.reportId) || savedReportId;
+                if (partialReportId) {
+                    partialSubmission = { key: submissionKey, reportId: String(partialReportId) };
+                    try { sessionStorage.setItem(submissionKey, String(partialReportId)); } catch (_) {}
+                    restoreReportSubmissionForm(btn, dateInput, shiftInput);
+                    alert('تم إنشاء التقرير ' + partialReportId + ' لكن لم يكتمل حفظ كل التفاصيل. أوقفت إعادة إرسال نفس الفرع والتاريخ والوردية لتجنب التكرار؛ راجع سجل التقارير مع الإدارة.');
+                    return;
+                }
+                restoreReportSubmissionForm(btn, dateInput, shiftInput);
                 alert('حدث خطأ أثناء إرسال التقرير. حاول مرة أخرى.');
-                btn.disabled = false;
-                btn.textContent = 'إرسال التقرير';
             }
         });
 
@@ -497,26 +660,116 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     let fridgesCache = [];
 
-    async function loadTechIssues() {
-        if (!currentUser.branch_id) {
-            listEl.innerHTML = '<p class="text-body-sm text-on-surface-variant">الحساب غير مرتبط بفرع.</p>';
+    const canEditComplaints = ['Owner', 'Supervisor', 'Manager', 'Admin'].includes(currentUser.role);
+    const canResolveTechnicalIssues = ['Owner', 'Manager', 'Admin'].includes(currentUser.role);
+    const canViewAllTechnicalIssues = canResolveTechnicalIssues;
+    const complaintListEl = document.getElementById('complaint-list');
+
+    async function loadComplaints() {
+        if (!canEditComplaints) {
+            complaintListEl.innerHTML = '<p class="text-body-sm text-on-surface-variant">لا تتوفر صلاحية متابعة الشكاوى لهذا الدور.</p>';
             return;
         }
         try {
-            const issues = await ZamAPI.getTechnicalIssues(currentUser.branch_id, { onlyOpen: true });
+            let query = zamClient.from('negative_reviews')
+                .select('id,comment_text,review_type,status,owner,action_taken,created_at,daily_reports!inner(branch_id,report_date,shift_type,branches(name))')
+                .or('review_type.eq.negative,review_type.is.null')
+                .order('created_at', { ascending: false }).limit(50);
+            if (currentUser.role === 'Supervisor') query = query.eq('daily_reports.branch_id', currentUser.branch_id);
+            const { data, error } = await query;
+            if (error) throw error;
+            const rows = data || [];
+            complaintListEl.innerHTML = rows.length ? '<div class="overflow-x-auto"><table class="w-full min-w-[900px] text-right text-body-sm"><thead><tr class="text-on-surface-variant"><th class="p-xs">التاريخ والوردية</th><th class="p-xs">الفرع</th><th class="p-xs">تعليق العميل</th><th class="p-xs">الحالة</th><th class="p-xs">المسؤول</th><th class="p-xs">الإجراء / آخر ملاحظة</th><th class="p-xs"></th></tr></thead><tbody>' + rows.map(review => {
+                const report = review.daily_reports || {};
+                const branch = report.branches || {};
+                const status = review.status || 'معلقة';
+                const shift = report.shift_type === 'Evening' ? 'مساء' : 'صباح';
+                return '<tr class="border-t border-outline-variant" data-review-row="' + esc(review.id) + '">' +
+                    '<td class="p-xs">' + esc(report.report_date || '') + ' · ' + shift + '</td>' +
+                    '<td class="p-xs">' + esc(branch.name || '—') + '</td>' +
+                    '<td class="p-xs"><div class="min-w-[180px] whitespace-pre-wrap">' + esc(review.comment_text || '') + '</div></td>' +
+                    '<td class="p-xs"><select class="complaint-status rounded border border-outline-variant p-xs"><option value="معلقة"' + (status === 'معلقة' ? ' selected' : '') + '>معلقة</option><option value="قيد المعالجة"' + (status === 'قيد المعالجة' ? ' selected' : '') + '>قيد المعالجة</option><option value="مغلقة"' + (status === 'مغلقة' ? ' selected' : '') + '>مغلقة</option></select></td>' +
+                    '<td class="p-xs"><input class="complaint-owner w-full min-w-[110px] rounded border border-outline-variant p-xs" maxlength="120" value="' + esc(review.owner || '') + '" placeholder="المسؤول"></td>' +
+                    '<td class="p-xs"><textarea class="complaint-action w-full min-w-[150px] rounded border border-outline-variant p-xs" rows="2" maxlength="500" placeholder="الإجراء / آخر ملاحظة">' + esc(review.action_taken || '') + '</textarea></td>' +
+                    '<td class="p-xs"><button type="button" class="save-complaint-btn rounded bg-primary px-sm py-xs text-white" data-id="' + esc(review.id) + '">حفظ</button></td></tr>';
+            }).join('') + '</tbody></table></div>' : '<p class="text-body-sm text-on-surface-variant">لا توجد شكاوى مسجلة.</p>';
+        } catch (err) {
+            console.error(err);
+            complaintListEl.innerHTML = '<p class="text-error text-body-sm">تعذّر تحميل الشكاوى؛ لم تُغيّر أي بيانات.</p>';
+        }
+    }
+
+    complaintListEl.addEventListener('click', async ev => {
+        const btn = ev.target.closest('.save-complaint-btn');
+        if (!btn || !canEditComplaints) return;
+        const row = btn.closest('[data-review-row]');
+        btn.disabled = true;
+        try {
+            const payload = {
+                status: row.querySelector('.complaint-status').value,
+                owner: row.querySelector('.complaint-owner').value.trim() || null,
+                action_taken: row.querySelector('.complaint-action').value.trim() || null
+            };
+            const { data, error } = await zamClient.from('negative_reviews').update(payload).eq('id', btn.dataset.id).select('id').maybeSingle();
+            if (error) throw error;
+            if (!data) throw new Error('لم يُحفظ التعديل؛ راجع صلاحية الفرع.');
+            msgEl.className = 'text-[12px] font-bold text-tertiary';
+            msgEl.textContent = 'تم تحديث الشكوى.';
+            await loadComplaints();
+        } catch (err) {
+            console.error(err);
+            msgEl.className = 'text-[12px] font-bold text-error';
+            msgEl.textContent = 'تعذّر حفظ الشكوى؛ لم نعرض نجاحًا غير مؤكد.';
+        } finally { btn.disabled = false; }
+    });
+
+    async function loadTechIssues() {
+        if (!currentUser.branch_id) {
+            if (!canViewAllTechnicalIssues) {
+                listEl.innerHTML = '<p class="text-body-sm text-on-surface-variant">الحساب غير مرتبط بفرع.</p>';
+                return;
+            }
+        }
+        try {
+            const branchId = canViewAllTechnicalIssues ? null : currentUser.branch_id;
+            const issues = await ZamAPI.getTechnicalIssues(branchId, { onlyOpen: false });
+            const editable = canResolveTechnicalIssues;
             listEl.innerHTML = issues.length ? issues.map(i => `
-                <div class="flex items-start justify-between gap-sm py-sm border-b border-outline-variant last:border-0">
-                    <div>
-                        <p class="font-bold text-body-sm">${i.priority === 'high' ? '🔴 ' : ''}${esc(i.title)}${i.source === 'fridge' ? ' <span class="text-[11px] text-outline">(تلقائي من الثلاجات)</span>' : ''}</p>
-                        ${i.description ? `<p class="text-[12px] text-on-surface-variant">${esc(i.description)}</p>` : ''}
+                <div class="py-sm border-b border-outline-variant last:border-0" data-technical-row="${esc(i.id)}">
+                    <div class="flex items-start justify-between gap-sm">
+                        <div>
+                            <p class="font-bold text-body-sm">${i.priority === 'high' ? '🔴 ' : ''}${esc(i.title)}${i.source === 'fridge' ? ' <span class="text-[11px] text-outline">(تلقائي من الثلاجات)</span>' : ''}</p>
+                            <p class="text-[11px] text-on-surface-variant">${esc(i.branch_id)} · ${new Date(i.created_at).toLocaleDateString('ar-EG')}</p>
+                        </div>
+                        ${editable ? `<select class="technical-status rounded border border-outline-variant p-xs"><option value="open" ${i.status === 'open' ? 'selected' : ''}>مفتوح</option><option value="resolved" ${i.status === 'resolved' ? 'selected' : ''}>تم الحل</option></select>` : `<span class="text-[11px] text-outline">${i.status === 'resolved' ? 'تم الحل' : 'مفتوح'}</span>`}
                     </div>
-                    <span class="text-[11px] text-outline shrink-0">${new Date(i.created_at).toLocaleDateString('ar-EG')}</span>
+                    ${i.description ? `<p class="mt-xs whitespace-pre-wrap text-[12px] text-on-surface-variant">${esc(i.description)}</p>` : `<p class="mt-xs text-[12px] text-on-surface-variant">لا توجد تفاصيل مسجلة.</p>`}
+                    ${editable ? `<button type="button" class="save-technical-btn mt-xs rounded bg-primary px-sm py-xs text-white" data-id="${esc(i.id)}">حفظ الحالة</button>` : ''}
                 </div>`).join('') : '<p class="text-body-sm text-on-surface-variant">لا توجد مشاكل تقنية مفتوحة.</p>';
         } catch (err) {
             console.error(err);
             listEl.innerHTML = '<p class="text-error text-body-sm">تعذّر تحميل المشاكل التقنية.</p>';
         }
     }
+
+    listEl.addEventListener('click', async ev => {
+        const btn = ev.target.closest('.save-technical-btn');
+        if (!btn || !canResolveTechnicalIssues) return;
+        const row = btn.closest('[data-technical-row]');
+        btn.disabled = true;
+        try {
+            await ZamAPI.updateTechnicalIssue(btn.dataset.id, {
+                status: row.querySelector('.technical-status').value
+            });
+            msgEl.className = 'text-[12px] font-bold text-tertiary';
+            msgEl.textContent = 'تم تحديث البلاغ التقني.';
+            await loadTechIssues();
+        } catch (err) {
+            console.error(err);
+            msgEl.className = 'text-[12px] font-bold text-error';
+            msgEl.textContent = 'تعذّر حفظ البلاغ؛ لم نعرض نجاحًا غير مؤكد.';
+        } finally { btn.disabled = false; }
+    });
 
     document.getElementById('tech-toggle-btn').addEventListener('click', async () => {
         const form = document.getElementById('tech-form');
@@ -566,6 +819,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     });
 
     loadTechIssues();
+    loadComplaints();
 })();
 </script>
 </body></html>
