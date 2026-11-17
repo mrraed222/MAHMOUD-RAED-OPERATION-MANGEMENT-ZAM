@@ -105,10 +105,15 @@ test('صفحات قوائم التحقق تحمل نسخ cache المحدثة ل
   const schedulePages = ['checklist-logs', 'dashboard', 'manage-templates', 'my-checklist', 'supervisor-checklist', 'supervisor-dashboard'];
   for (const page of schedulePages) {
     const html = fs.readFileSync(path.join(__dirname, '..', page, 'index.html'), 'utf8');
-    assert.match(html, /checklist-schedule\.js\?v=20261117175900/, `${page} must load the updated schedule helper`);
+    assert.match(html, /checklist-schedule\.js\?v=20261117194500/, `${page} must load the updated schedule helper`);
   }
-  assert.match(supervisorPage, /supabase-config\.js\?v=20261117172300/);
-  assert.match(templateAdminPage, /supabase-config\.js\?v=20261117172300/);
+  assert.match(supervisorPage, /supabase-config\.js\?v=20261117194500/);
+  assert.match(templateAdminPage, /supabase-config\.js\?v=20261117194500/);
+  assert.match(templateAdminPage, /id="f-scope-all"/);
+  assert.match(templateAdminPage, /class="f-branch-checkbox/);
+  assert.match(templateAdminPage, /saveTemplateWithBranches/);
+  assert.match(api, /function zamTemplateBranchIds/);
+  assert.match(api, /save_checklist_template_with_branches/);
 });
 
 test('التنظيف العميق لكل الفئات التشغيلية مستحق السبت بتقويم الرياض', () => {

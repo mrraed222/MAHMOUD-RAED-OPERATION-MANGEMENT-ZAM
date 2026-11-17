@@ -15,8 +15,9 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/checklist-schedule.js?v=20261117175900"></script>
-<script src="../assets/supabase-config.js?v=20261117172300"></script>
+<script src="../assets/checklist-schedule.js?v=20261117194500"></script>
+<script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
+<script src="../assets/supabase-config.js?v=20261117194500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: anyone without this permission is sent home
@@ -125,12 +126,17 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
         <input type="number" id="f-day-of-month" min="1" max="31" class="w-full border border-outline-variant rounded-lg p-sm mt-xs"/>
       </div>
     </div>
-      <div>
-        <label class="text-body-sm text-on-surface-variant">تطبّق على</label>
-        <select id="f-branch" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
-          <option value="">كل الفروع</option>
-        </select>
-      </div>
+      <fieldset class="rounded-xl border border-outline-variant p-sm">
+        <legend class="px-xs text-body-sm font-bold text-on-surface-variant">نطاق التطبيق</legend>
+        <div class="flex flex-wrap gap-sm">
+          <label class="flex items-center gap-xs rounded-lg border border-outline-variant px-sm py-xs text-body-sm"><input id="f-scope-all" type="radio" name="f-branch-scope" value="all" checked class="accent-primary"/><span>كل الفروع</span></label>
+          <label class="flex items-center gap-xs rounded-lg border border-outline-variant px-sm py-xs text-body-sm"><input id="f-scope-selected" type="radio" name="f-branch-scope" value="selected" class="accent-primary"/><span>فروع محددة</span></label>
+        </div>
+        <div id="f-branch-picker" class="hidden mt-sm">
+          <p class="mb-xs text-[12px] text-on-surface-variant">اختر فرعًا واحدًا أو أكثر؛ لن يُحفظ النطاق المحدد من دون فرع.</p>
+          <div id="f-branch-list" class="grid grid-cols-1 sm:grid-cols-2 gap-xs"></div>
+        </div>
+      </fieldset>
       <div>
         <label class="text-body-sm text-on-surface-variant">تعليمات وملاحظات إضافية (تظهر للموظف عند التنفيذ)</label>
         <textarea id="f-instructions" rows="3" class="w-full border border-outline-variant rounded-lg p-sm mt-xs" placeholder="اختياري..."></textarea>
@@ -221,19 +227,36 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 let editingId = null;
 let allTemplates = [];
 let branchesCache = [];
+let branchOptionsPromise = null;
 
-(async function loadBranchOptions() {
-    try {
-        branchesCache = await ZamAPI.getBranches();
-        const sel = document.getElementById('f-branch');
-        branchesCache.forEach(b => {
-            const opt = document.createElement('option');
-            opt.value = b.id;
-            opt.textContent = b.name;
-            sel.appendChild(opt);
+function loadBranchOptions() {
+    if (!branchOptionsPromise) {
+        branchOptionsPromise = ZamAPI.getBranches().then(branches => {
+            branchesCache = branches || [];
+            return branchesCache;
+        }).catch(err => {
+            branchOptionsPromise = null;
+            throw err;
         });
-    } catch (err) { console.error(err); }
-})();
+    }
+    return branchOptionsPromise;
+}
+
+function renderBranchChoices(selectedIds = []) {
+    const selected = new Set(selectedIds || []);
+    document.getElementById('f-branch-list').innerHTML = branchesCache.length
+        ? branchesCache.map(branch => {
+            const label = ZamBranchLifecycle.label(branch);
+            return `<label class="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-xs text-body-sm"><input type="checkbox" class="f-branch-checkbox accent-primary" value="${frEsc(branch.id)}" ${selected.has(branch.id) ? 'checked' : ''}/><span>${frEsc(branch.name)} <small class="text-on-surface-variant">(${frEsc(label)})</small></span></label>`;
+        }).join('')
+        : '<p class="text-error text-body-sm">لا توجد فروع متاحة للاختيار.</p>';
+}
+
+function updateBranchScopePicker() {
+    document.getElementById('f-branch-picker').classList.toggle('hidden', !document.getElementById('f-scope-selected').checked);
+}
+
+document.querySelectorAll('input[name="f-branch-scope"]').forEach(radio => radio.addEventListener('change', updateBranchScopePicker));
 
 const modal = document.getElementById('template-modal');
 
@@ -252,7 +275,12 @@ function openModal(template = null) {
     document.getElementById('f-category').value = template?.category || '';
     document.getElementById('f-shift').value = template?.shift_type || 'Morning';
     document.getElementById('f-instructions').value = template?.instructions || '';
-    document.getElementById('f-branch').value = template?.branch_id || '';
+    const selectedBranchIds = template ? zamTemplateBranchIds(template) : [];
+    const isGlobalTemplate = !template || (!template.branch_id && selectedBranchIds.length === 0);
+    document.getElementById('f-scope-all').checked = isGlobalTemplate;
+    document.getElementById('f-scope-selected').checked = !isGlobalTemplate;
+    renderBranchChoices(selectedBranchIds);
+    updateBranchScopePicker();
     document.getElementById('f-requires-photo').checked = !!template?.requires_photo;
     document.getElementById('f-allows-notes').checked = template ? !!template.allows_notes : true;
     document.getElementById('f-task-type').value = template?.task_type || 'standard';
@@ -275,18 +303,27 @@ function closeModal() {
     modal.classList.remove('flex');
 }
 
-document.getElementById('add-template-btn').addEventListener('click', () => openModal());
+document.getElementById('add-template-btn').addEventListener('click', async () => {
+    try { await loadBranchOptions(); openModal(); }
+    catch (err) { console.error(err); alert('تعذّر تحميل قائمة الفروع.'); }
+});
 document.getElementById('cancel-modal').addEventListener('click', closeModal);
 
 document.getElementById('save-template').addEventListener('click', async () => {
     const frequency = document.getElementById('f-frequency').value;
     const selectedWeekdays = [...document.querySelectorAll('.f-weekday:checked')].map(box => Number(box.value)).sort((a, b) => a - b);
+    const allBranches = document.getElementById('f-scope-all').checked;
+    const selectedBranchIds = [...document.querySelectorAll('.f-branch-checkbox:checked')].map(box => box.value);
+    if (!allBranches && !selectedBranchIds.length) {
+        alert('اختر فرعًا واحدًا على الأقل أو اختر «كل الفروع».');
+        return;
+    }
     const payload = {
         task_title: document.getElementById('f-task-title').value.trim(),
         category: document.getElementById('f-category').value.trim(),
         shift_type: document.getElementById('f-shift').value,
         instructions: document.getElementById('f-instructions').value.trim() || null,
-        branch_id: document.getElementById('f-branch').value || null,
+        branch_id: allBranches ? null : selectedBranchIds[0],
         requires_photo: document.getElementById('f-requires-photo').checked,
         allows_notes: document.getElementById('f-allows-notes').checked,
         task_type: document.getElementById('f-task-type').value,
@@ -313,11 +350,7 @@ document.getElementById('save-template').addEventListener('click', async () => {
         return;
     }
     try {
-        if (editingId) {
-            await ZamAPI.updateTemplate(editingId, payload);
-        } else {
-            await ZamAPI.createTemplate(payload);
-        }
+        await ZamAPI.saveTemplateWithBranches(editingId, payload, selectedBranchIds, allBranches);
         closeModal();
         await loadTemplates();
     } catch (err) {
@@ -342,6 +375,8 @@ const SHIFT_LABELS = { Morning: 'صباحية', Evening: 'مسائية' };
 async function loadTemplates() {
     const container = document.getElementById('templates-container');
     try {
+        try { await loadBranchOptions(); }
+        catch (branchError) { console.error('تعذّر تحميل قائمة الفروع:', branchError); }
         allTemplates = await ZamAPI.getTemplates(null, null, null, { includeArchived: true });
         const activeTemplates = allTemplates.filter(t => t.is_active !== false);
         const archivedTemplates = allTemplates.filter(t => t.is_active === false);
@@ -349,7 +384,9 @@ async function loadTemplates() {
         document.getElementById('category-options').innerHTML = categories.map(c => `<option value="${frEsc(c)}">`).join('');
 
         function renderTask(task, archived) {
-            const branchName = task.branch_id ? (branchesCache.find(b => b.id === task.branch_id)?.name || 'فرع محدد') : 'كل الفروع';
+            const branchIds = zamTemplateBranchIds(task);
+            const isGlobalScope = task.branch_id == null && branchIds.length === 0;
+            const branchName = isGlobalScope ? 'كل الفروع' : (branchIds.map(id => branchesCache.find(b => b.id === id)?.name || 'فرع محدد').join('، ') || 'فرع محدد');
             const frequencyLabel = { daily: 'يومي', weekly: 'أسبوعي', monthly: 'شهري', hourly: 'كل ساعة' }[task.frequency || 'daily'];
             const weekDays = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
             const selectedDays = Array.isArray(task.days_of_week) && task.days_of_week.length
@@ -372,7 +409,7 @@ async function loadTemplates() {
                         </div>
                         ${task.instructions ? `<p class="text-body-sm text-on-surface-variant mb-sm leading-6">${frEsc(task.instructions)}</p>` : ''}
                         <div class="flex flex-wrap items-center gap-x-sm gap-y-xs text-[12px]">
-                          <span class="${task.branch_id ? 'text-primary font-bold' : 'text-outline'}">${task.branch_id ? '📍 ' : ''}${frEsc(branchName)}</span>
+                          <span class="${isGlobalScope ? 'text-outline' : 'text-primary font-bold'}">${isGlobalScope ? '' : '📍 '}${frEsc(branchName)}</span>
                           <span class="text-outline-variant" aria-hidden="true">•</span>
                           <span class="text-on-surface-variant">${frEsc(shiftLabel)}</span>
                         </div>
@@ -394,10 +431,10 @@ async function loadTemplates() {
             });
             const frequencyRank = { daily: 0, hourly: 1, monthly: 2, weekly: 3 };
             const entries = [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b, 'ar'));
-            return entries.map(([category, shifts], index) => {
+            return entries.map(([category, shifts]) => {
                 const count = Object.values(shifts).reduce((sum, tasks) => sum + tasks.length, 0);
                 return `
-                <details class="mb-sm overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-sm" ${index === 0 ? 'open' : ''}>
+                <details class="mb-sm overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-sm">
                   <summary class="flex cursor-pointer list-none items-center justify-between gap-sm bg-surface-container-low px-md py-md hover:bg-surface-container transition-colors">
                     <span class="flex min-w-0 items-center gap-sm">
                       <span class="material-symbols-outlined text-primary" aria-hidden="true">view_list</span>
@@ -444,9 +481,10 @@ async function loadTemplates() {
             <div class="mt-md">${archivedTemplates.length ? renderGroups(archivedTemplates, true) : '<p class="text-body-sm text-on-surface-variant">لا توجد نسخ مؤرشفة.</p>'}</div>
           </details>`;
 
-        container.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', () => {
+        container.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', async () => {
             const task = allTemplates.find(x => x.id === btn.dataset.id);
-            openModal(task);
+            try { await loadBranchOptions(); openModal(task); }
+            catch (err) { console.error(err); alert('تعذّر تحميل قائمة الفروع.'); }
         }));
         container.querySelectorAll('.fridges-btn').forEach(btn => btn.addEventListener('click', () => {
             const task = allTemplates.find(x => x.id === btn.dataset.id);
@@ -561,7 +599,10 @@ function openFridgeModal(branchId) {
     loadFridgeList();
 }
 
-document.getElementById('open-fridges-btn').addEventListener('click', () => openFridgeModal(''));
+document.getElementById('open-fridges-btn').addEventListener('click', async () => {
+    try { await loadBranchOptions(); openFridgeModal(''); }
+    catch (err) { console.error(err); alert('تعذّر تحميل قائمة الفروع.'); }
+});
 document.getElementById('fr-branch').addEventListener('change', () => { resetFridgeForm(); loadFridgeList(); });
 document.getElementById('fr-kind').addEventListener('change', () => { applyFridgePreset(); suggestFridgeNumber(); });
 document.getElementById('fr-cancel-edit').addEventListener('click', () => { resetFridgeForm(); });

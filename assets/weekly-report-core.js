@@ -18,6 +18,26 @@
   'use strict';
   var METRICS = global.ZamWeeklyMetrics;
   if (!METRICS) throw new Error('weekly-report-metrics.js must load before weekly-report-core.js');
+  var LIFECYCLE = global.ZamBranchLifecycle || null;
+
+  function ensureLifecycle() {
+    if (LIFECYCLE) return Promise.resolve(LIFECYCLE);
+    return new Promise(function (resolve) {
+      var script = document.createElement('script');
+      script.src = '../assets/branch-lifecycle.js?v=20261117194500';
+      script.onload = function () { LIFECYCLE = global.ZamBranchLifecycle || null; resolve(LIFECYCLE); };
+      script.onerror = function () { resolve(null); };
+      document.head.appendChild(script);
+    });
+  }
+  function branchOperationalOnDate(branch, date) {
+    if (!branch) return false;
+    if (LIFECYCLE && typeof LIFECYCLE.isOperational === 'function') return LIFECYCLE.isOperational(branch, date);
+    if (branch.lifecycle_status == null || branch.lifecycle_status === '' || branch.lifecycle_status === 'operational') return true;
+    if (branch.lifecycle_status !== 'planned') return false;
+    var opening = String(branch.planned_opening_date || '').slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(opening) && opening <= String(date || '').slice(0, 10);
+  }
 
   /* ══════════ ثوابت العرض ══════════ */
 
@@ -159,7 +179,7 @@
       return readPage(0, []);
     }
     return Promise.all([
-      q('branches', 'id,name,created_at'),
+      q('branches', 'id,name,created_at,lifecycle_status,planned_opening_date'),
       q('daily_reports', 'id,branch_id,report_date,shift_type,supervisor_name,total_sales,orders_count,avg_ticket,team_status,positive_reviews,custom_fields,sheet_key', 'report_date'),
       q('waste_logs', 'id,report_id,item_name,quantity,unit,reason,root_cause,corrective_action,owner,unit_cost'),
       q('shift_issues', 'id,report_id,description,action_taken,priority,issue_type'),
@@ -168,7 +188,7 @@
       q('weekly_plans', '*'),
       q('weekly_report_notes', '*'),
       q('weekly_reports', '*'),
-      q('checklist_templates', '*'),
+      q('checklist_templates', '*,checklist_template_branches(branch_id)'),
       q('checklist_logs', '*'),
       q('supervisory_visit_notes', '*'),
       q('supervisory_visit_results', '*'),
@@ -192,12 +212,20 @@
 
       /* الفروع ديناميكياً */
       BRANCHES = branches.map(function (b) {
-        return { id: b.id, name: b.name, short: b.name.replace(/^فرع\s*/, '').replace(/^زام\s*/, ''), created_at: b.created_at || '' };
+        var plannedStart = b.lifecycle_status === 'planned' ? String(b.planned_opening_date || '').slice(0, 10) : '';
+        var createdDate = String(b.created_at || '').slice(0, 10);
+        if (plannedStart && (!createdDate || plannedStart > createdDate)) createdDate = plannedStart;
+        return { id: b.id, name: b.name, short: b.name.replace(/^فرع\s*/, '').replace(/^زام\s*/, ''), created_at: createdDate,
+          lifecycle_status: b.lifecycle_status, planned_opening_date: b.planned_opening_date || '' };
       });
       if (!BRANCHES.length) BRANCHES = FALLBACK_BRANCHES;
       buildBranchMaps();
       state.branches = new Set(BRANCHES.map(function (b) { return b.id; }));
 
+      reports = reports.filter(function (report) {
+        var branch = branches.filter(function (b) { return String(b.id) === String(report.branch_id); })[0];
+        return branchOperationalOnDate(branch, String(report.report_date || '').slice(0, 10));
+      });
       var repById = {};
       reports.forEach(function (r) { repById[r.id] = r; });
       function repInfo(child) {
@@ -403,8 +431,12 @@
     return { rows: rows, sales: sales, orders: orders, avg: orders ? sales / orders : 0, pos: pos,
              team: team, count: rows.length, shiftCount: Object.keys(shiftsSeen).length };
   }
+  function branchesForPeriod(r) {
+    var endDate = r && r.to ? String(r.to).slice(0, 10) : currentRiyadhDate();
+    return BRANCHES.filter(function (branch) { return branchOperationalOnDate(branch, endDate); });
+  }
   function byBranch(reports, r) {
-    return BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
+    return branchesForPeriod(r).filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
       var rows = filterRows(reports, r, true, true).filter(function (x) { return x.branch === b.id; });
       var sales = 0, orders = 0, mSales = 0, eSales = 0, mOrders = 0, eOrders = 0;
       rows.forEach(function (x) {
@@ -452,9 +484,10 @@
   function complianceByTemplate(r, branchFilter) {
     var templates = SRC.templates || [], logs = SRC.logs || [];
     if (!templates.length) return [];
+    var reportBranches = branchesForPeriod(r);
     var branchesForPeriod = branchFilter
-      ? BRANCHES.filter(function (b) { return String(b.id) === String(branchFilter); })
-      : BRANCHES.filter(function (b) { return state.branches.has(b.id); });
+      ? reportBranches.filter(function (b) { return String(b.id) === String(branchFilter); })
+      : reportBranches.filter(function (b) { return state.branches.has(b.id); });
     var today = currentRiyadhDate();
     var generated = METRICS.expectedSessions(r, branchesForPeriod, { today: today, shiftFilter: state.shift, branchFilter: branchFilter });
     var result = METRICS.calculateCompliance(templates, generated.sessions, logs, {
@@ -484,7 +517,7 @@
    * القوالب العامة والخاصة بالفرع تدخل في جلسات التقويم حتى عند غياب تقرير الوردية.
    */
   function complianceByBranch(r) {
-    return BRANCHES.filter(function (branch) { return state.branches.has(branch.id); }).map(function (branch) {
+    return branchesForPeriod(r).filter(function (branch) { return state.branches.has(branch.id); }).map(function (branch) {
       var templateStats = complianceByTemplate(r, branch.id);
       var categories = {};
       var expected = 0, done = 0, flagged = 0;
@@ -644,10 +677,10 @@
           (k.compliance != null ? k.compliance + '%' : '—');
         var coverageDetails = [];
         if (k.complianceNonHourlyExpected != null) {
-          coverageDetails.push('غير ساعي: ' + (k.complianceNonHourlyDone || 0) + '/' + k.complianceNonHourlyExpected);
+          coverageDetails.push('المهام المنفذة: ' + (k.complianceNonHourlyDone || 0) + ' من ' + k.complianceNonHourlyExpected);
         }
         if (k.complianceHourlyTemplateCount) {
-          coverageDetails.push(k.complianceHourlyTemplateCount + ' قالب ساعي؛ ' + (k.complianceHourlyAffectedSessions || 0) + ' جلسة متأثرة، لا تمثل عدد الوقوعات');
+          coverageDetails.push(k.complianceHourlyTemplateCount + ' قوالب بتكرار خلال الوردية؛ ظهرت في ' + (k.complianceHourlyAffectedSessions || 0) + ' جلسة، ولم تُدمج لتجنب عدّ غير دقيق');
         }
         if (k.complianceUnknownBranchCount) coverageDetails.push('تاريخ إنشاء غير متاح لـ' + k.complianceUnknownBranchCount + ' فرع');
         if (k.complianceHistoricalTemplateWarning) coverageDetails.push('القوالب النشطة حاليًا؛ لا يوجد أرشيف تاريخي للقوالب');
@@ -730,6 +763,8 @@
       '<span class="material-symbols-outlined text-[14px]">' + ic + '</span>' + txt + '</span>';
   }
   function renderSlicers() {
+    var r = resolveRange();
+    var visibleBranches = branchesForPeriod(r);
     var ranges = [['week', 'هذا الأسبوع'], ['prev', 'الأسبوع الماضي'], ['d7', 'آخر 7 أيام'], ['d30', 'آخر 30 يوم'], ['custom', 'مخصص']];
     var rc = $('#rangeChips');
     if (rc) {
@@ -746,7 +781,7 @@
     }
     var bc = $('#branchChips');
     if (bc) {
-      bc.innerHTML = BRANCHES.map(function (b) {
+      bc.innerHTML = visibleBranches.map(function (b) {
         return '<button class="slicer px-sm py-xs rounded-full border border-outline-variant text-body-sm ' +
           (state.branches.has(b.id) ? 'on' : '') + '" data-b="' + esc(b.id) + '">' + esc(b.short || b.name) + '</button>';
       }).join('');
@@ -760,7 +795,7 @@
       });
       var ab = $('#allBranches');
       if (ab) ab.addEventListener('click', function () {
-        state.branches = new Set(BRANCHES.map(function (b) { return b.id; })); renderAll();
+        state.branches = new Set(visibleBranches.map(function (b) { return b.id; })); renderAll();
       });
     }
     var sc = $('#shiftChips');
@@ -773,7 +808,6 @@
         b.addEventListener('click', function () { state.shift = b.getAttribute('data-shift'); renderAll(); });
       });
     }
-    var r = resolveRange();
     var df = $('#dFrom'), dt = $('#dTo');
     if (df) df.value = r.from;
     if (dt) dt.value = r.to;
@@ -850,10 +884,10 @@
     if (!comp) return '';
     var parts = [];
     if (comp.coverageIncomplete) {
-      parts.push('النسبة الإجمالية غير مكتملة؛ الجزء غير الساعي: ' + (comp.nonHourlyDone || 0) + '/' + (comp.nonHourlyExpected || 0) + ' مهمة مستحقة.');
+      parts.push('إجمالي التغطية غير مكتمل؛ المهام المقاسة: ' + (comp.nonHourlyDone || 0) + ' من ' + (comp.nonHourlyExpected || 0) + '.');
     }
     if (comp.hourlyTemplateCount) {
-      parts.push('استُبعد ' + comp.hourlyTemplateCount + ' قالب ساعي؛ تأثرت ' + comp.hourlyAffectedSessions + ' جلسة، وهذا ليس عدد الوقوعات.');
+      parts.push('توجد ' + comp.hourlyTemplateCount + ' قوالب تتكرر خلال الوردية في ' + comp.hourlyAffectedSessions + ' جلسة؛ لم ندمجها في الإجمالي لتجنب احتساب غير دقيق قبل تثبيت عدد مرات استحقاقها.');
     }
     if (comp.unknownBranchCount) parts.push('لا يتوفر تاريخ إنشاء لعدد ' + comp.unknownBranchCount + ' فرع.');
     if (comp.historicalTemplateWarning) parts.push('تنبيه: للفترات السابقة تُستخدم القوالب النشطة الحالية لغياب أرشيف تاريخي للقوالب.');
@@ -944,15 +978,14 @@
         var categories = b.categories.length ? b.categories.map(function (c) {
           var cp = c.expected ? Math.min(100, Math.round(c.done / c.expected * 100)) : 0;
           return '<div class="branch-compliance-category"><span>' + esc(c.name) + '</span><b>' + c.done + '/' + c.expected + '</b><i><em style="width:' + cp + '%"></em></i></div>';
-        }).join('') : '<div class="text-body-sm text-on-surface-variant">لا توجد مهام غير ساعية مستحقة في الفترة</div>';
-        var complianceGap = b.hourlyTemplateCount
-          ? '<p class="text-body-sm text-on-surface-variant mt-xs">' + b.hourlyTemplateCount + ' قالب ساعي غير محتسب؛ ' + b.hourlyAffectedSessions + ' جلسة متأثرة. لا يمثّل ذلك عدد الوقوعات.</p>'
-          : (b.unknownBranchCount ? '<p class="text-body-sm text-on-surface-variant mt-xs">تاريخ إنشاء فرع غير متاح لعدد ' + b.unknownBranchCount + ' فرع.</p>' : '');
+        }).join('') : '<div class="text-body-sm text-on-surface-variant">لا توجد مهام مستحقة في الفترة</div>';
+        var complianceGap = b.unknownBranchCount
+          ? '<p class="text-body-sm text-on-surface-variant mt-xs">تاريخ إنشاء فرع غير متاح لعدد ' + b.unknownBranchCount + ' فرع.</p>' : '';
         return '<article class="branch-compliance-card ' + tone + '">' +
           '<div class="branch-compliance-head"><div><strong>' + esc(b.name) + '</strong><small>كل الأقسام والقوائم المسندة</small></div>' +
           '<div class="branch-compliance-score">' + score + '</div></div>' +
           '<div class="branch-compliance-track"><i style="width:' + (b.pct || 0) + '%"></i></div>' +
-          '<div class="branch-compliance-meta"><span>منفذة غير ساعية <b>' + b.done + '</b></span><span>غير منفذة غير ساعية <b>' + Math.max(0, b.expected - b.done) + '</b></span><span>مستحقة غير ساعية <b>' + b.expected + '</b></span></div>' + complianceGap +
+          '<div class="branch-compliance-meta"><span>المهام المنفذة <b>' + b.done + ' من ' + b.expected + '</b></span></div>' + complianceGap +
           '<div class="branch-compliance-categories">' + categories + '</div></article>';
       }).join('') + '</div>';
     }
@@ -1282,12 +1315,11 @@
     }).join('');
 
     return '<div class="card overflow-hidden fadein"><div class="bg-primary text-on-primary px-md py-sm font-title-md">2. الرقابة التشغيلية</div>' +
-      '<div class="p-md space-y-md"><div class="grid md:grid-cols-4 gap-md">' +
+      '<div class="p-md space-y-md"><div class="grid md:grid-cols-3 gap-md">' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">عدد الزيارات الإشرافية</div><div class="font-display-lg text-primary mt-xs">' + visits.length + '</div></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">الشفتات المفحوصة</div><div class="font-display-lg text-primary mt-xs">' + cur.count + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">نسبة الالتزام الإجمالية</div><div class="font-display-lg text-primary mt-xs">' +
-      (comp && comp.pct != null ? comp.pct + '%' : (comp && comp.coverageIncomplete ? 'غير مكتمل' : '—')) + '<div class="text-body-sm text-on-surface-variant">الجزء غير الساعي: منفذ ' + doneTotal + ' · مستحق ' + dueTotal + '</div></div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">غير مكتملة من المهام غير الساعية</div><div class="font-display-lg text-primary mt-xs">' + incompleteTotal + '</div></div>' +
+      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">إنجاز المهام المسندة</div><div class="font-display-lg text-primary mt-xs">' +
+      (comp && comp.pct != null ? comp.pct + '%' : (comp && comp.coverageIncomplete ? 'غير مكتمل' : '—')) + '<div class="text-body-sm text-on-surface-variant">منفذة ' + doneTotal + ' من ' + dueTotal + ' · متبقية ' + incompleteTotal + '</div></div></div>' +
       '</div>' +
       (complianceNote ? '<p class="text-body-sm text-on-surface-variant">' + esc(complianceNote) + '</p>' : '') +
       '<div class="grid md:grid-cols-3 gap-md">' +
@@ -1300,9 +1332,9 @@
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">سجل الزيارات</div>' +
       '<a href="../branch-visits-new/index.html" class="text-body-sm font-bold text-primary underline mt-xs inline-block">فتح صفحة الزيارات ←</a></div>' +
       '</div>' +
-      '<div><div class="font-title-md text-primary mb-xs">أبرز المهام غير الساعية غير المكتملة — بحد أقصى 5</div><div id="paneChecks"></div>' +
-      (tpl.length && !topIncomplete.length ? '<p class="text-body-sm text-on-surface-variant mt-xs">اكتملت جميع المهام غير الساعية المستحقة في الجلسات التقويمية.</p>' : '') +
-      (!tpl.length && !hourlyExcluded ? '<p class="text-body-sm text-on-surface-variant mt-xs">لا توجد مهام غير ساعية مستحقة ضمن الجلسات التقويمية في الفترة.</p>' : '') + '</div>' +
+      '<div><div class="font-title-md text-primary mb-xs">أبرز المهام غير المكتملة — بحد أقصى 5</div><div id="paneChecks"></div>' +
+      (tpl.length && !topIncomplete.length ? '<p class="text-body-sm text-on-surface-variant mt-xs">اكتملت جميع المهام المحتسبة في الجلسات التقويمية.</p>' : '') +
+      (!tpl.length && !hourlyExcluded ? '<p class="text-body-sm text-on-surface-variant mt-xs">لا توجد مهام مستحقة ضمن الجلسات التقويمية في الفترة.</p>' : '') + '</div>' +
       '<div><div class="font-title-md text-primary mb-xs">نتائج الزيارات الإشرافية</div><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الوردية</th><th class="text-right px-md py-sm font-label-bold">المشرف</th>' +
@@ -1363,7 +1395,7 @@
           '<td class="px-md py-sm">' + esc(n.action || '—') + '</td><td class="px-md py-sm">' + esc(n.owner || '—') + '</td></tr>';
       }).join('');
 
-    var rows = BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
+    var rows = branchesForPeriod(r).filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
       var mine = negs.filter(function (x) { return x.branch === b.id; });
       var cl = mine.filter(function (n) { return isComplaintClosed(n.status); }).length;
       var posMine = positiveReports.filter(function (x) { return x.branch === b.id; }).reduce(function (a, x) { return a + x.pos; }, 0);
@@ -1469,7 +1501,7 @@
         byUnit[unit] = byUnit[unit].slice(0, 3);   /* أعلى 3 شفتات لكل فرع/وحدة */
       });
     });
-    var shiftWasteHtml = BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
+    var shiftWasteHtml = branchesForPeriod(r).filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
       var byUnit = topShiftsByBranch[b.id] || {};
       var units = Object.keys(byUnit);
       return '<div class="bg-surface-container rounded-lg p-md"><div class="font-title-md text-primary mb-sm">' + esc(b.name) + '</div>' +
@@ -1534,7 +1566,7 @@
     var equip = issues.filter(isTechnicalShiftIssue);
     var staff = issues.filter(isStaffShortageIssue);
 
-    var teamRows = BRANCHES.filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
+    var teamRows = branchesForPeriod(r).filter(function (b) { return state.branches.has(b.id); }).map(function (b) {
       var rs = rows.filter(function (x) { return x.branch === b.id; });
       var ts = {};
       rs.forEach(function (x) { if (x.team) ts[x.team] = (ts[x.team] || 0) + 1; });
@@ -1920,7 +1952,7 @@
     if (ssb) ssb.addEventListener('click', saveSnapshot);
 
     renderTabs();
-    boot();
+    ensureLifecycle().then(function () { boot(); });
   }
 
   function notify(msg, kind) {

@@ -117,7 +117,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261116205000"></script>
+<script src="../assets/supabase-config.js?v=20261117194500"></script>
+<script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (!['Owner','Admin','Manager','Supervisor'].includes(currentUser.role)) {
@@ -172,7 +173,7 @@ const branchName = params.get('name') || 'الفرع';
 document.getElementById('branch-title').textContent = decodeURIComponent(branchName);
 
 const dateFilter = document.getElementById('date-filter');
-dateFilter.value = new Date().toISOString().split('T')[0];
+dateFilter.value = ZamBranchLifecycle.riyadhDateString(new Date());
 dateFilter.addEventListener('change', loadBranchDetail);
 
 /**
@@ -187,15 +188,23 @@ async function loadBranchDetail() {
     listEl.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
 
     try {
+        const branchRes = await zamClient.from('branches').select('name, lifecycle_status, planned_opening_date').eq('id', branchId).maybeSingle();
+        if (branchRes.error) throw branchRes.error;
+        if (!ZamBranchLifecycle.isOperational(branchRes.data, date)) {
+            document.getElementById('branch-pct').textContent = '—';
+            document.getElementById('branch-sales').textContent = '—';
+            document.getElementById('branch-photos').textContent = '—';
+            listEl.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">بيانات الفرع غير متاحة قبل تاريخ الافتتاح المؤكد.</p>';
+            return;
+        }
         // استعلامات منفصلة لتفادي مشاكل العلاقات (FK) في Supabase
-        const [logsRes, templates, reportsRes, branchRes] = await Promise.all([
+        const [logsRes, templates, reportsRes] = await Promise.all([
             zamClient.from('checklist_logs').select('*')
                 .eq('branch_id', branchId).eq('execution_date', date)
                 .order('created_at', { ascending: false }),
             ZamAPI.getTemplates(null, null, branchId),
             zamClient.from('daily_reports').select('total_sales')
                 .eq('branch_id', branchId).eq('report_date', date),
-            zamClient.from('branches').select('name').eq('id', branchId).maybeSingle()
         ]);
 
         if (logsRes.error) throw logsRes.error;

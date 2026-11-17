@@ -15,7 +15,8 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261116205000"></script>
+<script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
+<script src="../assets/supabase-config.js?v=20261117194500"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -101,6 +102,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 <script>
 let reportsData = [];
+let branchesById = new Map();
 
 // Escape database values before inserting them into HTML text or quoted attributes.
 function escapeHtml(value) {
@@ -111,8 +113,9 @@ function escapeHtml(value) {
 
 async function loadBranchOptions() {
     const branches = await ZamAPI.getBranches();
+    branchesById = new Map((branches || []).map(branch => [String(branch.id), branch]));
     const sel = document.getElementById('f-branch');
-    branches.forEach(b => {
+    branches.filter(branch => ZamBranchLifecycle.isOperational(branch)).forEach(b => {
         const opt = document.createElement('option');
         opt.value = b.id; opt.textContent = b.name;
         sel.appendChild(opt);
@@ -143,7 +146,10 @@ async function loadReports() {
         const { data, error } = await query;
         if (error) throw error;
         // روابط الفلترة الداخلية لا تمثل تقرير مبيعات فعلياً؛ إخفاؤها يمنع ظهور مبيعات صفرية مضللة.
-        reportsData = (data || []).filter(report => !report.custom_fields?.technical_parent);
+        reportsData = (data || []).filter(report =>
+            !report.custom_fields?.technical_parent &&
+            ZamBranchLifecycle.isOperational(branchesById.get(String(report.branch_id)), report.report_date || new Date())
+        );
 
         if (!reportsData.length) {
             tbody.innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">لا توجد تقارير مطابقة.</td></tr>';
@@ -225,7 +231,14 @@ document.getElementById('export-btn').addEventListener('click', () => {
     XLSX.writeFile(wb, `سجل_التقارير_${new Date().toISOString().split('T')[0]}.xlsx`);
 });
 
-loadBranchOptions();
-loadReports();
+(async function init() {
+    try {
+        await loadBranchOptions();
+        await loadReports();
+    } catch (err) {
+        console.error(err);
+        document.getElementById('reports-tbody').innerHTML = '<tr><td colspan="7" class="p-md text-center text-error">تعذّر التحقق من حالة الفروع.</td></tr>';
+    }
+})();
 </script>
 </body></html>

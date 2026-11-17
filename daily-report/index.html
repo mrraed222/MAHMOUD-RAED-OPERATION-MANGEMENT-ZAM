@@ -2,7 +2,8 @@
 
 <html dir="rtl" lang="ar"><head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261117174000"></script>
+<script src="../assets/supabase-config.js?v=20261117194500"></script>
+<script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script>
   // حماية الشاشة: لازم تسجيل دخول قبل الوصول
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -513,10 +514,30 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
             }
 
             btn.disabled = true;
-            btn.textContent = 'جارِ التحقق من التقرير السابق...';
+            btn.textContent = 'جارِ التحقق من حالة الفرع...';
             dateInput.disabled = true;
             shiftInput.disabled = true;
             reportSubmitting = true;
+            try {
+                if (!window.ZamBranchLifecycle || typeof window.ZamBranchLifecycle.isOperational !== 'function') {
+                    throw new Error('Branch lifecycle helper unavailable');
+                }
+                const { data: branch, error: branchError } = await zamClient.from('branches')
+                    .select('id,lifecycle_status,planned_opening_date')
+                    .eq('id', currentUser.branch_id).maybeSingle();
+                if (branchError || !branch) throw branchError || new Error('Branch not found');
+                if (!window.ZamBranchLifecycle.isOperational(branch, submissionDate)) {
+                    restoreReportSubmissionForm(btn, dateInput, shiftInput);
+                    alert('لا يمكن إرسال تقرير لهذا الفرع قبل تاريخ افتتاحه المؤكد. يمكنك إرسال التقرير ابتداءً من يوم الافتتاح بتوقيت الرياض.');
+                    return;
+                }
+            } catch (lifecycleError) {
+                console.error('Branch lifecycle check failed:', lifecycleError);
+                restoreReportSubmissionForm(btn, dateInput, shiftInput);
+                alert('تعذّر التحقق من حالة الفرع أو تاريخ افتتاحه؛ تم حجب إرسال التقرير. تحقق من الاتصال وحاول لاحقًا.');
+                return;
+            }
+            btn.textContent = 'جارِ التحقق من التقرير السابق...';
             let matches;
             try {
                 matches = await ZamAPI.getDailyReportMatches({

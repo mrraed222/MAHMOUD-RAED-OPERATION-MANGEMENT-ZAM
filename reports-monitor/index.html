@@ -15,7 +15,8 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261116205000"></script>
+<script src="../assets/supabase-config.js?v=20261117194500"></script>
+<script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (!['Owner','Admin','Manager'].includes(currentUser.role)) {
@@ -99,7 +100,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </main>
 
 <script>
-document.getElementById('check-date').value = new Date().toISOString().split('T')[0];
+document.getElementById('check-date').value = ZamBranchLifecycle.riyadhDateString(new Date());
 document.getElementById('check-date').addEventListener('change', loadMonitor);
 
 function statusBadge(submitted, time) {
@@ -115,10 +116,11 @@ async function loadMonitor() {
     tbody.innerHTML = '<tr><td colspan="3" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
 
     try {
-        const [branches, reportsRes] = await Promise.all([
+        const [allBranches, reportsRes] = await Promise.all([
             ZamAPI.getBranches(),
             zamClient.from('daily_reports').select('branch_id, shift_type, entry_time').eq('report_date', date)
         ]);
+        const branches = allBranches.filter(branch => ZamBranchLifecycle.isOperational(branch, date));
         const reports = reportsRes.data || [];
 
         let morningDone = 0, morningMissing = 0, eveningDone = 0, eveningMissing = 0;

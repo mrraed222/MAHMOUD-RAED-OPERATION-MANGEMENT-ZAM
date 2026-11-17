@@ -154,10 +154,17 @@
     return !shiftType || isWithinShiftTaskWindow(shiftType, branchHours, date);
   }
 
+  function templateAppliesToBranch(task, branchId) {
+    const links = Array.isArray(task?.checklist_template_branches) ? task.checklist_template_branches : [];
+    const linkedIds = [...new Set(links.map(link => link?.branch_id).filter(Boolean).map(String))];
+    if (linkedIds.length) return branchId != null && linkedIds.includes(String(branchId));
+    return !task?.branch_id || String(task.branch_id) === String(branchId);
+  }
+
   function isTemplateScheduledForEmployee(task, { role, branchId, branchName, categories, shiftType, branchHours } = {}, date = new Date()) {
     if (!task || task.task_type === 'inventory_request') return false;
     if (task.frequency === 'hourly' && role !== 'Waiter') return false;
-    if (task.branch_id && task.branch_id !== branchId) return false;
+    if (!templateAppliesToBranch(task, branchId)) return false;
     if (role === 'Waiter' && branchName === 'زام المنح' && shiftType === 'Morning') return false;
     if (branchName === 'زام الحي' && task.task_type === 'restroom_check') return false;
     if (task.frequency === 'hourly' && branchName && branchName !== 'زام الرئيسي') return false;
@@ -180,7 +187,7 @@
   // Branch/manager views keep scheduled tasks in the denominator after the employee window closes.
   function isTemplateVisibleInBranch(task, { branchId, branchName, shiftType, branchHours } = {}, date = new Date()) {
     if (!task || task.is_active === false || task.active === false || task.task_type === 'inventory_request') return false;
-    if (task.branch_id && task.branch_id !== branchId) return false;
+    if (!templateAppliesToBranch(task, branchId)) return false;
     if (shiftType && ![shiftType, 'Both'].includes(task.shift_type)) return false;
     if (branchName === 'زام الحي' && task.task_type === 'restroom_check') return false;
     if (task.frequency === 'hourly' && (branchName !== 'زام الرئيسي' || task.task_type !== 'restroom_check' || !task.branch_id)) return false;
@@ -232,6 +239,7 @@
     isTaskDueForShift,
     isInventoryTaskScheduled,
     isInventoryTaskVisible,
+    templateAppliesToBranch,
     isTaskTimeVisible,
     hourlyOccurrenceKey,
     millisecondsUntilNextRiyadhHour,

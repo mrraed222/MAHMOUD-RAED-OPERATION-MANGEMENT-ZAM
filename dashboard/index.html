@@ -15,9 +15,10 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261117165000"></script>
-<script src="../assets/checklist-schedule.js?v=20261117175900"></script>
-<script src="../assets/checklist-dashboard.js?v=20261117175900"></script>
+<script src="../assets/supabase-config.js?v=20261117194500"></script>
+<script src="../assets/checklist-schedule.js?v=20261117194500"></script>
+<script src="../assets/checklist-dashboard.js?v=20261117194500"></script>
+<script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (!['Owner','Admin','Manager'].includes(currentUser.role)) {
@@ -107,7 +108,7 @@ async function loadDashboard() {
     const today = ZamChecklistSchedule.riyadhDateString(now);
     const yesterday = ZamChecklistSchedule.riyadhDateString(new Date(now.getTime() - 24 * 60 * 60 * 1000));
 
-    const [branches, templates, todayLogsRes, todayReportsRes, openIssuesRes] = await Promise.all([
+    const [allBranches, templates, todayLogsRes, todayReportsRes, openIssuesRes] = await Promise.all([
         ZamAPI.getBranches(),
         ZamAPI.getTemplates(),
         zamClient.from('checklist_logs').select('branch_id, template_id, executed_by, shift_type, execution_date, status, photo_url, created_at').gte('execution_date', yesterday).lte('execution_date', today),
@@ -115,9 +116,16 @@ async function loadDashboard() {
         zamClient.from('shift_issues').select('id, branch_id').gte('created_at', today)
     ]);
 
-    const todayLogs = todayLogsRes.data || [];
-    const todayReports = todayReportsRes.data || [];
-    const openIssues = openIssuesRes.data || [];
+    const branches = allBranches.filter(branch => ZamBranchLifecycle.isOperational(branch, now));
+    const operationalBranchIds = new Set(branches.map(branch => branch.id));
+    const branchById = new Map(allBranches.map(branch => [String(branch.id), branch]));
+
+    const todayLogs = (todayLogsRes.data || []).filter(row => operationalBranchIds.has(row.branch_id) &&
+        ZamBranchLifecycle.isOperational(branchById.get(String(row.branch_id)), row.execution_date || now));
+    const todayReports = (todayReportsRes.data || []).filter(row => operationalBranchIds.has(row.branch_id) &&
+        ZamBranchLifecycle.isOperational(branchById.get(String(row.branch_id)), row.report_date || now));
+    const openIssues = (openIssuesRes.data || []).filter(row => operationalBranchIds.has(row.branch_id) &&
+        ZamBranchLifecycle.isOperational(branchById.get(String(row.branch_id)), row.created_at || now));
     const totalSales = todayReports.reduce((s, r) => s + (Number(r.total_sales) || 0), 0);
 
     document.getElementById('branch-count').textContent = branches.length;

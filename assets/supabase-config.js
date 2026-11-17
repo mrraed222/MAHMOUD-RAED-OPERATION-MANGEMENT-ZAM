@@ -470,6 +470,21 @@ function zamRiyadhDateString(date = new Date()) {
     return `${value('year')}-${value('month')}-${value('day')}`;
 }
 
+function zamTemplateBranchIds(template) {
+    const linkedIds = Array.isArray(template?.checklist_template_branches)
+        ? template.checklist_template_branches.map(link => link?.branch_id).filter(Boolean)
+        : [];
+    const uniqueIds = [...new Set(linkedIds)];
+    return uniqueIds.length ? uniqueIds : (template?.branch_id ? [template.branch_id] : []);
+}
+
+function zamTemplateAppliesToBranch(template, branchId) {
+    if (!branchId) return true;
+    const branchIds = zamTemplateBranchIds(template);
+    if (branchIds.length) return branchIds.includes(branchId);
+    return template?.branch_id == null;
+}
+
 const ZamAPI = {
     // تسجيل الدخول برمز المرور عبر Edge Function
     async login(passcode) {
@@ -578,6 +593,21 @@ const ZamAPI = {
         return data;
     },
 
+    // Draft multi-branch save path; requires the reviewed branch-scope migration/RPC.
+    async saveTemplateWithBranches(id, payload, branchIds, allBranches) {
+        const { data: newId, error } = await zamClient.rpc('save_checklist_template_with_branches', {
+            p_template_id: id || null,
+            p_payload: payload,
+            p_branch_ids: allBranches ? [] : (branchIds || []),
+            p_is_global: !!allBranches
+        });
+        if (error) throw error;
+        const { data, error: readError } = await zamClient.from('checklist_templates')
+            .select('*, checklist_template_branches(branch_id)').eq('id', newId).single();
+        if (readError) throw readError;
+        return data;
+    },
+
     async deleteTemplate(id) {
         // "الحذف" من الواجهة أرشفة غير إتلافية حتى لا تنحذف السجلات التاريخية.
         const { data, error } = await zamClient.from('checklist_templates')
@@ -587,14 +617,18 @@ const ZamAPI = {
     },
 
     async copyArchivedTemplateAsNewVersion(id) {
-        const { data: old, error: readError } = await zamClient.from('checklist_templates')
-            .select('*').eq('id', id).eq('is_active', false).single();
+        let { data: old, error: readError } = await zamClient.from('checklist_templates')
+            .select('*, checklist_template_branches(branch_id)').eq('id', id).eq('is_active', false).single();
+        if (readError && /checklist_template_branches|relationship/i.test(`${readError.message || ''} ${readError.details || ''}`)) {
+            ({ data: old, error: readError } = await zamClient.from('checklist_templates')
+                .select('*').eq('id', id).eq('is_active', false).single());
+        }
         if (readError) throw readError;
+        const branchIds = zamTemplateBranchIds(old);
+        const allBranches = old.branch_id == null && branchIds.length === 0;
         const { id: _oldId, created_at: _createdAt, ...payload } = old;
-        const { data, error } = await zamClient.from('checklist_templates')
-            .insert([{ ...payload, is_active: true }]).select().single();
-        if (error) throw error;
-        return data;
+        delete payload.checklist_template_branches;
+        return this.saveTemplateWithBranches(null, { ...payload, is_active: true }, branchIds, allBranches);
     },
 
     // هل المهمة مستحقة اليوم؟ (يومية دايمًا، أسبوعية في يومها من الأسبوع، شهرية في يومها من الشهر)
@@ -623,18 +657,23 @@ const ZamAPI = {
     },
 
     async getTemplates(category = null, shiftType = null, branchId = null, { includeArchived = false } = {}) {
-        let query = zamClient.from('checklist_templates').select('*');
-        if (!includeArchived) query = query.eq('is_active', true);
-        if (category) query = query.eq('category', category);
-        if (shiftType) query = query.in('shift_type', [shiftType, 'Both']);
-        if (branchId) {
-            // استخدم or() للفلترة على مستوى DB بدل JS
-            query = query.or(`branch_id.is.null,branch_id.eq.${branchId}`);
+        const buildQuery = (withBranchScopes) => {
+            let query = zamClient.from('checklist_templates').select(
+                withBranchScopes ? '*, checklist_template_branches(branch_id)' : '*'
+            );
+            if (!includeArchived) query = query.eq('is_active', true);
+            if (category) query = query.eq('category', category);
+            if (shiftType) query = query.in('shift_type', [shiftType, 'Both']);
+            if (!withBranchScopes && branchId) query = query.or(`branch_id.is.null,branch_id.eq.${branchId}`);
+            return query.order('category');
+        };
+        let { data, error } = await buildQuery(true);
+        if (error && /checklist_template_branches|relationship/i.test(`${error.message || ''} ${error.details || ''}`)) {
+            ({ data, error } = await buildQuery(false));
         }
-        query = query.order('category');
-        const { data, error } = await query;
         if (error) throw error;
-        return data;
+        const templates = data || [];
+        return branchId ? templates.filter(template => zamTemplateAppliesToBranch(template, branchId)) : templates;
     },
 
     async getChecklistLogs({ branchId = null, date = null, dateFrom = null, dateTo = null, shiftType = null } = {}) {

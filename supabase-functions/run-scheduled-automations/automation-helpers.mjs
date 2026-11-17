@@ -29,6 +29,36 @@ export function isScheduledChecklistTask(task, date = new Date()) {
   return false;
 }
 
+export function isBranchOperational(branch, asOf = new Date()) {
+  if (!branch || typeof branch !== 'object') return false;
+  const status = branch.lifecycle_status;
+  if (status == null || status === '') return true;
+  if (status === 'operational') return true;
+  if (status !== 'planned') return false;
+  const openingDate = String(branch.planned_opening_date || '').slice(0, 10);
+  const current = typeof asOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(asOf)
+    ? asOf
+    : (() => {
+      const parts = riyadhDateParts(asOf);
+      return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+    })();
+  return /^\d{4}-\d{2}-\d{2}$/.test(openingDate) && openingDate <= current;
+}
+
+export function templateBranchIds(task) {
+  const linkedIds = Array.isArray(task?.checklist_template_branches)
+    ? task.checklist_template_branches.map(link => link?.branch_id).filter(Boolean)
+    : [];
+  const uniqueIds = [...new Set(linkedIds.map(String))];
+  return uniqueIds.length ? uniqueIds : (task?.branch_id ? [String(task.branch_id)] : []);
+}
+
+export function templateAppliesToBranch(task, branchId) {
+  const branchIds = templateBranchIds(task);
+  if (branchIds.length) return branchId != null && branchIds.includes(String(branchId));
+  return task?.branch_id == null;
+}
+
 export function isChecklistComplete(status) {
   return ['completed', 'complete', 'done', 'finished', 'مكتمل', 'منفذ', 'منجز']
     .includes(String(status || '').trim().toLowerCase());
@@ -36,7 +66,7 @@ export function isChecklistComplete(status) {
 
 function taskMatchesBranchAndShift(task, branchId, shiftType, date) {
   if (!isScheduledChecklistTask(task, date)) return false;
-  if (task.branch_id && task.branch_id !== branchId) return false;
+  if (!templateAppliesToBranch(task, branchId)) return false;
   return task.shift_type === 'Both' || task.shift_type === shiftType;
 }
 

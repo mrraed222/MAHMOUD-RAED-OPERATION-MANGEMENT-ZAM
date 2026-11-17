@@ -15,7 +15,7 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261116205000"></script>
+<script src="../assets/supabase-config.js?v=20261117194500"></script><script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -196,6 +196,7 @@ let wasteData = [];
 let issuesData = [];
 let checklistData = [];
 let branchesData = [];
+let allBranchesData = [];
 let wasteTableSearch = '';
 let wasteBranchSort = 'grams';
 
@@ -239,9 +240,10 @@ function getDateRange() {
 
 async function loadBranches() {
     const branches = await ZamAPI.getBranches();
-    branchesData = branches;
+    allBranchesData = branches || [];
+    branchesData = branches.filter(branch => ZamBranchLifecycle.isOperational(branch, new Date()));
     const sel = document.getElementById('f-branch');
-    branches.forEach(b => {
+    branchesData.forEach(b => {
         const opt = document.createElement('option');
         opt.value = b.id; opt.textContent = b.name;
         sel.appendChild(opt);
@@ -411,11 +413,19 @@ async function applyFilters() {
     const wasteOutcome = readOutcome(wasteRes);
     const issuesOutcome = readOutcome(issuesRes);
     const checklistOutcome = readOutcome(checklistRes);
-    const waste = wasteOutcome.data;
-    const issues = issuesOutcome.data;
+    const visibleBranchRow = row => {
+        const id = row.daily_reports?.branch_id ?? row.branch_id;
+        if (!id) return false;
+        const branch = allBranchesData.find(item => String(item.id) === String(id));
+        if (!branch) return false;
+        const recordDate = row.daily_reports?.report_date || row.execution_date || row.report_date || row.created_at || ZamBranchLifecycle.riyadhDateString();
+        return ZamBranchLifecycle.isOperational(branch, recordDate);
+    };
+    const waste = wasteOutcome.data.filter(visibleBranchRow);
+    const issues = issuesOutcome.data.filter(visibleBranchRow);
     wasteData = waste;
     issuesData = issues;
-    checklistData = checklistOutcome.data;
+    checklistData = checklistOutcome.data.filter(visibleBranchRow);
 
     // ملخص الهدر بحسب الفلتر الحالي؛ الكمية تفصل بالوحدة حتى لا نجمع ml مع القطع أو الأكواب.
     const totalItems = waste.length;

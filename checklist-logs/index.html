@@ -13,7 +13,7 @@
                 }
             }
         }
-    }catch(_e){}</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/checklist-schedule.js?v=20261117175900"></script><script src="../assets/supabase-config.js?v=20261116205000"></script><script>
+    }catch(_e){}</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/checklist-schedule.js?v=20261117194500"></script><script src="../assets/supabase-config.js?v=20261117194500"></script><script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (!['Owner','Admin','Manager','Supervisor'].includes(currentUser.role)) {
       window.location.href = zamRoleHomePath(currentUser.role);
@@ -163,6 +163,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   <img id="modal-img" src="" class="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"/>
 </div>
 
+<script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script>
 document.getElementById('date-label').textContent = new Date().toLocaleDateString('ar-SA', { timeZone: 'Asia/Riyadh', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 document.getElementById('f-date').value = ZamChecklistSchedule.riyadhDateString();
@@ -211,7 +212,7 @@ function shiftLabel(value) {
 async function loadBranchOptions() {
     branchesCache = await ZamAPI.getBranches();
     const sel = document.getElementById('f-branch');
-    branchesCache.forEach(b => {
+    branchesCache.filter(branch => ZamBranchLifecycle.isOperational(branch)).forEach(b => {
         const opt = document.createElement('option');
         opt.value = b.id; opt.textContent = b.name;
         sel.appendChild(opt);
@@ -232,12 +233,22 @@ async function loadLogs() {
     const shiftType = document.getElementById('f-shift').value || null;
 
     try {
-        const [logs, hourlyLogs, notes, readings] = await Promise.all([
+        let [logs, hourlyLogs, notes, readings] = await Promise.all([
             ZamAPI.getChecklistLogs({ branchId, date, shiftType }),
             ZamAPI.getHourlyChecklistLogs({ branchId, date, shiftType }),
             ZamAPI.getTeamNotes({ branchId, date, shiftType }),
             ZamAPI.getFridgeReadings({ branchId, date, shiftType })
         ]);
+
+        const branchOperationalForRecord = row => {
+            if (!row?.branch_id) return false;
+            const branch = branchesCache.find(item => String(item.id) === String(row.branch_id));
+            return ZamBranchLifecycle.isOperational(branch, row.execution_date || row.report_date || row.created_at || date || new Date());
+        };
+        logs = logs.filter(branchOperationalForRecord);
+        hourlyLogs = hourlyLogs.filter(branchOperationalForRecord);
+        notes = notes.filter(branchOperationalForRecord);
+        readings = readings.filter(branchOperationalForRecord);
 
         // حساب الإحصائيات
         document.getElementById('stat-total-executed').textContent = logs.length + hourlyLogs.length;

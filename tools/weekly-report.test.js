@@ -89,6 +89,28 @@ function testComplianceByActualShiftSessions() {
   assert.equal(evening.stats.reduce((n, x) => n + x.flagged, 0), 1);
 }
 
+function testWeeklyComplianceHonorsMultiBranchScopes() {
+  const linked = {
+    id: 'linked-template', branch_id: 'branch-a',
+    checklist_template_branches: [{ branch_id: 'branch-a' }, { branch_id: 'branch-b' }],
+    frequency: 'daily', shift_type: 'Morning', is_active: true,
+  };
+  const sessions = [
+    { date: '2026-11-16', branch: 'branch-a', shift: 'Morning' },
+    { date: '2026-11-16', branch: 'branch-b', shift: 'Morning' },
+    { date: '2026-11-16', branch: 'branch-c', shift: 'Morning' },
+  ];
+  const all = metrics.calculateCompliance([linked], sessions, [], { branches: ['branch-a', 'branch-b', 'branch-c'] });
+  assert.equal(all.stats.reduce((n, item) => n + item.total, 0), 2, 'linked branch scopes override the legacy branch_id');
+  const branchB = metrics.calculateCompliance([linked], sessions, [], { branchFilter: 'branch-b', branches: ['branch-b'] });
+  assert.equal(branchB.stats.reduce((n, item) => n + item.total, 0), 1);
+  const branchC = metrics.calculateCompliance([linked], sessions, [], { branchFilter: 'branch-c', branches: ['branch-c'] });
+  assert.equal(branchC.stats.reduce((n, item) => n + item.total, 0), 0, 'unlinked branches do not inherit a multi-branch template');
+
+  const legacy = metrics.calculateCompliance([{ ...linked, checklist_template_branches: [] }], sessions, [], { branches: ['branch-a', 'branch-b', 'branch-c'] });
+  assert.equal(legacy.stats.reduce((n, item) => n + item.total, 0), 1, 'legacy single-branch templates retain branch_id behavior');
+}
+
 function testTopIncompleteCap() {
   const stats = Array.from({ length: 9 }, (_, i) => ({ title: `مهمة ${i}`, total: 10, done: i, pending: 10 - i }));
   assert.equal(metrics.topIncomplete(stats, 5).length, 5);
@@ -124,13 +146,16 @@ function testReportWiringAndPrintSafety() {
   assert.match(core, /METRICS\.topIncomplete\(tpl, 5\)/);
   assert.match(core, /غير مكتمل '\+pending/);
   assert.match(core, /comp\.hourlyExcluded/);
-  assert.match(core, /النسبة الإجمالية غير مكتملة؛ الجزء غير الساعي/);
+  assert.match(core, /إجمالي التغطية غير مكتمل؛ المهام المقاسة/);
+  assert.match(core, /q\('checklist_templates', '\*,checklist_template_branches\(branch_id\)'\)/);
   assert.match(core, /غياب أرشيف تاريخي للقوالب/);
   assert.match(core, /complianceNonHourlyExpected/);
   assert.match(core, /complianceHourlyTemplateCount/);
   assert.match(core, /complianceReasons/);
   assert.match(core, /تفاصيل التغطية/);
-  assert.match(core, /لا تمثل عدد الوقوعات/);
+  assert.match(core, /تتكرر خلال الوردية/);
+  assert.match(core, /المهام المنفذة/);
+  assert.doesNotMatch(core, /غير ساعية|قالب ساعي/);
   assert.match(core, /var visits = filterRows\(SRC\.visits, r, true, true\)/, 'visit KPIs and the report must honor the selected shift');
   assert.match(core, /el\.textContent = String\(v\)/, 'restored note values must be text, not HTML');
   assert.doesNotMatch(core, /stockImpact|أثر نفاد المنتجات على التشغيل/);
@@ -139,7 +164,7 @@ function testReportWiringAndPrintSafety() {
   const metricsIndex = html.indexOf('weekly-report-metrics.js');
   const coreIndex = html.indexOf('weekly-report-core.js');
   assert.ok(metricsIndex >= 0 && coreIndex > metricsIndex, 'metrics script must load before core');
-  assert.match(html, /weekly-report-metrics\.js\?v=20261117172300/, 'weekly report must load the multi-day recurrence helper');
+  assert.match(html, /weekly-report-metrics\.js\?v=20261117194500/, 'weekly report must load the multi-day recurrence and branch-scope helper');
   assert.match(html, /#overviewCharts, #overviewBranchCharts, #dashboardNotes, #snapshotsSection/);
   assert.doesNotMatch(html, /#overviewKpis[^}]*display:none/);
   assert.match(html, /\.plan-save \{ display:none !important; \}/);
@@ -354,6 +379,7 @@ function testPrintPeriodAndAccessibleSixTabs() {
 testScheduleRules();
 testCalendarSessionsWithoutReportsAndFilters();
 testComplianceByActualShiftSessions();
+testWeeklyComplianceHonorsMultiBranchScopes();
 testTopIncompleteCap();
 testAppsScriptMappingsWithoutNetwork();
 testReportWiringAndPrintSafety();

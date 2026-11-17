@@ -15,7 +15,8 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261117165000"></script>
+<script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
+<script src="../assets/supabase-config.js?v=20261117194500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: admin without this permission is sent home
@@ -94,6 +95,17 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     <h3 class="font-title-md text-title-md text-primary mb-md" id="branch-modal-title">فرع جديد</h3>
     <label class="text-body-sm text-on-surface-variant">اسم الفرع</label>
     <input id="branch-name-input" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-md" placeholder="مثال: زام - حي النرجس"/>
+    <label class="text-body-sm text-on-surface-variant">الموقع / الحي</label>
+    <input id="branch-location-input" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-md" placeholder="مثال: الروضة"/>
+    <label class="text-body-sm text-on-surface-variant">حالة التشغيل</label>
+    <select id="branch-lifecycle-input" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-md">
+      <option value="">غير مصنّف — إبقاء السلوك الحالي</option>
+      <option value="planned">قيد التجهيز — غير تشغيلي</option>
+      <option value="operational">نشط تشغيليًا</option>
+    </select>
+    <label class="text-body-sm text-on-surface-variant">تاريخ الافتتاح المؤكد (اختياري)</label>
+    <input id="branch-opening-date-input" type="date" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-sm"/>
+    <p class="text-[11px] text-on-surface-variant mb-md">الفرع المخطط بلا تاريخ مؤكد لا يظهر في المهام أو مؤشرات التشغيل. وإذا حُدد تاريخ، يبدأ احتسابه تشغيليًا في ذلك اليوم بتوقيت الرياض. الفروع القديمة غير المصنّفة تبقى على سلوكها الحالي.</p>
     <p class="text-[11px] text-on-surface-variant mb-md">الوردية الصباحية 05:30–15:30، والمسائية 15:30–02:30 بتوقيت الرياض. تختفي مهام الموظف بعد ساعة من نهاية الوردية.</p>
     <div class="flex gap-sm justify-end">
       <button id="cancel-branch-modal" class="px-md py-sm rounded-lg text-on-surface-variant">إلغاء</button>
@@ -104,11 +116,15 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 <script>
 let editingBranchId = null;
+let branchesById = new Map();
 
 function openBranchModal(branch = null) {
     editingBranchId = branch ? branch.id : null;
     document.getElementById('branch-modal-title').textContent = branch ? 'تعديل الفرع' : 'فرع جديد';
     document.getElementById('branch-name-input').value = branch?.name || '';
+    document.getElementById('branch-location-input').value = branch?.location || '';
+    document.getElementById('branch-lifecycle-input').value = branch?.lifecycle_status || (branch ? '' : 'planned');
+    document.getElementById('branch-opening-date-input').value = branch?.planned_opening_date || '';
     document.getElementById('branch-modal').classList.remove('hidden');
     document.getElementById('branch-modal').classList.add('flex');
 }
@@ -123,12 +139,16 @@ document.getElementById('cancel-branch-modal').addEventListener('click', closeBr
 document.getElementById('save-branch-btn').addEventListener('click', async () => {
     const name = document.getElementById('branch-name-input').value.trim();
     if (!name) { alert('اكتب اسم الفرع.'); return; }
+    const lifecycleStatus = document.getElementById('branch-lifecycle-input').value || null;
+    const openingDate = document.getElementById('branch-opening-date-input').value || null;
+    const location = document.getElementById('branch-location-input').value.trim() || null;
     try {
         let result;
+        const payload = { name, location, lifecycle_status: lifecycleStatus, planned_opening_date: openingDate };
         if (editingBranchId) {
-            result = await zamClient.from('branches').update({ name }).eq('id', editingBranchId);
+            result = await zamClient.from('branches').update(payload).eq('id', editingBranchId);
         } else {
-            result = await zamClient.from('branches').insert([{ name }]);
+            result = await zamClient.from('branches').insert([{ ...payload, lifecycle_status: lifecycleStatus || 'planned' }]);
         }
         if (result.error) throw result.error;
         closeBranchModal();
@@ -150,10 +170,15 @@ async function deleteBranch(id, name) {
     }
 }
 
+function escapeBranchText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+
 async function loadBranches() {
     const container = document.getElementById('branches-list');
     try {
         const [branches, staff] = await Promise.all([ZamAPI.getBranches(), ZamAPI.getStaff()]);
+        branchesById = new Map((branches || []).map(branch => [String(branch.id), branch]));
 
         if (!branches.length) {
             container.innerHTML = '<p class="text-on-surface-variant text-body-sm">لا توجد فروع بعد. أضف أول فرع من الأعلى.</p>';
@@ -162,6 +187,11 @@ async function loadBranches() {
 
         container.innerHTML = branches.map(b => {
             const staffCount = staff.filter(s => s.branch_id === b.id && s.status === 'active').length;
+            const active = ZamBranchLifecycle.isOperational(b);
+            const lifecycleLabel = ZamBranchLifecycle.label(b);
+            const lifecycleStyle = b.lifecycle_status == null
+                ? 'bg-surface-container text-on-surface-variant'
+                : active ? 'bg-tertiary-container text-on-tertiary' : 'bg-secondary-container text-on-secondary-container';
             return `
             <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex items-center justify-between">
                 <div class="flex items-center gap-sm">
@@ -169,22 +199,23 @@ async function loadBranches() {
                         <span class="material-symbols-outlined">storefront</span>
                     </div>
                     <div>
-                        <p class="font-bold text-on-surface">${b.name}</p>
-                        <p class="text-[12px] text-on-surface-variant">${staffCount} موظف نشط</p>
+                        <p class="font-bold text-on-surface">${escapeBranchText(b.name)}</p>
+                        <p class="text-[12px] text-on-surface-variant">${escapeBranchText(b.location || 'الموقع غير محدد')} · ${staffCount} موظف نشط</p>
+                        <span class="inline-block mt-1 rounded-full px-2 py-0.5 text-[11px] ${lifecycleStyle}">${escapeBranchText(lifecycleLabel)}</span>
                     </div>
                 </div>
                 <div class="flex gap-xs">
-                    <button class="edit-branch-btn p-1 text-on-surface-variant hover:text-primary" data-id="${b.id}" data-name="${b.name}"><span class="material-symbols-outlined text-[20px]">edit</span></button>
-                    <button class="delete-branch-btn p-1 text-error hover:opacity-70" data-id="${b.id}" data-name="${b.name}"><span class="material-symbols-outlined text-[20px]">delete</span></button>
+                    <button class="edit-branch-btn p-1 text-on-surface-variant hover:text-primary" data-id="${escapeBranchText(b.id)}" aria-label="تعديل ${escapeBranchText(b.name)}"><span class="material-symbols-outlined text-[20px]">edit</span></button>
+                    <button class="delete-branch-btn p-1 text-error hover:opacity-70" data-id="${escapeBranchText(b.id)}" aria-label="حذف ${escapeBranchText(b.name)}"><span class="material-symbols-outlined text-[20px]">delete</span></button>
                 </div>
             </div>`;
         }).join('');
 
         container.querySelectorAll('.edit-branch-btn').forEach(btn => {
-            btn.addEventListener('click', () => openBranchModal({ id: btn.dataset.id, name: btn.dataset.name }));
+            btn.addEventListener('click', () => openBranchModal(branchesById.get(String(btn.dataset.id))));
         });
         container.querySelectorAll('.delete-branch-btn').forEach(btn => {
-            btn.addEventListener('click', () => deleteBranch(btn.dataset.id, btn.dataset.name));
+            btn.addEventListener('click', () => deleteBranch(btn.dataset.id, branchesById.get(String(btn.dataset.id))?.name || ''));
         });
     } catch (err) {
         console.error(err);

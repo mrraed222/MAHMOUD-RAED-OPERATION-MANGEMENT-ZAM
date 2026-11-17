@@ -2,8 +2,9 @@
 <html class="light" dir="rtl" lang="ar"><head>
 <meta charset="utf-8"/><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/checklist-schedule.js?v=20261117175900"></script>
-<script src="../assets/supabase-config.js?v=20261117172300"></script>
+<script src="../assets/checklist-schedule.js?v=20261117194500"></script>
+<script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
+<script src="../assets/supabase-config.js?v=20261117194500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // صفحة قوائم المهام مخصصة للمشرفين — المالك/الأدمن يتابعان الأداء من الداشبورد
@@ -250,6 +251,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <script>
 let currentBranchHours = {};
 let currentBranchHoursLoaded = false;
+let currentBranchLifecycle = null;
 const defaultShiftByRiyadhTime = () => ZamChecklistSchedule.isWithinShiftTaskWindow('Evening', currentBranchHours) ? 'Evening' : 'Morning';
 let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : defaultShiftByRiyadhTime();
 let currentCategory = '';
@@ -318,13 +320,16 @@ function riyadhMinuteOfDay(date = new Date()) {
 }
 
 async function loadCurrentBranchHours() {
-    if (currentBranchHoursLoaded) return currentBranchHours;
     await zamClient.auth.getSession();
     if (currentUser.branch_id) {
         const { data, error } = await zamClient.from('branches')
-            .select('opening_time, closing_time').eq('id', currentUser.branch_id).maybeSingle();
+            .select('opening_time, closing_time, lifecycle_status, planned_opening_date').eq('id', currentUser.branch_id).maybeSingle();
         if (error) throw error;
-        currentBranchHours = data || {};
+        if (!data) throw new Error('تعذّر التحقق من حالة الفرع');
+        currentBranchHours = data;
+        currentBranchLifecycle = data;
+    } else {
+        throw new Error('لا يوجد فرع مرتبط بالمستخدم');
     }
     currentBranchHoursLoaded = true;
     return currentBranchHours;
@@ -682,6 +687,12 @@ async function loadChecklist() {
     container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
     try {
         await loadCurrentBranchHours();
+        if (!ZamBranchLifecycle.isOperational(currentBranchLifecycle, new Date())) {
+            container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">قوائم المهام والإرسال غير متاحة قبل تاريخ افتتاح الفرع.</p>';
+            progressLabel.textContent = '';
+            document.getElementById('send-report-btn').disabled = true;
+            return;
+        }
         const now = new Date();
         const shiftWindow = ZamChecklistSchedule.getShiftWindow(currentShift, currentBranchHours, now);
         const categoryFilter = null;
@@ -717,6 +728,7 @@ async function loadChecklist() {
     } catch (err) {
         console.error(err);
         container.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل المهام من قاعدة البيانات.</p>';
+        document.getElementById('send-report-btn').disabled = true;
     }
 }
 
@@ -728,7 +740,15 @@ window.addEventListener('pageshow', (event) => {
     if (event.persisted) loadChecklist();
 });
 
-document.getElementById('send-report-btn')?.addEventListener('click', () => {
+document.getElementById('send-report-btn')?.addEventListener('click', async () => {
+    try {
+        currentBranchHoursLoaded = false;
+        await loadCurrentBranchHours();
+        if (!ZamBranchLifecycle.isOperational(currentBranchLifecycle, new Date())) throw new Error('inactive');
+    } catch (err) {
+        alert('تعذّر التحقق من حالة الفرع؛ لم يتم فتح إرسال التقرير.');
+        return;
+    }
     window.location.href = '../daily-report/index.html';
 });
 

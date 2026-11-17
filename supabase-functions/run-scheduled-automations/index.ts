@@ -1,6 +1,6 @@
 // كل الاستعلامات عبر REST مباشرة بمفتاح service_role.
 // @ts-ignore ملف المساعد محلي ويُضمّن مع دالة Supabase عند النشر.
-import { buildChecklistShiftSummary, buildPendingEmployeeTasks, escapeHtml, isScheduledChecklistTask } from './automation-helpers.mjs'
+import { buildChecklistShiftSummary, buildPendingEmployeeTasks, escapeHtml, isBranchOperational, isScheduledChecklistTask, templateAppliesToBranch } from './automation-helpers.mjs'
 
 function riyadhNow() {
   const now = new Date()
@@ -30,14 +30,14 @@ function sbHeaders(prefer?: string): Record<string, string> {
   return h
 }
 
-async function sbGet(table: string): Promise<any[]> {
-  const res = await fetch(`${SB_URL}/rest/v1/${table}?select=*&limit=10000`, { headers: sbHeaders() })
+async function sbGet(table: string, select = '*'): Promise<any[]> {
+  const res = await fetch(`${SB_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}&limit=10000`, { headers: sbHeaders() })
   if (!res.ok) throw new Error(`sbGet ${table} failed: ${res.status} ${await res.text()}`)
   return await res.json()
 }
 
-async function sbGetFiltered(table: string, filter: string): Promise<any[]> {
-  const res = await fetch(`${SB_URL}/rest/v1/${table}?select=*&${filter}&limit=10000`, { headers: sbHeaders() })
+async function sbGetFiltered(table: string, filter: string, select = '*'): Promise<any[]> {
+  const res = await fetch(`${SB_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}&${filter}&limit=10000`, { headers: sbHeaders() })
   if (!res.ok) throw new Error(`sbGet ${table} failed: ${res.status} ${await res.text()}`)
   return await res.json()
 }
@@ -136,17 +136,20 @@ Deno.serve(async () => {
       return new Response(JSON.stringify({ ok: true, ran: 0, hasKey: !!resendKey }), { headers: { 'Content-Type': 'application/json' } })
     }
 
-    const [schedules, allProfiles, taskCategoryRows, allTemplates] = await Promise.all([
+    const [schedules, allProfiles, taskCategoryRows, allTemplates, branches] = await Promise.all([
       sbGetFiltered('automation_schedules', 'is_active=eq.true'),
       sbGetFiltered('profiles', 'status=eq.active'),
       sbGet('employee_task_categories'),
-      sbGet('checklist_templates'),
+      sbGet('checklist_templates', '*,checklist_template_branches(branch_id)'),
+      sbGet('branches'),
     ])
     if (!schedules.length) {
       return new Response(JSON.stringify({ ok: true, ran: 0 }), { headers: { 'Content-Type': 'application/json' } })
     }
 
     const staffProfiles = allProfiles.filter((p: any) => p.email)
+    const branchById = new Map(branches.map((branch: any) => [branch.id, branch]))
+    const isBranchActive = (branchId: string | null) => isBranchOperational(branchById.get(branchId), today)
     const ownerAdminEmails = staffProfiles.filter((r: any) => r.role === 'Owner' || r.role === 'Admin').map((r: any) => r.email)
 
     const categoriesByProfile: Record<string, string[]> = {}
@@ -173,7 +176,7 @@ Deno.serve(async () => {
     function taskFitsEmployee(t: any, emp: any): boolean {
       if (!t || t.is_active === false || t.active === false || t.task_type === 'inventory_request' || t.frequency === 'hourly') return false
       if (!employeeCategories(emp).includes(t.category)) return false
-      if (t.branch_id && t.branch_id !== emp.branch_id) return false
+      if (!isBranchActive(emp.branch_id) || !templateAppliesToBranch(t, emp.branch_id)) return false
       if (emp.shift_type && emp.shift_type !== 'Both' && t.shift_type !== 'Both' && t.shift_type !== emp.shift_type) return false
       return true
     }
@@ -186,6 +189,8 @@ Deno.serve(async () => {
     }
 
     const logsToday = await sbGetFiltered('checklist_logs', `execution_date=eq.${today}`)
+    const operationalBranches = branches.filter((branch: any) => isBranchOperational(branch, today))
+    const operationalBranchIds = new Set(operationalBranches.map((branch: any) => branch.id))
 
     let ranCount = 0
 
@@ -195,7 +200,7 @@ Deno.serve(async () => {
       if (dueTemplates.length) {
         const alreadySent = await sbGetFiltered('task_reminder_logs', `log_date=eq.${today}`)
         const sentIds = new Set(alreadySent.map((r: any) => r.template_id))
-        const staff = staffProfiles.filter((p: any) => ['Barista', 'Waiter', 'Kitchen'].includes(p.role))
+        const staff = staffProfiles.filter((p: any) => ['Barista', 'Waiter', 'Kitchen'].includes(p.role) && isBranchActive(p.branch_id))
 
         for (const t of dueTemplates) {
           if (sentIds.has(t.id)) continue
@@ -214,17 +219,18 @@ Deno.serve(async () => {
       }
     }
 
-    const branches = await sbGet('branches')
-    const reportsToday = await sbGetFiltered('daily_reports', `report_date=eq.${today}`)
+    const reportsToday = (await sbGetFiltered('daily_reports', `report_date=eq.${today}`))
+      .filter((report: any) => operationalBranchIds.has(report.branch_id))
 
     for (const sch of schedules) {
+      if (sch.branch_id && !isBranchActive(sch.branch_id)) continue
       if (sch.last_run_date === today) continue
       if (!timeMatches(sch.send_time, now)) continue
       let scheduleOk = true
 
       // ============ ملخص تشيك ليست بالفئات ============
       if (sch.report_type === 'checklist_summary') {
-        const scopeBranches = sch.branch_id ? branches.filter((b: any) => b.id === sch.branch_id) : branches
+        const scopeBranches = sch.branch_id ? operationalBranches.filter((b: any) => b.id === sch.branch_id) : operationalBranches
         let body = sectionTitle(`ملخص تنفيذ التشيك ليست - ${today}`)
         const shifts = sch.shift_type === 'Morning' || sch.shift_type === 'Evening' ? [sch.shift_type] : ['Morning', 'Evening']
         const shiftNames: Record<string, string> = { Morning: 'الوردية الصباحية', Evening: 'الوردية المسائية' }
@@ -256,7 +262,7 @@ Deno.serve(async () => {
 
       // ============ تنبيه تأخر تسليم التقارير ============
       if (sch.report_type === 'missed_report_alert') {
-        const scopeBranches = sch.branch_id ? branches.filter((b: any) => b.id === sch.branch_id) : branches
+        const scopeBranches = sch.branch_id ? operationalBranches.filter((b: any) => b.id === sch.branch_id) : operationalBranches
         const reportedBranchIds = new Set(reportsToday.map((r: any) => r.branch_id))
         const missing = scopeBranches.filter((b: any) => !reportedBranchIds.has(b.id))
         if (missing.length) {
@@ -267,7 +273,7 @@ Deno.serve(async () => {
 
       // ============ تذكير الموظف بمهامه غير المنفذة (موجّه: فرعه + فئاته + وردية الموظف) ============
       if (sch.report_type === 'employee_task_reminder') {
-        let staff = staffProfiles.filter((p: any) => ['Barista', 'Waiter', 'Kitchen'].includes(p.role))
+        let staff = staffProfiles.filter((p: any) => ['Barista', 'Waiter', 'Kitchen'].includes(p.role) && isBranchActive(p.branch_id))
         if (sch.branch_id) staff = staff.filter((p: any) => p.branch_id === sch.branch_id)
         if (sch.shift_type && sch.shift_type !== 'Both') staff = staff.filter((p: any) => p.shift_type === 'Both' || p.shift_type === sch.shift_type)
 
@@ -286,7 +292,7 @@ Deno.serve(async () => {
 
       // ============ تذكير المشرف بمهامه وتقريره ============
       if (sch.report_type === 'supervisor_task_reminder') {
-        let supervisors = staffProfiles.filter((p: any) => p.role === 'Supervisor')
+        let supervisors = staffProfiles.filter((p: any) => p.role === 'Supervisor' && isBranchActive(p.branch_id))
         if (sch.branch_id) supervisors = supervisors.filter((p: any) => p.branch_id === sch.branch_id)
         if (sch.shift_type && sch.shift_type !== 'Both') supervisors = supervisors.filter((p: any) => p.shift_type === 'Both' || p.shift_type === sch.shift_type)
 
@@ -297,7 +303,7 @@ Deno.serve(async () => {
             : (sup.shift_type === 'Both' ? ['Morning', 'Evening'] : [sup.shift_type])
           const supervisorCategories = categoriesByProfile[sup.id]?.length
             ? categoriesByProfile[sup.id]
-            : [...new Set(allTemplates.filter((t: any) => !t.branch_id || t.branch_id === sup.branch_id).map((t: any) => t.category).filter(Boolean))]
+            : [...new Set(allTemplates.filter((t: any) => templateAppliesToBranch(t, sup.branch_id)).map((t: any) => t.category).filter(Boolean))]
           const pending = shifts.flatMap((shift: string) => buildPendingEmployeeTasks(allTemplates, logsToday, sup, {
             branchId: sup.branch_id, shiftType: shift, date: today, categories: supervisorCategories
           }))

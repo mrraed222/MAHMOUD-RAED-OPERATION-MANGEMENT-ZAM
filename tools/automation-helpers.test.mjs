@@ -6,7 +6,9 @@ import {
   buildPendingEmployeeTasks,
   escapeHtml,
   isChecklistComplete,
+  isBranchOperational,
   isScheduledChecklistTask,
+  templateAppliesToBranch,
 } from '../supabase-functions/run-scheduled-automations/automation-helpers.mjs';
 
 const branchId = 'branch-1';
@@ -109,4 +111,28 @@ test('scheduled email escapes supervisor names and target times before HTML inte
   assert.match(source, /escapeHtml\(sup\.full_name \|\| ''\)/);
   assert.match(source, /escapeHtml\(String\(t\.target_time\)\.slice\(0, 5\)\)/);
   assert.match(source, /escapeHtml\(String\(t\)\.slice\(0, 5\)\)/);
+});
+
+test('planned branches stay out of automation until their confirmed Riyadh opening date', () => {
+  const planned = { lifecycle_status: 'planned', planned_opening_date: null };
+  assert.equal(isBranchOperational(planned, date), false);
+  planned.planned_opening_date = '2026-11-18';
+  assert.equal(isBranchOperational(planned, '2026-11-17'), false);
+  assert.equal(isBranchOperational(planned, '2026-11-18'), true);
+  assert.equal(isBranchOperational({ lifecycle_status: 'planned', planned_opening_date: '2026-11-17' }, new Date('2026-11-16T21:00:00.000Z')), true);
+  assert.equal(isBranchOperational({ lifecycle_status: null }, date), true);
+  assert.equal(isBranchOperational({ lifecycle_status: 'operational' }, date), true);
+});
+
+test('multi-branch template links override legacy branch_id; unlinked templates remain global', () => {
+  const linked = baseTask({
+    branch_id: 'branch-1',
+    checklist_template_branches: [{ branch_id: 'branch-1' }, { branch_id: 'branch-2' }],
+  });
+  const global = baseTask({ id: 'global', branch_id: null, checklist_template_branches: [] });
+  assert.equal(templateAppliesToBranch(linked, 'branch-1'), true);
+  assert.equal(templateAppliesToBranch(linked, 'branch-2'), true);
+  assert.equal(templateAppliesToBranch(linked, 'branch-3'), false);
+  assert.equal(templateAppliesToBranch(global, 'branch-2'), true);
+  assert.equal(buildPendingEmployeeTasks([linked], [], { id: 'waiter-2', role: 'Waiter', shift_type: 'Morning' }, { branchId: 'branch-2', date })[0].task.id, linked.id);
 });

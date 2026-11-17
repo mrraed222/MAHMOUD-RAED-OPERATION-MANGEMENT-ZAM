@@ -110,6 +110,27 @@
     return [templateId, String(date).slice(0, 10), branchId, shift].join('|');
   }
 
+  function templateBranchIds(template) {
+    var linked = Array.isArray(template && template.checklist_template_branches)
+      ? template.checklist_template_branches.map(function (link) { return link && link.branch_id; }).filter(Boolean).map(String)
+      : [];
+    var unique = Array.from(new Set(linked));
+    if (unique.length) return unique;
+    return template && template.branch_id ? [String(template.branch_id)] : [];
+  }
+
+  function templateAppliesToBranch(template, branchId) {
+    var ids = templateBranchIds(template);
+    if (ids.length) return branchId != null && ids.includes(String(branchId));
+    return !(template && template.branch_id);
+  }
+
+  function templateOverlapsBranches(template, branchSet) {
+    if (!branchSet) return true;
+    var ids = templateBranchIds(template);
+    return !ids.length || ids.some(function (id) { return branchSet.has(id); });
+  }
+
   function calculateCompliance(templates, sessions, logs, options) {
     options = options || {};
     var branchFilter = options.branchFilter || null;
@@ -124,8 +145,8 @@
       if (!t || t.is_active === false || t.active === false) return;
       var id = String(t.id != null ? t.id : 'template-' + index);
       var taskShift = normalizeShift(t.shift_type);
-      if (branchFilter && t.branch_id && String(t.branch_id) !== String(branchFilter)) return;
-      if (allowedBranchSet && t.branch_id && !allowedBranchSet.has(String(t.branch_id))) return;
+      if (branchFilter && !templateAppliesToBranch(t, branchFilter)) return;
+      if (!templateOverlapsBranches(t, allowedBranchSet)) return;
       if (shiftFilter !== 'All' && taskShift !== 'All' && taskShift !== shiftFilter) return;
       if (String(t.frequency || 'daily').toLowerCase() === 'hourly') {
         hourlyById[id] = t;
@@ -161,7 +182,7 @@
       Object.keys(statsById).forEach(function (id) {
         var task = byId[id];
         var taskShift = normalizeShift(task.shift_type);
-        if (task.branch_id && String(task.branch_id) !== String(branch)) return;
+        if (!templateAppliesToBranch(task, branch)) return;
         if (taskShift !== 'All' && taskShift !== shift) return;
         if (!isTaskScheduled(task, date)) return;
         var key = occurrenceKey(id, date, branch, shift);
@@ -173,7 +194,7 @@
       Object.keys(hourlyById).forEach(function (id) {
         var task = hourlyById[id];
         var taskShift = normalizeShift(task.shift_type);
-        if (task.branch_id && String(task.branch_id) !== String(branch)) return;
+        if (!templateAppliesToBranch(task, branch)) return;
         if (taskShift !== 'All' && taskShift !== shift) return;
         if (!isTaskScheduled(task, date)) return;
         matchedHourly = true;
@@ -194,7 +215,7 @@
       if (branchFilter && String(branch) !== String(branchFilter)) return;
       if (allowedBranchSet && !allowedBranchSet.has(String(branch))) return;
       if (shiftFilter !== 'All' && shift !== shiftFilter) return;
-      if (task.branch_id && String(task.branch_id) !== String(branch)) return;
+      if (!templateAppliesToBranch(task, branch)) return;
       if (!isTaskScheduled(task, date)) return;
       var key = occurrenceKey(id, date, branch, shift);
       if (!expected[key]) return;
@@ -221,7 +242,8 @@
     var unknownCouldAffect = unknownBranchIds.some(function (branchId) {
       return Object.keys(byId).concat(Object.keys(hourlyById)).some(function (id) {
         var task = byId[id] || hourlyById[id];
-        return !task.branch_id || String(task.branch_id) === branchId;
+        var ids = templateBranchIds(task);
+        return !ids.length || ids.includes(branchId);
       });
     });
     var hourlyTemplateCount = Object.keys(hourlyApplicableTemplates).length;
