@@ -9,9 +9,11 @@ const atRiyadh = value => new Date(value);
 const MAIN_ID = '93f53332-73d0-4742-a9c0-ab15dd828acb';
 const HAY_ID = '5da7b89d-089b-46a9-bc8e-3ad2582f9616';
 const MANAH_ID = '30956dd5-4eb1-408b-94b6-a29498b14b2e';
+const BURJ_ID = '41f2dea8-238a-4550-abc8-b1a8a505f3d2';
 const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20261116175407_checklist_recurrence_and_history.sql'), 'utf8');
 const multiDayMigration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20261117162200_multi_day_weekly_templates.sql'), 'utf8');
 const branchHoursMigration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20261117150330_branch_opening_closing_times.sql'), 'utf8');
+const operationalMigration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20261117220000_zam_checklist_operational_updates.sql'), 'utf8');
 const supervisorPage = fs.readFileSync(path.join(__dirname, '..', 'supervisor-checklist', 'index.html'), 'utf8');
 const employeePage = fs.readFileSync(path.join(__dirname, '..', 'my-checklist', 'index.html'), 'utf8');
 const adminLogPage = fs.readFileSync(path.join(__dirname, '..', 'checklist-logs', 'index.html'), 'utf8');
@@ -105,7 +107,7 @@ test('صفحات قوائم التحقق تحمل نسخ cache المحدثة ل
   const schedulePages = ['checklist-logs', 'dashboard', 'manage-templates', 'my-checklist', 'supervisor-checklist', 'supervisor-dashboard'];
   for (const page of schedulePages) {
     const html = fs.readFileSync(path.join(__dirname, '..', page, 'index.html'), 'utf8');
-    assert.match(html, /checklist-schedule\.js\?v=20261117203400/, `${page} must load the updated schedule helper`);
+    assert.match(html, /checklist-schedule\.js\?v=20261117214500/, `${page} must load the updated schedule helper`);
   }
   assert.match(supervisorPage, /supabase-config\.js\?v=20261117194500/);
   assert.match(templateAdminPage, /supabase-config\.js\?v=20261117194500/);
@@ -369,6 +371,53 @@ test('سجلات ما بعد منتصف الليل تُنسب لسياق الو�
   const context = { branchId: MAIN_ID, branchName: 'زام الرئيسي', shiftType: 'Evening', now: atRiyadh('2026-11-17T04:00:00+03:00') };
   assert.equal(dashboard.tasksForEmployee([task], staff, context).length, 0, 'employee checklist is hidden after the one-hour grace');
   assert.equal(dashboard.dashboardTasks({ ...context, templates: [task], staff: [staff], currentUserRole: 'Manager' }).length, 1, 'manager still sees the unfinished shift task');
+});
+
+test('بار فقط في زام البرج يخفي مهام الصالة للموظف والفرع ويحافظ على البار والمطبخ', () => {
+  const now = atRiyadh('2026-11-16T10:00:00+03:00');
+  const lounge = { task_type: 'standard', category: 'الصالة', shift_type: 'Morning', branch_id: BURJ_ID, frequency: 'daily' };
+  assert.equal(schedule.isTemplateVisibleForEmployee(lounge, waiter(BURJ_ID, 'زام البرج'), now), false);
+  assert.equal(schedule.isTemplateVisibleInBranch(lounge, { branchId: BURJ_ID, branchName: 'زام البرج', shiftType: 'Morning' }, now), false);
+  const bar = { ...lounge, category: 'البار' };
+  assert.equal(schedule.isTemplateVisibleForEmployee(bar, { role: 'Barista', branchId: BURJ_ID, branchName: 'زام البرج', categories: ['البار'], shiftType: 'Morning' }, now), true);
+  assert.equal(schedule.isTemplateVisibleInBranch(bar, { branchId: BURJ_ID, branchName: 'زام البرج', shiftType: 'Morning' }, now), true);
+  const kitchen = { ...lounge, category: 'المطبخ', branch_id: null };
+  assert.equal(schedule.isTemplateVisibleForEmployee(kitchen, { role: 'Kitchen', branchId: BURJ_ID, branchName: 'زام البرج', categories: ['المطبخ'], shiftType: 'Morning' }, now), true);
+});
+
+test('ترحيل التحديثات محدود إلى القوالب العامة الثمانية ودفعتَي الاستلام وقوالب الصالة المحددة للبرج', () => {
+  const versionBlock = operationalMigration.split('DO $preflight$')[0];
+  const mappedIds = [...versionBlock.matchAll(/^\s*\(\s*'([0-9a-f-]{36})',/gm)].map(match => match[1]).sort();
+  assert.deepEqual(mappedIds, [
+    '3d5d4b69-bfa3-4faa-afd0-6cb8b95ac7f4',
+    '64d373a0-3bab-4ec7-9d23-b31a0f311d45',
+    '8fa8b5d3-7d1b-4848-9477-d72e74cc2c69',
+    'b7d39580-0ffa-4d41-8ea0-f3aa3b863f2c',
+    'c1be4246-5188-405b-9b85-868743a0dbc6',
+    'dee28cc6-0b71-425d-880c-da71c532e0d3',
+    'e13163ba-0456-4eb4-a3df-6e3398f2f113',
+    'e228e4a2-41f7-49d8-be3e-7c1805aa25b5'
+  ].sort());
+  assert.match(operationalMigration, /expected eight explicitly mapped templates/);
+  assert.match(operationalMigration, /'استلام طلبيات المخبوزات ومطابقتها بالفاتورة'/);
+  assert.match(operationalMigration, /'مطابقة التوريدات وتخزينها خلال 20 دقيقة'/);
+  assert.match(operationalMigration, /expected exactly the eleven current active lounge templates linked only to Al-Burj/);
+  assert.match(operationalMigration, /an additional active lounge template now targets the bar-only branch/);
+  assert.match(operationalMigration, /v_old\.branch_id,[\s\S]*?v_old\.target_time,[\s\S]*?v_old\.days_of_week/);
+  for (const untouchedId of [
+    'a9fc60b0-6cf7-4fee-8968-8cc006a08d51',
+    '28c0ce84-b26d-458d-8f4e-3818ca0eec8b',
+    '148c8616-14bd-47cd-972c-dcdd9f6c3c22',
+    'c85f8cfe-a1d1-439d-bec4-e3c71b5abdcf',
+    '807f0bdf-c84b-4cae-84fa-5d7c24adad11',
+    'a6ee97d5-9be7-43bb-bba6-a43dba358b69',
+    '2c299e4b-7e8e-4ede-969b-2540fa699fcc',
+    '8fc74362-9e0c-4826-9ca1-b43466d7c27f',
+    'e679d89f-3aa3-416b-bb6f-caafa3142b92',
+    'd5008ccd-6ddb-46d5-be72-f0e6d9315d0e',
+    'be2ecc76-8655-4c12-b8e4-ded62e74b6f6'
+  ]) assert.equal(operationalMigration.includes(untouchedId), false, `must preserve unrelated template ${untouchedId}`);
+  assert.doesNotMatch(operationalMigration, /public\.(profiles|admin_permissions|employee_task_categories)|GRANT\s|REVOKE\s|cron\.schedule|DELETE\s+FROM/i);
 });
 
 test('إنشاء الجولة الساعية خادمي فقط: لا يقبل هوية أو فرعًا أو ساعة من المتصفح ويتحقق من صورة المالك', () => {

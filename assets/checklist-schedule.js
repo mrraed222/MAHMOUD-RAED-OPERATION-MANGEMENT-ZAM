@@ -7,6 +7,7 @@
 
   const ROLE_CATEGORY = { Barista: 'البار', Waiter: 'الصالة', Kitchen: 'المطبخ' };
   const SUPERVISOR_ONLY_TASK_TYPES = new Set(['inventory_request', 'inventory_count']);
+  const BAR_ONLY_BRANCH_ID = '41f2dea8-238a-4550-abc8-b1a8a505f3d2';
   const SHIFT_OPENING_MINUTE = 5 * 60 + 30;
   const SHIFT_CLOSING_MINUTE = 2 * 60 + 30;
   const EVENING_START_MINUTE = 15 * 60 + 30;
@@ -170,6 +171,7 @@
     if (!task || isSupervisorOnlyTask(task)) return false;
     if (task.frequency === 'hourly' && role !== 'Waiter') return false;
     if (!templateAppliesToBranch(task, branchId)) return false;
+    if (String(branchId || '') === BAR_ONLY_BRANCH_ID && task.category === 'الصالة') return false;
     if (role === 'Waiter' && branchName === 'زام المنح' && shiftType === 'Morning') return false;
     if (branchName === 'زام الحي' && task.task_type === 'restroom_check') return false;
     if (task.frequency === 'hourly' && branchName && branchName !== 'زام الرئيسي') return false;
@@ -193,6 +195,7 @@
   function isTemplateVisibleInBranch(task, { branchId, branchName, shiftType, branchHours } = {}, date = new Date()) {
     if (!task || task.is_active === false || task.active === false || isSupervisorOnlyTask(task)) return false;
     if (!templateAppliesToBranch(task, branchId)) return false;
+    if (String(branchId || '') === BAR_ONLY_BRANCH_ID && task.category === 'الصالة') return false;
     if (shiftType && ![shiftType, 'Both'].includes(task.shift_type)) return false;
     if (branchName === 'زام الحي' && task.task_type === 'restroom_check') return false;
     if (task.frequency === 'hourly' && (branchName !== 'زام الرئيسي' || task.task_type !== 'restroom_check' || !task.branch_id)) return false;

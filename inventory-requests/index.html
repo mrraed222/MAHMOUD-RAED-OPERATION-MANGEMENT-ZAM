@@ -10,6 +10,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script src="../assets/supabase-config.js?v=20261117194500"></script>
+  <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
+  <script src="../assets/inventory-receiving.js?v=20261117214500"></script>
   <script>
     const currentUser = ZamSession.requireAuth('../index.html');
     if (currentUser) document.documentElement.classList.add('inventory-access-pending');
@@ -169,6 +171,31 @@
         </form>
       </section>
 
+      <section id="receiving-section" class="no-print hidden rounded-2xl border border-secondary bg-secondary-container/30 p-4 shadow-sm md:p-6">
+        <div class="mb-4 border-b border-outline-variant pb-4">
+          <h2 class="text-xl font-extrabold text-primary">تسجيل وصول توريد</h2>
+          <p class="mt-1 text-sm text-on-surface-variant">يُنشأ فحص الاستلام للمشرف فقط بعد تسجيل وصول كمية فعلية وإرفاق صورة السند؛ لا ينشأ عند إنشاء الطلب. لكل دفعة وقت مستقل، ويبدأ حد التخزين البالغ 20 دقيقة من وقت تسجيل وصولها.</p>
+        </div>
+        <form id="receiving-form" class="space-y-4">
+          <label class="block max-w-2xl text-sm font-bold">طلب التوريد الذي وصلت منه الكمية
+            <select id="receipt-request-select" required class="mt-1 w-full rounded-xl border-outline-variant bg-white px-3 py-3">
+              <option value="">اختر طلباً من فرعك</option>
+            </select>
+          </label>
+          <div id="receiving-lines" class="space-y-3 rounded-xl border border-outline-variant bg-white p-3" aria-live="polite">
+            <p class="text-sm text-on-surface-variant">اختر طلباً لعرض أصنافه والكميات المتبقية.</p>
+          </div>
+          <label class="block max-w-2xl text-sm font-bold">صورة سند التسليم / الاستلام <span class="text-error">*</span>
+            <input id="receipt-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required class="mt-1 block w-full rounded-xl border border-outline-variant bg-white p-3 text-sm" />
+            <span class="mt-1 block text-xs font-normal text-on-surface-variant">JPG أو PNG أو WebP، بحد أقصى 10 ميجابايت.</span>
+          </label>
+          <div class="flex flex-wrap items-center gap-3 border-t border-outline-variant pt-4">
+            <button id="record-receipt-btn" type="submit" class="rounded-xl bg-primary px-6 py-3 font-extrabold text-on-primary disabled:cursor-wait disabled:opacity-60">تسجيل الوصول وإنشاء مهام الفحص</button>
+            <span id="receipt-form-status" class="text-sm text-on-surface-variant" role="status" aria-live="polite"></span>
+          </div>
+        </form>
+      </section>
+
       <section id="order-preview" class="hidden rounded-2xl border border-outline-variant bg-white p-4 shadow-sm md:p-6">
         <div class="print-branding" aria-label="شعار زام وصورة الموظف">
           <img id="print-zam-logo" class="print-zam-logo" src="../assets/logo/zam-logo.png" alt="شعار زام" />
@@ -254,6 +281,8 @@
       : (currentUser?.shift_type === 'Evening' ? 'Evening' : 'Morning');
     let selectedOrder = null;
     let inventoryAccess = null;
+    let currentReceivingLines = [];
+    const receivingDraftCache = new Map();
     const branchNames = new Map();
 
     function escapeHtml(value) {
@@ -368,6 +397,83 @@
       return new Intl.DateTimeFormat('ar-SA', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
     }
 
+    function receiptStatus(message, isError = false) {
+      const node = document.getElementById('receipt-form-status');
+      node.textContent = message || '';
+      node.classList.toggle('text-error', !!isError);
+      node.classList.toggle('text-on-surface-variant', !isError);
+    }
+
+    async function loadReceivingRequests() {
+      if (!inventoryAccess?.canReceive || currentUser?.role !== 'Supervisor' || !currentUser.branch_id) return;
+      const select = document.getElementById('receipt-request-select');
+      select.innerHTML = '<option value="">جارٍ تحميل طلبات الفرع…</option>';
+      const { data, error } = await zamClient.from('inventory_requests')
+        .select('id,branch_id,supplier,created_at')
+        .eq('branch_id', currentUser.branch_id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      select.innerHTML = '<option value="">اختر طلباً من فرعك</option>' + (data || []).map(request =>
+        `<option value="${escapeHtml(request.id)}">#${escapeHtml(String(request.id).slice(0, 8).toUpperCase())} · ${escapeHtml(request.supplier)} · ${escapeHtml(formatDate(request.created_at))}</option>`
+      ).join('');
+    }
+
+    function renderReceivingLines(lines) {
+      const node = document.getElementById('receiving-lines');
+      currentReceivingLines = Array.isArray(lines) ? lines : [];
+      if (!currentReceivingLines.length) {
+        node.innerHTML = '<p class="text-sm text-on-surface-variant">لا توجد أصناف متاحة في هذا الطلب.</p>';
+        return;
+      }
+      node.innerHTML = `<div class="mb-2"><p class="font-extrabold text-primary">الكميات التي وصلت في هذه الدفعة</p><p class="text-xs text-on-surface-variant">اترك الصنف دون كمية إذا لم يصل في هذه الدفعة؛ يمكن تسجيل دفعات متكررة حتى استكمال المطلوب.</p></div>` + currentReceivingLines.map(line => {
+        const remaining = Number(line.remaining_quantity);
+        return `<label class="grid grid-cols-1 items-center gap-2 border-t border-outline-variant py-3 text-sm sm:grid-cols-[1fr_auto_auto]">
+          <span class="font-bold">${escapeHtml(line.product_name)} <span class="font-normal text-on-surface-variant">(${escapeHtml(line.unit)})</span></span>
+          <span class="text-xs text-on-surface-variant">المطلوب ${formatQuantity(line.requested_quantity)} · وصل ${formatQuantity(line.received_quantity)} · المتبقي ${formatQuantity(remaining)}</span>
+          <input type="number" class="receipt-quantity w-full rounded-lg border-outline-variant bg-white sm:w-36" data-item-id="${escapeHtml(line.request_item_id)}" min="0" max="${Number.isFinite(remaining) ? remaining : 0}" step="any" inputmode="decimal" ${remaining <= 0 ? 'disabled' : ''} placeholder="وصل الآن" aria-label="الكمية الواصلة الآن من ${escapeHtml(line.product_name)}" />
+        </label>`;
+      }).join('');
+    }
+
+    async function loadReceivingLines(requestId) {
+      const node = document.getElementById('receiving-lines');
+      if (!requestId) {
+        currentReceivingLines = [];
+        node.innerHTML = '<p class="text-sm text-on-surface-variant">اختر طلباً لعرض أصنافه والكميات المتبقية.</p>';
+        return;
+      }
+      node.innerHTML = '<p class="text-sm text-on-surface-variant">جارٍ تحميل الأصناف…</p>';
+      const { data, error } = await zamClient.rpc('get_inventory_request_receiving_lines', { p_request_id: requestId });
+      if (error) throw error;
+      renderReceivingLines(data || []);
+    }
+
+    function readArrivalAmounts() {
+      return new Map([...document.querySelectorAll('.receipt-quantity')].map(input => [input.dataset.itemId, input.value]));
+    }
+
+    function readReceiptDraft(requestId) {
+      if (receivingDraftCache.has(requestId)) return receivingDraftCache.get(requestId);
+      try {
+        const saved = sessionStorage.getItem(`zam-receipt-draft:${requestId}`);
+        if (!saved) return null;
+        const parsed = JSON.parse(saved);
+        receivingDraftCache.set(requestId, parsed);
+        return parsed;
+      } catch { return null; }
+    }
+
+    function saveReceiptDraft(requestId, draft) {
+      receivingDraftCache.set(requestId, draft);
+      try { sessionStorage.setItem(`zam-receipt-draft:${requestId}`, JSON.stringify(draft)); } catch { /* in-memory retry remains available */ }
+    }
+
+    function clearReceiptDraft(requestId) {
+      receivingDraftCache.delete(requestId);
+      try { sessionStorage.removeItem(`zam-receipt-draft:${requestId}`); } catch { /* no persisted draft */ }
+    }
+
     function renderOrderPreview(request, items, supervisorName = currentUser?.full_name || '—') {
       selectedOrder = { request, items, supervisorName };
       if (currentUser?.avatar_url) {
@@ -447,7 +553,7 @@
       }
 
       const { data: branches, error: branchesError } = await zamClient.from('branches')
-        .select('id,name').order('name');
+        .select('id,name,lifecycle_status,planned_opening_date').order('name');
       if (branchesError) throw branchesError;
       (branches || []).forEach(branch => branchNames.set(branch.id, branch.name));
       if (currentUser.branch_id && currentUser.branches?.name) {
@@ -456,6 +562,11 @@
 
       inventoryAccess = {
         canCreate: isSupervisor && !!currentUser.branch_id,
+        canReceive: ZamInventoryReceiving.canDisplaySupervisorReceivingTasks(
+          currentUser.role,
+          currentUser.status,
+          ZamBranchLifecycle.isOperational((branches || []).find(branch => branch.id === currentUser.branch_id), new Date())
+        ) && !!currentUser.branch_id,
         allBranches,
         branchIds: [...branchIds]
       };
@@ -472,6 +583,7 @@
       }
 
       document.getElementById('request-section').classList.toggle('hidden', !inventoryAccess.canCreate);
+      document.getElementById('receiving-section').classList.toggle('hidden', !inventoryAccess.canReceive);
       document.getElementById('shift-chip').classList.toggle('hidden', !inventoryAccess.canCreate);
       document.getElementById('user-label').textContent = inventoryAccess.canCreate ? 'المشرف:' : 'المخوّل:';
       document.getElementById('page-audience').textContent = inventoryAccess.canCreate
@@ -565,6 +677,77 @@
       catch (error) { console.error(error); setMessage('تعذّر تحميل طلبات هذا الفرع.', true); }
     });
 
+    document.getElementById('receipt-request-select').addEventListener('change', async event => {
+      receiptStatus('');
+      try { await loadReceivingLines(event.target.value); }
+      catch (error) {
+        console.error(error);
+        renderReceivingLines([]);
+        receiptStatus(error.message || 'تعذّر تحميل أصناف الطلب.', true);
+      }
+    });
+
+    document.getElementById('receiving-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      receiptStatus('');
+      if (!ZamInventoryReceiving.canDisplaySupervisorReceivingTasks(currentUser?.role, currentUser?.status, inventoryAccess?.canReceive === true)
+          || !currentUser.branch_id) {
+        receiptStatus('تسجيل وصول التوريد متاح لمشرف نشط مرتبط بفرع فقط.', true);
+        return;
+      }
+      const requestId = document.getElementById('receipt-request-select').value;
+      const file = document.getElementById('receipt-photo').files?.[0];
+      const button = document.getElementById('record-receipt-btn');
+      if (button.disabled) return;
+      try {
+        if (!requestId) throw new Error('اختر طلب التوريد أولاً.');
+        const extension = ZamInventoryReceiving.validateReceiptPhoto(file);
+        const arrivalItems = ZamInventoryReceiving.buildArrivalItems(currentReceivingLines, readArrivalAmounts());
+        button.disabled = true;
+        receiptStatus('جارٍ التحقق من صورة السند…');
+        const photoDigest = await ZamInventoryReceiving.receiptPhotoDigest(file);
+        const fingerprint = JSON.stringify({
+          requestId,
+          items: arrivalItems.slice().sort((a, b) => a.request_item_id.localeCompare(b.request_item_id)),
+          photo: { size: file.size, type: file.type, extension, sha256: photoDigest }
+        });
+        const previous = readReceiptDraft(requestId);
+        const draft = ZamInventoryReceiving.reuseOrCreateIdempotencyDraft(previous, fingerprint, () => crypto.randomUUID());
+        saveReceiptDraft(requestId, draft);
+        const photoPath = ZamInventoryReceiving.receiptPhotoPath(currentUser.branch_id, requestId, draft.key, file);
+        receiptStatus('جارٍ رفع صورة السند الخاصة وتسجيل الدفعة…');
+        const { error: uploadError } = await zamClient.storage.from('inventory-receipts').upload(photoPath, file, {
+          contentType: file.type,
+          cacheControl: '3600',
+          upsert: false
+        });
+        if (uploadError && !ZamInventoryReceiving.isReceiptPhotoAlreadyUploaded(uploadError)) throw uploadError;
+        const { data, error } = await zamClient.rpc('record_inventory_receipt', {
+          p_request_id: requestId,
+          p_idempotency_key: draft.key,
+          p_receipt_photo_path: photoPath,
+          p_items: arrivalItems
+        });
+        if (error) throw error;
+        if (!data) throw new Error('لم يصل تأكيد تسجيل الدفعة من قاعدة البيانات.');
+        clearReceiptDraft(requestId);
+        document.getElementById('receipt-photo').value = '';
+        document.querySelectorAll('.receipt-quantity').forEach(input => { input.value = ''; });
+        receiptStatus(`تم تسجيل وصول ${arrivalItems.length} صنفاً. أُنشئت مهام الفحص للمشرف، ويبدأ حد التخزين لكل صنف من وقت وصول هذه الدفعة.`);
+        try {
+          await Promise.all([loadReceivingLines(requestId), loadHistory()]);
+        } catch (refreshError) {
+          console.warn('Receipt was recorded; a follow-up display refresh failed.', refreshError);
+          receiptStatus('تم تسجيل الدفعة بنجاح، لكن تعذّر تحديث العرض. لا تُعِد تسجيلها؛ حدّث الصفحة لمراجعة الكميات ومهام الفحص.', true);
+        }
+      } catch (error) {
+        console.error(error);
+        receiptStatus(error.message || 'تعذّر تسجيل وصول التوريد. يمكنك إعادة المحاولة بالقيم والصورة نفسها.', true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+
     document.getElementById('request-form').addEventListener('submit', async event => {
       event.preventDefault();
       clearMessages();
@@ -655,6 +838,7 @@
           } catch (error) { console.warn('Notification bell could not be loaded:', error); }
         }
         await loadHistory();
+        if (access.canReceive) await loadReceivingRequests();
       } catch (error) {
         console.error(error);
         document.getElementById('request-section').classList.add('hidden');

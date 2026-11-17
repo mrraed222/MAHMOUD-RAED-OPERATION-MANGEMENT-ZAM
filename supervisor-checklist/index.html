@@ -2,9 +2,10 @@
 <html class="light" dir="rtl" lang="ar"><head>
 <meta charset="utf-8"/><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/checklist-schedule.js?v=20261117203400"></script>
+<script src="../assets/checklist-schedule.js?v=20261117214500"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script src="../assets/supabase-config.js?v=20261117194500"></script>
+<script src="../assets/inventory-receiving.js?v=20261117214500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // صفحة قوائم المهام مخصصة للمشرفين — المالك/الأدمن يتابعان الأداء من الداشبورد
@@ -170,6 +171,19 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </div>
 </section>
 
+<section id="inventory-receiving-tasks-section" class="hidden rounded-xl border border-secondary bg-secondary-container/20 shadow-sm">
+  <div class="flex flex-col gap-2 border-b border-outline-variant bg-secondary-container/40 px-md py-base sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2 class="font-bold text-primary">استلام التوريدات — مهام المشرف</h2>
+      <p class="text-xs text-on-surface-variant">تظهر المهمة فور تسجيل المشرف وصول أي كمية، وتُحسب مهلة التخزين لكل دفعة من وقت وصولها.</p>
+    </div>
+    <button id="refresh-receiving-tasks-btn" type="button" class="rounded-lg border border-outline-variant bg-white px-3 py-2 text-sm font-bold text-primary">تحديث مهام الاستلام</button>
+  </div>
+  <div id="inventory-receiving-tasks" class="space-y-sm p-sm sm:p-md" aria-live="polite">
+    <p class="p-sm text-sm text-on-surface-variant">جارٍ التحقق من مهام الاستلام…</p>
+  </div>
+</section>
+
 <section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
 <div class="bg-primary text-on-primary px-md py-base flex flex-col md:flex-row justify-between items-center gap-sm">
 	  <div class="flex gap-md items-center">
@@ -259,6 +273,144 @@ let activeSubTab = 'my-tasks'; // الصفحة الآن لمهام المشرف 
 
 const container = document.getElementById('checklist-container');
 const progressLabel = document.getElementById('progress-label');
+const receivingTaskSection = document.getElementById('inventory-receiving-tasks-section');
+const receivingTaskContainer = document.getElementById('inventory-receiving-tasks');
+let receivingTasksLoadInProgress = false;
+
+function formatReceivingDate(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return '—';
+    return new Intl.DateTimeFormat('ar-SA', { timeZone: 'Asia/Riyadh', dateStyle: 'medium', timeStyle: 'short' }).format(date);
+}
+
+function formatReceivingQuantity(value) {
+    const quantity = Number(value);
+    return Number.isFinite(quantity) ? quantity.toLocaleString('ar-SA', { maximumFractionDigits: 3 }) : '—';
+}
+
+async function loadOpenReceivingTasks() {
+    if (!receivingTaskSection || !receivingTaskContainer) return;
+    if (!ZamInventoryReceiving.canDisplaySupervisorReceivingTasks(currentUser?.role, currentUser?.status, true)
+        || !currentUser.branch_id) {
+        receivingTaskSection.classList.add('hidden');
+        return;
+    }
+    if (receivingTasksLoadInProgress) return;
+    receivingTasksLoadInProgress = true;
+    try {
+        if (!currentBranchHoursLoaded) await loadCurrentBranchHours();
+        const branchOperational = ZamBranchLifecycle.isOperational(currentBranchLifecycle, new Date());
+        if (!ZamInventoryReceiving.canDisplaySupervisorReceivingTasks(currentUser?.role, currentUser?.status, branchOperational)) {
+            receivingTaskSection.classList.add('hidden');
+            return;
+        }
+        receivingTaskSection.classList.remove('hidden');
+        receivingTaskContainer.innerHTML = '<p class="p-sm text-sm text-on-surface-variant">جارٍ تحميل مهام الاستلام…</p>';
+        const { data, error } = await zamClient.rpc('get_open_inventory_receipt_tasks');
+        if (error) throw error;
+        const tasks = Array.isArray(data) ? data : [];
+        if (!tasks.length) {
+            receivingTaskContainer.innerHTML = '<p class="p-sm text-sm text-on-surface-variant">لا توجد دفعات استلام مفتوحة. لا تُنشأ مهمة عند إنشاء الطلب؛ تظهر بعد تسجيل وصول كمية فعلية.</p>';
+            return;
+        }
+        const photoUrls = new Map();
+        await Promise.all([...new Set(tasks.map(task => task.receipt_photo_path).filter(Boolean))].map(async path => {
+            try {
+                const { data: signed, error: signedError } = await zamClient.storage.from('inventory-receipts').createSignedUrl(path, 3600);
+                if (!signedError && signed?.signedUrl) photoUrls.set(path, signed.signedUrl);
+            } catch (error) { console.warn('Receipt photo preview unavailable:', error); }
+        }));
+        receivingTaskContainer.innerHTML = tasks.map(task => {
+            const overdue = task.is_overdue === true;
+            const photoUrl = safeImageUrl(photoUrls.get(task.receipt_photo_path));
+            const orderShort = String(task.request_id || '').slice(0, 8).toUpperCase();
+            return `<article class="receipt-task-card rounded-xl border ${overdue ? 'border-error bg-error-container/20' : 'border-outline-variant bg-surface-container-lowest'} p-md shadow-sm" data-receipt-item-id="${escHtml(task.receipt_item_id)}">
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div class="min-w-0">
+                  <h3 class="font-extrabold text-primary">${escHtml(task.product_name)} <span class="font-normal text-on-surface-variant">(${escHtml(task.unit)})</span></h3>
+                  <p class="mt-1 text-xs text-on-surface-variant">الطلب #${escHtml(orderShort)} · ${escHtml(task.supplier || '—')} · استلم ${escHtml(formatReceivingQuantity(task.received_quantity))} · المتبقي من الطلب ${escHtml(formatReceivingQuantity(task.remaining_quantity))}</p>
+                </div>
+                ${photoUrl ? `<a href="${escHtml(photoUrl)}" target="_blank" rel="noopener noreferrer" class="shrink-0 rounded-lg border border-outline-variant px-3 py-2 text-xs font-bold text-primary">عرض صورة السند</a>` : '<span class="text-xs text-on-surface-variant">صورة السند محفوظة بشكل خاص</span>'}
+              </div>
+              <div class="mt-3 grid grid-cols-1 gap-2 rounded-lg bg-surface-container-low p-3 text-xs sm:grid-cols-2">
+                <p>وقت وصول هذه الدفعة: <strong>${escHtml(formatReceivingDate(task.received_at))}</strong></p>
+                <p class="${overdue ? 'font-extrabold text-error' : ''}">${overdue ? 'متأخرة — ' : 'موعد إكمال التخزين: '}<strong>${escHtml(formatReceivingDate(task.storage_deadline_at))}</strong></p>
+              </div>
+              <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <label class="flex items-center gap-2 rounded-lg border border-outline-variant p-3 text-sm"><input class="receipt-item-verified" type="checkbox"/> مطابقة الصنف</label>
+                <label class="flex items-center gap-2 rounded-lg border border-outline-variant p-3 text-sm"><input class="receipt-quantity-verified" type="checkbox"/> مطابقة الكمية</label>
+                <label class="flex items-center gap-2 rounded-lg border border-outline-variant p-3 text-sm"><input class="receipt-expiry-checked" type="checkbox"/> فحص الصلاحية</label>
+                <label class="text-sm font-bold">تاريخ انتهاء الصلاحية (إن وجد)
+                  <input type="date" class="receipt-expiry-date mt-1 w-full rounded-lg border-outline-variant bg-white"/>
+                </label>
+                <label class="text-sm font-bold">حالة العبوة <span class="text-error">*</span>
+                  <select class="receipt-package-condition mt-1 w-full rounded-lg border-outline-variant bg-white" required><option value="">اختر</option><option value="intact">سليمة</option><option value="damaged">متضررة</option><option value="compromised">مفتوحة / غير سليمة</option></select>
+                </label>
+                <label class="text-sm font-bold">طريقة التخزين <span class="text-error">*</span>
+                  <select class="receipt-storage-method mt-1 w-full rounded-lg border-outline-variant bg-white" required><option value="">اختر</option><option value="FIFO">FIFO — الوارد أولاً يخرج أولاً</option><option value="FEFO">FEFO — الأقرب انتهاءً يخرج أولاً</option></select>
+                </label>
+                <label class="text-sm font-bold md:col-span-3">ملاحظة حالة العبوة / سبب التأخير (إن وجد)
+                  <textarea rows="2" maxlength="2000" class="receipt-package-notes mt-1 w-full rounded-lg border-outline-variant bg-white" placeholder="يلزم وصف مختصر إذا كانت العبوة متضررة أو مفتوحة"></textarea>
+                </label>
+              </div>
+              <div class="mt-3 flex flex-wrap items-center gap-3">
+                <button type="button" class="complete-receipt-task rounded-lg bg-primary px-5 py-2.5 text-sm font-extrabold text-on-primary">تأكيد الفحص والتخزين</button>
+                <span class="receipt-task-status text-xs text-error" role="status" aria-live="polite"></span>
+              </div>
+            </article>`;
+        }).join('');
+        receivingTaskContainer.querySelectorAll('.complete-receipt-task').forEach(button => {
+            button.addEventListener('click', async () => {
+                const card = button.closest('.receipt-task-card');
+                const status = card.querySelector('.receipt-task-status');
+                let completion;
+                try {
+                    completion = ZamInventoryReceiving.validateCompletionInput({
+                        itemVerified: card.querySelector('.receipt-item-verified').checked,
+                        quantityVerified: card.querySelector('.receipt-quantity-verified').checked,
+                        expiryChecked: card.querySelector('.receipt-expiry-checked').checked,
+                        expiryDate: card.querySelector('.receipt-expiry-date').value || null,
+                        packageCondition: card.querySelector('.receipt-package-condition').value,
+                        packageNotes: card.querySelector('.receipt-package-notes').value,
+                        storageMethod: card.querySelector('.receipt-storage-method').value
+                    });
+                } catch (error) {
+                    status.textContent = error.message || 'أكمل جميع فحوصات الاستلام والتخزين.';
+                    return;
+                }
+                button.disabled = true;
+                status.textContent = 'جارٍ حفظ الفحص…';
+                try {
+                    const { error } = await zamClient.rpc('complete_inventory_receipt_item', {
+                        p_receipt_item_id: card.dataset.receiptItemId,
+                        p_item_verified: completion.itemVerified,
+                        p_quantity_verified: completion.quantityVerified,
+                        p_expiry_checked: completion.expiryChecked,
+                        p_expiry_date: completion.expiryDate,
+                        p_package_condition: completion.packageCondition,
+                        p_package_notes: completion.packageNotes,
+                        p_storage_method: completion.storageMethod
+                    });
+                    if (error) throw error;
+                    await loadOpenReceivingTasks();
+                } catch (error) {
+                    console.error(error);
+                    status.textContent = error.message || 'تعذّر حفظ الفحص. راجع البيانات وحاول مرة أخرى.';
+                    button.disabled = false;
+                }
+            });
+        });
+    } catch (error) {
+        console.error(error);
+        receivingTaskSection.classList.remove('hidden');
+        receivingTaskContainer.innerHTML = '<p class="p-sm text-sm font-bold text-error">تعذّر تحميل مهام الاستلام. حدّث الصفحة أو أعد المحاولة.</p>';
+    } finally {
+        receivingTasksLoadInProgress = false;
+    }
+}
+
+document.getElementById('refresh-receiving-tasks-btn')?.addEventListener('click', loadOpenReceivingTasks);
 
 function setActiveShiftButton() {
     document.querySelectorAll('.shift-btn').forEach(btn => {
@@ -689,6 +841,7 @@ async function loadChecklist() {
         await loadCurrentBranchHours();
         if (!ZamBranchLifecycle.isOperational(currentBranchLifecycle, new Date())) {
             container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">قوائم المهام والإرسال غير متاحة قبل تاريخ افتتاح الفرع.</p>';
+            receivingTaskSection.classList.add('hidden');
             progressLabel.textContent = '';
             document.getElementById('send-report-btn').disabled = true;
             return;
@@ -725,6 +878,7 @@ async function loadChecklist() {
         });
         renderChecklist(templates, logsByTemplate);
         if (activeSubTab === 'my-tasks') initFridgePanels(logsByTemplate);
+        await loadOpenReceivingTasks();
     } catch (err) {
         console.error(err);
         container.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل المهام من قاعدة البيانات.</p>';
@@ -736,6 +890,7 @@ setActiveShiftButton();
 loadChecklist();
 loadRecentNotes();
 scheduleInventoryTaskVisibility();
+setInterval(() => { if (currentUser?.role === 'Supervisor') loadOpenReceivingTasks(); }, 60 * 1000);
 window.addEventListener('pageshow', (event) => {
     if (event.persisted) loadChecklist();
 });
