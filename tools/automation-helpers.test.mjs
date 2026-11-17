@@ -30,6 +30,7 @@ test('daily, archived, hourly and inventory-request templates are classified saf
   assert.equal(isScheduledChecklistTask(baseTask({ active: false })), false);
   assert.equal(isScheduledChecklistTask(baseTask({ frequency: 'hourly' })), false);
   assert.equal(isScheduledChecklistTask(baseTask({ task_type: 'inventory_request' })), false);
+  assert.equal(isScheduledChecklistTask(baseTask({ task_type: 'inventory_count' })), false);
   assert.equal(isScheduledChecklistTask(baseTask({ frequency: 'unknown' })), false);
 });
 

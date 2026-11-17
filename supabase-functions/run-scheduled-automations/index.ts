@@ -174,7 +174,7 @@ Deno.serve(async () => {
       return ROLE_CATEGORY[emp.role] ? [ROLE_CATEGORY[emp.role]] : []
     }
     function taskFitsEmployee(t: any, emp: any): boolean {
-      if (!t || t.is_active === false || t.active === false || t.task_type === 'inventory_request' || t.frequency === 'hourly') return false
+      if (!t || t.is_active === false || t.active === false || t.task_type === 'inventory_request' || t.task_type === 'inventory_count' || t.frequency === 'hourly') return false
       if (!employeeCategories(emp).includes(t.category)) return false
       if (!isBranchActive(emp.branch_id) || !templateAppliesToBranch(t, emp.branch_id)) return false
       if (emp.shift_type && emp.shift_type !== 'Both' && t.shift_type !== 'Both' && t.shift_type !== emp.shift_type) return false

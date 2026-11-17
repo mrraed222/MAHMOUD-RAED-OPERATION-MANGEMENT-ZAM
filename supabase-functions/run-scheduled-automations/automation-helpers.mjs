@@ -15,7 +15,7 @@ function riyadhDateParts(value) {
 
 export function isScheduledChecklistTask(task, date = new Date()) {
   if (!task || task.is_active === false || task.active === false) return false;
-  if (task.task_type === 'inventory_request') return false;
+  if (task.task_type === 'inventory_request' || task.task_type === 'inventory_count') return false;
   const frequency = String(task.frequency || 'daily').trim().toLowerCase();
   if (frequency === 'hourly') return false;
   const today = riyadhDateParts(date);
