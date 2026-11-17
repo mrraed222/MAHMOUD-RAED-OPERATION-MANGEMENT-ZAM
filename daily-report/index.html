@@ -2,7 +2,7 @@
 
 <html dir="rtl" lang="ar"><head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261117165000"></script>
+<script src="../assets/supabase-config.js?v=20261117174000"></script>
 <script>
   // حماية الشاشة: لازم تسجيل دخول قبل الوصول
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -248,12 +248,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant">
 <div class="flex justify-between items-center border-b border-outline-variant pb-base mb-md">
 <h3 class="font-title-md text-title-md text-primary flex items-center gap-sm">
-<span class="material-symbols-outlined text-tertiary-container">star</span> تقييمات جوجل
+<span class="material-symbols-outlined text-tertiary-container">star</span> تقييمات Google Maps وشكاوى العملاء
                         </h3>
 <button class="bg-primary text-white px-md py-xs rounded-full text-label-bold flex items-center gap-xs hover:opacity-90 active:scale-95 transition-all" onclick="addRow('google-table')">
 <span class="material-symbols-outlined text-[18px]">add</span> إضافة
                         </button>
 </div>
+<p class="text-[12px] text-on-surface-variant mb-sm">أدخلها يدويًا ضمن تقرير مشرف الشفت: الصق تقييم Google Maps أو سجّل شكوى العميل مباشرة. اكتب في بداية النص «Google Maps» أو «شكوى مباشرة» لتوضيح المصدر؛ لا يوجد استيراد تلقائي من Google Maps.</p>
 <div class="overflow-x-auto"><table class="w-full min-w-[760px] text-right" id="google-table">
 <thead>
 <tr class="text-on-surface-variant text-label-bold border-b border-outline-variant">
@@ -311,7 +312,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <select id="tech-fridge" class="border border-outline-variant rounded-lg p-sm md:col-span-2">
 <option value="">غير مرتبطة بثلاجة</option>
 </select>
-<textarea id="tech-desc" rows="2" class="border border-outline-variant rounded-lg p-sm md:col-span-2" placeholder="تفاصيل إضافية (اختياري)"></textarea>
+<textarea id="tech-desc" rows="2" class="border border-outline-variant rounded-lg p-sm md:col-span-2" placeholder="وصف البلاغ الأصلي (اختياري)"></textarea>
 </div>
 <div class="flex items-center gap-sm mt-sm">
 <button type="button" id="tech-save-btn" class="bg-primary text-white px-md py-xs rounded-full text-label-bold">إرسال البلاغ</button>
@@ -321,8 +322,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <div id="tech-list"><p class="text-body-sm text-on-surface-variant">جارِ التحميل...</p></div>
 </div>
 <div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant" id="complaint-management-card">
-    <h3 class="font-title-md text-title-md text-primary border-b border-outline-variant pb-base mb-md">متابعة الشكاوى وحالة المعالجة</h3>
-    <p class="text-[12px] text-on-surface-variant mb-sm">يمكن للمشرف تحديث شكاوى فرعه؛ وتخضع صلاحيات الإدارة لسياسات النظام الحالية.</p>
+    <h3 class="font-title-md text-title-md text-primary border-b border-outline-variant pb-base mb-md">متابعة شكاوى العملاء وحالة المعالجة</h3>
+    <p class="text-[12px] text-on-surface-variant mb-sm">تظهر هنا التقييمات السلبية والشكاوى المُدخلة في تقرير الشفت. يمكن للمشرف تحديث شكاوى فرعه، مع حفظ الحالة والمسؤول والإجراء/آخر ملاحظة وفق صلاحيات النظام الحالية.</p>
     <div id="complaint-list"><p class="text-body-sm text-on-surface-variant">جارِ تحميل الشكاوى...</p></div>
 </div>
 </div>
@@ -365,7 +366,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
                         <option value="negative">👎 سلبي</option>
                     </select>
                 </td>
-                <td class="py-sm px-sm"><input type="text" placeholder="أدخل التعليق" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs review-comment"></td>
+                <td class="py-sm px-sm"><input type="text" placeholder="نص تقييم Google Maps أو شكوى مباشرة" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs review-comment"></td>
                 <td class="py-sm px-sm"><select class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs review-status"><option value="معلقة" selected>معلقة</option><option value="قيد المعالجة">قيد المعالجة</option><option value="مغلقة">مغلقة</option></select></td>
                 <td class="py-sm px-sm"><input type="text" placeholder="المسؤول عن المعالجة" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs review-owner"></td>
                 <td class="py-sm px-sm"><input type="text" placeholder="إجراء المعالجة" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs review-action"></td>
@@ -743,8 +744,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
                         </div>
                         ${editable ? `<select class="technical-status rounded border border-outline-variant p-xs"><option value="open" ${i.status === 'open' ? 'selected' : ''}>مفتوح</option><option value="resolved" ${i.status === 'resolved' ? 'selected' : ''}>تم الحل</option></select>` : `<span class="text-[11px] text-outline">${i.status === 'resolved' ? 'تم الحل' : 'مفتوح'}</span>`}
                     </div>
-                    ${i.description ? `<p class="mt-xs whitespace-pre-wrap text-[12px] text-on-surface-variant">${esc(i.description)}</p>` : `<p class="mt-xs text-[12px] text-on-surface-variant">لا توجد تفاصيل مسجلة.</p>`}
-                    ${editable ? `<button type="button" class="save-technical-btn mt-xs rounded bg-primary px-sm py-xs text-white" data-id="${esc(i.id)}">حفظ الحالة</button>` : ''}
+                    ${i.description ? `<p class="mt-xs whitespace-pre-wrap text-[12px] text-on-surface-variant"><b>الوصف الأصلي:</b> ${esc(i.description)}</p>` : `<p class="mt-xs text-[12px] text-on-surface-variant">لا توجد تفاصيل مسجلة.</p>`}
+                    ${editable ? `<label class="block mt-xs text-[11px] text-on-surface-variant">تعليق المتابعة<textarea class="technical-comment mt-xs w-full rounded border border-outline-variant p-xs" rows="2" maxlength="2000" placeholder="اكتب تعليقًا دون تغيير الوصف الأصلي">${esc(i.internal_comment || '')}</textarea></label><button type="button" class="save-technical-btn mt-xs rounded bg-primary px-sm py-xs text-white" data-id="${esc(i.id)}">حفظ الحالة والتعليق</button>` : (i.internal_comment ? `<p class="mt-xs whitespace-pre-wrap text-[12px] text-on-surface-variant"><b>تعليق المتابعة:</b> ${esc(i.internal_comment)}</p>` : '')}
                 </div>`).join('') : '<p class="text-body-sm text-on-surface-variant">لا توجد مشاكل تقنية مفتوحة.</p>';
         } catch (err) {
             console.error(err);
@@ -759,7 +760,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
         btn.disabled = true;
         try {
             await ZamAPI.updateTechnicalIssue(btn.dataset.id, {
-                status: row.querySelector('.technical-status').value
+                status: row.querySelector('.technical-status').value,
+                internal_comment: row.querySelector('.technical-comment').value
             });
             msgEl.className = 'text-[12px] font-bold text-tertiary';
             msgEl.textContent = 'تم تحديث البلاغ التقني.';

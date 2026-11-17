@@ -1105,12 +1105,17 @@ const ZamAPI = {
         if (error) throw error;
         return data || [];
     },
-    async updateTechnicalIssue(id, { status }) {
+    async updateTechnicalIssue(id, { status, internal_comment }) {
         if (!id || !['open', 'resolved'].includes(status)) throw new Error('الحالة غير صالحة.');
         const payload = {
             status,
             resolved_at: status === 'resolved' ? new Date().toISOString() : null
         };
+        if (internal_comment !== undefined) {
+            const comment = internal_comment == null ? '' : String(internal_comment).trim();
+            if (comment.length > 2000) throw new Error('تعليق المتابعة يتجاوز الحد المسموح (2000 حرف).');
+            payload.internal_comment = comment || null;
+        }
         const { data, error } = await zamClient.from('technical_issues')
             .update(payload).eq('id', id).select('id').maybeSingle();
         if (error) throw error;
