@@ -75,7 +75,12 @@
     var d = dateParts(date);
     if (!d) return false;
     var frequency = String(task.frequency || 'daily').toLowerCase();
-    if (frequency === 'weekly') return Number(task.day_of_week) === d.getUTCDay();
+    if (frequency === 'weekly') {
+      var days = Array.isArray(task.days_of_week) ? task.days_of_week : [];
+      return days.length
+        ? days.some(function (day) { return Number(day) === d.getUTCDay(); })
+        : Number(task.day_of_week) === d.getUTCDay();
+    }
     if (frequency === 'monthly') {
       var lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
       return d.getUTCDate() === Math.min(Number(task.day_of_month), lastDay);

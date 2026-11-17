@@ -104,7 +104,12 @@
     if (frequency === 'daily' || frequency === 'hourly') return true;
     const p = riyadhParts(date);
     const localDay = new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay();
-    if (frequency === 'weekly') return Number(task?.day_of_week) === localDay;
+    if (frequency === 'weekly') {
+      const days = Array.isArray(task?.days_of_week) ? task.days_of_week : [];
+      return days.length
+        ? days.some(day => Number(day) === localDay)
+        : Number(task?.day_of_week) === localDay;
+    }
     if (frequency === 'monthly') {
       const lastDay = new Date(Date.UTC(p.year, p.month, 0)).getUTCDate();
       return p.day === Math.min(Number(task.day_of_month), lastDay);

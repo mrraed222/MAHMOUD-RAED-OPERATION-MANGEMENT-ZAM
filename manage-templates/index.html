@@ -15,8 +15,8 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/checklist-schedule.js?v=20261116205000"></script>
-<script src="../assets/supabase-config.js?v=20261116205000"></script>
+<script src="../assets/checklist-schedule.js?v=20261117172300"></script>
+<script src="../assets/supabase-config.js?v=20261117172300"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: anyone without this permission is sent home
@@ -98,24 +98,27 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
         <label class="text-body-sm text-on-surface-variant">التكرار</label>
         <select id="f-frequency" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
           <option value="daily">يومي</option>
-          <option value="weekly">أسبوعي (يوم محدد)</option>
+          <option value="weekly">أسبوعي (اختيار عدة أيام)</option>
           <option value="monthly">شهري (يوم محدد من الشهر)</option>
           <option value="hourly">كل ساعة</option>
         </select>
       </div>
     </div>
     <div id="f-day-row" class="grid grid-cols-2 gap-sm hidden">
-      <div id="f-day-of-week-wrap">
-        <label class="text-body-sm text-on-surface-variant">يوم الأسبوع</label>
-        <select id="f-day-of-week" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
-          <option value="0">الأحد</option>
-          <option value="1">الاثنين</option>
-          <option value="2">الثلاثاء</option>
-          <option value="3">الأربعاء</option>
-          <option value="4">الخميس</option>
-          <option value="5">الجمعة</option>
-          <option value="6">السبت</option>
-        </select>
+      <div id="f-day-of-week-wrap" class="col-span-2 hidden">
+        <fieldset>
+          <legend class="text-body-sm font-bold text-on-surface-variant">أيام الأسبوع</legend>
+          <p class="mt-xs text-[12px] text-on-surface-variant">اختر يومًا أو أكثر؛ سيظل القالب مهمة واحدة ويُجدول في الأيام المحددة.</p>
+          <div id="f-weekdays-grid" class="mt-sm grid grid-cols-2 sm:grid-cols-4 gap-xs">
+            <label class="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-xs text-body-sm"><input type="checkbox" class="f-weekday accent-primary" value="0"/><span>الأحد</span></label>
+            <label class="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-xs text-body-sm"><input type="checkbox" class="f-weekday accent-primary" value="1"/><span>الاثنين</span></label>
+            <label class="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-xs text-body-sm"><input type="checkbox" class="f-weekday accent-primary" value="2"/><span>الثلاثاء</span></label>
+            <label class="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-xs text-body-sm"><input type="checkbox" class="f-weekday accent-primary" value="3"/><span>الأربعاء</span></label>
+            <label class="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-xs text-body-sm"><input type="checkbox" class="f-weekday accent-primary" value="4"/><span>الخميس</span></label>
+            <label class="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-xs text-body-sm"><input type="checkbox" class="f-weekday accent-primary" value="5"/><span>الجمعة</span></label>
+            <label class="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-xs text-body-sm"><input type="checkbox" class="f-weekday accent-primary" value="6"/><span>السبت</span></label>
+          </div>
+        </fieldset>
       </div>
       <div id="f-day-of-month-wrap" class="hidden">
         <label class="text-body-sm text-on-surface-variant">يوم الشهر (1-31)</label>
@@ -256,7 +259,11 @@ function openModal(template = null) {
     document.getElementById('f-target-time').value = template?.target_time ? template.target_time.slice(0, 5) : '';
     const freqSel = document.getElementById('f-frequency');
     freqSel.value = template?.frequency || 'daily';
-    document.getElementById('f-day-of-week').value = String(template?.day_of_week ?? new Date().getDay());
+    const storedDays = Array.isArray(template?.days_of_week) && template.days_of_week.length
+        ? template.days_of_week.map(Number)
+        : (template && template.day_of_week !== null && template.day_of_week !== undefined ? [Number(template.day_of_week)] : []);
+    const selectedDays = template ? storedDays : [new Date().getDay()];
+    document.querySelectorAll('.f-weekday').forEach(box => { box.checked = selectedDays.includes(Number(box.value)); });
     document.getElementById('f-day-of-month').value = template?.day_of_month || 1;
     freqSel.dispatchEvent(new Event('change'));
     modal.classList.remove('hidden');
@@ -272,6 +279,8 @@ document.getElementById('add-template-btn').addEventListener('click', () => open
 document.getElementById('cancel-modal').addEventListener('click', closeModal);
 
 document.getElementById('save-template').addEventListener('click', async () => {
+    const frequency = document.getElementById('f-frequency').value;
+    const selectedWeekdays = [...document.querySelectorAll('.f-weekday:checked')].map(box => Number(box.value)).sort((a, b) => a - b);
     const payload = {
         task_title: document.getElementById('f-task-title').value.trim(),
         category: document.getElementById('f-category').value.trim(),
@@ -282,17 +291,14 @@ document.getElementById('save-template').addEventListener('click', async () => {
         allows_notes: document.getElementById('f-allows-notes').checked,
         task_type: document.getElementById('f-task-type').value,
         target_time: document.getElementById('f-target-time').value || null,
-        frequency: document.getElementById('f-frequency').value,
-        day_of_week: payload_dayOfWeek(),
+        frequency,
+        days_of_week: frequency === 'weekly' ? selectedWeekdays : [],
+        day_of_week: frequency === 'weekly' ? (selectedWeekdays[0] ?? null) : null,
         day_of_month: payload_dayOfMonth(),
     };
-    function payload_dayOfWeek() {
-        return document.getElementById('f-frequency').value === 'weekly'
-            ? Number(document.getElementById('f-day-of-week').value) : null;
-    }
     function payload_dayOfMonth() {
         const v = Number(document.getElementById('f-day-of-month').value);
-        return document.getElementById('f-frequency').value === 'monthly' && v >= 1 && v <= 31 ? v : null;
+        return frequency === 'monthly' && v >= 1 && v <= 31 ? v : null;
     }
     if (!payload.task_title || !payload.category) {
         alert('اسم المهمة والقائمة الرئيسية مطلوبين.');
@@ -300,6 +306,10 @@ document.getElementById('save-template').addEventListener('click', async () => {
     }
     if (payload.frequency === 'hourly' && payload.task_type !== 'restroom_check') {
         alert('التكرار الساعي مخصص لمهام فحص/تنظيف دورة المياه.');
+        return;
+    }
+    if (payload.frequency === 'weekly' && !payload.days_of_week.length) {
+        alert('اختر يومًا واحدًا على الأقل للتكرار الأسبوعي.');
         return;
     }
     try {
@@ -340,27 +350,40 @@ async function loadTemplates() {
 
         function renderTask(task, archived) {
             const branchName = task.branch_id ? (branchesCache.find(b => b.id === task.branch_id)?.name || 'فرع محدد') : 'كل الفروع';
-            const frequencyLabel = { weekly: 'أسبوعي', monthly: 'شهري', hourly: 'كل ساعة' }[task.frequency];
+            const frequencyLabel = { daily: 'يومي', weekly: 'أسبوعي', monthly: 'شهري', hourly: 'كل ساعة' }[task.frequency || 'daily'];
+            const weekDays = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+            const selectedDays = Array.isArray(task.days_of_week) && task.days_of_week.length
+                ? task.days_of_week.map(Number)
+                : (task.day_of_week !== null && task.day_of_week !== undefined && String(task.day_of_week) !== '' ? [Number(task.day_of_week)] : []);
+            const weeklyDay = task.frequency === 'weekly' && selectedDays.length
+                ? ` · ${selectedDays.filter(day => day >= 0 && day <= 6).map(day => weekDays[day]).join('، ')}` : '';
+            const monthlyDay = task.frequency === 'monthly' && task.day_of_month ? ` · يوم ${task.day_of_month}` : '';
             const shiftLabel = task.shift_type === 'Both' ? 'الورديتان' : (SHIFT_LABELS[task.shift_type] || task.shift_type || 'غير محددة');
             return `
-                <div class="p-sm flex items-start justify-between gap-sm">
-                    <div class="min-w-0">
-                        <p class="font-bold text-on-surface text-body-sm">
+                <article class="p-md flex flex-col sm:flex-row sm:items-start sm:justify-between gap-md bg-surface-container-lowest">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-xs mb-xs">
+                          <h4 class="font-bold text-on-surface text-body-lg leading-6">
                             ${frEsc(task.task_title)}
-                            ${task.requires_photo ? '<span class="material-symbols-outlined text-[14px] align-middle text-outline">photo_camera</span>' : ''}
-                            ${task.target_time ? `<span class="inline-flex items-center gap-xs px-xs py-[2px] bg-warning-container text-on-warning text-[10px] font-bold rounded-full ml-sm">${frEsc(task.target_time.slice(0, 5))}</span>` : ''}
-                            ${frequencyLabel ? `<span class="inline-flex px-xs py-[2px] bg-secondary-container text-on-secondary-container text-[10px] font-bold rounded-full ml-sm">${frequencyLabel}</span>` : ''}
-                        </p>
-                        ${task.instructions ? `<p class="text-[12px] text-on-surface-variant">${frEsc(task.instructions)}</p>` : ''}
-                        <span class="text-[11px] ${task.branch_id ? 'text-primary font-bold' : 'text-outline'}">${task.branch_id ? '📍 ' : ''}${frEsc(branchName)} · ${frEsc(shiftLabel)}</span>
+                          </h4>
+                          <span class="inline-flex items-center rounded-full bg-secondary-container px-sm py-[3px] text-[11px] font-bold text-on-secondary-container">${frequencyLabel}${weeklyDay}${monthlyDay}</span>
+                          ${task.requires_photo ? '<span class="inline-flex items-center gap-xs rounded-full bg-surface-container px-sm py-[3px] text-[11px] font-bold text-on-surface-variant"><span class="material-symbols-outlined text-[14px]">photo_camera</span> صورة مطلوبة</span>' : ''}
+                          ${task.target_time ? `<span class="inline-flex items-center gap-xs rounded-full bg-warning-container px-sm py-[3px] text-[11px] font-bold text-on-warning">موعد ${frEsc(task.target_time.slice(0, 5))}</span>` : ''}
+                        </div>
+                        ${task.instructions ? `<p class="text-body-sm text-on-surface-variant mb-sm leading-6">${frEsc(task.instructions)}</p>` : ''}
+                        <div class="flex flex-wrap items-center gap-x-sm gap-y-xs text-[12px]">
+                          <span class="${task.branch_id ? 'text-primary font-bold' : 'text-outline'}">${task.branch_id ? '📍 ' : ''}${frEsc(branchName)}</span>
+                          <span class="text-outline-variant" aria-hidden="true">•</span>
+                          <span class="text-on-surface-variant">${frEsc(shiftLabel)}</span>
+                        </div>
                     </div>
-                    <div class="flex flex-wrap justify-end gap-sm shrink-0">
-                        ${!archived && task.task_type === 'fridge_temps' ? `<button class="fridges-btn text-tertiary text-[12px] font-bold hover:underline" data-id="${frEsc(task.id)}">🧊 إدارة الثلاجات</button>` : ''}
-                        ${archived ? `<button class="copy-archived-btn text-tertiary text-[12px] font-bold hover:underline" data-id="${frEsc(task.id)}">إنشاء إصدار نشط</button>` : `
-                          <button class="edit-btn text-primary text-[12px] font-bold hover:underline" data-id="${frEsc(task.id)}">تعديل بإصدار جديد</button>
-                          <button class="delete-btn text-error text-[12px] font-bold hover:underline" data-id="${frEsc(task.id)}">أرشفة</button>`}
+                    <div class="flex flex-wrap items-center gap-xs shrink-0 border-t border-outline-variant pt-sm sm:border-0 sm:pt-0">
+                        ${!archived && task.task_type === 'fridge_temps' ? `<button class="fridges-btn rounded-lg px-sm py-xs text-tertiary text-[12px] font-bold hover:bg-surface-container" data-id="${frEsc(task.id)}">🧊 إدارة الثلاجات</button>` : ''}
+                        ${archived ? `<button class="copy-archived-btn rounded-lg px-sm py-xs text-tertiary text-[12px] font-bold hover:bg-surface-container" data-id="${frEsc(task.id)}">إنشاء إصدار نشط</button>` : `
+                          <button class="edit-btn rounded-lg px-sm py-xs text-primary text-[12px] font-bold hover:bg-primary-fixed" data-id="${frEsc(task.id)}">تعديل بإصدار جديد</button>
+                          <button class="delete-btn rounded-lg px-sm py-xs text-error text-[12px] font-bold hover:bg-error-container" data-id="${frEsc(task.id)}">أرشفة</button>`}
                     </div>
-                </div>`;
+                </article>`;
         }
 
         function renderGroups(templates, archived = false) {
@@ -369,25 +392,56 @@ async function loadTemplates() {
                 if (!grouped.has(task.category)) grouped.set(task.category, { Morning: [], Evening: [], Both: [] });
                 (grouped.get(task.category)[task.shift_type] || grouped.get(task.category).Both).push(task);
             });
-            return [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b, 'ar')).map(([category, shifts]) => `
-                <div class="mb-lg">
-                    <h3 class="font-title-md text-title-md text-primary mb-sm">${frEsc(category || 'بدون فئة')}</h3>
-                    ${['Morning', 'Evening', 'Both'].map(shift => shifts[shift].length ? `
-                      <div class="mb-sm">
-                        <p class="text-body-sm font-bold text-on-surface-variant mb-xs">${shift === 'Both' ? 'الورديتان' : `الوردية ${SHIFT_LABELS[shift]}`}</p>
-                        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant divide-y divide-outline-variant">${shifts[shift].map(task => renderTask(task, archived)).join('')}</div>
-                      </div>` : '').join('')}
-                </div>`).join('');
+            const frequencyRank = { daily: 0, hourly: 1, monthly: 2, weekly: 3 };
+            const entries = [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b, 'ar'));
+            return entries.map(([category, shifts], index) => {
+                const count = Object.values(shifts).reduce((sum, tasks) => sum + tasks.length, 0);
+                return `
+                <details class="mb-sm overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-sm" ${index === 0 ? 'open' : ''}>
+                  <summary class="flex cursor-pointer list-none items-center justify-between gap-sm bg-surface-container-low px-md py-md hover:bg-surface-container transition-colors">
+                    <span class="flex min-w-0 items-center gap-sm">
+                      <span class="material-symbols-outlined text-primary" aria-hidden="true">view_list</span>
+                      <span class="truncate font-bold text-on-surface text-body-lg">${frEsc(category || 'بدون فئة')}</span>
+                    </span>
+                    <span class="flex shrink-0 items-center gap-sm text-[12px] font-bold text-on-surface-variant"><span>${count} مهمة</span><span class="material-symbols-outlined text-primary" aria-hidden="true">expand_more</span></span>
+                  </summary>
+                  <div class="p-sm sm:p-md">
+                    ${['Morning', 'Evening', 'Both'].map(shift => {
+                        const tasks = shifts[shift].slice().sort((a, b) => (frequencyRank[a.frequency || 'daily'] ?? 4) - (frequencyRank[b.frequency || 'daily'] ?? 4) || (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
+                        return tasks.length ? `
+                          <section class="mb-md last:mb-0">
+                            <div class="mb-xs flex items-center justify-between gap-sm border-b border-outline-variant pb-xs">
+                              <h4 class="font-bold text-primary text-body-sm">${shift === 'Both' ? 'الورديتان' : `الوردية ${SHIFT_LABELS[shift]}`}</h4>
+                              <span class="text-[11px] text-on-surface-variant">${tasks.length} مهمة</span>
+                            </div>
+                            <div class="overflow-hidden rounded-xl border border-outline-variant divide-y divide-outline-variant">${tasks.map(task => renderTask(task, archived)).join('')}</div>
+                          </section>` : '';
+                    }).join('')}
+                  </div>
+                </details>`;
+            }).join('');
         }
 
+        const routineTemplates = activeTemplates.filter(task => task.frequency !== 'weekly');
+        const weeklyTemplates = activeTemplates.filter(task => task.frequency === 'weekly');
         container.innerHTML = `
-          <section>
-            <h2 class="font-title-md text-title-md text-primary mb-sm">القوالب النشطة (${activeTemplates.length})</h2>
-            ${activeTemplates.length ? renderGroups(activeTemplates) : '<p class="text-on-surface-variant text-body-sm mb-md">لا توجد قوالب نشطة حالياً.</p>'}
+          <section class="mb-lg">
+            <div class="mb-md flex items-end justify-between gap-sm border-b border-outline-variant pb-sm">
+              <div><h2 class="font-title-md text-title-md text-primary">القوائم النشطة</h2><p class="mt-xs text-[12px] text-on-surface-variant">مرتبة حسب الفئة والوردية؛ افتح عنوان القائمة لعرض مهامها.</p></div>
+              <span class="shrink-0 rounded-full bg-primary-container px-sm py-xs text-[12px] font-bold text-on-primary">${activeTemplates.length} مهمة</span>
+            </div>
+            ${routineTemplates.length ? renderGroups(routineTemplates) : (weeklyTemplates.length ? '<p class="rounded-xl border border-outline-variant bg-surface-container-lowest p-md text-body-sm text-on-surface-variant">لا توجد مهام يومية أو شهرية نشطة؛ القوالب الأسبوعية في القسم التالي.</p>' : '<p class="rounded-xl border border-outline-variant bg-surface-container-lowest p-md text-body-sm text-on-surface-variant">لا توجد قوالب نشطة حالياً.</p>')}
           </section>
-          <details class="mt-lg border border-outline-variant rounded-xl p-md bg-surface-container-low">
-            <summary class="font-bold text-primary cursor-pointer">الأرشيف المحفوظ (${archivedTemplates.length}) — لا تُحذف النسخ القديمة</summary>
-            <div class="mt-md">${archivedTemplates.length ? renderGroups(archivedTemplates, true) : '<p class="text-on-surface-variant text-body-sm">لا توجد نسخ مؤرشفة.</p>'}</div>
+          ${weeklyTemplates.length ? `<section class="mb-xl border-t-2 border-primary/20 pt-lg">
+            <div class="mb-md flex items-end justify-between gap-sm border-b border-outline-variant pb-sm">
+              <div><h2 class="font-title-md text-title-md text-primary">القوائم الأسبوعية</h2><p class="mt-xs text-[12px] text-on-surface-variant">موضوعة بعد القوائم اليومية لتسهيل الوصول إليها ومراجعتها.</p></div>
+              <span class="shrink-0 rounded-full bg-secondary-container px-sm py-xs text-[12px] font-bold text-on-secondary-container">${weeklyTemplates.length} مهمة</span>
+            </div>
+            ${renderGroups(weeklyTemplates)}
+          </section>` : ''}
+          <details class="mt-lg overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low p-md">
+            <summary class="cursor-pointer font-bold text-primary">الأرشيف المحفوظ (${archivedTemplates.length}) — لا تُحذف النسخ القديمة</summary>
+            <div class="mt-md">${archivedTemplates.length ? renderGroups(archivedTemplates, true) : '<p class="text-body-sm text-on-surface-variant">لا توجد نسخ مؤرشفة.</p>'}</div>
           </details>`;
 
         container.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', () => {

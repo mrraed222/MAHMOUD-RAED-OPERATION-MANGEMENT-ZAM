@@ -608,7 +608,12 @@ const ZamAPI = {
         const month = Number(dateParts.find(part => part.type === 'month')?.value);
         const day = Number(dateParts.find(part => part.type === 'day')?.value);
         const riyadhDate = new Date(Date.UTC(year, month - 1, day));
-        if (freq === 'weekly') return Number(t.day_of_week) === riyadhDate.getUTCDay();
+        if (freq === 'weekly') {
+            const days = Array.isArray(t.days_of_week) ? t.days_of_week : [];
+            return days.length
+                ? days.some(day => Number(day) === riyadhDate.getUTCDay())
+                : Number(t.day_of_week) === riyadhDate.getUTCDay();
+        }
         if (freq === 'monthly') {
             // لو الشهر أقصر من اليوم المحدد (31 في شهر 30 يوم) نطبّقه في آخر يوم بالشهر
             const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();

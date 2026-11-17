@@ -10,6 +10,7 @@ const MAIN_ID = '93f53332-73d0-4742-a9c0-ab15dd828acb';
 const HAY_ID = '5da7b89d-089b-46a9-bc8e-3ad2582f9616';
 const MANAH_ID = '30956dd5-4eb1-408b-94b6-a29498b14b2e';
 const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20261116175407_checklist_recurrence_and_history.sql'), 'utf8');
+const multiDayMigration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20261117162200_multi_day_weekly_templates.sql'), 'utf8');
 const supervisorPage = fs.readFileSync(path.join(__dirname, '..', 'supervisor-checklist', 'index.html'), 'utf8');
 const employeePage = fs.readFileSync(path.join(__dirname, '..', 'my-checklist', 'index.html'), 'utf8');
 const adminLogPage = fs.readFileSync(path.join(__dirname, '..', 'checklist-logs', 'index.html'), 'utf8');
@@ -45,6 +46,38 @@ test('التنظيف الكيميائي للإسبريسو مستحق الأحد
   for (const [date, day] of brushDates) assert.equal(schedule.isTaskDueToday({ frequency: 'weekly', day_of_week: day }, atRiyadh(date)), true);
   assert.match(migration, /VALUES \(1, 323\), \(3, 324\), \(5, 325\), \(6, 326\)/);
   assert.match(migration, /'تنظيف ماكينة الإسبريسو وعصا البخار بالماء والفرشاة', 'البار', 'Both'/);
+});
+
+test('الأيام الأسبوعية المتعددة تعمل مع أولوية المصفوفة والتوافق مع اليوم القديم', () => {
+  const multiDay = { frequency: 'weekly', days_of_week: [0, 2, 4], day_of_week: 6 };
+  for (const [date, expected] of [
+    ['2026-11-15T09:00:00+03:00', true],
+    ['2026-11-17T09:00:00+03:00', true],
+    ['2026-11-19T09:00:00+03:00', true],
+    ['2026-11-16T09:00:00+03:00', false],
+    ['2026-11-21T09:00:00+03:00', false]
+  ]) assert.equal(schedule.isTaskDueToday(multiDay, atRiyadh(date)), expected, date);
+  assert.equal(schedule.isTaskDueToday({ frequency: 'weekly', days_of_week: [], day_of_week: 2 }, atRiyadh('2026-11-17T09:00:00+03:00')), true);
+  assert.equal(schedule.isTaskDueToday({ frequency: 'weekly', day_of_week: 4 }, atRiyadh('2026-11-19T09:00:00+03:00')), true);
+  assert.match(templateAdminPage, /days_of_week: frequency === 'weekly' \? selectedWeekdays : \[\]/);
+  assert.match(api, /days\.some\(day => Number\(day\) === riyadhDate\.getUTCDay\(\)\)/);
+  assert.match(multiDayMigration, /ADD COLUMN IF NOT EXISTS days_of_week integer\[\]/i);
+  assert.match(multiDayMigration, /WHEN v_payload \? 'days_of_week' AND pg_catalog\.jsonb_typeof/);
+  assert.match(multiDayMigration, /WHEN v_payload \? 'day_of_week'[\s\S]*?ARRAY\[NULLIF\(v_payload ->> 'day_of_week'/);
+  assert.match(multiDayMigration, /ELSE v_old\.days_of_week/);
+  assert.doesNotMatch(multiDayMigration, /DELETE\s+FROM\b|DROP\s+(?:TABLE|COLUMN)\b|(?:CREATE|DROP)\s+POLICY\b|cron\.schedule/i);
+  assert.match(schema, /days_of_week integer\[\] not null default '\{\}'::integer\[\]/i);
+  assert.match(schema, /checklist_templates_days_of_week_valid/);
+});
+
+test('صفحات قوائم التحقق تحمل نسخ cache المحدثة للمجدول وAPI', () => {
+  const schedulePages = ['checklist-logs', 'dashboard', 'manage-templates', 'my-checklist', 'supervisor-checklist', 'supervisor-dashboard'];
+  for (const page of schedulePages) {
+    const html = fs.readFileSync(path.join(__dirname, '..', page, 'index.html'), 'utf8');
+    assert.match(html, /checklist-schedule\.js\?v=20261117172300/, `${page} must load the updated schedule helper`);
+  }
+  assert.match(supervisorPage, /supabase-config\.js\?v=20261117172300/);
+  assert.match(templateAdminPage, /supabase-config\.js\?v=20261117172300/);
 });
 
 test('التنظيف العميق لكل الفئات التشغيلية مستحق السبت بتقويم الرياض', () => {

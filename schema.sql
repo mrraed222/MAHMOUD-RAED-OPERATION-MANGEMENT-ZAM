@@ -74,6 +74,11 @@ create table if not exists checklist_templates (
   target_time time,
   frequency text default 'daily' check (frequency in ('daily','weekly','monthly','hourly')),
   day_of_week int check (day_of_week between 0 and 6),
+  days_of_week integer[] not null default '{}'::integer[] check (
+    cardinality(days_of_week) <= 7
+    and days_of_week <@ array[0, 1, 2, 3, 4, 5, 6]::integer[]
+    and array_position(days_of_week, null::integer) is null
+  ),
   day_of_month int check (day_of_month between 1 and 31),
   allows_notes boolean not null default false,
   task_type text not null default 'standard' check (task_type in ('standard','fridge_temps','inventory_request','restroom_check')),
@@ -589,9 +594,27 @@ create table if not exists task_reminder_logs (
 alter table task_reminder_logs enable row level security;
 create policy "allow all task_reminder_logs" on task_reminder_logs for all using (true) with check (true);
 
--- 15. تكرار المهام: يومي / أسبوعي (يوم محدد من الأسبوع) / شهري (يوم محدد من الشهر)
+-- 15. تكرار المهام: يومي / أسبوعي (أيام متعددة مع بقاء day_of_week القديم) / شهري
 alter table checklist_templates add column if not exists frequency text default 'daily' check (frequency in ('daily','weekly','monthly','hourly'));
 alter table checklist_templates add column if not exists day_of_week int check (day_of_week between 0 and 6); -- 0=الأحد .. 6=السبت
+alter table checklist_templates add column if not exists days_of_week integer[] not null default '{}'::integer[];
+do $$
+begin
+  if not exists (
+    select 1 from pg_catalog.pg_constraint
+     where conrelid = 'public.checklist_templates'::regclass
+       and conname = 'checklist_templates_days_of_week_valid'
+  ) then
+    alter table public.checklist_templates
+      add constraint checklist_templates_days_of_week_valid
+      check (
+        cardinality(days_of_week) <= 7
+        and days_of_week <@ array[0, 1, 2, 3, 4, 5, 6]::integer[]
+        and array_position(days_of_week, null::integer) is null
+      );
+  end if;
+end
+$$;
 alter table checklist_templates add column if not exists day_of_month int check (day_of_month between 1 and 31);
 alter table checklist_templates add column if not exists is_active boolean not null default true;
 

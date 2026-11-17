@@ -10,6 +10,11 @@ function testScheduleRules() {
   assert.equal(metrics.normalizeShift('Morning'), 'Morning');
   assert.equal(metrics.isTaskScheduled({ frequency: 'weekly', day_of_week: 1 }, '2026-01-19'), true);
   assert.equal(metrics.isTaskScheduled({ frequency: 'weekly', day_of_week: 2 }, '2026-01-19'), false);
+  const multiDay = { frequency: 'weekly', days_of_week: [1, 3], day_of_week: 6 };
+  assert.equal(metrics.isTaskScheduled(multiDay, '2026-01-19'), true, 'Monday is included in the array');
+  assert.equal(metrics.isTaskScheduled(multiDay, '2026-01-21'), true, 'Wednesday is included in the array');
+  assert.equal(metrics.isTaskScheduled(multiDay, '2026-01-24'), false, 'the legacy Saturday value does not override a non-empty array');
+  assert.equal(metrics.isTaskScheduled({ frequency: 'weekly', days_of_week: [], day_of_week: 3 }, '2026-01-21'), true, 'empty arrays fall back to legacy data');
   assert.equal(metrics.isTaskScheduled({ frequency: 'monthly', day_of_month: 31 }, '2026-02-28'), true);
   assert.equal(metrics.isTaskScheduled({ frequency: 'monthly', day_of_month: 31 }, '2026-02-27'), false);
 }
@@ -47,7 +52,7 @@ function testComplianceByActualShiftSessions() {
     { id: 1, task_title: 'صباح يومي', frequency: 'daily', shift_type: 'Morning', is_active: true },
     { id: 2, task_title: 'مساء يومي', frequency: 'daily', shift_type: 'Evening', is_active: true },
     { id: 3, task_title: 'مهمة Both', frequency: 'daily', shift_type: 'Both', is_active: true },
-    { id: 4, task_title: 'أسبوعي الاثنين', frequency: 'weekly', day_of_week: 1, shift_type: 'Both', is_active: true },
+    { id: 4, task_title: 'أسبوعي الاثنين والأربعاء', frequency: 'weekly', days_of_week: [1, 3], day_of_week: 1, shift_type: 'Both', is_active: true },
     { id: 5, task_title: 'شهري 31', frequency: 'monthly', day_of_month: 31, shift_type: 'Morning', is_active: true },
     { id: 6, task_title: 'ساعي مستبعد', frequency: 'hourly', shift_type: 'Both', is_active: true },
     { id: 7, task_title: 'غير نشط', frequency: 'daily', shift_type: 'Both', is_active: false }
@@ -134,6 +139,7 @@ function testReportWiringAndPrintSafety() {
   const metricsIndex = html.indexOf('weekly-report-metrics.js');
   const coreIndex = html.indexOf('weekly-report-core.js');
   assert.ok(metricsIndex >= 0 && coreIndex > metricsIndex, 'metrics script must load before core');
+  assert.match(html, /weekly-report-metrics\.js\?v=20261117172300/, 'weekly report must load the multi-day recurrence helper');
   assert.match(html, /#overviewCharts, #overviewBranchCharts, #dashboardNotes, #snapshotsSection/);
   assert.doesNotMatch(html, /#overviewKpis[^}]*display:none/);
   assert.match(html, /\.plan-save \{ display:none !important; \}/);
