@@ -124,6 +124,16 @@ test('planned branches stay out of automation until their confirmed Riyadh openi
   assert.equal(isBranchOperational({ lifecycle_status: 'operational' }, date), true);
 });
 
+test('scheduled worker applies lifecycle gating to task reminders, reports and branch-scoped schedules', () => {
+  const source = readFileSync(new URL('../supabase-functions/run-scheduled-automations/index.ts', import.meta.url), 'utf8');
+  assert.match(source, /import\s+\{[^}]*isBranchOperational[^}]*\}/s);
+  assert.match(source, /const isBranchActive = \(branchId: string \| null\) => isBranchOperational\(branchById\.get\(branchId\), today\)/);
+  assert.match(source, /const operationalBranches = branches\.filter\(\(branch: any\) => isBranchOperational\(branch, today\)\)/);
+  assert.match(source, /operationalBranchIds\.has\(report\.branch_id\)/);
+  assert.match(source, /if \(sch\.branch_id && !isBranchActive\(sch\.branch_id\)\) continue/);
+  assert.match(source, /isBranchActive\(p\.branch_id\)/);
+});
+
 test('multi-branch template links override legacy branch_id; unlinked templates remain global', () => {
   const linked = baseTask({
     branch_id: 'branch-1',

@@ -6,6 +6,7 @@
   'use strict';
 
   const ROLE_CATEGORY = { Barista: 'البار', Waiter: 'الصالة', Kitchen: 'المطبخ' };
+  const SUPERVISOR_ONLY_TASK_TYPES = new Set(['inventory_request', 'inventory_count']);
   const SHIFT_OPENING_MINUTE = 5 * 60 + 30;
   const SHIFT_CLOSING_MINUTE = 2 * 60 + 30;
   const EVENING_START_MINUTE = 15 * 60 + 30;
@@ -129,8 +130,12 @@
     return parseTimeMinutes(String(task.target_time).slice(0, 5), null);
   }
 
+  function isSupervisorOnlyTask(task) {
+    return SUPERVISOR_ONLY_TASK_TYPES.has(task?.task_type);
+  }
+
   function isTaskTimeVisible(task, date = new Date(), shiftType = null) {
-    if (task?.task_type !== 'inventory_request' && !(task?.task_type === 'restroom_check' && task.target_time)) return true;
+    if (!isSupervisorOnlyTask(task) && !(task?.task_type === 'restroom_check' && task.target_time)) return true;
     const targetMinute = taskTargetMinute(task);
     if (targetMinute === null) return true;
     const nowMinute = riyadhMinuteOfDay(date);
@@ -144,7 +149,7 @@
   }
 
   function isInventoryTaskScheduled(task, date = new Date(), branchHours = {}, shiftType = task?.shift_type) {
-    if (task?.task_type !== 'inventory_request') return true;
+    if (!isSupervisorOnlyTask(task)) return true;
     if (shiftType && !isTaskDueForShift(task, shiftType, date, branchHours)) return false;
     return isTaskTimeVisible(task, date, shiftType);
   }
@@ -162,7 +167,7 @@
   }
 
   function isTemplateScheduledForEmployee(task, { role, branchId, branchName, categories, shiftType, branchHours } = {}, date = new Date()) {
-    if (!task || task.task_type === 'inventory_request') return false;
+    if (!task || isSupervisorOnlyTask(task)) return false;
     if (task.frequency === 'hourly' && role !== 'Waiter') return false;
     if (!templateAppliesToBranch(task, branchId)) return false;
     if (role === 'Waiter' && branchName === 'زام المنح' && shiftType === 'Morning') return false;
@@ -186,7 +191,7 @@
 
   // Branch/manager views keep scheduled tasks in the denominator after the employee window closes.
   function isTemplateVisibleInBranch(task, { branchId, branchName, shiftType, branchHours } = {}, date = new Date()) {
-    if (!task || task.is_active === false || task.active === false || task.task_type === 'inventory_request') return false;
+    if (!task || task.is_active === false || task.active === false || isSupervisorOnlyTask(task)) return false;
     if (!templateAppliesToBranch(task, branchId)) return false;
     if (shiftType && ![shiftType, 'Both'].includes(task.shift_type)) return false;
     if (branchName === 'زام الحي' && task.task_type === 'restroom_check') return false;
@@ -237,6 +242,7 @@
     isWithinShiftTaskWindow,
     isTaskDueToday,
     isTaskDueForShift,
+    isSupervisorOnlyTask,
     isInventoryTaskScheduled,
     isInventoryTaskVisible,
     templateAppliesToBranch,

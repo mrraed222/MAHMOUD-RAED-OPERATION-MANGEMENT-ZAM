@@ -25,8 +25,14 @@ finally:
     temp_path.unlink(missing_ok=True)
 required = [
     'type="month" id="f-month"',
-    'إجمالي الكمية حسب الوحدة',
+    'أعلى وحدة هدر',
     "'month'",
+    'id="sales-summary"',
+    'id="sales-branch-tbody"',
+    'id="issues-summary"',
+    'ZamAnalyticsCore.summarizeSales',
+    'ZamAnalyticsCore.summarizeIssues',
+    'ZamAPI.getAnalyticsReports',
 ]
 missing = [token for token in required if token not in content]
 if missing:

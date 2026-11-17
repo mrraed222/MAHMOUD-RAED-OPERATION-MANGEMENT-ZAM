@@ -66,7 +66,7 @@
   }
 
   function isSupervisorTaskVisible(task, { branchId, branchHours, shiftType, includeExpired = false, now = new Date() } = {}) {
-    if (!task || task.is_active === false || task.task_type !== 'inventory_request') return false;
+    if (!task || task.is_active === false || !schedule.isSupervisorOnlyTask(task)) return false;
     if (!schedule.templateAppliesToBranch(task, branchId)) return false;
     if (!shiftType || ![shiftType, 'Both'].includes(task.shift_type)) return false;
     return includeExpired

@@ -15,7 +15,8 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261117194500"></script><script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
+<script src="../assets/supabase-config.js?v=20261117203400"></script><script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
+<script src="../assets/analytics-core.js?v=20261117202000"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -57,7 +58,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <header class="fixed top-0 left-0 w-full md:pr-[312px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
   <div>
     <h1 class="font-title-md text-title-md text-primary">داشبورد التحليلات</h1>
-    <p class="text-body-sm text-on-surface-variant">الهدر ومشاكل الشفت — قابلة للفلترة والتصدير</p>
+    <p class="text-body-sm text-on-surface-variant">مؤشرات المبيعات والهدر ومشاكل الشفت — حسب الفرع والفترة</p>
   </div>
 </header>
 
@@ -98,6 +99,27 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
       <input type="date" id="f-to" class="w-full border border-outline-variant rounded-lg p-sm mt-xs"/>
     </div>
     <button id="apply-filters" class="bg-primary text-on-primary rounded-lg p-sm font-bold">تطبيق الفلتر</button>
+  </section>
+
+  <!-- مؤشرات المبيعات من تقارير الشفت -->
+  <section class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md">
+    <div class="flex justify-between items-center mb-sm">
+      <div>
+        <h2 class="font-title-md text-title-md text-primary">مؤشرات المبيعات</h2>
+        <p class="text-body-sm text-on-surface-variant">المتوسط مرجّح من إجمالي المبيعات ÷ إجمالي الطلبات ضمن الفلاتر الحالية.</p>
+      </div>
+      <span class="material-symbols-outlined text-primary">monitoring</span>
+    </div>
+    <div id="sales-summary" class="grid grid-cols-2 md:grid-cols-4 gap-md mb-md"></div>
+    <h3 class="font-title-md text-title-md text-primary mb-sm">المبيعات حسب الفرع</h3>
+    <div class="max-h-[34vh] overflow-auto rounded-lg border border-outline-variant">
+      <table class="w-full text-body-sm min-w-[720px]">
+        <thead class="bg-surface-container text-on-surface-variant sticky top-0 z-10">
+          <tr><th class="p-sm text-right">الفرع</th><th class="p-sm text-right">إجمالي المبيعات</th><th class="p-sm text-right">الطلبات</th><th class="p-sm text-right">متوسط الطلب</th><th class="p-sm text-right">التقارير</th></tr>
+        </thead>
+        <tbody id="sales-branch-tbody"><tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody>
+      </table>
+    </div>
   </section>
 
   <!-- ملخص الهدر -->
@@ -178,6 +200,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
         <span class="material-symbols-outlined text-base">download</span> تصدير Excel
       </button>
     </div>
+    <div id="issues-summary" class="grid grid-cols-2 md:grid-cols-4 gap-md mb-md"></div>
     <div class="max-h-[52vh] overflow-auto rounded-lg border border-outline-variant">
       <table class="w-full text-body-sm min-w-[780px]">
         <thead class="bg-surface-container text-on-surface-variant sticky top-0 z-10">
@@ -192,6 +215,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </main>
 
 <script>
+let analyticsReportsData = [];
 let wasteData = [];
 let issuesData = [];
 let checklistData = [];
@@ -293,6 +317,63 @@ function readOutcome(result) {
     if (result.status === 'fulfilled') return { data: result.value || [], error: null };
     const reason = result.reason;
     return { data: [], error: `تعذّر قراءة البيانات: ${reason && reason.message ? reason.message : 'خطأ غير معروف'}` };
+}
+
+function formatSalesCurrency(value) {
+    return `${Number(value || 0).toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.س`;
+}
+
+function renderSalesAnalytics(error = null) {
+    const summaryEl = document.getElementById('sales-summary');
+    const tbody = document.getElementById('sales-branch-tbody');
+    if (error) {
+        summaryEl.innerHTML = `<div class="col-span-full p-md text-center text-error border border-outline-variant rounded-xl">${esc(error)}</div>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-md text-center text-error">${esc(error)}</td></tr>`;
+        return;
+    }
+
+    const summary = ZamAnalyticsCore.summarizeSales(analyticsReportsData);
+    summaryEl.innerHTML = [
+        ['إجمالي المبيعات', formatSalesCurrency(summary.totalSales)],
+        ['عدد الطلبات', summary.orderCount.toLocaleString('ar-SA')],
+        ['متوسط الطلب المرجّح', formatSalesCurrency(summary.weightedAverageTicket)],
+        ['تقارير الشفت', summary.reportCount.toLocaleString('ar-SA')],
+    ].map(([label, value]) => `<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center"><p class="text-body-sm text-on-surface-variant">${label}</p><p class="text-xl font-bold text-primary">${esc(value)}</p></div>`).join('');
+
+    tbody.innerHTML = summary.byBranch.length ? summary.byBranch.map(branch => `
+        <tr class="border-t border-outline-variant">
+          <td class="p-sm font-bold">${esc(branch.name)}</td>
+          <td class="p-sm">${esc(formatSalesCurrency(branch.totalSales))}</td>
+          <td class="p-sm">${branch.orderCount.toLocaleString('ar-SA')}</td>
+          <td class="p-sm">${esc(formatSalesCurrency(branch.weightedAverageTicket))}</td>
+          <td class="p-sm">${branch.reportCount.toLocaleString('ar-SA')}</td>
+        </tr>`).join('') : `<tr><td colspan="5" class="p-md text-center text-on-surface-variant">لا توجد تقارير مبيعات في الفترة المحددة.</td></tr>`;
+}
+
+function renderIssueAnalytics(error = null) {
+    const container = document.getElementById('issues-summary');
+    if (error) {
+        container.innerHTML = `<div class="col-span-full p-md text-center text-error border border-outline-variant rounded-xl">${esc(error)}</div>`;
+        return;
+    }
+
+    const summary = ZamAnalyticsCore.summarizeIssues(issuesData);
+    const typeText = summary.byType.length
+        ? summary.byType.slice(0, 6).map(row => `${esc(row.label)}: ${row.count}`).join(' · ')
+        : 'لا توجد مشاكل مسجلة في الفترة.';
+    const priorityText = summary.byPriority.length
+        ? summary.byPriority.map(row => `${esc(row.label)}: ${row.count}`).join(' · ')
+        : 'لا توجد أولويات مسجلة.';
+    container.innerHTML = [
+        ['سجلات المشاكل', summary.total],
+        ['أولوية عالية أو عاجلة', summary.highPriorityCount],
+        ['الفروع المتأثرة', summary.affectedBranches],
+        ['الأكثر تكرارًا', summary.topType ? `${summary.topType.label} (${summary.topType.count})` : '—'],
+    ].map(([label, value]) => `<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center"><p class="text-body-sm text-on-surface-variant">${label}</p><p class="text-xl font-bold text-primary">${esc(value)}</p></div>`).join('') + `
+        <div class="col-span-full bg-surface-container rounded-xl border border-outline-variant p-md text-body-sm">
+          <p><strong class="text-primary">حسب النوع:</strong> ${typeText}</p>
+          <p class="mt-xs"><strong class="text-primary">حسب الأولوية:</strong> ${priorityText}</p>
+        </div>`;
 }
 
 function renderChecklistAnalytics(error = null) {
@@ -400,16 +481,21 @@ async function applyFilters() {
     const branchId = document.getElementById('f-branch').value || null;
     const { from, to } = getDateRange();
 
+    document.getElementById('sales-summary').innerHTML = '<div class="col-span-full p-md text-center text-on-surface-variant">جارِ التحميل...</div>';
+    document.getElementById('sales-branch-tbody').innerHTML = '<tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
     document.getElementById('waste-tbody').innerHTML = '<tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
     document.getElementById('issues-tbody').innerHTML = '<tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
+    document.getElementById('issues-summary').innerHTML = '<div class="col-span-full p-md text-center text-on-surface-variant">جارِ التحميل...</div>';
     document.getElementById('checklist-tbody').innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
 
     // كل مصدر مستقل: فشل قراءة واحد لا يُسقط الصفحة، ولا نُظهر بيانات من فترة أخرى مكانه.
-    const [wasteRes, issuesRes, checklistRes] = await Promise.allSettled([
+    const [salesRes, wasteRes, issuesRes, checklistRes] = await Promise.allSettled([
+        ZamAPI.getAnalyticsReports({ branchId, dateFrom: from, dateTo: to }),
         ZamAPI.getWasteLogs({ branchId, dateFrom: from, dateTo: to }),
         ZamAPI.getShiftIssues({ branchId, dateFrom: from, dateTo: to }),
         ZamAPI.getChecklistLogs({ branchId, dateFrom: from, dateTo: to }),
     ]);
+    const salesOutcome = readOutcome(salesRes);
     const wasteOutcome = readOutcome(wasteRes);
     const issuesOutcome = readOutcome(issuesRes);
     const checklistOutcome = readOutcome(checklistRes);
@@ -421,11 +507,14 @@ async function applyFilters() {
         const recordDate = row.daily_reports?.report_date || row.execution_date || row.report_date || row.created_at || ZamBranchLifecycle.riyadhDateString();
         return ZamBranchLifecycle.isOperational(branch, recordDate);
     };
+    analyticsReportsData = salesOutcome.data.filter(visibleBranchRow);
     const waste = wasteOutcome.data.filter(visibleBranchRow);
     const issues = issuesOutcome.data.filter(visibleBranchRow);
     wasteData = waste;
     issuesData = issues;
     checklistData = checklistOutcome.data.filter(visibleBranchRow);
+    renderSalesAnalytics(salesOutcome.error);
+    renderIssueAnalytics(issuesOutcome.error);
 
     // ملخص الهدر بحسب الفلتر الحالي؛ الكمية تفصل بالوحدة حتى لا نجمع ml مع القطع أو الأكواب.
     const totalItems = waste.length;

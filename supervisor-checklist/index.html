@@ -2,7 +2,7 @@
 <html class="light" dir="rtl" lang="ar"><head>
 <meta charset="utf-8"/><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/checklist-schedule.js?v=20261117194500"></script>
+<script src="../assets/checklist-schedule.js?v=20261117203400"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script src="../assets/supabase-config.js?v=20261117194500"></script>
 <script>
@@ -337,7 +337,7 @@ async function loadCurrentBranchHours() {
 
 function isTaskDueForCurrentShift(task) {
     if (!ZamChecklistSchedule.isTaskDueForShift(task, currentShift, new Date(), currentBranchHours)) return false;
-    if (task.task_type !== 'inventory_request') return true;
+    if (!ZamChecklistSchedule.isSupervisorOnlyTask(task)) return true;
     return currentUser.role === 'Supervisor' && ZamChecklistSchedule.isInventoryTaskVisible(task, new Date(), currentBranchHours, currentShift);
 }
 
@@ -411,7 +411,7 @@ function renderChecklist(templates, logsByTemplate) {
             <div class="checklist-item rounded-xl border border-outline-variant p-md ${completed ? 'bg-tertiary-fixed/10' : 'bg-surface-container-lowest'}">
                 <div class="flex items-center justify-between gap-md">
                     <div class="flex items-center gap-md flex-1">
-                        ${item.task_type === 'inventory_request'
+                        ${ZamChecklistSchedule.isSupervisorOnlyTask(item)
                             ? `<span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-primary'}">${completed ? 'task_alt' : 'inventory_2'}</span>`
                             : `<input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${escHtml(item.id)}" ${completed ? 'checked disabled' : ''}/>`}
                         <div class="flex-1">

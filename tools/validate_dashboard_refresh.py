@@ -12,13 +12,21 @@ analytics = (root / 'analytics' / 'index.html').read_text(encoding='utf-8')
 reports_log = (root / 'reports-log' / 'index.html').read_text(encoding='utf-8')
 errors = []
 
-for token in ('id="waste-grouped-cards"', 'الأصناف الأكثر هدراً', 'max-h-[34vh] overflow-y-auto'):
+for token in (
+    'id="waste-branch-ranking-tbody"',
+    'id="sales-summary"',
+    'id="sales-branch-tbody"',
+    'id="issues-summary"',
+    'ZamAnalyticsCore.summarizeSales',
+    'ZamAnalyticsCore.summarizeIssues',
+    'max-h-[34vh] overflow-auto',
+):
     if token not in analytics:
         errors.append(f'Missing analytics token: {token}')
-for forbidden in ('id="reports-tbody"', 'إجمالي الكمية حسب الوحدة', 'quantitySummary', 'getAnalyticsReports('):
+for forbidden in ('id="reports-tbody"', 'إجمالي الكمية حسب الوحدة', 'quantitySummary'):
     if forbidden in analytics:
         errors.append(f'Unexpected analytics content: {forbidden}')
-for token in ("filter(report => !report.custom_fields?.technical_parent)", "toLocaleString('ar-SA'"):
+for token in ("!report.custom_fields?.technical_parent", "toLocaleString('ar-SA'"):
     if token not in reports_log:
         errors.append(f'Missing report-log repair: {token}')
 
@@ -46,4 +54,4 @@ for page in pages:
 
 if errors:
     raise SystemExit('\n'.join(errors))
-print(f'PASS: analytics cards, report-log sales filter, smooth motion, and header spacing across {len(pages)} pages')
+print(f'PASS: sales, waste, and issue analytics; technical-child filtering; smooth motion; and header spacing across {len(pages)} pages')

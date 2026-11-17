@@ -57,6 +57,6 @@ test('draft migration backfills existing non-global versions without editing the
   assert.match(migration, /has_admin_permission\('templates'\)/i);
   assert.match(migration, /public\.version_checklist_template\(p_template_id, v_payload\)/i);
   assert.doesNotMatch(migration, /UPDATE\s+public\.checklist_templates|DELETE\s+FROM\s+public\.checklist_templates|DROP\s+(?:TABLE|COLUMN)\b/i);
-  assert.match(plan, /لم يتغير نص أي قالب أو دور أو إسناد موظف/);
+  assert.match(plan, /ميزة اختيار الفروع لا تمنح موافقة على تحرير نصوص القوائم أو الأدوار أو الصلاحيات أو الإسنادات/);
   assert.match(plan, /75 رابطًا/);
 });

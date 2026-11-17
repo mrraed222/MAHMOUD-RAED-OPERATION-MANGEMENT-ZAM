@@ -105,7 +105,7 @@ test('صفحات قوائم التحقق تحمل نسخ cache المحدثة ل
   const schedulePages = ['checklist-logs', 'dashboard', 'manage-templates', 'my-checklist', 'supervisor-checklist', 'supervisor-dashboard'];
   for (const page of schedulePages) {
     const html = fs.readFileSync(path.join(__dirname, '..', page, 'index.html'), 'utf8');
-    assert.match(html, /checklist-schedule\.js\?v=20261117194500/, `${page} must load the updated schedule helper`);
+    assert.match(html, /checklist-schedule\.js\?v=20261117203400/, `${page} must load the updated schedule helper`);
   }
   assert.match(supervisorPage, /supabase-config\.js\?v=20261117194500/);
   assert.match(templateAdminPage, /supabase-config\.js\?v=20261117194500/);
