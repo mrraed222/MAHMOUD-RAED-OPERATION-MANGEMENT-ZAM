@@ -11,6 +11,18 @@
   const ROLE_CATEGORY = schedule.ROLE_CATEGORY || { Barista: 'البار', Waiter: 'الصالة', Kitchen: 'المطبخ' };
   const COMPLETED_STATUSES = new Set(['completed', 'done', 'مكتمل', 'منجز']);
 
+  function initialDashboardShift(user, now = new Date(), branchHours = {}) {
+    const profileShift = user?.shift_type;
+    if (!['Owner', 'Admin'].includes(user?.role) && ['Morning', 'Evening'].includes(profileShift)) {
+      return profileShift;
+    }
+    return schedule.isWithinShiftTaskWindow('Evening', branchHours, now) ? 'Evening' : 'Morning';
+  }
+
+  function canSelectDashboardShift(user) {
+    return ['Owner', 'Admin', 'Manager'].includes(user?.role) || user?.shift_type === 'Both';
+  }
+
   function isCompleted(log) {
     if (!log) return false;
     const status = String(log.status || 'Completed').trim().toLowerCase();
@@ -178,6 +190,8 @@
   return {
     assignedCategories,
     isEmployeeOnShift,
+    initialDashboardShift,
+    canSelectDashboardShift,
     tasksForEmployee,
     isSupervisorTaskVisible,
     dashboardTasks,

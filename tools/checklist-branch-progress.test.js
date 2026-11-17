@@ -38,6 +38,44 @@ test('branch progress deduplicates logs, separates Both shifts, and never presen
   });
 });
 
+test('owner and admin viewers choose the current Riyadh shift independent of profile assignment', () => {
+  const morningNow = new Date('2026-11-16T11:00:00.000Z'); // 14:00 in Riyadh
+  const eveningNow = new Date('2026-11-16T13:00:00.000Z'); // 16:00 in Riyadh
+  const afterMidnight = new Date('2026-11-16T21:30:00.000Z'); // 00:30 in Riyadh, still the prior evening shift
+  assert.equal(dashboard.initialDashboardShift({ role: 'Owner', shift_type: 'Morning' }, eveningNow), 'Evening');
+  assert.equal(dashboard.initialDashboardShift({ role: 'Admin', shift_type: 'Evening' }, morningNow), 'Morning');
+  assert.equal(dashboard.initialDashboardShift({ role: 'Owner' }, afterMidnight), 'Evening');
+  assert.equal(dashboard.initialDashboardShift({ role: 'Admin' }, new Date('2026-11-17T01:00:00.000Z')), 'Morning');
+  assert.equal(dashboard.canSelectDashboardShift({ role: 'Owner', shift_type: 'Morning' }), true);
+  assert.equal(dashboard.canSelectDashboardShift({ role: 'Admin', shift_type: 'Evening' }), true);
+  assert.equal(dashboard.canSelectDashboardShift({ role: 'Manager', shift_type: 'Morning' }), true);
+  assert.equal(dashboard.canSelectDashboardShift({ role: 'Supervisor', shift_type: 'Both' }), true);
+  assert.equal(dashboard.canSelectDashboardShift({ role: 'Supervisor', shift_type: 'Morning' }), false);
+
+  const eveningTasks = dashboard.dashboardTasks({
+    templates: [task('morning', 'Morning'), task('evening', 'Evening')],
+    staff: [], branchId, branchName: 'زام الرئيسي', shiftType: 'Evening', currentUserRole: 'Owner', now: eveningNow,
+  });
+  assert.deepEqual(eveningTasks.map(item => item.id), ['evening']);
+  assert.equal(dashboard.completedTaskKeys(eveningTasks, [], [], { branchId, shiftType: 'Evening', now: eveningNow }).size, 0,
+    'due tasks remain visible and the completion numerator stays zero when there are no execution logs');
+  const overnightTask = dashboard.dashboardTasks({
+    templates: [task('overnight-evening', 'Evening')], staff: [], branchId, branchName: 'زام الرئيسي',
+    branchHours: { opening_time: '05:30:00', closing_time: '02:30:00' }, shiftType: 'Evening',
+    currentUserRole: 'Owner', now: afterMidnight,
+  });
+  assert.deepEqual(overnightTask.map(item => item.id), ['overnight-evening']);
+  assert.equal(dashboard.completedTaskKeys(overnightTask, [], [], {
+    branchId, branchHours: { opening_time: '05:30:00', closing_time: '02:30:00' }, shiftType: 'Evening', now: afterMidnight,
+  }).size, 0);
+
+  const page = fs.readFileSync(path.join(__dirname, '..', 'supervisor-dashboard', 'index.html'), 'utf8');
+  assert.match(page, /initialDashboardShift\(currentUser\)/);
+  assert.match(page, /canSelectDashboardShift\(currentUser\)/);
+  assert.match(page, /!\['Supervisor', 'Manager'\]\.includes\(currentUser\.role\) && !canBrowseRequestedBranch/,
+    'the existing branch-view role gate must remain unchanged');
+});
+
 test('branch dashboard task totals do not disappear when no active employee profile is present', () => {
   const visible = dashboard.dashboardTasks({
     templates: [

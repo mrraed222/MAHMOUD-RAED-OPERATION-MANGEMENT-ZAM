@@ -54,9 +54,9 @@
     return new Date(Date.UTC(parts.year, parts.month - 1, parts.day, hour - RIYADH_UTC_OFFSET_HOURS, minute));
   }
 
-  function buildShiftWindow(shiftType, _branchHours = {}, businessDateParts = riyadhParts()) {
-    const opening = SHIFT_OPENING_MINUTE;
-    const closing = SHIFT_CLOSING_MINUTE;
+  function buildShiftWindow(shiftType, branchHours = {}, businessDateParts = riyadhParts()) {
+    const opening = parseTimeMinutes(branchHours?.opening_time, SHIFT_OPENING_MINUTE);
+    const closing = parseTimeMinutes(branchHours?.closing_time, SHIFT_CLOSING_MINUTE);
     const closingOffset = closing <= opening ? 1440 : 0;
     const closeOnTimeline = closing + closingOffset;
     let startMinute;

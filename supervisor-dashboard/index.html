@@ -4,8 +4,8 @@
 <title>ZAM Operations - داشبورد الفرع</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js?v=20261117165000"></script>
-<script src="../assets/checklist-schedule.js?v=20261117172300"></script>
-<script src="../assets/checklist-dashboard.js?v=20261117170000"></script>
+<script src="../assets/checklist-schedule.js?v=20261117175900"></script>
+<script src="../assets/checklist-dashboard.js?v=20261117175900"></script>
 <script>
   let currentUser = ZamSession.requireAuth('../index.html');
   // المالك والأدمن يفتحان فرعاً محدداً من لوحة التحكم للمتابعة التفصيلية فقط.
@@ -262,13 +262,11 @@ const ROLE_LABELS = { Barista: 'باريستا', Waiter: 'خدمة صالة', Ki
 const ROLE_CATEGORY = { Barista: 'البار', Waiter: 'الصالة', Kitchen: 'المطبخ' };
 const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
 
-let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both'
-    ? currentUser.shift_type
-    : (ZamChecklistSchedule.riyadhMinuteOfDay() < ZamChecklistSchedule.EVENING_START_MINUTE ? 'Morning' : 'Evening');
-let cache = { staff: [], catsBy: {}, templates: [], logs: [], hourlyLogs: [], reports: [], notes: [], visitActions: [], branchName: '' };
+let currentShift = ZamChecklistDashboard.initialDashboardShift(currentUser);
+let cache = { staff: [], catsBy: {}, templates: [], logs: [], hourlyLogs: [], reports: [], notes: [], visitActions: [], branchName: '', branchHours: {} };
 
-// زر الورديتين يظهر فقط لمن يغطي الورديتين فعليًا
-if (currentUser.role === 'Manager' || currentUser.shift_type === 'Both') {
+// مبدّل الوردية للمتابعة الإدارية أو لمن يغطي الورديتين؛ لا يغيّر صلاحيات التنفيذ.
+if (ZamChecklistDashboard.canSelectDashboardShift(currentUser)) {
     const w = document.getElementById('shift-toggle-wrap');
     w.classList.remove('hidden');
     w.classList.add('flex');
@@ -300,6 +298,7 @@ function tasksFor(emp, now = new Date(), includeExpired = true) {
     return ZamChecklistDashboard.tasksForEmployee(cache.templates, emp, {
         branchId: urlBranchId || currentUser.branch_id,
         branchName: cache.branchName,
+        branchHours: cache.branchHours,
         categoriesBy: cache.catsBy,
         shiftType: currentShift,
         includeExpired,
@@ -327,8 +326,8 @@ async function loadAll() {
         zamClient.from('checklist_logs').select('template_id, branch_id, executed_by, status, execution_date, created_at, shift_type')
             .eq('branch_id', branchId).gte('execution_date', yesterday).lte('execution_date', today),
         ZamAPI.getHourlyChecklistLogs({ branchId, dateFrom: yesterday, dateTo: today }),
-        zamClient.from('daily_reports').select('id, shift_type, report_date').eq('branch_id', branchId).eq('report_date', today),
-        zamClient.from('branches').select('name').eq('id', branchId).maybeSingle(),
+        zamClient.from('daily_reports').select('id, shift_type, report_date').eq('branch_id', branchId).gte('report_date', yesterday).lte('report_date', today),
+        zamClient.from('branches').select('name, opening_time, closing_time').eq('id', branchId).maybeSingle(),
         zamClient.from('team_notes').select('id, profile_id, note, created_at, profiles(full_name, avatar_url)')
             .eq('branch_id', branchId).order('created_at', { ascending: false }).limit(30),
         actionsQuery,
@@ -344,6 +343,7 @@ async function loadAll() {
     cache.hourlyLogs = hourlyLogs || [];
     cache.reports = reportsRes.data || [];
     cache.branchName = branchRes.data?.name || '';
+    cache.branchHours = branchRes.data || {};
     cache.notes = (notesRes.data || []).map(n => ({
         ...n,
         authorName: n.profiles?.full_name || '—',
@@ -364,12 +364,13 @@ function render() {
         categoriesBy: cache.catsBy,
         branchId,
         branchName: cache.branchName,
+        branchHours: cache.branchHours,
         shiftType: currentShift,
         currentUserRole: currentUser.role,
         now
     });
     const doneKeys = ZamChecklistDashboard.completedTaskKeys(
-        shiftTemplates, cache.logs, cache.hourlyLogs, { branchId, shiftType: currentShift, now }
+        shiftTemplates, cache.logs, cache.hourlyLogs, { branchId, branchHours: cache.branchHours, shiftType: currentShift, now }
     );
     const keyFor = task => ZamChecklistDashboard.taskKey(task, now);
     document.getElementById('team-shift-label').textContent = currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية';
@@ -383,7 +384,8 @@ function render() {
     document.getElementById('stat-pct').textContent = pct + '%';
 
     // حالة تقرير الشفت
-    const reportOk = cache.reports.some(r => r.shift_type === currentShift);
+    const shiftWindow = ZamChecklistSchedule.getShiftWindow(currentShift, cache.branchHours, now);
+    const reportOk = cache.reports.some(r => r.shift_type === currentShift && r.report_date === shiftWindow.businessDate);
     const rs = document.getElementById('report-status');
     rs.className = 'rounded-xl p-md mb-lg flex items-center justify-between gap-md border ' +
         (reportOk ? 'bg-tertiary-fixed/40 border-tertiary text-on-surface' : 'bg-error-container/40 border-error');
@@ -399,7 +401,7 @@ function render() {
         grid.innerHTML = shiftStaff.map(emp => {
             const mine = tasksFor(emp, now);
             const myDoneKeys = ZamChecklistDashboard.completedTaskKeys(
-                mine, cache.logs, cache.hourlyLogs, { branchId, shiftType: currentShift, now, executedBy: emp.id }
+                mine, cache.logs, cache.hourlyLogs, { branchId, branchHours: cache.branchHours, shiftType: currentShift, now, executedBy: emp.id }
             );
             const myDone = mine.filter(t => myDoneKeys.has(keyFor(t))).length;
             const p = mine.length ? Math.round(myDone / mine.length * 100) : 0;

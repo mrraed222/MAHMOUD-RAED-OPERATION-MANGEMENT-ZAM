@@ -15,7 +15,7 @@
         }
 }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/checklist-schedule.js?v=20261117172300"></script>
+<script src="../assets/checklist-schedule.js?v=20261117175900"></script>
 <script src="../assets/supabase-config.js?v=20261117165000"></script>
 <script>
   let currentUser = ZamSession.requireAuth('../index.html');
@@ -106,11 +106,14 @@ const myCategory = ROLE_CATEGORY[currentUser.role] || null;
 
 const myCategories = myCategory ? [myCategory] : []; // تُستبدل بالفئات الفعلية من employee_task_categories بعد التحميل
 
+let currentBranchHours = currentUser.branches || {};
+const defaultShiftByRiyadhTime = (date = new Date()) =>
+  ZamChecklistSchedule.isWithinShiftTaskWindow('Evening', currentBranchHours, date) ? 'Evening' : 'Morning';
 document.getElementById('user-branch-label').textContent = currentUser.branches?.name || 'بدون فرع محدد';
 
 let currentShift = ['Morning', 'Evening'].includes(currentUser.shift_type)
   ? currentUser.shift_type
-  : (ZamChecklistSchedule.riyadhMinuteOfDay() < ZamChecklistSchedule.EVENING_START_MINUTE ? 'Morning' : 'Evening');
+  : defaultShiftByRiyadhTime();
 if (!isSupervisorLike) {
   document.querySelectorAll('.shift-btn').forEach(b => b.style.display = b.dataset.shift === currentShift ? '' : 'none');
 }
@@ -126,13 +129,14 @@ let visibleTemplatesById = new Map();
         // wait for the auth session to be restored before any query,
         // otherwise queries run as anon and multi-category fetch silently fails
         await zamClient.auth.getSession();
-        const { data: freshProfile } = await zamClient.from('profiles').select('*, branches(name)').eq('id', currentUser.id).maybeSingle();
+        const { data: freshProfile } = await zamClient.from('profiles').select('*, branches(name, opening_time, closing_time)').eq('id', currentUser.id).maybeSingle();
         if (freshProfile) {
             Object.assign(currentUser, freshProfile);
+            currentBranchHours = freshProfile.branches || {};
             ZamSession.save(currentUser);
             currentShift = ['Morning', 'Evening'].includes(freshProfile.shift_type)
                 ? freshProfile.shift_type
-                : (ZamChecklistSchedule.riyadhMinuteOfDay() < ZamChecklistSchedule.EVENING_START_MINUTE ? 'Morning' : 'Evening');
+                : defaultShiftByRiyadhTime();
             updateShiftButtons();
             myCategories.length = 0;
             // الفئات تُقرأ من جدول employee_task_categories (يدعم تعدد الفئات)
@@ -190,6 +194,7 @@ async function saveTaskCompletion(templateId, notes = null, photo_url = null) {
         role: currentUser.role,
         branchId: currentUser.branch_id,
         branchName: currentUser.branches?.name,
+        branchHours: currentBranchHours,
         categories: myCategories,
         shiftType: currentShift
     };
@@ -218,11 +223,12 @@ async function loadMyChecklist() {
     try {
         const allTemplates = await ZamAPI.getTemplates(null, currentShift, currentUser.branch_id);
         const now = new Date();
-        const shiftWindow = ZamChecklistSchedule.getShiftWindow(currentShift, {}, now);
+        const shiftWindow = ZamChecklistSchedule.getShiftWindow(currentShift, currentBranchHours, now);
         const visibility = {
             role: currentUser.role,
             branchId: currentUser.branch_id,
             branchName: currentUser.branches?.name,
+            branchHours: currentBranchHours,
             categories: myCategories,
             shiftType: currentShift
         };
@@ -491,7 +497,7 @@ function scheduleChecklistRefresh() {
     const now = new Date();
     const delay = Math.min(
         ZamChecklistSchedule.millisecondsUntilNextRiyadhHour(now),
-        ZamChecklistSchedule.millisecondsUntilNextVisibilityChange(currentShift, {}, now)
+        ZamChecklistSchedule.millisecondsUntilNextVisibilityChange(currentShift, currentBranchHours, now)
     );
     checklistRefreshTimeout = setTimeout(() => {
         loadMyChecklist().finally(scheduleChecklistRefresh);

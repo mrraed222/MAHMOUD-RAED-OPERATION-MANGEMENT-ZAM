@@ -12,6 +12,8 @@ create extension if not exists "uuid-ossp";
 create table if not exists branches (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
+  opening_time time not null default time '05:30',
+  closing_time time not null default time '02:30',
   location_url text,
   created_at timestamptz default now()
 );

@@ -2,7 +2,7 @@
 <html class="light" dir="rtl" lang="ar"><head>
 <meta charset="utf-8"/><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/checklist-schedule.js?v=20261117172300"></script>
+<script src="../assets/checklist-schedule.js?v=20261117175900"></script>
 <script src="../assets/supabase-config.js?v=20261117172300"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -248,7 +248,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   <img id="modal-img" src="" class="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"/>
 </div>
 <script>
-let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : (ZamChecklistSchedule.riyadhMinuteOfDay() < ZamChecklistSchedule.EVENING_START_MINUTE ? 'Morning' : 'Evening');
+let currentBranchHours = {};
+let currentBranchHoursLoaded = false;
+const defaultShiftByRiyadhTime = () => ZamChecklistSchedule.isWithinShiftTaskWindow('Evening', currentBranchHours) ? 'Evening' : 'Morning';
+let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : defaultShiftByRiyadhTime();
 let currentCategory = '';
 let activeSubTab = 'my-tasks'; // الصفحة الآن لمهام المشرف فقط — متابعة الفريق في داشبورد الفرع
 
@@ -314,10 +317,23 @@ function riyadhMinuteOfDay(date = new Date()) {
     return hour * 60 + minute;
 }
 
+async function loadCurrentBranchHours() {
+    if (currentBranchHoursLoaded) return currentBranchHours;
+    await zamClient.auth.getSession();
+    if (currentUser.branch_id) {
+        const { data, error } = await zamClient.from('branches')
+            .select('opening_time, closing_time').eq('id', currentUser.branch_id).maybeSingle();
+        if (error) throw error;
+        currentBranchHours = data || {};
+    }
+    currentBranchHoursLoaded = true;
+    return currentBranchHours;
+}
+
 function isTaskDueForCurrentShift(task) {
-    if (!ZamAPI.isTaskDueToday(task)) return false;
+    if (!ZamChecklistSchedule.isTaskDueForShift(task, currentShift, new Date(), currentBranchHours)) return false;
     if (task.task_type !== 'inventory_request') return true;
-    return currentUser.role === 'Supervisor' && ZamChecklistSchedule.isInventoryTaskVisible(task);
+    return currentUser.role === 'Supervisor' && ZamChecklistSchedule.isInventoryTaskVisible(task, new Date(), currentBranchHours, currentShift);
 }
 
 let inventoryTaskVisibilityTimeout = null;
@@ -332,7 +348,9 @@ function scheduleInventoryTaskVisibility() {
     if (targetMinute === null) return;
     let minutes = targetMinute - nowMinute;
     if (minutes <= 0) minutes += 24 * 60;
-    const delay = Math.max(1000, minutes * 60 * 1000 - parts.second * 1000 - now.getMilliseconds() + 1000);
+    const targetDelay = Math.max(1000, minutes * 60 * 1000 - parts.second * 1000 - now.getMilliseconds() + 1000);
+    const shiftBoundaryDelay = ZamChecklistSchedule.millisecondsUntilNextVisibilityChange(currentShift, currentBranchHours, now);
+    const delay = Math.min(targetDelay, shiftBoundaryDelay);
     inventoryTaskVisibilityTimeout = setTimeout(() => {
         loadChecklist();
         scheduleInventoryTaskVisibility();
@@ -663,15 +681,23 @@ function renderFridgePanel(panel, fridges, readings, log) {
 async function loadChecklist() {
     container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
     try {
+        await loadCurrentBranchHours();
+        const now = new Date();
+        const shiftWindow = ZamChecklistSchedule.getShiftWindow(currentShift, currentBranchHours, now);
         const categoryFilter = null;
         const templates = (await ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id)).filter(isTaskDueForCurrentShift);
         const [logs, hourlyLogs] = await Promise.all([
-            ZamAPI.getTodayLogs(currentUser.branch_id),
-            ZamAPI.getHourlyChecklistLogs({ branchId: currentUser.branch_id, date: ZamChecklistSchedule.riyadhDateString(), shiftType: currentShift })
+            ZamAPI.getChecklistLogs({ branchId: currentUser.branch_id, dateFrom: shiftWindow.dateFrom, dateTo: shiftWindow.dateTo, shiftType: currentShift }),
+            ZamAPI.getHourlyChecklistLogs({ branchId: currentUser.branch_id, dateFrom: shiftWindow.dateFrom, dateTo: shiftWindow.dateTo, shiftType: currentShift })
         ]);
         const templatesById = new Map(templates.map(task => [task.id, task]));
         const logsByTemplate = {};
         logs.forEach(l => {
+            const created = Date.parse(l.created_at || '');
+            const belongsToShift = Number.isFinite(created)
+                ? created >= shiftWindow.startAt.getTime() && created < shiftWindow.graceEndAt.getTime()
+                : String(l.execution_date).slice(0, 10) === shiftWindow.businessDate;
+            if (!belongsToShift) return;
             const task = templatesById.get(l.template_id);
             const matchesShift = l.shift_type
                 ? l.shift_type === currentShift
@@ -680,7 +706,11 @@ async function loadChecklist() {
         });
         const currentHour = ZamChecklistSchedule.riyadhParts().hour;
         hourlyLogs.forEach(log => {
-            if (Number(log.occurrence_hour) === currentHour && log.shift_type === currentShift) logsByTemplate[log.template_id] = log;
+            const created = Date.parse(log.created_at || '');
+            const belongsToShift = Number.isFinite(created)
+                ? created >= shiftWindow.startAt.getTime() && created < shiftWindow.graceEndAt.getTime()
+                : String(log.execution_date).slice(0, 10) === shiftWindow.businessDate;
+            if (belongsToShift && Number(log.occurrence_hour) === currentHour && log.shift_type === currentShift) logsByTemplate[log.template_id] = log;
         });
         renderChecklist(templates, logsByTemplate);
         if (activeSubTab === 'my-tasks') initFridgePanels(logsByTemplate);

@@ -11,6 +11,7 @@ const HAY_ID = '5da7b89d-089b-46a9-bc8e-3ad2582f9616';
 const MANAH_ID = '30956dd5-4eb1-408b-94b6-a29498b14b2e';
 const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20261116175407_checklist_recurrence_and_history.sql'), 'utf8');
 const multiDayMigration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20261117162200_multi_day_weekly_templates.sql'), 'utf8');
+const branchHoursMigration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20261117150330_branch_opening_closing_times.sql'), 'utf8');
 const supervisorPage = fs.readFileSync(path.join(__dirname, '..', 'supervisor-checklist', 'index.html'), 'utf8');
 const employeePage = fs.readFileSync(path.join(__dirname, '..', 'my-checklist', 'index.html'), 'utf8');
 const adminLogPage = fs.readFileSync(path.join(__dirname, '..', 'checklist-logs', 'index.html'), 'utf8');
@@ -27,6 +28,36 @@ test('تاريخ اليوم يُحسب بتوقيت الرياض حتى عندم
   assert.equal(schedule.riyadhDateString(atRiyadh('2026-11-15T21:30:00.000Z')), '2026-11-16');
   assert.equal(schedule.riyadhDateString(atRiyadh('2026-11-16T20:59:00.000Z')), '2026-11-16');
   assert.equal(schedule.riyadhDateString(atRiyadh('2026-11-16T21:00:00.000Z')), '2026-11-17');
+});
+
+test('ساعات الفروع تبدأ 05:30 وتنهي الوردية المسائية 02:30 في اليوم التالي بتوقيت الرياض', () => {
+  const branchHours = { opening_time: '05:30:00', closing_time: '02:30:00' };
+  const beforeOpen = atRiyadh('2026-11-16T05:29:00+03:00');
+  const opening = atRiyadh('2026-11-16T05:30:00+03:00');
+  const eveningStart = atRiyadh('2026-11-16T15:30:00+03:00');
+  const afterMidnight = atRiyadh('2026-11-17T00:30:00+03:00');
+  const morningWindow = schedule.getShiftWindow('Morning', branchHours, opening);
+  const eveningWindow = schedule.getShiftWindow('Evening', branchHours, eveningStart);
+  assert.equal(morningWindow.startMinute, 5 * 60 + 30);
+  assert.equal(morningWindow.endMinute, 15 * 60 + 30);
+  assert.equal(schedule.isWithinShiftTaskWindow('Morning', branchHours, beforeOpen), false);
+  assert.equal(schedule.isWithinShiftTaskWindow('Morning', branchHours, opening), true);
+  assert.equal(eveningWindow.startMinute, 15 * 60 + 30);
+  assert.equal(eveningWindow.endMinute, 24 * 60 + 2 * 60 + 30);
+  assert.equal(eveningWindow.businessDate, '2026-11-16');
+  assert.equal(eveningWindow.dateTo, '2026-11-17');
+  assert.equal(eveningWindow.endAt.toISOString(), '2026-11-16T23:30:00.000Z');
+  assert.equal(schedule.getShiftWindow('Evening', branchHours, afterMidnight).businessDate, '2026-11-16');
+  assert.equal(schedule.isWithinShiftTaskWindow('Evening', branchHours, afterMidnight), true);
+  assert.equal(dashboard.initialDashboardShift({ role: 'Owner' }, afterMidnight), 'Evening');
+  assert.equal(dashboard.initialDashboardShift({ role: 'Admin' }, atRiyadh('2026-11-17T04:00:00+03:00')), 'Morning');
+  const addedColumns = [...branchHoursMigration.matchAll(/ADD COLUMN IF NOT EXISTS\s+(\w+)/gi)].map(match => match[1]);
+  assert.deepEqual(addedColumns, ['opening_time', 'closing_time']);
+  assert.match(branchHoursMigration, /opening_time time NOT NULL DEFAULT TIME '05:30'/i);
+  assert.match(branchHoursMigration, /closing_time time NOT NULL DEFAULT TIME '02:30'/i);
+  assert.doesNotMatch(branchHoursMigration, /UPDATE\s+public\.branches|DROP\b|CREATE\s+POLICY|cron\.schedule|GRANT\b/i);
+  assert.match(schema, /opening_time time not null default time '05:30'/i);
+  assert.match(schema, /closing_time time not null default time '02:30'/i);
 });
 
 test('التنظيف الكيميائي للإسبريسو مستحق الأحد والثلاثاء والخميس فقط', () => {
@@ -74,7 +105,7 @@ test('صفحات قوائم التحقق تحمل نسخ cache المحدثة ل
   const schedulePages = ['checklist-logs', 'dashboard', 'manage-templates', 'my-checklist', 'supervisor-checklist', 'supervisor-dashboard'];
   for (const page of schedulePages) {
     const html = fs.readFileSync(path.join(__dirname, '..', page, 'index.html'), 'utf8');
-    assert.match(html, /checklist-schedule\.js\?v=20261117172300/, `${page} must load the updated schedule helper`);
+    assert.match(html, /checklist-schedule\.js\?v=20261117175900/, `${page} must load the updated schedule helper`);
   }
   assert.match(supervisorPage, /supabase-config\.js\?v=20261117172300/);
   assert.match(templateAdminPage, /supabase-config\.js\?v=20261117172300/);
@@ -117,9 +148,9 @@ test('حدود الوردية ثابتة عند 15:30 بتوقيت الرياض'
   assert.equal(schedule.riyadhMinuteOfDay(atStart) < schedule.EVENING_START_MINUTE, false);
   assert.equal(schedule.getShiftWindow('Morning', {}, before).endMinute, 15 * 60 + 30);
   assert.equal(schedule.getShiftWindow('Evening', {}, atStart).startMinute, 15 * 60 + 30);
-  assert.match(employeePage, /riyadhMinuteOfDay\(\) < ZamChecklistSchedule\.EVENING_START_MINUTE/);
-  assert.match(supervisorPage, /riyadhMinuteOfDay\(\) < ZamChecklistSchedule\.EVENING_START_MINUTE/);
-  assert.match(dashboardPage, /riyadhMinuteOfDay\(\) < ZamChecklistSchedule\.EVENING_START_MINUTE/);
+  assert.match(employeePage, /defaultShiftByRiyadhTime = \(date = new Date\(\)\) =>[\s\S]*?isWithinShiftTaskWindow\('Evening', currentBranchHours, date\)/);
+  assert.match(supervisorPage, /defaultShiftByRiyadhTime = \(\) => ZamChecklistSchedule\.isWithinShiftTaskWindow\('Evening', currentBranchHours\)/);
+  assert.match(dashboardPage, /initialDashboardShift\(currentUser\)/);
 });
 
 test('مهام حمامات الإدارة في الفرع الرئيسي تظهر عند 09:00 و12:00 فقط من موعدها', () => {
@@ -174,7 +205,7 @@ test('طلبات الجرد لا تُعرض في واجهة الموظف الع�
   const inventory = { task_type: 'inventory_request', category: 'مهام المشرفين', shift_type: 'Morning', target_time: '12:00:00', frequency: 'daily' };
   assert.equal(schedule.isTemplateVisibleForEmployee(inventory, { role: 'Supervisor', branchId: MAIN_ID, categories: ['مهام المشرفين'], shiftType: 'Morning' }, atRiyadh('2026-11-16T13:00:00+03:00')), false);
   assert.match(supervisorPage, /currentUser\.role === 'Supervisor' && ZamChecklistSchedule\.isInventoryTaskVisible/);
-  assert.match(supervisorPage, /getHourlyChecklistLogs\(\{ branchId: currentUser\.branch_id, date: ZamChecklistSchedule\.riyadhDateString\(\), shiftType: currentShift \}\)/);
+  assert.match(supervisorPage, /getHourlyChecklistLogs\(\{ branchId: currentUser\.branch_id, dateFrom: shiftWindow\.dateFrom, dateTo: shiftWindow\.dateTo, shiftType: currentShift \}\)/);
   assert.match(migration, /v_profile\.role IS DISTINCT FROM 'Supervisor'/);
 });
 
