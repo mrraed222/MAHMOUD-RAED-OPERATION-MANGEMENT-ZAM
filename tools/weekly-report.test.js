@@ -165,6 +165,7 @@ function testReportWiringAndPrintSafety() {
   const coreIndex = html.indexOf('weekly-report-core.js');
   assert.ok(metricsIndex >= 0 && coreIndex > metricsIndex, 'metrics script must load before core');
   assert.match(html, /weekly-report-metrics\.js\?v=20261117194500/, 'weekly report must load the multi-day recurrence and branch-scope helper');
+  assert.match(html, /weekly-report-core\.js\?v=20261118154600/, 'weekly report must load the cache-busted KPI fix');
   assert.match(html, /#overviewCharts, #overviewBranchCharts, #dashboardNotes, #snapshotsSection/);
   assert.doesNotMatch(html, /#overviewKpis[^}]*display:none/);
   assert.match(html, /\.plan-save \{ display:none !important; \}/);
