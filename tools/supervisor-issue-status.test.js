@@ -17,6 +17,10 @@ test('supervisors can edit technical issue status while all-branch visibility st
   assert.match(page, /const canViewAllTechnicalIssues = \['Owner', 'Manager', 'Admin'\]/);
 });
 
+test('supervisors see only open technical issues while management retains resolved history', () => {
+  assert.match(page, /getTechnicalIssues\(branchId, \{ onlyOpen: currentUser\.role === 'Supervisor' \}\)/);
+});
+
 test('database update policy scopes supervisors to their current branch and preserves existing manager policy', () => {
   assert.match(migration, /FOR UPDATE TO authenticated/);
   assert.match(migration, /current_user_role\(\) = 'Supervisor'/);
