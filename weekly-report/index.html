@@ -265,6 +265,12 @@
     #overviewCharts > div, #overviewBranchCharts > div { break-inside:avoid; padding:3mm !important; }
     #overviewCharts h3, #overviewBranchCharts h3 { font-size:9pt !important; }
     #chartTrend, #chartWaste, #chartBranch, #chartChecks { max-height:54mm; overflow:hidden; }
+    #overviewBranchCharts { display:block !important; }
+    #overviewBranchCharts > div + div { margin-top:3mm; }
+    #overviewBranchCharts > div:last-child { break-inside:auto !important; page-break-inside:auto !important; }
+    #chartChecks { max-height:none !important; overflow:visible !important; }
+    .branch-compliance-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:3mm; }
+    .branch-compliance-card { break-inside:avoid; page-break-inside:avoid; box-shadow:none !important; }
     .print-edit-empty { display:none !important; }
     table { width:100% !important; font-size:8pt; }
     th, td { padding:2.5mm 2mm !important; }
