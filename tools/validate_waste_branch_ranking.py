@@ -16,9 +16,17 @@ required = [
     'إجمالي الجرام',
     'إجمالي المليلتر',
     'function normalizeWasteUnit(unit)',
+    'function normalizeWasteQuantity(value)',
+    'Number.isFinite(parsed) && parsed >= 0',
     "return 'grams'",
     "return 'milliliters'",
     "renderWasteAggregation();",
+    '${esc(row.branch)}',
+    "${esc(topItem(row.gramItems, 'جرام'))}",
+    'daily_reports?.shift_type',
+    "i.action_taken || '—'",
+    'الإجراء المتخذ',
+    'if (error) {',
 ]
 for token in required:
     if token not in content:
@@ -26,6 +34,9 @@ for token in required:
 for forbidden in ('id="waste-grouped-cards"', 'إجمالي الكمية حسب الوحدة', 'quantitySummary'):
     if forbidden in content:
         raise SystemExit(f'Old presentation remains: {forbidden}')
+for forbidden in ('تنفيذ التشيك ليست', 'checklistData', 'getChecklistLogs', 'renderChecklistAnalytics', 'checklist-tbody'):
+    if forbidden in content:
+        raise SystemExit(f'Removed checklist feature remains in analytics: {forbidden}')
 scripts = [script for script in re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', content, flags=re.I | re.S) if script.strip()]
 with tempfile.NamedTemporaryFile(mode='w', suffix='.js', encoding='utf-8', delete=False) as handle:
     handle.write('\n\n'.join(scripts))

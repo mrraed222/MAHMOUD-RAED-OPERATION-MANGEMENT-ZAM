@@ -33,6 +33,8 @@ required = [
     'ZamAnalyticsCore.summarizeSales',
     'ZamAnalyticsCore.summarizeIssues',
     'ZamAPI.getAnalyticsReports',
+    'topUnitEntry[0].slice(topUnitEntry[0].indexOf(\':\') + 1), topUnitEntry[1]',
+    'Number.isInteger(topUnit[1]) ? topUnit[1] : topUnit[1].toFixed(2)',
 ]
 missing = [token for token in required if token not in content]
 if missing:

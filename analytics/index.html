@@ -167,31 +167,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     </div>
   </section>
 
-  <!-- تنفيذ التشيك ليست من checklist_logs للفترة المحددة فقط -->
-  <section class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md">
-    <div class="flex justify-between items-center mb-sm">
-      <div>
-        <h2 class="font-title-md text-title-md text-primary">تنفيذ التشيك ليست</h2>
-        <p class="text-body-sm text-on-surface-variant">سجلات فعلية من قاعدة البيانات حسب الفرع والتاريخ والقسم — لا يتم إنشاء بيانات بديلة.</p>
-      </div>
-      <span class="material-symbols-outlined text-primary">fact_check</span>
-    </div>
-    <div id="checklist-summary" class="grid grid-cols-2 md:grid-cols-4 gap-md mb-sm"></div>
-    <div id="checklist-branch-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md mb-md"></div>
-    <div class="mb-md">
-      <h3 class="font-title-md text-title-md text-primary mb-sm">توزيع التنفيذ حسب القسم</h3>
-      <div id="checklist-category-distribution" class="grid grid-cols-1 md:grid-cols-2 gap-sm"></div>
-    </div>
-    <div class="max-h-[48vh] overflow-auto rounded-lg border border-outline-variant">
-      <table class="w-full text-body-sm min-w-[980px]">
-        <thead class="bg-surface-container text-on-surface-variant sticky top-0 z-10">
-          <tr><th class="p-sm text-right">التاريخ</th><th class="p-sm text-right">الفرع</th><th class="p-sm text-right">القسم</th><th class="p-sm text-right">المهمة</th><th class="p-sm text-right">الشفت</th><th class="p-sm text-right">الحالة</th><th class="p-sm text-right">المنفذ</th></tr>
-        </thead>
-        <tbody id="checklist-tbody"><tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody>
-      </table>
-    </div>
-  </section>
-
   <!-- مشاكل الشفت -->
   <section class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md">
     <div class="flex justify-between items-center mb-sm">
@@ -202,11 +177,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     </div>
     <div id="issues-summary" class="grid grid-cols-2 md:grid-cols-4 gap-md mb-md"></div>
     <div class="max-h-[52vh] overflow-auto rounded-lg border border-outline-variant">
-      <table class="w-full text-body-sm min-w-[780px]">
+      <table class="w-full text-body-sm min-w-[1080px]">
         <thead class="bg-surface-container text-on-surface-variant sticky top-0 z-10">
-          <tr><th class="p-sm text-right">التاريخ</th><th class="p-sm text-right">الفرع</th><th class="p-sm text-right">النوع</th><th class="p-sm text-right">الوصف</th><th class="p-sm text-right">الأولوية</th></tr>
+          <tr><th class="p-sm text-right">التاريخ</th><th class="p-sm text-right">الفرع</th><th class="p-sm text-right">الشفت</th><th class="p-sm text-right">النوع</th><th class="p-sm text-right">الوصف</th><th class="p-sm text-right">الإجراء المتخذ</th><th class="p-sm text-right">الأولوية</th></tr>
         </thead>
-        <tbody id="issues-tbody"><tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody>
+        <tbody id="issues-tbody"><tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody>
       </table>
     </div>
   </section>
@@ -218,7 +193,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 let analyticsReportsData = [];
 let wasteData = [];
 let issuesData = [];
-let checklistData = [];
 let branchesData = [];
 let allBranchesData = [];
 let wasteTableSearch = '';
@@ -281,18 +255,13 @@ function normalizeWasteUnit(unit) {
     return 'other';
 }
 
+function normalizeWasteQuantity(value) {
+    if (value == null || String(value).trim() === '') return 0;
+    const parsed = Number(String(value).trim().replace(/,/g, ''));
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
 function formatWasteNumber(value) {
     return Number.isInteger(value) ? value.toLocaleString('ar-SA') : value.toLocaleString('ar-SA', { maximumFractionDigits: 2 });
-}
-
-function checklistStatusDone(status) {
-    return /completed|complete|done|finished|مكتمل|منفذ|منجز/i.test(String(status || '').trim());
-}
-
-function checklistStatusLabel(status) {
-    const value = String(status || '').trim();
-    if (checklistStatusDone(value)) return 'مكتملة';
-    return 'غير مكتملة';
 }
 
 // تهريب نصوص قاعدة البيانات قبل إدراجها في HTML.
@@ -376,62 +345,12 @@ function renderIssueAnalytics(error = null) {
         </div>`;
 }
 
-function renderChecklistAnalytics(error = null) {
-    const total = checklistData.length;
-    const done = checklistData.filter(log => checklistStatusDone(log.status)).length;
-    const notDone = checklistData.filter(log => !checklistStatusDone(log.status)).length;
-    const branchIds = new Set(checklistData.map(log => log.branch_id).filter(Boolean));
-    const summary = document.getElementById('checklist-summary');
-    if (summary) summary.innerHTML = [
-        ['سجلات التنفيذ', total], ['مكتملة', done], ['غير مكتملة', notDone], ['فروع بها تنفيذ', branchIds.size]
-    ].map(([label, value]) => `<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center"><p class="text-body-sm text-on-surface-variant">${label}</p><p class="text-xl font-bold text-primary">${value}</p></div>`).join('');
-
-    const byBranch = new Map();
-    checklistData.forEach(log => {
-        const id = log.branch_id || 'unknown';
-        if (!byBranch.has(id)) byBranch.set(id, { name: log.branches?.name || 'فرع غير محدد', total: 0, done: 0, categories: new Map() });
-        const row = byBranch.get(id);
-        row.total += 1;
-        if (checklistStatusDone(log.status)) row.done += 1;
-        const category = log.checklist_templates?.category || 'غير مصنف';
-        row.categories.set(category, (row.categories.get(category) || 0) + 1);
-    });
-    const cards = document.getElementById('checklist-branch-cards');
-    if (cards) cards.innerHTML = byBranch.size ? [...byBranch.values()].sort((a, b) => b.total - a.total).map(row => {
-        const pct = row.total ? Math.round(row.done / row.total * 100) : 0;
-        const categoryText = [...row.categories.entries()].map(([name, count]) => `${esc(displayCategory(name))}: ${count}`).join(' · ');
-        return `<article class="zam-card border border-outline-variant rounded-xl p-md"><div class="flex justify-between gap-sm"><strong class="text-primary">${esc(row.name)}</strong><b class="text-primary">${pct}%</b></div><p class="text-body-sm text-on-surface-variant mt-xs">${row.done} مكتملة من ${row.total} سجل تنفيذ</p><p class="text-body-sm text-on-surface-variant mt-xs">${categoryText}</p></article>`;
-    }).join('') : `<div class="col-span-full p-md text-center text-on-surface-variant border border-dashed border-outline-variant rounded-xl">${error ? esc(error) : CHECKLIST_EMPTY_TEXT}</div>`;
-
-    // توزيع التنفيذ حسب القسم — محسوب من سجلات الفترة نفسها.
-    const categoryCounts = new Map();
-    checklistData.forEach(log => {
-        const category = log.checklist_templates?.category || 'غير مصنف';
-        categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
-    });
-    const distribution = document.getElementById('checklist-category-distribution');
-    if (distribution) {
-        const maxCount = Math.max(1, ...categoryCounts.values());
-        distribution.innerHTML = categoryCounts.size ? [...categoryCounts.entries()]
-            .sort((a, b) => b[1] - a[1])
-            .map(([name, count]) => `
-            <div class="border border-outline-variant rounded-xl p-sm">
-                <div class="flex justify-between items-center text-body-sm mb-xs">
-                    <span>${esc(displayCategory(name))}</span>
-                    <span class="font-bold text-primary">${count}</span>
-                </div>
-                <div class="h-2 rounded-full bg-surface-container overflow-hidden">
-                    <div class="h-full bg-primary" style="width:${Math.round(count / maxCount * 100)}%"></div>
-                </div>
-                <p class="text-body-sm text-on-surface-variant mt-xs">${Math.round(count / total * 100)}% من سجلات التنفيذ</p>
-            </div>`).join('') : `<div class="col-span-full p-md text-center text-on-surface-variant border border-dashed border-outline-variant rounded-xl">${error ? esc(error) : CHECKLIST_EMPTY_TEXT}</div>`;
-    }
-
-    const tbody = document.getElementById('checklist-tbody');
-    if (tbody) tbody.innerHTML = checklistData.length ? checklistData.map(log => `<tr class="border-t border-outline-variant"><td class="p-sm">${esc(log.execution_date || '—')}</td><td class="p-sm">${esc(log.branches?.name || '—')}</td><td class="p-sm">${esc(displayCategory(log.checklist_templates?.category || '—'))}</td><td class="p-sm">${esc(log.checklist_templates?.task_title || '—')}</td><td class="p-sm">${esc(log.checklist_templates?.shift_type || '—')}</td><td class="p-sm font-bold">${esc(checklistStatusLabel(log.status))}</td><td class="p-sm">${esc(log.profiles?.full_name || '—')}</td></tr>`).join('') : `<tr><td colspan="7" class="p-md text-center text-on-surface-variant">${error ? esc(error) : CHECKLIST_EMPTY_TEXT}</td></tr>`;
-}
-
 function renderWasteAggregation(error = null) {
+    const tbody = document.getElementById('waste-branch-ranking-tbody');
+    if (error) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-md text-center text-error">${esc(error)}</td></tr>`;
+        return;
+    }
     const keyword = wasteTableSearch.trim().toLocaleLowerCase('ar');
     const rowsByBranch = new Map();
     const activeBranches = document.getElementById('f-branch').value
@@ -447,7 +366,7 @@ function renderWasteAggregation(error = null) {
         const item = waste.item_name || 'غير محدد';
         const reason = waste.reason || 'غير محدد';
         const family = normalizeWasteUnit(waste.unit);
-        const quantity = Number(waste.quantity || 0);
+        const quantity = normalizeWasteQuantity(waste.quantity);
         row.records += 1;
         row.searchable += ` ${item} ${reason} ${waste.unit || ''}`.toLocaleLowerCase('ar');
         if (family === 'grams') {
@@ -465,14 +384,14 @@ function renderWasteAggregation(error = null) {
     const rows = [...rowsByBranch.values()]
         .filter(row => !keyword || row.searchable.includes(keyword))
         .sort((a, b) => b[wasteBranchSort] - a[wasteBranchSort] || b.records - a.records || a.branch.localeCompare(b.branch, 'ar'));
-    document.getElementById('waste-branch-ranking-tbody').innerHTML = rows.length ? rows.map((row, index) => `
+    tbody.innerHTML = rows.length ? rows.map((row, index) => `
         <tr class="border-t border-outline-variant">
           <td class="p-sm font-bold text-primary">${index + 1}</td>
-          <td class="p-sm font-bold">${row.branch}</td>
+          <td class="p-sm font-bold">${esc(row.branch)}</td>
           <td class="p-sm">${formatWasteNumber(row.grams)} <span class="text-on-surface-variant">جرام</span></td>
           <td class="p-sm">${formatWasteNumber(row.milliliters)} <span class="text-on-surface-variant">مل</span></td>
-          <td class="p-sm text-on-surface-variant">${topItem(row.gramItems, 'جرام')}</td>
-          <td class="p-sm text-on-surface-variant">${topItem(row.milliliterItems, 'مل')}</td>
+          <td class="p-sm text-on-surface-variant">${esc(topItem(row.gramItems, 'جرام'))}</td>
+          <td class="p-sm text-on-surface-variant">${esc(topItem(row.milliliterItems, 'مل'))}</td>
           <td class="p-sm">${row.records}</td>
         </tr>`).join('') : `<tr><td colspan="7" class="p-md text-center text-on-surface-variant">${error ? esc(error) : 'لا توجد بيانات مطابقة للفلاتر الحالية.'}</td></tr>`;
 }
@@ -486,19 +405,16 @@ async function applyFilters() {
     document.getElementById('waste-tbody').innerHTML = '<tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
     document.getElementById('issues-tbody').innerHTML = '<tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
     document.getElementById('issues-summary').innerHTML = '<div class="col-span-full p-md text-center text-on-surface-variant">جارِ التحميل...</div>';
-    document.getElementById('checklist-tbody').innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
 
     // كل مصدر مستقل: فشل قراءة واحد لا يُسقط الصفحة، ولا نُظهر بيانات من فترة أخرى مكانه.
-    const [salesRes, wasteRes, issuesRes, checklistRes] = await Promise.allSettled([
+    const [salesRes, wasteRes, issuesRes] = await Promise.allSettled([
         ZamAPI.getAnalyticsReports({ branchId, dateFrom: from, dateTo: to }),
         ZamAPI.getWasteLogs({ branchId, dateFrom: from, dateTo: to }),
         ZamAPI.getShiftIssues({ branchId, dateFrom: from, dateTo: to }),
-        ZamAPI.getChecklistLogs({ branchId, dateFrom: from, dateTo: to }),
     ]);
     const salesOutcome = readOutcome(salesRes);
     const wasteOutcome = readOutcome(wasteRes);
     const issuesOutcome = readOutcome(issuesRes);
-    const checklistOutcome = readOutcome(checklistRes);
     const visibleBranchRow = row => {
         const id = row.daily_reports?.branch_id ?? row.branch_id;
         if (!id) return false;
@@ -512,7 +428,6 @@ async function applyFilters() {
     const issues = issuesOutcome.data.filter(visibleBranchRow);
     wasteData = waste;
     issuesData = issues;
-    checklistData = checklistOutcome.data.filter(visibleBranchRow);
     renderSalesAnalytics(salesOutcome.error);
     renderIssueAnalytics(issuesOutcome.error);
 
@@ -521,12 +436,18 @@ async function applyFilters() {
     const byItem = {};
     const quantityByUnit = {};
     waste.forEach(w => {
-        byItem[w.item_name] = (byItem[w.item_name] || 0) + Number(w.quantity || 0);
-        const unit = w.unit || 'بدون وحدة';
-        quantityByUnit[unit] = (quantityByUnit[unit] || 0) + Number(w.quantity || 0);
+        const quantity = normalizeWasteQuantity(w.quantity);
+        const item = String(w.item_name || 'غير محدد');
+        const itemKey = `${item}\u0000${normalizeWasteUnit(w.unit)}\u0000${String(w.unit || 'بدون وحدة').trim()}`;
+        byItem[itemKey] = (byItem[itemKey] || 0) + quantity;
+        const family = normalizeWasteUnit(w.unit);
+        const unit = family === 'grams' ? 'جرام' : family === 'milliliters' ? 'مل' : String(w.unit || 'بدون وحدة').trim();
+        const unitKey = `${family}:${unit}`;
+        quantityByUnit[unitKey] = (quantityByUnit[unitKey] || 0) + quantity;
     });
     const topItem = Object.entries(byItem).sort((a, b) => b[1] - a[1])[0];
-    const topUnit = Object.entries(quantityByUnit).sort((a, b) => b[1] - a[1])[0];
+    const topUnitEntry = Object.entries(quantityByUnit).sort((a, b) => b[1] - a[1])[0];
+    const topUnit = topUnitEntry ? [topUnitEntry[0].slice(topUnitEntry[0].indexOf(':') + 1), topUnitEntry[1]] : null;
     const byBranchCount = new Set(waste.map(w => w.daily_reports?.branch_id)).size;
 
     document.getElementById('waste-summary').innerHTML = wasteOutcome.error
@@ -542,7 +463,7 @@ async function applyFilters() {
         </div>
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
             <p class="text-body-sm text-on-surface-variant">الأكثر هدرًا</p>
-            <p class="text-xl font-bold text-error">${topItem ? topItem[0] : '—'}</p>
+            <p class="text-xl font-bold text-error">${topItem ? esc(topItem[0].split('\u0000')[0]) : '—'}</p>
         </div>
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
             <p class="text-body-sm text-on-surface-variant">مشاكل الشفت</p>
@@ -565,16 +486,17 @@ async function applyFilters() {
 
     const PRIORITY_COLOR = { 'عالية': 'text-error', 'متوسطة': 'text-primary', 'منخفضة': 'text-on-surface-variant' };
     renderWasteAggregation(wasteOutcome.error);
-    renderChecklistAnalytics(checklistOutcome.error);
 
     document.getElementById('issues-tbody').innerHTML = issues.length ? issues.map(i => `
         <tr class="border-t border-outline-variant">
             <td class="p-sm">${esc(i.daily_reports?.report_date || '—')}</td>
             <td class="p-sm">${esc(i.daily_reports?.branches?.name || '—')}</td>
+            <td class="p-sm">${esc(i.daily_reports?.shift_type || '—')}</td>
             <td class="p-sm">${esc(i.issue_type || '—')}</td>
-            <td class="p-sm">${esc(i.description)}</td>
+            <td class="p-sm">${esc(i.description || '—')}</td>
+            <td class="p-sm">${esc(i.action_taken || '—')}</td>
             <td class="p-sm font-bold ${PRIORITY_COLOR[i.priority] || ''}">${esc(i.priority || '—')}</td>
-        </tr>`).join('') : `<tr><td colspan="5" class="p-md text-center text-on-surface-variant">${issuesOutcome.error ? esc(issuesOutcome.error) : 'لا توجد بيانات في الفترة المحددة.'}</td></tr>`;
+        </tr>`).join('') : `<tr><td colspan="7" class="p-md text-center ${issuesOutcome.error ? 'text-error' : 'text-on-surface-variant'}">${issuesOutcome.error ? esc(issuesOutcome.error) : 'لا توجد بيانات في الفترة المحددة.'}</td></tr>`;
 }
 
 document.getElementById('apply-filters').addEventListener('click', applyFilters);
