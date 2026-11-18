@@ -12,6 +12,44 @@ const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({ 
 const clean = (value: unknown, max = 500) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max)
 const managementRoles = ['Owner', 'Admin', 'Manager', 'Quality', 'Quality Manager']
 
+class RequestBodyError extends Error {
+  constructor(message: string, readonly status: number) { super(message) }
+}
+
+async function readJsonBody(req: Request, maxBytes: number) {
+  const declaredLength = Number(req.headers.get('Content-Length') || 0)
+  if (declaredLength > maxBytes) throw new RequestBodyError('حجم الطلب أكبر من الحد المسموح', 413)
+  if (!req.body) throw new RequestBodyError('جسم الطلب غير صالح', 400)
+  const reader = req.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      if (!value) continue
+      total += value.byteLength
+      if (total > maxBytes) {
+        await reader.cancel()
+        throw new RequestBodyError('حجم الطلب أكبر من الحد المسموح', 413)
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  const bytes = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength }
+  try {
+    const body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('invalid body')
+    return body as Record<string, unknown>
+  } catch {
+    throw new RequestBodyError('بيانات الطلب غير صالحة', 400)
+  }
+}
+
 async function loadArabicFont(url: string) {
   const response = await fetch(url)
   if (!response.ok) throw new Error(`Font download failed: ${response.status}`)
@@ -131,11 +169,26 @@ Deno.serve(async (req: Request) => {
     if (!actor || actor.status !== 'active') return json({ error: 'الحساب غير نشط' }, 403)
     const { data: canManageVisits, error: permissionError } = await userClient.rpc('can_manage_branch_visits')
     if (permissionError) throw permissionError
-    const body = await req.json()
+    const body = await readJsonBody(req, 8 * 1024 * 1024)
+    const suppliedPdf = typeof body.pdf_base64 === 'string' ? body.pdf_base64.trim() : ''
+    let suppliedPdfBytes: Uint8Array | null = null
+    if (suppliedPdf) {
+      if (suppliedPdf.length > 6 * 1024 * 1024) return json({ error: 'حجم PDF أكبر من الحد المسموح' }, 413)
+      if (suppliedPdf.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(suppliedPdf)) return json({ error: 'صيغة PDF المرفق غير صالحة' }, 400)
+      try {
+        const binary = atob(suppliedPdf)
+        if (binary.length > 4 * 1024 * 1024) return json({ error: 'حجم PDF أكبر من الحد المسموح' }, 413)
+        suppliedPdfBytes = Uint8Array.from(binary, character => character.charCodeAt(0))
+      } catch {
+        return json({ error: 'تعذر قراءة PDF المرفق' }, 400)
+      }
+      if (new TextDecoder().decode(suppliedPdfBytes.subarray(0, 5)) !== '%PDF-') return json({ error: 'المرفق ليس ملف PDF صالحًا' }, 400)
+    }
     visitId = clean(body.visit_id, 80)
     if (!visitId) return json({ error: 'visit_id مطلوب' }, 400)
     const sendEmail = body.send_email === true
     const modes = Array.isArray(body.recipient_modes) ? body.recipient_modes.filter((x: any) => ['management','shift_supervisor','self'].includes(x)) : []
+    if (suppliedPdfBytes && (!sendEmail || !canManageVisits)) return json({ error: 'إرفاق PDF مخصص يتطلب صلاحية إدارة زيارات الفروع وإرسال البريد' }, 403)
     const { data: visit, error: visitError } = await supabaseAdmin.from('supervisory_visits').select('*,branches(name)').eq('id', visitId).maybeSingle()
     if (visitError) throw visitError
     if (!visit) return json({ error: 'الزيارة غير موجودة' }, 404)
@@ -177,6 +230,13 @@ Deno.serve(async (req: Request) => {
     const upload = await supabaseAdmin.storage.from('visit-reports').upload(path, pdfBytes, { contentType: 'application/pdf', upsert: true })
     if (upload.error) throw upload.error
     await supabaseAdmin.from('supervisory_visits').update({ pdf_storage_path: path }).eq('id', visitId)
+    const attachmentPath = suppliedPdfBytes
+      ? `${visitId}/email-${safeBranch}-${visit.visit_date}-${crypto.randomUUID()}.pdf`
+      : path
+    if (suppliedPdfBytes) {
+      const emailAttachment = await supabaseAdmin.storage.from('visit-reports').upload(attachmentPath, suppliedPdfBytes, { contentType: 'application/pdf', upsert: false })
+      if (emailAttachment.error) throw emailAttachment.error
+    }
     const signed = await supabaseAdmin.storage.from('visit-reports').createSignedUrl(path, 3600)
     if (signed.error) throw signed.error
     if (!sendEmail) return json({ ok: true, pdf_path: path, signed_url: signed.data.signedUrl, recipients: [] })
@@ -193,18 +253,19 @@ Deno.serve(async (req: Request) => {
     if (modes.includes('self') && actor.email) emails.add(actor.email.trim().toLowerCase())
     const recipients = [...emails].filter(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)).slice(0, 20)
     if (!recipients.length) {
-      await supabaseAdmin.from('visit_email_logs').insert({ visit_id: visitId, sent_by: actorId, recipients: [], cc_recipients: [], attachment_path: path, status: 'failed', error_message: 'لم يتم العثور على بريد للمستلمين المحددين' })
+      await supabaseAdmin.from('visit_email_logs').insert({ visit_id: visitId, sent_by: actorId, recipients: [], cc_recipients: [], attachment_path: attachmentPath, status: 'failed', error_message: 'لم يتم العثور على بريد للمستلمين المحددين' })
       return json({ error: 'لم يتم العثور على بريد للمستلمين المحددين', pdf_path: path, signed_url: signed.data.signedUrl }, 422)
     }
     const resendKey = Deno.env.get('RESEND_API_KEY')
     const from = Deno.env.get('RESEND_FROM') || 'Operations Expert <onboarding@resend.dev>'
     if (!resendKey) throw new Error('RESEND_API_KEY غير مضبوط في أسرار Edge Function')
-    const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: recipients, subject: `تقرير زيارة ${visit.branches?.name || ''} - ${visit.visit_date}`, html: emailHtml(visit, recipients, actions || []), attachments: [{ filename: `visit-${safeBranch}-${visit.visit_date}.pdf`, content: base64(pdfBytes) }] }) })
+    const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: recipients, subject: `تقرير زيارة ${visit.branches?.name || ''} - ${visit.visit_date}`, html: emailHtml(visit, recipients, actions || []), attachments: [{ filename: `visit-${safeBranch}-${visit.visit_date}.pdf`, content: base64(suppliedPdfBytes || pdfBytes) }] }) })
     const responseText = await response.text()
     if (!response.ok) throw new Error(`Resend ${response.status}: ${responseText.slice(0, 300)}`)
-    await supabaseAdmin.from('visit_email_logs').insert({ visit_id: visitId, sent_by: actorId, recipients, cc_recipients: [], attachment_path: path, status: 'sent', sent_at: new Date().toISOString() })
+    await supabaseAdmin.from('visit_email_logs').insert({ visit_id: visitId, sent_by: actorId, recipients, cc_recipients: [], attachment_path: attachmentPath, status: 'sent', sent_at: new Date().toISOString() })
     return json({ ok: true, pdf_path: path, signed_url: signed.data.signedUrl, recipients })
   } catch (error) {
+    if (error instanceof RequestBodyError) return json({ error: error.message }, error.status)
     console.error(error)
     if (supabaseAdmin && visitId) await supabaseAdmin.from('visit_email_logs').insert({ visit_id: visitId, sent_by: actorId, recipients: [], cc_recipients: [], status: 'failed', error_message: String(error).slice(0, 1000) })
     return json({ error: 'تعذر إنشاء أو إرسال التقرير', detail: String(error).slice(0, 300) }, 500)

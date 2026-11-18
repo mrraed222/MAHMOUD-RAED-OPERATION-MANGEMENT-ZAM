@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/checklist-schedule.js?v=20261117214500"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
-<script src="../assets/supabase-config.js?v=20261117194500"></script>
+<script src="../assets/supabase-config.js?v=20261118182000"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: anyone without this permission is sent home
@@ -225,9 +225,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 <script>
 let editingId = null;
+let editingTemplateIds = [];
 let allTemplates = [];
 let branchesCache = [];
 let branchOptionsPromise = null;
+let activeTemplateGroupById = new Map();
 
 function loadBranchOptions() {
     if (!branchOptionsPromise) {
@@ -268,15 +270,18 @@ document.getElementById('f-frequency').addEventListener('change', (e) => {
     document.getElementById('f-day-of-month-wrap').classList.toggle('hidden', freq !== 'monthly');
 });
 
-function openModal(template = null) {
+function openModal(template = null, group = null) {
     editingId = template ? template.id : null;
-    document.getElementById('modal-title').textContent = template ? 'تعديل المهمة' : 'مهمة جديدة';
+    editingTemplateIds = group?.groupTemplateIds || (template ? [template.id] : []);
+    document.getElementById('modal-title').textContent = template
+        ? (editingTemplateIds.length > 1 ? 'تعديل مجموعة مهام متطابقة' : 'تعديل المهمة')
+        : 'مهمة جديدة';
     document.getElementById('f-task-title').value = template?.task_title || '';
     document.getElementById('f-category').value = template?.category || '';
     document.getElementById('f-shift').value = template?.shift_type || 'Morning';
     document.getElementById('f-instructions').value = template?.instructions || '';
-    const selectedBranchIds = template ? zamTemplateBranchIds(template) : [];
-    const isGlobalTemplate = !template || (!template.branch_id && selectedBranchIds.length === 0);
+    const selectedBranchIds = group?.groupBranchIds || (template ? zamTemplateBranchIds(template) : []);
+    const isGlobalTemplate = group ? group.groupIsGlobal : (!template || (!template.branch_id && selectedBranchIds.length === 0));
     document.getElementById('f-scope-all').checked = isGlobalTemplate;
     document.getElementById('f-scope-selected').checked = !isGlobalTemplate;
     renderBranchChoices(selectedBranchIds);
@@ -301,6 +306,7 @@ function openModal(template = null) {
 function closeModal() {
     modal.classList.add('hidden');
     modal.classList.remove('flex');
+    editingTemplateIds = [];
 }
 
 document.getElementById('add-template-btn').addEventListener('click', async () => {
@@ -350,7 +356,11 @@ document.getElementById('save-template').addEventListener('click', async () => {
         return;
     }
     try {
-        await ZamAPI.saveTemplateWithBranches(editingId, payload, selectedBranchIds, allBranches);
+        if (editingTemplateIds.length > 1) {
+            await ZamAPI.saveTemplateGroupWithBranches(editingTemplateIds, payload, selectedBranchIds, allBranches);
+        } else {
+            await ZamAPI.saveTemplateWithBranches(editingId, payload, selectedBranchIds, allBranches);
+        }
         closeModal();
         await loadTemplates();
     } catch (err) {
@@ -359,10 +369,14 @@ document.getElementById('save-template').addEventListener('click', async () => {
     }
 });
 
-async function deleteTemplate(id) {
-    if (!confirm('أرشفة هذه النسخة؟ ستظل محفوظة مع سجلاتها، ويمكن إنشاء إصدار نشط جديد منها لاحقاً.')) return;
+async function deleteTemplate(id, templateIds = [id]) {
+    const isGroup = templateIds.length > 1;
+    if (!confirm(isGroup
+        ? `أرشفة ${templateIds.length} نسخ متطابقة؟ ستظل جميع النسخ وسجلات التنفيذ محفوظة في الأرشيف.`
+        : 'أرشفة هذه النسخة؟ ستظل محفوظة مع سجلاتها، ويمكن إنشاء إصدار نشط جديد منها لاحقاً.')) return;
     try {
-        await ZamAPI.deleteTemplate(id);
+        if (isGroup) await ZamAPI.deleteTemplateGroup(templateIds);
+        else await ZamAPI.deleteTemplate(id);
         await loadTemplates();
     } catch (err) {
         console.error(err);
@@ -372,6 +386,56 @@ async function deleteTemplate(id) {
 
 const SHIFT_LABELS = { Morning: 'صباحية', Evening: 'مسائية' };
 
+function collapseActiveTemplateGroups(templates) {
+    const groups = new Map();
+    for (const task of templates) {
+        const branchIds = zamTemplateBranchIds(task);
+        const groupIsGlobal = task.branch_id == null && branchIds.length === 0;
+        const normalizedDays = [...new Set((Array.isArray(task.days_of_week) ? task.days_of_week : [])
+            .map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
+        const definition = [
+            groupIsGlobal,
+            task.task_title ?? null,
+            task.category ?? null,
+            task.shift_type ?? null,
+            task.instructions ?? null,
+            !!task.requires_photo,
+            task.target_time ? String(task.target_time).slice(0, 5) : null,
+            task.frequency || 'daily',
+            task.day_of_week ?? null,
+            normalizedDays,
+            task.day_of_month ?? null,
+            task.allows_notes !== false,
+            task.task_type || 'standard',
+            Number(task.sort_order) || 0
+        ];
+        // Refrigerator-check templates have branch-specific equipment controls;
+        // keep their cards separate so the existing single-branch control stays accurate.
+        const key = task.task_type === 'fridge_temps'
+            ? `${JSON.stringify(definition)}:${task.id}`
+            : JSON.stringify(definition);
+        if (!groups.has(key)) groups.set(key, { members: [], groupIsGlobal });
+        groups.get(key).members.push(task);
+    }
+
+    return [...groups.values()].map(({ members, groupIsGlobal }) => {
+        const sortedMembers = members.slice().sort((a, b) =>
+            String(a.created_at || '').localeCompare(String(b.created_at || '')) || String(a.id).localeCompare(String(b.id)));
+        const primary = sortedMembers[0];
+        const groupTemplateIds = sortedMembers.map(task => task.id);
+        const groupBranchIds = groupIsGlobal ? [] : [...new Set(sortedMembers.flatMap(zamTemplateBranchIds))].sort();
+        return {
+            ...primary,
+            id: primary.id,
+            branch_id: groupIsGlobal ? null : (groupBranchIds[0] || primary.branch_id),
+            checklist_template_branches: groupBranchIds.map(branch_id => ({ branch_id })),
+            groupTemplateIds,
+            groupBranchIds,
+            groupIsGlobal
+        };
+    });
+}
+
 async function loadTemplates() {
     const container = document.getElementById('templates-container');
     try {
@@ -379,14 +443,17 @@ async function loadTemplates() {
         catch (branchError) { console.error('تعذّر تحميل قائمة الفروع:', branchError); }
         allTemplates = await ZamAPI.getTemplates(null, null, null, { includeArchived: true });
         const activeTemplates = allTemplates.filter(t => t.is_active !== false);
+        const groupedActiveTemplates = collapseActiveTemplateGroups(activeTemplates);
+        activeTemplateGroupById = new Map(groupedActiveTemplates.map(task => [task.id, task]));
         const archivedTemplates = allTemplates.filter(t => t.is_active === false);
         const categories = [...new Set(allTemplates.map(t => t.category).filter(Boolean))];
         document.getElementById('category-options').innerHTML = categories.map(c => `<option value="${frEsc(c)}">`).join('');
 
         function renderTask(task, archived) {
-            const branchIds = zamTemplateBranchIds(task);
-            const isGlobalScope = task.branch_id == null && branchIds.length === 0;
+            const branchIds = task.groupBranchIds || zamTemplateBranchIds(task);
+            const isGlobalScope = task.groupIsGlobal ?? (task.branch_id == null && branchIds.length === 0);
             const branchName = isGlobalScope ? 'كل الفروع' : (branchIds.map(id => branchesCache.find(b => b.id === id)?.name || 'فرع محدد').join('، ') || 'فرع محدد');
+            const groupedCount = task.groupTemplateIds?.length || 1;
             const frequencyLabel = { daily: 'يومي', weekly: 'أسبوعي', monthly: 'شهري', hourly: 'كل ساعة' }[task.frequency || 'daily'];
             const weekDays = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
             const selectedDays = Array.isArray(task.days_of_week) && task.days_of_week.length
@@ -406,6 +473,7 @@ async function loadTemplates() {
                           <span class="inline-flex items-center rounded-full bg-secondary-container px-sm py-[3px] text-[11px] font-bold text-on-secondary-container">${frequencyLabel}${weeklyDay}${monthlyDay}</span>
                           ${task.requires_photo ? '<span class="inline-flex items-center gap-xs rounded-full bg-surface-container px-sm py-[3px] text-[11px] font-bold text-on-surface-variant"><span class="material-symbols-outlined text-[14px]">photo_camera</span> صورة مطلوبة</span>' : ''}
                           ${task.target_time ? `<span class="inline-flex items-center gap-xs rounded-full bg-warning-container px-sm py-[3px] text-[11px] font-bold text-on-warning">موعد ${frEsc(task.target_time.slice(0, 5))}</span>` : ''}
+                          ${!archived && groupedCount > 1 ? `<span class="inline-flex items-center rounded-full bg-primary-container px-sm py-[3px] text-[11px] font-bold text-on-primary">${groupedCount} قوالب متطابقة معروضة كتعريف واحد</span>` : ''}
                         </div>
                         ${task.instructions ? `<p class="text-body-sm text-on-surface-variant mb-sm leading-6">${frEsc(task.instructions)}</p>` : ''}
                         <div class="flex flex-wrap items-center gap-x-sm gap-y-xs text-[12px]">
@@ -418,7 +486,7 @@ async function loadTemplates() {
                         ${!archived && task.task_type === 'fridge_temps' ? `<button class="fridges-btn rounded-lg px-sm py-xs text-tertiary text-[12px] font-bold hover:bg-surface-container" data-id="${frEsc(task.id)}">🧊 إدارة الثلاجات</button>` : ''}
                         ${archived ? `<button class="copy-archived-btn rounded-lg px-sm py-xs text-tertiary text-[12px] font-bold hover:bg-surface-container" data-id="${frEsc(task.id)}">إنشاء إصدار نشط</button>` : `
                           <button class="edit-btn rounded-lg px-sm py-xs text-primary text-[12px] font-bold hover:bg-primary-fixed" data-id="${frEsc(task.id)}">تعديل بإصدار جديد</button>
-                          <button class="delete-btn rounded-lg px-sm py-xs text-error text-[12px] font-bold hover:bg-error-container" data-id="${frEsc(task.id)}">أرشفة</button>`}
+                          <button class="delete-btn rounded-lg px-sm py-xs text-error text-[12px] font-bold hover:bg-error-container" data-id="${frEsc(task.id)}">${groupedCount > 1 ? 'أرشفة المجموعة' : 'أرشفة'}</button>`}
                     </div>
                 </article>`;
         }
@@ -459,13 +527,14 @@ async function loadTemplates() {
             }).join('');
         }
 
-        const routineTemplates = activeTemplates.filter(task => task.frequency !== 'weekly');
-        const weeklyTemplates = activeTemplates.filter(task => task.frequency === 'weekly');
+        const routineTemplates = groupedActiveTemplates.filter(task => task.frequency !== 'weekly');
+        const weeklyTemplates = groupedActiveTemplates.filter(task => task.frequency === 'weekly');
+        const activeDefinitionCount = routineTemplates.length + weeklyTemplates.length;
         container.innerHTML = `
           <section class="mb-lg">
             <div class="mb-md flex items-end justify-between gap-sm border-b border-outline-variant pb-sm">
               <div><h2 class="font-title-md text-title-md text-primary">القوائم النشطة</h2><p class="mt-xs text-[12px] text-on-surface-variant">مرتبة حسب الفئة والوردية؛ افتح عنوان القائمة لعرض مهامها.</p></div>
-              <span class="shrink-0 rounded-full bg-primary-container px-sm py-xs text-[12px] font-bold text-on-primary">${activeTemplates.length} مهمة</span>
+              <span class="shrink-0 rounded-full bg-primary-container px-sm py-xs text-[12px] font-bold text-on-primary">${activeDefinitionCount} تعريفًا نشطًا</span>
             </div>
             ${routineTemplates.length ? renderGroups(routineTemplates) : (weeklyTemplates.length ? '<p class="rounded-xl border border-outline-variant bg-surface-container-lowest p-md text-body-sm text-on-surface-variant">لا توجد مهام يومية أو شهرية نشطة؛ القوالب الأسبوعية في القسم التالي.</p>' : '<p class="rounded-xl border border-outline-variant bg-surface-container-lowest p-md text-body-sm text-on-surface-variant">لا توجد قوالب نشطة حالياً.</p>')}
           </section>
@@ -483,14 +552,18 @@ async function loadTemplates() {
 
         container.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', async () => {
             const task = allTemplates.find(x => x.id === btn.dataset.id);
-            try { await loadBranchOptions(); openModal(task); }
+            const group = activeTemplateGroupById.get(btn.dataset.id);
+            try { await loadBranchOptions(); openModal(task, group); }
             catch (err) { console.error(err); alert('تعذّر تحميل قائمة الفروع.'); }
         }));
         container.querySelectorAll('.fridges-btn').forEach(btn => btn.addEventListener('click', () => {
             const task = allTemplates.find(x => x.id === btn.dataset.id);
             openFridgeModal(task?.branch_id || '');
         }));
-        container.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', () => deleteTemplate(btn.dataset.id)));
+        container.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', () => {
+            const group = activeTemplateGroupById.get(btn.dataset.id);
+            deleteTemplate(btn.dataset.id, group?.groupTemplateIds || [btn.dataset.id]);
+        }));
         container.querySelectorAll('.copy-archived-btn').forEach(btn => btn.addEventListener('click', async () => {
             if (!confirm('إنشاء قالب نشط جديد من هذه النسخة المؤرشفة؟ ستبقى النسخة الأصلية وسجلاتها محفوظة.')) return;
             try {

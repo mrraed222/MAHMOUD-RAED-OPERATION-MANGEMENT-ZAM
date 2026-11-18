@@ -143,9 +143,16 @@ function testAppsScriptMappingsWithoutNetwork() {
 function testReportWiringAndPrintSafety() {
   const core = fs.readFileSync(path.join(__dirname, '..', 'assets', 'weekly-report-core.js'), 'utf8');
   const html = fs.readFileSync(path.join(__dirname, '..', 'weekly-report', 'index.html'), 'utf8');
-  assert.match(core, /METRICS\.topIncomplete\(tpl, 5\)/);
-  assert.match(core, /غير مكتمل '\+pending/);
-  assert.match(core, /comp\.hourlyExcluded/);
+  const pane2Start = core.indexOf('function pane2()');
+  const pane2End = core.indexOf('/* ───────── محور 3 ───────── */', pane2Start);
+  assert.ok(pane2Start >= 0 && pane2End > pane2Start, 'operational control pane should be present');
+  const pane2 = core.slice(pane2Start, pane2End);
+  assert.doesNotMatch(pane2, /topIncomplete|المهام غير المكتملة|غير مكتمل/);
+  assert.match(pane2, /الزيارات الإشرافية حسب الفرع/);
+  assert.match(pane2, /visitCountList[\s\S]*?visits\.length/);
+  assert.match(pane2, /openActions\.length[\s\S]*?violationCount/);
+  assert.match(core, /comp\.coverageIncomplete/);
+  assert.match(core, /comp\.hourlyTemplateCount/);
   assert.match(core, /إجمالي التغطية غير مكتمل؛ المهام المقاسة/);
   assert.match(core, /q\('checklist_templates', '\*,checklist_template_branches\(branch_id\)'\)/);
   assert.match(core, /غياب أرشيف تاريخي للقوالب/);
@@ -156,17 +163,25 @@ function testReportWiringAndPrintSafety() {
   assert.match(core, /تتكرر خلال الوردية/);
   assert.match(core, /المهام المنفذة/);
   assert.doesNotMatch(core, /غير ساعية|قالب ساعي/);
+  assert.match(core, /v: comp && comp\.pct != null \? comp\.pct \+ '%' : '—'/,
+    'the compliance card should not show the unwanted incomplete-coverage phrase');
+  assert.match(core, /function compliance\(r, branchFilter\)/, 'the existing compliance calculation must remain in place');
   assert.match(core, /var visits = filterRows\(SRC\.visits, r, true, true\)/, 'visit KPIs and the report must honor the selected shift');
   assert.match(core, /el\.textContent = String\(v\)/, 'restored note values must be text, not HTML');
   assert.doesNotMatch(core, /stockImpact|أثر نفاد المنتجات على التشغيل/);
   assert.match(core, /لا يتضمن قياس نفاد المنتجات أو تقدير المبيعات الفائتة/);
+  assert.match(core, /ملاحظة مدير التشغيل لهذا المحور/);
+  assert.doesNotMatch(html, /id="dashboardNotes"/, 'separate notes beneath the KPI area should be removed');
+  assert.match(core, /محمود رائد مدير التشغيل والجودة/);
   assert.match(core, /var PANES = \{ 1: pane1, 2: pane2, 3: pane3, 4: pane4, 5: pane5, 6: pane6 \}/);
   const metricsIndex = html.indexOf('weekly-report-metrics.js');
   const coreIndex = html.indexOf('weekly-report-core.js');
   assert.ok(metricsIndex >= 0 && coreIndex > metricsIndex, 'metrics script must load before core');
   assert.match(html, /weekly-report-metrics\.js\?v=20261117194500/, 'weekly report must load the multi-day recurrence and branch-scope helper');
-  assert.match(html, /weekly-report-core\.js\?v=20261118161000/, 'weekly report must load the cache-busted rendering fix');
-  assert.match(html, /#overviewCharts, #overviewBranchCharts, #dashboardNotes, #snapshotsSection/);
+  assert.match(html, /weekly-report-core\.js\?v=20261118182200/, 'weekly report must load the cache-busted rendering fix');
+  assert.match(html, /#overviewCharts \{ display:grid !important/);
+  assert.match(html, /#overviewBranchCharts \{ display:grid !important/);
+  assert.match(html, /\.print-brand \{[^}]*background:linear-gradient\(125deg,#24170c,#76583d\)[^}]*print-color-adjust:exact/s);
   assert.doesNotMatch(html, /#overviewKpis[^}]*display:none/);
   assert.match(html, /\.plan-save \{ display:none !important; \}/);
   assert.match(core, /container\.classList\.toggle\('print-edit-empty'/);
@@ -178,6 +193,27 @@ function testReportWiringAndPrintSafety() {
   assert.match(html, /\.waste-log-table th, \.waste-log-table td/);
   assert.match(html, /\.print-pane \.grid\[class\*="md:grid-cols-4"\]/);
   assert.match(html, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+}
+
+function testWasteAndPlanDisplayChangesPreserveStoredData() {
+  const core = fs.readFileSync(path.join(__dirname, '..', 'assets', 'weekly-report-core.js'), 'utf8');
+  const pane4Start = core.indexOf('function pane4()');
+  const pane4End = core.indexOf('/* ───────── محور 5 ───────── */', pane4Start);
+  const pane6Start = core.indexOf('function pane6()');
+  const pane6End = core.indexOf('var PANES', pane6Start);
+  assert.ok(pane4Start >= 0 && pane4End > pane4Start);
+  assert.ok(pane6Start >= 0 && pane6End > pane6Start);
+  const pane4 = core.slice(pane4Start, pane4End);
+  const pane6 = core.slice(pane6Start, pane6End);
+  assert.doesNotMatch(pane4, /root_cause|corrective_action|قيمة الهدر|الأسباب الجذرية|الإجراء التصحيحي/);
+  const wasteHeaderStart = pane4.indexOf('سجلات الهدر بالتفصيل');
+  const wasteHeaderEnd = pane4.indexOf('</thead>', wasteHeaderStart);
+  assert.ok(wasteHeaderStart >= 0 && wasteHeaderEnd > wasteHeaderStart);
+  assert.equal((pane4.slice(wasteHeaderStart, wasteHeaderEnd).match(/<th\b/g) || []).length, 5);
+  assert.match(pane6, /<select data-plan="scope"/);
+  assert.match(pane6, /<input type="hidden" data-plan="kpi"/);
+  assert.doesNotMatch(pane6, /<th[^>]*>[^<]*مؤشر القياس/);
+  assert.match(core, /p_kpi: get\('kpi'\)/, 'the hidden existing KPI value must still be saved');
 }
 
 function testKpiRangeFallbackRequiresDailyReports() {
@@ -234,7 +270,7 @@ function testIssuesComplaintsAndSupervisorForm() {
   assert.match(form, /if \(reportSubmitting\) return/);
   assert.ok(form.indexOf('await ZamAPI.getDailyReportMatches') < form.indexOf('await ZamAPI.submitDailyReport'), 'duplicate lookup must complete before any report insert');
   assert.match(form, /const canEditComplaints = \['Owner', 'Supervisor', 'Manager', 'Admin'\]/);
-  assert.match(form, /const canResolveTechnicalIssues = \['Owner', 'Manager', 'Admin'\]/);
+  assert.match(form, /const canResolveTechnicalIssues = \['Owner', 'Supervisor', 'Manager', 'Admin'\]/);
   assert.match(form, /const branchId = canViewAllTechnicalIssues \? null : currentUser\.branch_id/);
   assert.match(form, /action_taken: row\.querySelector\('\.complaint-action'\)/);
   assert.match(form, /ZamAPI\.updateTechnicalIssue\(btn\.dataset\.id/);
@@ -344,28 +380,29 @@ function testVisitWiringFiltersAndTableShape() {
   assert.match(core, /var visits = filterRows\(SRC\.visits, r, true, true\)/);
   assert.match(core, /visitResults = \(SRC\.visitResults \|\| \[\]\)\.filter\(function \(row\) \{ return !!visitById\[String\(row\.visitId\)\]; \}\)/);
   assert.match(core, /visitActions = \(SRC\.visitActions \|\| \[\]\)\.filter\(function \(row\) \{ return !!visitById\[String\(row\.visitId\)\]; \}\)/);
-  assert.match(core, /METRICS\.topIncomplete\(tpl, 5\)/);
-
-  const headerStart = core.indexOf('نتائج الزيارات الإشرافية');
-  const headerEnd = core.indexOf('تفاصيل بنود الزيارات التي تحتاج متابعة', headerStart);
-  assert.ok(headerStart >= 0 && headerEnd > headerStart, 'visit table markup should be present');
-  const headerMarkup = core.slice(headerStart, headerEnd);
-  assert.equal((headerMarkup.match(/<th\b/g) || []).length, 10, 'visit table must have ten headers including shift');
-  assert.match(headerMarkup, /colspan="10"/);
-  const rowsStart = core.indexOf('var visitRows');
-  const rowsEnd = core.indexOf('var visitById', rowsStart);
-  assert.ok(rowsStart >= 0 && rowsEnd > rowsStart, 'visit row templates should be present');
-  const rowMarkup = core.slice(rowsStart, rowsEnd);
-  assert.equal((rowMarkup.match(/<td class=/g) || []).length, 20, 'both visit row variants must match the ten-column header');
-  assert.match(rowMarkup, /v\.score != null \? v\.score \+ '%' : '—'/, 'a legitimate zero score should print as 0%');
-  const detailStart = core.indexOf('var attentionRows = attentionResults.slice(0, 60)');
-  assert.ok(detailStart >= 0, 'visit follow-up details should be included');
-  const detailEnd = core.indexOf('function isActionClosed', detailStart);
-  const detailMarkup = core.slice(detailStart, detailEnd);
-  assert.match(detailMarkup, /row\.score != null/);
-  assert.match(detailMarkup, /row\.violation/);
-  assert.match(detailMarkup, /row\.title/);
-  assert.match(core, /completed\|complete\|done\|resolved/);
+  const paneStart = core.indexOf('function pane2()');
+  const paneEnd = core.indexOf('/* ───────── محور 3 ───────── */', paneStart);
+  assert.ok(paneStart >= 0 && paneEnd > paneStart);
+  const pane = core.slice(paneStart, paneEnd);
+  assert.match(pane, /الزيارات الإشرافية حسب الفرع/);
+  assert.match(pane, /الإجمالي[\s\S]*?visits\.length/);
+  assert.match(pane, /التكليفات المفتوحة \/ المخالفات/);
+  assert.match(pane, /متأخرة عن الموعد/);
+  const summaryStart = pane.indexOf('ملخص الزيارات الإشرافية');
+  const summaryEnd = pane.indexOf('</thead>', summaryStart);
+  assert.ok(summaryStart >= 0 && summaryEnd > summaryStart);
+  const summaryHeader = pane.slice(summaryStart, summaryEnd);
+  assert.equal((summaryHeader.match(/<th\b/g) || []).length, 6, 'the unified visit table has six requested fields');
+  assert.match(summaryHeader, /التاريخ[\s\S]*?الشفت[\s\S]*?المقيّم[\s\S]*?الفرع[\s\S]*?الدرجة/);
+  assert.match(pane, /المخالفات \/ التكليفات/);
+  const branchStart = pane.indexOf('var branchVisitTables');
+  const branchEnd = pane.indexOf('var issueRowsAll', branchStart);
+  assert.ok(branchStart >= 0 && branchEnd > branchStart, 'per-branch average and commentary tables should be present');
+  const branchTables = pane.slice(branchStart, branchEnd);
+  assert.match(branchTables, /متوسط الدرجة/);
+  assert.match(branchTables, /التكليفات المفتوحة/);
+  assert.match(branchTables, /أبرز الملاحظات والتكليفات/);
+  assert.match(branchTables, /comments\.slice\(0, 4\)/);
 }
 
 function testPrintPeriodAndAccessibleSixTabs() {
@@ -402,6 +439,7 @@ testWeeklyComplianceHonorsMultiBranchScopes();
 testTopIncompleteCap();
 testAppsScriptMappingsWithoutNetwork();
 testReportWiringAndPrintSafety();
+testWasteAndPlanDisplayChangesPreserveStoredData();
 testKpiRangeFallbackRequiresDailyReports();
 testSalesTableMobileAndPrint();
 testVisitWiringFiltersAndTableShape();

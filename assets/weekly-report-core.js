@@ -922,8 +922,7 @@
       { l: 'عدد الفواتير', i: 'receipt_long', v: cur.count ? nf(cur.orders) : '—', p: nf(prv.orders), d: cur.count ? dlt(cur.orders, prv.orders) : null, g: 'up', z: !prv.orders },
       { l: 'متوسط الفاتورة', i: 'calculate', v: cur.count ? nf1(cur.avg) + ' ر.س' : '—', p: nf1(prv.avg) + ' ر.س', d: cur.count ? dlt(cur.avg, prv.avg) : null, g: 'up', z: !prv.avg },
       { l: 'نسبة الالتزام بقوائم التحقق', i: 'fact_check',
-        v: comp && comp.pct != null ? comp.pct + '%' : (comp && comp.coverageIncomplete ? 'غير مكتمل' : '—'),
-        detail: complianceCoverageMessage(comp),
+        v: comp && comp.pct != null ? comp.pct + '%' : '—',
         p: compPrev && compPrev.pct != null ? compPrev.pct + '%' : '—',
         d: comp && compPrev && comp.pct != null && compPrev.pct != null ? dlt(comp.pct, compPrev.pct) : null, g: 'up', z: false },
       { l: 'عدد الشكاوى', i: 'sentiment_dissatisfied', v: String(negsCur.length), p: '—', d: null, g: 'down', z: false },
@@ -934,12 +933,10 @@
     var el = $('#kpis');
     if (!el) return;
     el.innerHTML = cards.map(function (c) {
-      return '<div class="card p-md"><div class="flex items-center gap-xs text-body-sm text-on-surface-variant">' +
-        '<span class="material-symbols-outlined text-[18px]">' + c.i + '</span>' + c.l + '</div>' +
-        '<div class="font-display-lg text-primary mt-xs leading-none">' + c.v + '</div>' +
-        (c.detail ? '<div class="text-body-sm text-on-surface-variant mt-sm">' + esc(c.detail) + '</div>' : '') +
-        '<div class="flex items-center justify-between mt-sm"><span class="text-body-sm text-on-surface-variant">السابق: ' + c.p + '</span>' +
-        (c.d == null ? '' : deltaChip(c.d, c.g, c.z)) + '</div></div>';
+      return '<article class="weekly-kpi-card"><div class="weekly-kpi-head"><span class="weekly-kpi-icon material-symbols-outlined" aria-hidden="true">' + c.i + '</span><span>' + c.l + '</span></div>' +
+        '<div class="weekly-kpi-value">' + c.v + '</div>' +
+        (c.detail ? '<div class="weekly-kpi-detail">' + esc(c.detail) + '</div>' : '') +
+        '<div class="weekly-kpi-compare"><span>السابق: ' + c.p + '</span>' + (c.d == null ? '' : deltaChip(c.d, c.g, c.z)) + '</div></article>';
     }).join('');
   }
 
@@ -1012,7 +1009,7 @@
     'قارن المبيعات والفواتير ومتوسط الفاتورة بين الفروع والورديات والأيام.',
     'راجع الالتزام والزيارات ونتائج البنود والمخالفات والإجراءات المفتوحة.',
     'تابع الشكاوى وحالتها وما اتخذته الفروع لتحسين تجربة العملاء.',
-    'استعرض سجلات الهدر وكمياته حسب وحدة القياس وأسبابه وتكلفته عند توفرها.',
+    'استعرض سجلات الهدر وكمياتها حسب وحدة القياس والأسباب المسجلة.',
     'راجع تقييم الفريق وبلاغات الشفت ونقص الكادر والبلاغات التقنية والمعدات.',
     'دوّن أهداف الأسبوع القادم ومؤشراتها ومسؤولياتها ومواعيدها.'
   ];
@@ -1219,171 +1216,107 @@
   /* ───────── محور 2 ───────── */
   function pane2() {
     var r = resolveRange();
-    var cur = agg(SRC.reports, r);
     var issues = filterRows(SRC.issues, r, true, true);
     var visits = filterRows(SRC.visits, r, true, true);
-    var comp = compliance(r);
-    var tpl = complianceByTemplate(r);
-    var dueTotal = comp ? comp.expected : 0;
-    var doneTotal = comp ? comp.done : 0;
-    var incompleteTotal = Math.max(0, dueTotal - doneTotal);
-    var topIncomplete = METRICS.topIncomplete(tpl, 5);
-    var hourlyExcluded = (tpl && tpl.hourlyExcluded) || (comp && comp.hourlyExcluded) || 0;
-    var complianceNote = complianceCoverageMessage(comp);
-
-    var teamEntries = {};
-    cur.rows.forEach(function (x) { if (x.team) teamEntries[x.team] = (teamEntries[x.team] || 0) + 1; });
-    var teamRows = Object.keys(teamEntries).map(function (k) {
-      var v = teamEntries[k];
-      return '<tr class="border-b border-outline-variant"><td class="px-md py-sm font-semibold">' + esc(k) + '</td>' +
-        '<td class="px-md py-sm">' + v + '</td><td class="px-md py-sm">' + (v / (cur.rows.length || 1) * 100).toFixed(0) + '%</td></tr>';
-    }).join('');
-
-    /* صف لكل ملاحظة زيارة — لأن الإجراء/المسؤول/الموعد/الحالة محفوظة في
-       supervisory_visit_notes وليست في supervisor y_visits نفسها. */
-    var visitRows = '', allNotes = [];
-    visits.forEach(function (v) {
-      if (v.vnotes && v.vnotes.length) {
-        v.vnotes.forEach(function (n) {
-          allNotes.push({ visit: v, note: n });
-          visitRows += '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(v.date) + '</td>' +
-            '<td class="px-md py-sm">' + branchDashboardLink(v.branch) + '</td>' +
-            '<td class="px-md py-sm">' + esc(v.shiftType === 'Morning' ? 'صباحي' : (v.shiftType === 'Evening' ? 'مسائي' : 'غير محدد')) + '</td>' +
-            '<td class="px-md py-sm">' + esc(v.visitor || '—') + '</td>' +
-            '<td class="px-md py-sm font-bold">' + (v.score != null ? v.score + '%' : '—') + '</td>' +
-            '<td class="px-md py-sm text-on-surface-variant">' + esc(n.text || v.observation || '—') + '</td>' +
-            '<td class="px-md py-sm">' + esc(n.action || '—') + '</td>' +
-            '<td class="px-md py-sm">' + esc(n.owner || '—') + '</td>' +
-            '<td class="px-md py-sm">' + esc(n.due || '—') + '</td>' +
-            '<td class="px-md py-sm">' + esc(n.status) + '</td></tr>';
-        });
-      } else {
-        visitRows += '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(v.date) + '</td>' +
-          '<td class="px-md py-sm">' + branchDashboardLink(v.branch) + '</td>' +
-          '<td class="px-md py-sm">' + esc(v.shiftType === 'Morning' ? 'صباحي' : (v.shiftType === 'Evening' ? 'مسائي' : 'غير محدد')) + '</td>' +
-          '<td class="px-md py-sm">' + esc(v.visitor || '—') + '</td>' +
-          '<td class="px-md py-sm font-bold">' + (v.score != null ? v.score + '%' : '—') + '</td>' +
-          '<td class="px-md py-sm text-on-surface-variant">' + esc(v.observation || '—') + '</td>' +
-          '<td class="px-md py-sm">' + esc(v.action || '—') + '</td>' +
-          '<td class="px-md py-sm">' + esc(v.owner || '—') + '</td>' +
-          '<td class="px-md py-sm">' + esc(v.due || '—') + '</td>' +
-          '<td class="px-md py-sm">' + esc(v.status) + '</td></tr>';
-      }
-    });
     var visitById = Object.create(null);
     visits.forEach(function (visit) { visitById[String(visit.id)] = visit; });
-    var visitResults = (SRC.visitResults || []).filter(function (row) { return !!visitById[String(row.visitId)]; })
-      .map(function (row) { return Object.assign({}, row, { visit: visitById[String(row.visitId)] }); });
-    var visitActions = (SRC.visitActions || []).filter(function (row) { return !!visitById[String(row.visitId)]; })
-      .map(function (row) { return Object.assign({}, row, { visit: visitById[String(row.visitId)] }); });
-    var violationCount = visitResults.filter(function (row) { return row.violation; }).length;
-    var attentionResults = visitResults.filter(function (row) {
-      return row.violation || /غير|جزئي/.test(norm(row.result));
-    }).sort(function (a, b) {
-      return Number(!!b.violation) - Number(!!a.violation) ||
-        (a.score == null ? 1 : (b.score == null ? -1 : num(a.score) - num(b.score))) ||
-        String(b.visit.date).localeCompare(String(a.visit.date));
-    });
-    var attentionRows = attentionResults.slice(0, 60).map(function (row) {
-      var visit = row.visit;
-      return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(visit.date) + '</td>' +
-        '<td class="px-md py-sm">' + branchDashboardLink(visit.branch) + '</td>' +
-        '<td class="px-md py-sm">' + esc(visit.shiftType === 'Morning' ? 'صباحي' : (visit.shiftType === 'Evening' ? 'مسائي' : 'غير محدد')) + '</td>' +
-        '<td class="px-md py-sm">' + esc(row.category) + '</td><td class="px-md py-sm font-semibold">' + esc(row.title) + '</td>' +
-        '<td class="px-md py-sm font-bold">' + (row.score != null ? esc(String(row.score)) : '—') + '</td>' +
-        '<td class="px-md py-sm">' + esc(row.result || '—') + '</td>' +
-        '<td class="px-md py-sm">' + (row.violation ? '<span class="diag-badge">مخالفة</span>' : '—') + '</td>' +
-        '<td class="px-md py-sm text-on-surface-variant">' + esc(row.note || '—') + '</td></tr>';
-    }).join('');
-    function isActionClosed(status) { return /^(مغلقة|مغلق|ملغاة|ملغي|closed|cancelled|canceled|completed|complete|done|resolved|منتهية|منتهي|مكتمل|مكتملة|منجز|تمت المعالجة|تمت معالجتها|تمت معالجته|تم المعالجة|تم الحل|تم حلها|تم الإغلاق)$/i.test(norm(status)); }
+    var visitResults = (SRC.visitResults || []).filter(function (row) { return !!visitById[String(row.visitId)]; });
+    var visitActions = (SRC.visitActions || []).filter(function (row) { return !!visitById[String(row.visitId)]; });
+    function isActionClosed(status) {
+      return /^(مغلقة|مغلق|ملغاة|ملغي|closed|cancelled|canceled|completed|complete|done|resolved|منتهية|منتهي|مكتمل|مكتملة|منجز|تمت المعالجة|تمت معالجتها|تمت معالجته|تم المعالجة|تم الحل|تم حلها|تم الإغلاق)$/i.test(norm(status));
+    }
     var openActions = visitActions.filter(function (action) { return !isActionClosed(action.status); });
+    var violationCount = visitResults.filter(function (row) { return row.violation; }).length;
     var todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-    var openNotes = allNotes.filter(function (x) { return /مفتوحة|قيد|بانتظار|open|pending/i.test(x.note.status || ''); }).length;
-    var lateNotes = allNotes.filter(function (x) {
-      return x.note.due && x.note.due < todayStr && !isActionClosed(x.note.status);
-    }).length;
     var lateActions = openActions.filter(function (action) { return action.due && action.due < todayStr; }).length;
-    var actionRows = openActions.slice().sort(function (a, b) {
-      var p = { 'حرجة': 0, 'عالية': 1, 'متوسطة': 2, 'منخفضة': 3 };
-      return (p[a.priority] == null ? 4 : p[a.priority]) - (p[b.priority] == null ? 4 : p[b.priority]) ||
-        String(a.due || '9999-99-99').localeCompare(String(b.due || '9999-99-99'));
-    }).slice(0, 10).map(function (action) {
-      var visit = action.visit;
+    var branches = branchesForPeriod(r).filter(function (branch) { return state.branches.has(branch.id); });
+
+    var teamEntries = {};
+    filterRows(SRC.reports, r, true, true).forEach(function (row) {
+      if (row.team) teamEntries[row.team] = (teamEntries[row.team] || 0) + 1;
+    });
+    var teamRows = Object.keys(teamEntries).map(function (key) {
+      var count = teamEntries[key];
+      return '<tr class="border-b border-outline-variant"><td class="px-md py-sm font-semibold">' + esc(key) + '</td>' +
+        '<td class="px-md py-sm">' + count + '</td><td class="px-md py-sm">' + (count / (Object.values(teamEntries).reduce(function (sum, value) { return sum + value; }, 0) || 1) * 100).toFixed(0) + '%</td></tr>';
+    }).join('');
+
+    var visitCountList = branches.map(function (branch) {
+      var count = visits.filter(function (visit) { return String(visit.branch) === String(branch.id); }).length;
+      return '<div class="visit-count-chip"><span>' + esc(branch.name) + '</span><b>' + count + '</b></div>';
+    }).join('');
+    var visitRows = visits.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); }).map(function (visit) {
+      var id = String(visit.id);
+      var violations = visitResults.filter(function (row) { return String(row.visitId) === id && row.violation; }).length;
+      var actions = visitActions.filter(function (action) { return String(action.visitId) === id && !isActionClosed(action.status); }).length;
       return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(visit.date) + '</td>' +
-        '<td class="px-md py-sm">' + branchDashboardLink(visit.branch) + '</td><td class="px-md py-sm font-semibold">' + esc(action.title) + '</td>' +
-        '<td class="px-md py-sm">' + esc(action.priority || '—') + '</td><td class="px-md py-sm">' + esc(action.assignedTo || '—') + '</td>' +
-        '<td class="px-md py-sm">' + esc(action.due || '—') + '</td><td class="px-md py-sm">' + esc(action.status || '—') + '</td></tr>';
+        '<td class="px-md py-sm">' + esc(visit.shiftType === 'Morning' ? 'صباحي' : (visit.shiftType === 'Evening' ? 'مسائي' : 'غير محدد')) + '</td>' +
+        '<td class="px-md py-sm">' + esc(visit.visitor || '—') + '</td><td class="px-md py-sm">' + branchDashboardLink(visit.branch) + '</td>' +
+        '<td class="px-md py-sm font-bold">' + (visit.score == null ? '—' : nf1(visit.score) + '%') + '</td>' +
+        '<td class="px-md py-sm">' + violations + ' مخالفة · ' + actions + ' تكليف مفتوح</td></tr>';
+    }).join('');
+
+    var branchVisitTables = branches.map(function (branch) {
+      var ownVisits = visits.filter(function (visit) { return String(visit.branch) === String(branch.id); });
+      var ownIds = Object.create(null);
+      ownVisits.forEach(function (visit) { ownIds[String(visit.id)] = true; });
+      var scores = ownVisits.filter(function (visit) { return visit.score != null; }).map(function (visit) { return num(visit.score); });
+      var average = scores.length ? scores.reduce(function (sum, score) { return sum + score; }, 0) / scores.length : null;
+      var violations = visitResults.filter(function (row) { return ownIds[String(row.visitId)] && row.violation; }).length;
+      var ownOpenActions = visitActions.filter(function (action) { return ownIds[String(action.visitId)] && !isActionClosed(action.status); }).length;
+      var comments = [], seenComments = Object.create(null);
+      ownVisits.forEach(function (visit) {
+        [visit.observation].concat((visit.vnotes || []).reduce(function (items, note) {
+          if (note.text) items.push(note.text);
+          if (note.action) items.push('تكليف: ' + note.action);
+          return items;
+        }, [])).forEach(function (comment) {
+          var text = norm(comment);
+          if (text && !seenComments[text]) { seenComments[text] = true; comments.push(text); }
+        });
+      });
+      var commentsHtml = comments.length
+        ? comments.slice(0, 4).map(function (comment) { return '<div class="branch-visit-comment">' + esc(comment) + '</div>'; }).join('')
+        : '<span class="text-on-surface-variant">لا توجد ملاحظات زيارة مسجلة.</span>';
+      return '<section class="branch-visit-summary"><h3>' + esc(branch.name) + '</h3><div class="overflow-x-auto"><table class="w-full text-body-sm"><thead><tr class="bg-surface-container text-on-surface-variant">' +
+        '<th class="text-right px-md py-sm font-label-bold">عدد الزيارات</th><th class="text-right px-md py-sm font-label-bold">متوسط الدرجة</th>' +
+        '<th class="text-right px-md py-sm font-label-bold">المخالفات</th><th class="text-right px-md py-sm font-label-bold">التكليفات المفتوحة</th>' +
+        '<th class="text-right px-md py-sm font-label-bold">أبرز الملاحظات والتكليفات</th></tr></thead><tbody><tr class="border-b border-outline-variant">' +
+        '<td class="px-md py-sm">' + ownVisits.length + '</td><td class="px-md py-sm font-bold">' + (average == null ? '—' : nf1(average) + '%') + '</td>' +
+        '<td class="px-md py-sm">' + violations + '</td><td class="px-md py-sm">' + ownOpenActions + '</td><td class="px-md py-sm">' + commentsHtml + '</td>' +
+        '</tr></tbody></table></div></section>';
     }).join('');
 
     var issueRowsAll = issues.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
-    var issueRows = issueRowsAll.slice(0, 25).map(function (i) {
-      return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(i.date) + '</td>' +
-        '<td class="px-md py-sm">' + esc(branchName(i.branch)) + '</td>' +
-        '<td class="px-md py-sm">' + esc(i.type || '—') + '</td>' +
-        '<td class="px-md py-sm text-on-surface-variant">' + esc(i.desc) + '</td>' +
-        '<td class="px-md py-sm">' + esc(i.priority || '—') + '</td>' +
-        '<td class="px-md py-sm">' + esc(i.action || '—') + '</td>' +
-          '<td class="px-md py-sm" data-edit="issueOwner-' + esc(i.id || (i.date + '|' + i.branch + '|' + i.desc)) + '">—</td>' +
-          '<td class="px-md py-sm" data-edit="issueDue-' + esc(i.id || (i.date + '|' + i.branch + '|' + i.desc)) + '">—</td></tr>';
+    var issueRows = issueRowsAll.slice(0, 25).map(function (issue) {
+      return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(issue.date) + '</td>' +
+        '<td class="px-md py-sm">' + esc(branchName(issue.branch)) + '</td><td class="px-md py-sm">' + esc(issue.type || '—') + '</td>' +
+        '<td class="px-md py-sm text-on-surface-variant">' + esc(issue.desc) + '</td><td class="px-md py-sm">' + esc(issue.priority || '—') + '</td>' +
+        '<td class="px-md py-sm">' + esc(issue.action || '—') + '</td></tr>';
     }).join('');
 
     return '<div class="card overflow-hidden fadein"><div class="bg-primary text-on-primary px-md py-sm font-title-md">2. الرقابة التشغيلية</div>' +
-      '<div class="p-md space-y-md"><div class="grid md:grid-cols-3 gap-md">' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">عدد الزيارات الإشرافية</div><div class="font-display-lg text-primary mt-xs">' + visits.length + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">الشفتات المفحوصة</div><div class="font-display-lg text-primary mt-xs">' + cur.count + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">إنجاز المهام المسندة</div><div class="font-display-lg text-primary mt-xs">' +
-      (comp && comp.pct != null ? comp.pct + '%' : (comp && comp.coverageIncomplete ? 'غير مكتمل' : '—')) + '<div class="text-body-sm text-on-surface-variant">منفذة ' + doneTotal + ' من ' + dueTotal + ' · متبقية ' + incompleteTotal + '</div></div></div>' +
-      '</div>' +
-      (complianceNote ? '<p class="text-body-sm text-on-surface-variant">' + esc(complianceNote) + '</p>' : '') +
-      '<div class="grid md:grid-cols-3 gap-md">' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">ملاحظات الزيارات</div><div class="font-display-lg text-primary mt-xs">' + allNotes.length + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">ملاحظات مفتوحة</div><div class="font-display-lg text-primary mt-xs">' + openNotes + '</div></div>' +
-      '<div class="bg-error-container/30 rounded-lg p-md"><div class="text-body-sm text-on-error-container">متأخرة عن الموعد</div><div class="font-display-lg text-error mt-xs">' + lateNotes + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">بنود التقييم</div><div class="font-display-lg text-primary mt-xs">' + visitResults.length + '</div></div>' +
-      '<div class="bg-error-container/30 rounded-lg p-md"><div class="text-body-sm text-on-error-container">مخالفات مسجلة في الزيارات</div><div class="font-display-lg text-error mt-xs">' + violationCount + '</div></div>' +
-      '<div class="bg-error-container/30 rounded-lg p-md"><div class="text-body-sm text-on-error-container">إجراءات مفتوحة / متأخرة</div><div class="font-display-lg text-error mt-xs">' + openActions.length + ' / ' + lateActions + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">سجل الزيارات</div>' +
-      '<a href="../branch-visits-new/index.html" class="text-body-sm font-bold text-primary underline mt-xs inline-block">فتح صفحة الزيارات ←</a></div>' +
-      '</div>' +
-      '<div><div class="font-title-md text-primary mb-xs">أبرز المهام غير المكتملة — بحد أقصى 5</div><div id="paneChecks"></div>' +
-      (tpl.length && !topIncomplete.length ? '<p class="text-body-sm text-on-surface-variant mt-xs">اكتملت جميع المهام المحتسبة في الجلسات التقويمية.</p>' : '') +
-      (!tpl.length && !hourlyExcluded ? '<p class="text-body-sm text-on-surface-variant mt-xs">لا توجد مهام مستحقة ضمن الجلسات التقويمية في الفترة.</p>' : '') + '</div>' +
-      '<div><div class="font-title-md text-primary mb-xs">نتائج الزيارات الإشرافية</div><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
-      '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الوردية</th><th class="text-right px-md py-sm font-label-bold">المشرف</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">التقييم</th><th class="text-right px-md py-sm font-label-bold">الملاحظة</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">الإجراء التصحيحي</th><th class="text-right px-md py-sm font-label-bold">المسؤول</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">الموعد</th><th class="text-right px-md py-sm font-label-bold">الحالة</th></tr></thead><tbody>' +
-      (visitRows || '<tr><td colspan="10" class="px-md py-lg text-center text-on-surface-variant">لا توجد زيارات مسجلة — تُسجَّل في جدول supervisory_visits</td></tr>') +
-      '</tbody></table></div></div>' +
-      '<div><div class="font-title-md text-primary mb-xs">تفاصيل بنود الزيارات التي تحتاج متابعة</div><p class="text-body-sm text-on-surface-variant mb-xs">تظهر هنا المخالفات والنتائج غير المطابقة أو الجزئية أو غير المكتملة، مع درجة البند والفرع والوردية لربطها بالزيارة.</p><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
-      '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">تاريخ الزيارة</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الوردية</th><th class="text-right px-md py-sm font-label-bold">الفئة</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">بند التقييم</th><th class="text-right px-md py-sm font-label-bold">الدرجة</th><th class="text-right px-md py-sm font-label-bold">النتيجة</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">مخالفة</th><th class="text-right px-md py-sm font-label-bold">ملاحظة</th></tr></thead><tbody>' +
-      (attentionRows || '<tr><td colspan="9" class="px-md py-lg text-center text-on-surface-variant">' + (visitResults.length ? 'لا توجد بنود تحتاج متابعة في الزيارات المسجلة.' : 'لا توجد نتائج تقييم للزيارات في الفترة المحددة.') + '</td></tr>') +
-      '</tbody></table></div>' + (attentionResults.length > 60 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض أعلى 60 بندًا يحتاج متابعة من ' + attentionResults.length + '.</p>' : '') + '</div>' +
-      '<div><div class="font-title-md text-primary mb-xs">الإجراءات التصحيحية المفتوحة</div><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
-      '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">تاريخ الزيارة</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الإجراء</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">الأولوية</th><th class="text-right px-md py-sm font-label-bold">المسؤول</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">الموعد</th><th class="text-right px-md py-sm font-label-bold">الحالة</th></tr></thead><tbody>' +
-      (actionRows || '<tr><td colspan="7" class="px-md py-lg text-center text-on-surface-variant">لا توجد إجراءات مفتوحة مرتبطة بالزيارات في الفترة</td></tr>') +
-      '</tbody></table></div>' + (openActions.length > 10 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض التقرير أعلى 10 إجراءات مفتوحة من إجمالي ' + openActions.length + '.</p>' : '') + '</div>' +
-      '<div><div class="font-title-md text-primary mb-xs">أبرز الملاحظات والمخالفات التشغيلية</div><div class="overflow-x-auto"><table class="w-full text-body-sm">' +
-      '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">النوع</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">الوصف</th><th class="text-right px-md py-sm font-label-bold">الأولوية</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">الإجراء المتخذ</th><th class="text-right px-md py-sm font-label-bold">المسؤول</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">الموعد</th></tr></thead><tbody>' +
-      (issueRows || '<tr><td colspan="8" class="px-md py-lg text-center text-on-surface-variant">لا توجد ملاحظات مسجلة في هذه الفترة</td></tr>') +
-      '</tbody></table></div></div>' +
-      (issueRowsAll.length > 25 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض أحدث 25 من ' + issueRowsAll.length + ' مشكلة؛ تم إخفاء ' + (issueRowsAll.length - 25) + ' صفًا.</p>' : '') +
-      '<div><div class="font-title-md text-primary mb-xs">تقييم حالة أداء الفريق</div><table class="w-full text-body-sm">' +
-      '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التقييم</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">عدد الشفتات</th><th class="text-right px-md py-sm font-label-bold">النسبة</th></tr></thead>' +
-      '<tbody>' + (teamRows || '<tr><td colspan="3" class="px-md py-lg text-center text-on-surface-variant">لا توجد بيانات</td></tr>') + '</tbody></table></div>' +
-      '</div></div>';
+      '<div class="p-md space-y-md"><div class="grid md:grid-cols-2 gap-md">' +
+      '<div class="visit-count-card"><div class="font-label-bold text-on-surface-variant">الزيارات الإشرافية حسب الفرع</div><div class="visit-count-list">' +
+      (visitCountList || '<span class="text-on-surface-variant">لا توجد فروع مشمولة.</span>') + '</div><div class="visit-total">الإجمالي <strong>' + visits.length + '</strong> زيارة</div></div>' +
+      '<div class="visit-count-card visit-followup-card"><div class="font-label-bold text-on-surface-variant">التكليفات المفتوحة / المخالفات</div><div class="visit-followup-value">' + openActions.length + ' <span>/</span> ' + violationCount + '</div>' +
+      '<div class="text-body-sm text-on-surface-variant">تكليفات مفتوحة · مخالفات مسجلة</div><div class="visit-total">المتأخرة عن الموعد <strong>' + lateActions + '</strong></div></div></div>' +
+      '<section><div class="font-title-md text-primary mb-xs">ملخص الزيارات الإشرافية</div><div class="overflow-x-auto"><table class="w-full text-body-sm visit-summary-table">' +
+      '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th><th class="text-right px-md py-sm font-label-bold">الشفت</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">المقيّم</th><th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الدرجة</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">المخالفات / التكليفات</th></tr></thead><tbody>' +
+      (visitRows || '<tr><td colspan="6" class="px-md py-lg text-center text-on-surface-variant">لا توجد زيارات مسجلة في الفترة المحددة.</td></tr>') +
+      '</tbody></table></div></section>' +
+      '<section><div class="font-title-md text-primary mb-xs">متوسط الزيارات وملاحظاتها حسب الفرع</div><div class="space-y-sm">' +
+      (branchVisitTables || '<div class="text-body-sm text-on-surface-variant">لا توجد فروع مشمولة في الفترة.</div>') + '</div></section>' +
+      '<section><div class="font-title-md text-primary mb-xs">ملاحظات الشفت المسجلة</div><div class="overflow-x-auto"><table class="w-full text-body-sm"><thead><tr class="bg-surface-container text-on-surface-variant">' +
+      '<th class="text-right px-md py-sm font-label-bold">التاريخ</th><th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">النوع</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">الوصف</th><th class="text-right px-md py-sm font-label-bold">الأولوية</th><th class="text-right px-md py-sm font-label-bold">الإجراء المسجل</th></tr></thead><tbody>' +
+      (issueRows || '<tr><td colspan="6" class="px-md py-lg text-center text-on-surface-variant">لا توجد ملاحظات شفت مسجلة في الفترة.</td></tr>') + '</tbody></table></div>' +
+      (issueRowsAll.length > 25 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض أحدث 25 من ' + issueRowsAll.length + ' ملاحظة شفت.</p>' : '') + '</section>' +
+      '<section><div class="font-title-md text-primary mb-xs">تقييم حالة أداء الفريق</div><div class="overflow-x-auto"><table class="w-full text-body-sm"><thead><tr class="bg-surface-container text-on-surface-variant">' +
+      '<th class="text-right px-md py-sm font-label-bold">التقييم</th><th class="text-right px-md py-sm font-label-bold">عدد الشفتات</th><th class="text-right px-md py-sm font-label-bold">النسبة</th></tr></thead><tbody>' +
+      (teamRows || '<tr><td colspan="3" class="px-md py-lg text-center text-on-surface-variant">لا توجد بيانات</td></tr>') + '</tbody></table></div></section></div></div>';
   }
 
   /* ───────── محور 3 ───────── */
@@ -1450,8 +1383,7 @@
     var w = filterRows(SRC.waste, r, true, true);
     /* تجميع منفصل حسب وحدة القياس: لا نخلط جراماً بلتر أو قطعة.
        المفتاح = (الاسم + الوحدة) والقيمة = الكمية. */
-    var byItem = {}, byReason = {}, byRoot = {}, itemUnit = {}, reasonUnit = {}, rootUnit = {};
-    var cost = 0, hasCost = false, missingCostRows = 0;
+    var byItem = {}, byReason = {}, itemUnit = {}, reasonUnit = {};
     w.forEach(function (x) {
       var u = x.unit || 'غير محدد';
       var k = x.item || 'غير محدد';
@@ -1460,12 +1392,6 @@
       var rk = x.reason || 'غير محدد';
       var rku = rk + '|' + u;
       byReason[rku] = (byReason[rku] || 0) + (x.qty || 0); reasonUnit[rku] = u;
-      if (x.rootCause) {
-        var rck = x.rootCause + '|' + u;
-        byRoot[rck] = (byRoot[rck] || 0) + (x.qty || 0); rootUnit[rck] = u;
-      }
-      if (x.unitCost != null) { hasCost = true; cost += (x.qty || 0) * x.unitCost; }
-      else missingCostRows++;
     });
     /* ترتيب البنود داخل كل وحدة على حدة */
     var itemsByUnit = {};
@@ -1533,39 +1459,28 @@
         '<td class="px-md py-sm">' + esc(branchName(x.branch)) + '</td>' +
         '<td class="px-md py-sm font-semibold">' + esc(x.item) + '</td>' +
         '<td class="px-md py-sm">' + nf(x.qty) + ' ' + esc(x.unit) + '</td>' +
-        '<td class="px-md py-sm text-on-surface-variant">' + esc(x.reason) + '</td>' +
-        '<td class="px-md py-sm text-on-surface-variant">' + esc(x.rootCause || '—') + '</td>' +
-        '<td class="px-md py-sm">' + esc(x.action || '—') + '</td>' +
-        '<td class="px-md py-sm">' + (x.unitCost != null ? nf2(x.qty * x.unitCost) + ' ر.س' : '—') + '</td></tr>';
+        '<td class="px-md py-sm text-on-surface-variant">' + esc(x.reason) + '</td></tr>';
     }).join('');
 
     return '<div class="card overflow-hidden fadein"><div class="bg-primary text-on-primary px-md py-sm font-title-md">4. الهدر</div>' +
-      '<div class="p-md space-y-md"><div class="gap-banner"><span class="material-symbols-outlined gap-icon">info</span><div class="gap-text"><b>نطاق المحور</b><div>يعرض سجلات الهدر وكمياتها وتكلفتها عند توفرها. لا يتضمن قياس نفاد المنتجات أو تقدير المبيعات الفائتة لعدم توفر سجل موثوق لذلك.</div></div></div><div class="grid md:grid-cols-4 gap-md">' +
+      '<div class="p-md space-y-md"><div class="gap-banner"><span class="material-symbols-outlined gap-icon">info</span><div class="gap-text"><b>نطاق المحور</b><div>يعرض سجلات الهدر وكمياتها وأسبابها المسجلة. لا يتضمن قياس نفاد المنتجات أو تقدير المبيعات الفائتة لعدم توفر سجل موثوق لذلك.</div></div></div><div class="grid md:grid-cols-3 gap-md">' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">سجلات الهدر في الفترة</div><div class="font-display-lg text-primary mt-xs">' + w.length + '</div></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">أصناف متأثرة</div><div class="font-display-lg text-primary mt-xs">' + (function () {
         var s = {}; w.forEach(function (x) { s[x.item || 'غير محدد'] = 1; }); return Object.keys(s).length;
       })() + '</div></div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">قيمة الهدر المسجلة (بالريال)</div><div class="font-display-lg text-primary mt-xs">' +
-      (hasCost ? nf2(cost) + ' ر.س' : 'تحتاج تكلفة الوحدة') + (hasCost && missingCostRows ? '<div class="text-body-sm text-on-surface-variant">قيمة جزئية؛ تكلفة غير متوفرة لـ ' + missingCostRows + ' سجل</div>' : '') + '</div></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="text-body-sm text-on-surface-variant">الأعلى داخل كل وحدة قياس</div><div class="font-body-lg font-bold text-primary mt-xs">' + (topItemText || '—') + '</div></div>' +
-      '</div><div class="grid md:grid-cols-3 gap-md">' +
+      '</div><div class="grid md:grid-cols-2 gap-md">' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="font-title-md text-primary mb-sm">أعلى الأصناف هدراً</div>' + (barsHtml || '<div class="text-body-sm text-on-surface-variant">لا توجد بيانات</div>') + '</div>' +
       '<div class="bg-surface-container rounded-lg p-md"><div class="font-title-md text-primary mb-sm">توزيع الأسباب</div>' +
       (Object.keys(byReason).sort(function (a, b) { return byReason[b] - byReason[a]; }).map(function (k) {
         return '<div class="flex justify-between text-body-sm py-xs border-b border-outline-variant"><span>' + esc(k.split('|')[0]) + '</span><span class="font-bold">' + nf(byReason[k]) + ' ' + esc(reasonUnit[k]) + '</span></div>';
       }).join('') || '<div class="text-body-sm text-on-surface-variant">لا توجد بيانات</div>') + '</div>' +
-      '<div class="bg-surface-container rounded-lg p-md"><div class="font-title-md text-primary mb-sm">الأسباب الجذرية</div>' +
-      (Object.keys(byRoot).sort(function (a, b) { return byRoot[b] - byRoot[a]; }).map(function (k) {
-        return '<div class="flex justify-between text-body-sm py-xs border-b border-outline-variant"><span>' + esc(k.split('|')[0]) + '</span><span class="font-bold">' + nf(byRoot[k]) + ' ' + esc(rootUnit[k]) + '</span></div>';
-      }).join('') || '<div class="text-body-sm text-on-surface-variant">لم تُسجَّل أسباب جذرية بعد (root_cause)</div>') + '</div>' +
       '</div><div><div class="font-title-md text-primary mb-sm">أعلى 3 شفتات هدراً داخل كل فرع</div><p class="text-body-sm text-on-surface-variant mb-sm">الترتيب منفصل حسب وحدة القياس (جرام/لتر/قطعة) — لا تتم مقارنة الجرام باللتر أو القطعة.</p><div class="grid md:grid-cols-2 xl:grid-cols-3 gap-md">' + shiftWasteHtml + '</div></div>' +
       '<div><div class="font-title-md text-primary mb-sm">سجلات الهدر بالتفصيل</div><div class="overflow-x-auto"><table class="w-full text-body-sm waste-log-table">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">التاريخ</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الفرع</th><th class="text-right px-md py-sm font-label-bold">الصنف</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">الكمية</th><th class="text-right px-md py-sm font-label-bold">السبب</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">السبب الجذري</th><th class="text-right px-md py-sm font-label-bold">الإجراء التصحيحي</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">قيمة الهدر</th></tr></thead><tbody>' +
-      (rows || '<tr><td colspan="8" class="px-md py-lg text-center text-on-surface-variant">لا توجد سجلات هدر في هذه الفترة</td></tr>') +
+      '<th class="text-right px-md py-sm font-label-bold">الكمية</th><th class="text-right px-md py-sm font-label-bold">السبب</th></tr></thead><tbody>' +
+      (rows || '<tr><td colspan="5" class="px-md py-lg text-center text-on-surface-variant">لا توجد سجلات هدر في هذه الفترة</td></tr>') +
       '</tbody></table></div>' + (visibleWaste.length > 60 ? '<p class="text-body-sm text-on-surface-variant mt-xs">يعرض أحدث 60 من ' + visibleWaste.length + ' سجل هدر؛ تم إخفاء ' + (visibleWaste.length - 60) + ' سجلًا.</p>' : '') + '</div></div></div>';
   }
 
@@ -1660,15 +1575,26 @@
     existing.forEach(function (p) { byRow[p.rowNo] = p; });
     var highestRow = existing.reduce(function (max, p) { return Math.max(max, Number(p.rowNo) || 0); }, 0);
     var maxRow = Math.min(50, Math.max(7, highestRow));
+    var planBranches = BRANCHES.filter(function (branch) { return branchOperationalOnDate(branch, weekStart); });
+    function scopeOptions(value) {
+      value = String(value || '');
+      var known = value === '' || value === 'كل الفروع' || planBranches.some(function (branch) { return value === branch.name; });
+      var options = '<option value=""' + (value === '' ? ' selected' : '') + '>اختر فرعًا أو نطاقًا</option>' +
+        '<option value="كل الفروع"' + (value === 'كل الفروع' ? ' selected' : '') + '>كل الفروع</option>';
+      if (value && !known) options += '<option value="' + esc(value) + '" selected>' + esc(value) + ' (قيمة محفوظة سابقًا)</option>';
+      options += planBranches.map(function (branch) {
+        return '<option value="' + esc(branch.name) + '"' + (value === branch.name ? ' selected' : '') + '>' + esc(branch.name) + '</option>';
+      }).join('');
+      return options;
+    }
 
     var rows = '';
     for (var i = 1; i <= maxRow; i++) {
       var p = byRow[i] || {};
       rows += '<tr class="border-b border-outline-variant" data-plan-row="' + i + '">' +
-        '<td class="px-md py-sm text-on-surface-variant">' + i + '</td>' +
+        '<td class="px-md py-sm text-on-surface-variant">' + i + '<input type="hidden" data-plan="kpi" value="' + esc(p.kpi || '') + '"></td>' +
         '<td class="px-md py-sm"><span data-plan="objective" contenteditable="true">' + esc(p.objective || '') + '</span></td>' +
-        '<td class="px-md py-sm"><span data-plan="scope" contenteditable="true">' + esc(p.scope || '') + '</span></td>' +
-        '<td class="px-md py-sm"><span data-plan="kpi" contenteditable="true">' + esc(p.kpi || '') + '</span></td>' +
+        '<td class="px-md py-sm"><select data-plan="scope" aria-label="الفرع أو النطاق" class="plan-scope-select w-full border border-outline-variant rounded-lg p-sm bg-white">' + scopeOptions(p.scope) + '</select></td>' +
         '<td class="px-md py-sm"><span data-plan="owner" contenteditable="true">' + esc(p.owner || '') + '</span></td>' +
         '<td class="px-md py-sm"><span data-plan="due" contenteditable="true">' + esc(p.due || '') + '</span></td>' +
         '<td class="px-md py-sm"><span data-plan="approve" contenteditable="true">' + esc(p.needsApproval ? 'يحتاج اعتماد' : '') + '</span></td>' +
@@ -1682,7 +1608,7 @@
       '<div class="overflow-x-auto"><table class="w-full text-body-sm">' +
       '<thead><tr class="bg-surface-container text-on-surface-variant"><th class="text-right px-md py-sm font-label-bold">م</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الهدف التشغيلي المستهدف</th><th class="text-right px-md py-sm font-label-bold">الفرع / النطاق</th>' +
-      '<th class="text-right px-md py-sm font-label-bold">مؤشر القياس</th><th class="text-right px-md py-sm font-label-bold">المسؤول عن التنفيذ</th>' +
+      '<th class="text-right px-md py-sm font-label-bold">المسؤول عن التنفيذ</th>' +
       '<th class="text-right px-md py-sm font-label-bold">الموعد المتوقع</th><th class="text-right px-md py-sm font-label-bold">يحتاج اعتماد؟</th>' +
       '<th class="text-right px-md py-sm font-label-bold">إجراء</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<div class="bg-surface-container rounded-lg p-md"><label class="font-label-bold text-on-surface-variant">أبرز التحديات المستمرة التي تتطلب تدخل الإدارة</label>' +
@@ -1717,15 +1643,6 @@
         var restored = k ? document.querySelector('.branch-drill[data-branch="' + k + '"]') : null;
         if (restored) restored.focus();
       });
-    }
-    if (tab === 2) {
-      var checks = el.querySelector('#paneChecks');
-      if (checks) {
-        var tpl = complianceByTemplate(resolveRange());
-        bars(checks, METRICS.topIncomplete(tpl, 5).map(function (t) {
-          return { label: t.title, done: t.done, total: t.total };
-        }));
-      }
     }
     restoreEdits();
     $$('.bg-surface-container', el).forEach(function (container) {
@@ -1803,6 +1720,10 @@
       }
       el.appendChild(pane);
     }
+    var signature = document.createElement('footer');
+    signature.className = 'print-signature';
+    signature.innerHTML = '<span>التوقيع</span><strong>محمود رائد مدير التشغيل والجودة</strong>';
+    el.appendChild(signature);
     return function () {
       el.innerHTML = originalHTML;
       state.tab = originalTab;
@@ -1860,7 +1781,7 @@
     $$('.plan-save').forEach(function (b) {
       b.addEventListener('click', function () {
         var tr = b.closest('tr'), rowNo = +tr.getAttribute('data-plan-row');
-        function get(name) { var el = tr.querySelector('[data-plan="' + name + '"]'); return el ? String(el.innerText != null ? el.innerText : el.textContent).trim() : ''; }
+        function get(name) { var el = tr.querySelector('[data-plan="' + name + '"]'); return el ? String(el.tagName === 'SELECT' || el.type === 'hidden' ? el.value : (el.innerText != null ? el.innerText : el.textContent)).trim() : ''; }
         var needs = /اعتماد|نعم/i.test(get('approve'));
         if (!CFG.client || typeof CFG.client.rpc !== 'function') {
           notify('الحفظ في القاعدة غير متاح في هذه النسخة.', 'error'); return;

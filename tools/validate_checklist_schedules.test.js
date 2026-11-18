@@ -110,7 +110,7 @@ test('صفحات قوائم التحقق تحمل نسخ cache المحدثة ل
     assert.match(html, /checklist-schedule\.js\?v=20261117214500/, `${page} must load the updated schedule helper`);
   }
   assert.match(supervisorPage, /supabase-config\.js\?v=20261117194500/);
-  assert.match(templateAdminPage, /supabase-config\.js\?v=20261117194500/);
+  assert.match(templateAdminPage, /supabase-config\.js\?v=20261118182000/);
   assert.match(templateAdminPage, /id="f-scope-all"/);
   assert.match(templateAdminPage, /class="f-branch-checkbox/);
   assert.match(templateAdminPage, /saveTemplateWithBranches/);
@@ -244,7 +244,7 @@ test('الأرشيف يظل محفوظاً ويظهر للمخولين فقط و
   assert.match(api, /if \(!includeArchived\) query = query\.eq\('is_active', true\)/);
   assert.match(templateAdminPage, /getTemplates\(null, null, null, \{ includeArchived: true \}\)/);
   assert.match(templateAdminPage, /copyArchivedTemplateAsNewVersion/);
-  assert.match(templateAdminPage, /delete-btn[^`]*>أرشفة/);
+  assert.match(templateAdminPage, /groupedCount > 1 \? 'أرشفة المجموعة' : 'أرشفة'/);
   assert.doesNotMatch(api, /from\('checklist_templates'\)\.delete\(/);
 });
 

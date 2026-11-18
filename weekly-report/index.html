@@ -26,7 +26,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js?v=20261117194500"></script>
 <script src="../assets/weekly-report-metrics.js?v=20261117194500"></script>
-<script src="../assets/weekly-report-core.js?v=20261118161000"></script>
+<script src="../assets/weekly-report-core.js?v=20261118182200"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // التقرير التنفيذي خاص بمالك النظام فقط.
@@ -73,6 +73,29 @@
   .report-header .text-on-surface-variant { color:#f4e8dc; }
   .report-logo { width:56px; height:56px; object-fit:contain; border-radius:12px; background:#fff; padding:4px; }
   .print-brand { display:none; }
+  .weekly-kpi-card { position:relative; min-height:158px; overflow:hidden; padding:18px; border:1px solid #e4d8cd; border-radius:18px; background:linear-gradient(145deg,#fff 12%,#fbf6f1 100%); box-shadow:0 8px 22px rgba(51,33,13,.07); }
+  .weekly-kpi-card::after { content:""; position:absolute; left:-22px; bottom:-34px; width:94px; height:94px; border-radius:50%; background:rgba(189,159,131,.11); }
+  .weekly-kpi-head { display:flex; align-items:center; gap:9px; color:#625549; font-size:13px; font-weight:700; line-height:1.45; }
+  .weekly-kpi-icon { display:inline-grid; place-items:center; width:34px; height:34px; flex:0 0 auto; border-radius:11px; background:#f1e8df; color:#5b3518; }
+  .weekly-kpi-value { margin-top:12px; color:#33210d; font-family:'Tajawal',sans-serif; font-size:32px; font-weight:800; line-height:1.1; letter-spacing:-.02em; }
+  .weekly-kpi-detail { margin-top:8px; color:#70655d; font-size:12px; line-height:1.5; }
+  .weekly-kpi-compare { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; color:#70655d; font-size:11px; }
+  .weekly-kpi-card:nth-child(4n+1) .weekly-kpi-icon { background:#efe4d9; color:#5b3518; }
+  .weekly-kpi-card:nth-child(4n+2) .weekly-kpi-icon { background:#e7eee7; color:#245a32; }
+  .weekly-kpi-card:nth-child(4n+3) .weekly-kpi-icon { background:#f6ece5; color:#8d4b2f; }
+  .weekly-kpi-card:nth-child(4n) .weekly-kpi-icon { background:#ece9f2; color:#59466f; }
+  .visit-count-card { padding:18px; border:1px solid #e5d9cf; border-radius:16px; background:linear-gradient(145deg,#fff,#fbf7f3); }
+  .visit-count-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .visit-count-chip { display:inline-flex; align-items:center; gap:8px; padding:6px 11px; border:1px solid #eadfd6; border-radius:999px; background:#f7f3ef; color:#5b5149; font-size:12px; }
+  .visit-count-chip b { display:inline-grid; place-items:center; min-width:23px; height:23px; border-radius:50%; background:#33210d; color:#fff; }
+  .visit-total { display:flex; align-items:center; gap:6px; margin-top:12px; padding-top:10px; border-top:1px solid #eadfd6; color:#70655d; font-size:13px; }
+  .visit-total strong { color:#33210d; font-size:20px; }
+  .visit-followup-value { margin-top:6px; color:#8d332c; font-size:38px; font-weight:800; line-height:1.05; }
+  .visit-followup-value span { color:#a69b92; font-size:24px; font-weight:400; }
+  .branch-visit-summary { padding:14px; border:1px solid #e5d9cf; border-radius:14px; background:#fff; }
+  .branch-visit-summary h3 { margin:0 0 10px; color:#5b3518; font-size:16px; font-weight:800; }
+  .branch-visit-comment { margin:2px 0; line-height:1.6; }
+  .visit-summary-table { min-width:740px; }
   .slicer { transition:all .15s; }
   .slicer:hover { background:#f6f3f2; }
   .slicer.on { background:#4b3621; color:#fff; border-color:#4b3621; }
@@ -211,13 +234,13 @@
     html, body { background:#fff !important; color:#1b1c1c; }
     body { font-size:10pt; }
     .no-print, aside, #notification-bell-container { display:none !important; }
-    #overviewCharts, #overviewBranchCharts, #dashboardNotes, #snapshotsSection { display:none !important; }
+    #snapshotsSection { display:none !important; }
     #emptyState { display:none !important; }
     .plan-save { display:none !important; }
-    .print-brand { display:flex; align-items:center; gap:12px; padding:0 0 8mm; border-bottom:2px solid #33210d; margin-bottom:6mm; }
-    .print-brand img { width:22mm; height:22mm; object-fit:contain; }
-    .print-brand h1 { margin:0; color:#33210d; font-size:18pt; }
-    .print-brand p { margin:2mm 0 0; color:#5e604d; font-size:9pt; }
+    .print-brand { display:flex; align-items:center; gap:12px; padding:6mm 7mm; border:0; border-radius:4mm; margin-bottom:6mm; color:#fff; background:linear-gradient(125deg,#24170c,#76583d); print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+    .print-brand img { width:22mm; height:22mm; object-fit:contain; background:#fff; border-radius:3mm; padding:1.5mm; }
+    .print-brand h1 { margin:0; color:#fff; font-size:18pt; }
+    .print-brand p { margin:2mm 0 0; color:#f3e8dd; font-size:9pt; }
     main { margin-right:0 !important; min-height:0 !important; }
     .card { break-inside:avoid; box-shadow:none !important; border:1px solid #b9afa7 !important; border-radius:4px; }
     .report-header { background:#fff !important; color:#33210d !important; border-bottom:1px solid #b9afa7; box-shadow:none !important; }
@@ -228,6 +251,20 @@
     #panes > .print-pane:first-child { break-before:auto; page-break-before:auto; }
     #panes > .print-pane .no-print { display:none !important; }
     #panes .card { margin-bottom:5mm; }
+    #panes > .print-pane > .card { overflow:visible !important; break-inside:auto !important; }
+    .branch-visit-summary { break-inside:avoid; page-break-inside:avoid; }
+    #kpis { grid-template-columns:repeat(4,minmax(0,1fr)) !important; gap:3mm !important; }
+    .weekly-kpi-card { min-height:30mm; padding:3mm; border-radius:3mm; box-shadow:none; break-inside:avoid; }
+    .weekly-kpi-card::after { display:none; }
+    .weekly-kpi-head { gap:2mm; font-size:7.5pt; }
+    .weekly-kpi-icon { width:8mm; height:8mm; border-radius:2mm; }
+    .weekly-kpi-value { margin-top:2mm; font-size:18pt; }
+    .weekly-kpi-detail,.weekly-kpi-compare { margin-top:1.5mm; font-size:6.5pt; }
+    #overviewCharts { display:grid !important; grid-template-columns:1.35fr 1fr !important; gap:3mm !important; }
+    #overviewBranchCharts { display:grid !important; grid-template-columns:1fr 1fr !important; gap:3mm !important; }
+    #overviewCharts > div, #overviewBranchCharts > div { break-inside:avoid; padding:3mm !important; }
+    #overviewCharts h3, #overviewBranchCharts h3 { font-size:9pt !important; }
+    #chartTrend, #chartWaste, #chartBranch, #chartChecks { max-height:54mm; overflow:hidden; }
     .print-edit-empty { display:none !important; }
     table { width:100% !important; font-size:8pt; }
     th, td { padding:2.5mm 2mm !important; }
@@ -277,6 +314,8 @@
     .day-value { font-size:9.5pt !important; }
     .best-metrics span { font-size:6.4pt !important; padding:1px 5px !important; }
     .grid { break-inside:avoid; }
+    .print-signature { display:flex; justify-content:space-between; align-items:center; gap:8mm; margin-top:8mm; padding:5mm 2mm 0; border-top:1.5px solid #76583d; color:#33210d; break-inside:avoid; }
+    .print-signature strong { font-size:12pt; }
     .bg-primary { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
     .bg-surface-container, .bg-surface-container-lowest { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
   }
@@ -358,7 +397,7 @@
         </h3>
         <span id="rangeLabel" class="text-body-sm text-on-surface-variant"></span>
       </div>
-      <div id="kpis" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-md"></div>
+      <div id="kpis" class="grid grid-cols-2 md:grid-cols-4 gap-md"></div>
     </section>
 
     <!-- ============ EMPTY STATE ============ -->
@@ -410,23 +449,6 @@
       </div>
     </section>
 
-    <section id="dashboardNotes" class="card p-md mt-md" aria-labelledby="dashboardNotesTitle">
-      <div class="flex items-center justify-between gap-md mb-sm">
-        <div>
-          <h2 id="dashboardNotesTitle" class="font-title-md text-primary">ملاحظات مدير التشغيل على المؤشرات</h2>
-          <p class="text-body-sm text-on-surface-variant mt-xs">اكتب تفسيرك للإجراءات المطلوبة، وستظهر هذه الملاحظات في النسخة المطبوعة وتُحفظ مع التقرير التاريخي.</p>
-        </div>
-        <span class="material-symbols-outlined text-primary">edit_note</span>
-      </div>
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-md">
-        <label class="dashboard-note-card"><span>انخفاض أو ارتفاع المبيعات</span><div contenteditable="true" spellcheck="true" data-edit="dashboard.salesNote" data-placeholder="اكتب تفسير التغير في المبيعات والإجراء التصحيحي…"></div></label>
-        <label class="dashboard-note-card"><span>مشاكل الشفتات والتغطية</span><div contenteditable="true" spellcheck="true" data-edit="dashboard.shiftNote" data-placeholder="اكتب ملاحظات نقص التغطية أو التأخير أو توزيع الشفتات…"></div></label>
-        <label class="dashboard-note-card"><span>الهدر وأسبابه</span><div contenteditable="true" spellcheck="true" data-edit="dashboard.wasteNote" data-placeholder="اكتب سبب الهدر وخطة تقليله والمسؤول عن المتابعة…"></div></label>
-        <label class="dashboard-note-card"><span>الالتزام بقوائم المهام</span><div contenteditable="true" spellcheck="true" data-edit="dashboard.complianceNote" data-placeholder="اكتب تفسير مستوى الالتزام والإجراء المطلوب…"></div></label>
-        <label class="dashboard-note-card"><span>الشكاوى وملاحظات العملاء</span><div contenteditable="true" spellcheck="true" data-edit="dashboard.customerNote" data-placeholder="اكتب ملخص الشكاوى وما تم اتخاذه لمعالجتها…"></div></label>
-        <label class="dashboard-note-card"><span>الزيارات والمتابعة</span><div contenteditable="true" spellcheck="true" data-edit="dashboard.visitNote" data-placeholder="اكتب ملاحظات الزيارات والفروع التي تحتاج متابعة…"></div></label>
-      </div>
-    </section>
     <!-- ============ TABS ================= -->
     <section>
       <div id="tabs" role="tablist" aria-label="محاور التقرير الأسبوعي" aria-orientation="horizontal" class="no-print tab-strip mb-sm border-b border-outline-variant"></div>
@@ -456,7 +478,7 @@ var printProfile = currentUser || {};
 var printName = document.getElementById("printManagerName");
 var printEmail = document.getElementById("printManagerEmail");
 var printPhone = document.getElementById("printManagerPhone");
-if (printName) printName.textContent = printProfile.full_name || printProfile.name || "مدير التشغيل";
+  if (printName) printName.textContent = "محمود رائد مدير التشغيل والجودة";
 if (printEmail) printEmail.textContent = printProfile.email || "operations@zam.sa";
 if (printPhone) printPhone.textContent = printProfile.whatsapp_number || printProfile.phone || "0563505653";
 if (ZAM_WEEKLY_ALLOWED) {

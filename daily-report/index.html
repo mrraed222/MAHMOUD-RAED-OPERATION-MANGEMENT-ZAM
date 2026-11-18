@@ -2,7 +2,7 @@
 
 <html dir="rtl" lang="ar"><head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261117194500"></script>
+<script src="../assets/supabase-config.js?v=20261118182000"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script>
   // حماية الشاشة: لازم تسجيل دخول قبل الوصول
@@ -683,8 +683,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     let fridgesCache = [];
 
     const canEditComplaints = ['Owner', 'Supervisor', 'Manager', 'Admin'].includes(currentUser.role);
-    const canResolveTechnicalIssues = ['Owner', 'Manager', 'Admin'].includes(currentUser.role);
-    const canViewAllTechnicalIssues = canResolveTechnicalIssues;
+    const canResolveTechnicalIssues = ['Owner', 'Supervisor', 'Manager', 'Admin'].includes(currentUser.role);
+    const canViewAllTechnicalIssues = ['Owner', 'Manager', 'Admin'].includes(currentUser.role);
     const complaintListEl = document.getElementById('complaint-list');
 
     async function loadComplaints() {
@@ -696,6 +696,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
             let query = zamClient.from('negative_reviews')
                 .select('id,comment_text,review_type,status,owner,action_taken,created_at,daily_reports!inner(branch_id,report_date,shift_type,branches(name))')
                 .or('review_type.eq.negative,review_type.is.null')
+                .or('status.is.null,status.neq.مغلقة')
                 .order('created_at', { ascending: false }).limit(50);
             if (currentUser.role === 'Supervisor') query = query.eq('daily_reports.branch_id', currentUser.branch_id);
             const { data, error } = await query;

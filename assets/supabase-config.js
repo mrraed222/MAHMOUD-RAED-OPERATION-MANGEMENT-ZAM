@@ -608,10 +608,32 @@ const ZamAPI = {
         return data;
     },
 
+    async saveTemplateGroupWithBranches(templateIds, payload, branchIds, allBranches) {
+        const { data: newId, error } = await zamClient.rpc('save_checklist_template_group_with_branches', {
+            p_template_ids: templateIds || [],
+            p_payload: payload,
+            p_branch_ids: allBranches ? [] : (branchIds || []),
+            p_is_global: !!allBranches
+        });
+        if (error) throw error;
+        const { data, error: readError } = await zamClient.from('checklist_templates')
+            .select('*, checklist_template_branches(branch_id)').eq('id', newId).single();
+        if (readError) throw readError;
+        return data;
+    },
+
     async deleteTemplate(id) {
         // "الحذف" من الواجهة أرشفة غير إتلافية حتى لا تنحذف السجلات التاريخية.
         const { data, error } = await zamClient.from('checklist_templates')
             .update({ is_active: false }).eq('id', id).eq('is_active', true).select().maybeSingle();
+        if (error) throw error;
+        return data;
+    },
+
+    async deleteTemplateGroup(templateIds) {
+        const { data, error } = await zamClient.rpc('archive_checklist_template_group', {
+            p_template_ids: templateIds || []
+        });
         if (error) throw error;
         return data;
     },
