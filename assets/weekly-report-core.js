@@ -146,6 +146,12 @@
     var b = BRANCHES.filter(function (x) { return x.id === id; })[0];
     return b ? (b.short || b.name) : (id || '—');
   }
+  function branchDashboardLink(id) {
+    var b = BRANCHES.filter(function (x) { return x.id && String(x.id) === String(id); })[0];
+    if (!b) return esc(branchName(id));
+    return '<a class="text-primary underline font-semibold" href="../supervisor-dashboard/index.html?branch=' +
+      esc(encodeURIComponent(String(b.id))) + '#visit-actions-list">' + esc(b.name) + '</a>';
+  }
 
   /* ══════════ مصادر البيانات ══════════ */
   /** قراءة كاملة من Supabase */
@@ -252,7 +258,7 @@
         .filter(function (x) { return x.date; });
 
       var I = issues.map(function (x) { var i = repInfo(x); return {
-        id: x.id || '', reportId: x.report_id || '', date: i.date, branch: i.branch, type: x.issue_type || '', desc: x.description || '',
+        id: x.id || '', reportId: x.report_id || '', date: i.date, branch: i.branch, shiftType: i.shiftType, type: x.issue_type || '', desc: x.description || '',
         priority: x.priority || '', action: x.action_taken || '' }; }).filter(function (x) { return x.date; });
 
       var N = negs.filter(function (x) { var type = norm(x.review_type).toLowerCase(); return !type || type === 'negative'; })
@@ -283,7 +289,10 @@
         label: 'مباشر من Supabase (نظام زام)', kind: 'live',
         note: 'قراءة مباشرة من قاعدة بيانات نظام زام',
         branches: BRANCHES, reports: R, waste: W, issues: I, negs: N,
-        visits: visits.map(function (v) { return {
+        visits: visits.filter(function (v) {
+          var branch = branches.filter(function (b) { return String(b.id) === String(v.branch_id); })[0];
+          return branchOperationalOnDate(branch, String(v.visit_date || '').slice(0, 10));
+        }).map(function (v) { return {
           id: v.id, date: String(v.visit_date || '').slice(0, 10), branch: v.branch_id,
           shiftType: normalizeShift(v.shift_type),
           visitor: v.visitor_name || '',
@@ -319,7 +328,10 @@
       };
       applyNotes();
       return SRC;
-    }).catch(function () { return null; });
+    }).catch(function (error) {
+      DIAG.errors.push({ table: 'تحويل البيانات', code: 'CLIENT_ERROR', msg: String((error && error.message) || error) });
+      return null;
+    });
   }
 
   function loadData() {
@@ -330,7 +342,7 @@
       SRC = { label: 'تعذّر تحميل البيانات', kind: 'none',
         note: 'تأكد من تسجيل الدخول ومن صلاحيات القراءة في Supabase.',
         branches: BRANCHES, reports: [], waste: [], issues: [], negs: [],
-        visits: [], technicalIssues: [], plans: [], notes: [], snapshots: [],
+        visits: [], visitResults: [], visitActions: [], technicalIssues: [], plans: [], notes: [], snapshots: [],
         templates: [], logs: [] };
       return SRC;
     });
@@ -486,13 +498,13 @@
     var templates = SRC.templates || [], logs = SRC.logs || [];
     if (!templates.length) return [];
     var reportBranches = branchesForPeriod(r);
-    var branchesForPeriod = branchFilter
+    var selectedBranches = branchFilter
       ? reportBranches.filter(function (b) { return String(b.id) === String(branchFilter); })
       : reportBranches.filter(function (b) { return state.branches.has(b.id); });
     var today = currentRiyadhDate();
-    var generated = METRICS.expectedSessions(r, branchesForPeriod, { today: today, shiftFilter: state.shift, branchFilter: branchFilter });
+    var generated = METRICS.expectedSessions(r, selectedBranches, { today: today, shiftFilter: state.shift, branchFilter: branchFilter });
     var result = METRICS.calculateCompliance(templates, generated.sessions, logs, {
-      branchFilter: branchFilter, branches: branchesForPeriod.map(function (b) { return b.id; }),
+      branchFilter: branchFilter, branches: selectedBranches.map(function (b) { return b.id; }),
       shiftFilter: state.shift, unknownBranchIds: generated.unknownBranches
     });
     var stats = result.stats;
@@ -1235,7 +1247,7 @@
         v.vnotes.forEach(function (n) {
           allNotes.push({ visit: v, note: n });
           visitRows += '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(v.date) + '</td>' +
-            '<td class="px-md py-sm">' + esc(branchName(v.branch)) + '</td>' +
+            '<td class="px-md py-sm">' + branchDashboardLink(v.branch) + '</td>' +
             '<td class="px-md py-sm">' + esc(v.shiftType === 'Morning' ? 'صباحي' : (v.shiftType === 'Evening' ? 'مسائي' : 'غير محدد')) + '</td>' +
             '<td class="px-md py-sm">' + esc(v.visitor || '—') + '</td>' +
             '<td class="px-md py-sm font-bold">' + (v.score != null ? v.score + '%' : '—') + '</td>' +
@@ -1247,7 +1259,7 @@
         });
       } else {
         visitRows += '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(v.date) + '</td>' +
-          '<td class="px-md py-sm">' + esc(branchName(v.branch)) + '</td>' +
+          '<td class="px-md py-sm">' + branchDashboardLink(v.branch) + '</td>' +
           '<td class="px-md py-sm">' + esc(v.shiftType === 'Morning' ? 'صباحي' : (v.shiftType === 'Evening' ? 'مسائي' : 'غير محدد')) + '</td>' +
           '<td class="px-md py-sm">' + esc(v.visitor || '—') + '</td>' +
           '<td class="px-md py-sm font-bold">' + (v.score != null ? v.score + '%' : '—') + '</td>' +
@@ -1275,7 +1287,7 @@
     var attentionRows = attentionResults.slice(0, 60).map(function (row) {
       var visit = row.visit;
       return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(visit.date) + '</td>' +
-        '<td class="px-md py-sm">' + esc(branchName(visit.branch)) + '</td>' +
+        '<td class="px-md py-sm">' + branchDashboardLink(visit.branch) + '</td>' +
         '<td class="px-md py-sm">' + esc(visit.shiftType === 'Morning' ? 'صباحي' : (visit.shiftType === 'Evening' ? 'مسائي' : 'غير محدد')) + '</td>' +
         '<td class="px-md py-sm">' + esc(row.category) + '</td><td class="px-md py-sm font-semibold">' + esc(row.title) + '</td>' +
         '<td class="px-md py-sm font-bold">' + (row.score != null ? esc(String(row.score)) : '—') + '</td>' +
@@ -1298,7 +1310,7 @@
     }).slice(0, 10).map(function (action) {
       var visit = action.visit;
       return '<tr class="border-b border-outline-variant"><td class="px-md py-sm">' + esc(visit.date) + '</td>' +
-        '<td class="px-md py-sm">' + esc(branchName(visit.branch)) + '</td><td class="px-md py-sm font-semibold">' + esc(action.title) + '</td>' +
+        '<td class="px-md py-sm">' + branchDashboardLink(visit.branch) + '</td><td class="px-md py-sm font-semibold">' + esc(action.title) + '</td>' +
         '<td class="px-md py-sm">' + esc(action.priority || '—') + '</td><td class="px-md py-sm">' + esc(action.assignedTo || '—') + '</td>' +
         '<td class="px-md py-sm">' + esc(action.due || '—') + '</td><td class="px-md py-sm">' + esc(action.status || '—') + '</td></tr>';
     }).join('');
@@ -1909,7 +1921,8 @@
     }
     if (!hasSource) {
       var k = $('#kpis');
-      if (k) k.innerHTML = '<div class="card p-md col-span-full text-body-sm text-on-surface-variant">لا توجد بيانات بعد — شغّل runSyncNow من Google Apps Script أو استورد السجلات إلى Supabase، ثم اضغط «تحديث».</div>';
+      if (k) k.innerHTML = '<div class="card p-md col-span-full text-body-sm text-on-surface-variant">' +
+        (DIAG.errors.length ? 'تعذّر تحميل بيانات التقرير؛ افتح «تشخيص القراءة» لمعرفة الأخطاء.' : 'لا توجد بيانات متاحة للتقرير.') + '</div>';
       ['chartTrend', 'chartWaste', 'chartBranch', 'chartChecks'].forEach(function (id) {
         var e = document.getElementById(id); if (e) e.innerHTML = '';
       });
