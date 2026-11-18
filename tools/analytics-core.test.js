@@ -46,6 +46,30 @@ function testIssueSummaryGroupsTypePriorityAndBranch() {
     assert.ok(summary.byPriority.some(row => row.label === 'غير محددة'));
 }
 
+function testTechnicalIssuesMergeWithShiftIssuesUsingRiyadhDates() {
+    const technicalIssues = [
+        { id: 'tech-1', branch_id: 'a', title: 'ارتفاع حرارة ثلاجة 1', description: '9 درجات', source: 'fridge', priority: 'high', status: 'resolved', created_at: '2026-11-15T21:48:35.912Z', branches: { name: 'زام الرئيسي' }, fridges: { name: 'ثلاجة 1 باب تبريد' } },
+        { id: 'tech-2', branch_id: 'a', title: 'ارتفاع حرارة ثلاجة 2', description: '10 درجات', source: 'fridge', priority: 'high', status: 'resolved', created_at: '2026-11-15T14:10:28.255Z', branches: { name: 'زام الرئيسي' } },
+        { id: 'tech-3', branch_id: 'a', title: 'ارتفاع حرارة ثلاجة 3', description: '10 درجات', source: 'fridge', priority: 'high', status: 'resolved', created_at: '2026-11-15T11:36:49.398Z', branches: { name: 'زام الرئيسي' } },
+    ];
+    const combined = analytics.combineIssueSources([
+        { issue_type: 'تقنية', priority: 'عادي', daily_reports: { branch_id: 'b', branches: { name: 'زام البلد' } } },
+    ], technicalIssues);
+    const fridgeIssue = combined.find(issue => issue.analytics_source === 'technical_issues');
+    const summary = analytics.summarizeIssues(combined);
+
+    assert.equal(combined.length, 4, 'shift issues and technical issues must both be retained');
+    assert.equal(fridgeIssue.daily_reports.report_date, '2026-11-16', 'UTC timestamps near midnight must use the Riyadh date');
+    assert.equal(fridgeIssue.daily_reports.shift_type, 'غير مرتبط بشفت');
+    assert.equal(fridgeIssue.issue_type, 'عطل فني - ثلاجة');
+    assert.equal(fridgeIssue.priority, 'عالية');
+    assert.equal(fridgeIssue.action_taken, 'تم الحل');
+    assert.equal(fridgeIssue.daily_reports.branches.name, 'زام الرئيسي');
+    assert.equal(summary.total, 4);
+    assert.equal(summary.highPriorityCount, 3);
+    assert.deepEqual(summary.byType.find(row => row.label === 'عطل فني - ثلاجة'), { label: 'عطل فني - ثلاجة', count: 3 });
+}
+
 function testAnalyticsUsesPaginatedSalesReadAndOperationalFiltering() {
     const api = fs.readFileSync(path.join(__dirname, '..', 'assets', 'supabase-config.js'), 'utf8');
     const page = fs.readFileSync(path.join(__dirname, '..', 'analytics', 'index.html'), 'utf8');
@@ -53,7 +77,17 @@ function testAnalyticsUsesPaginatedSalesReadAndOperationalFiltering() {
     const end = api.indexOf('\n    async getReportFields', start);
     assert.ok(start >= 0 && end > start, 'analytics report API must exist');
     assert.match(api.slice(start, end), /return readAllRows\(/, 'the report query must paginate beyond Supabase default row limits');
+    const technicalStart = api.indexOf('async getAnalyticsTechnicalIssues(');
+    const technicalEnd = api.indexOf('\n    // ============================================\n    // إحصائيات سريعة', technicalStart);
+    assert.ok(technicalStart >= 0 && technicalEnd > technicalStart, 'technical issue analytics API must exist');
+    const technicalApi = api.slice(technicalStart, technicalEnd);
+    assert.match(technicalApi, /from\('technical_issues'\)/, 'analytics must read technical issues from their own source table');
+    assert.match(technicalApi, /return readAllRows\(/, 'technical issues must use paginated reads');
+    assert.match(technicalApi, /gte\('created_at'/);
+    assert.match(technicalApi, /lt\('created_at'/, 'the end date must be exclusive to include the full Riyadh calendar day');
     assert.match(page, /ZamAPI\.getAnalyticsReports\(/);
+    assert.match(page, /ZamAPI\.getAnalyticsTechnicalIssues\(/);
+    assert.match(page, /ZamAnalyticsCore\.combineIssueSources\(/);
     assert.match(page, /ZamBranchLifecycle\.isOperational\(branch, recordDate\)/, 'planned branches must stay out of sales, waste, issues, and task counts');
     assert.match(page, /ZamAnalyticsCore\.summarizeSales/);
     assert.match(page, /ZamAnalyticsCore\.summarizeIssues/);
@@ -62,5 +96,6 @@ function testAnalyticsUsesPaginatedSalesReadAndOperationalFiltering() {
 testSalesSummaryUsesWeightedAverageAndBranchGroups();
 testSalesSummaryHandlesMissingOrInvalidValues();
 testIssueSummaryGroupsTypePriorityAndBranch();
+testTechnicalIssuesMergeWithShiftIssuesUsingRiyadhDates();
 testAnalyticsUsesPaginatedSalesReadAndOperationalFiltering();
 console.log('analytics-core tests: all checks passed');

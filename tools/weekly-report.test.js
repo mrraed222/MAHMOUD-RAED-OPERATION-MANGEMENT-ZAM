@@ -178,7 +178,7 @@ function testReportWiringAndPrintSafety() {
   const coreIndex = html.indexOf('weekly-report-core.js');
   assert.ok(metricsIndex >= 0 && coreIndex > metricsIndex, 'metrics script must load before core');
   assert.match(html, /weekly-report-metrics\.js\?v=20261117194500/, 'weekly report must load the multi-day recurrence and branch-scope helper');
-  assert.match(html, /weekly-report-core\.js\?v=20261118182200/, 'weekly report must load the cache-busted rendering fix');
+  assert.match(html, /weekly-report-core\.js\?v=20261118205235/, 'weekly report must load the cache-busted rendering fix');
   assert.match(html, /#overviewCharts \{ display:grid !important/);
   assert.match(html, /#overviewBranchCharts \{ display:grid !important/);
   assert.match(html, /\.print-brand \{[^}]*background:linear-gradient\(125deg,#24170c,#76583d\)[^}]*print-color-adjust:exact/s);
@@ -402,6 +402,10 @@ function testVisitWiringFiltersAndTableShape() {
   assert.match(branchTables, /متوسط الدرجة/);
   assert.match(branchTables, /التكليفات المفتوحة/);
   assert.match(branchTables, /أبرز الملاحظات والتكليفات/);
+  assert.match(branchTables, /visit\.action/, 'include the visit-level corrective action');
+  assert.match(branchTables, /visitResults\.filter[\s\S]*?row\.note/, 'include notes attached to checklist results');
+  assert.match(branchTables, /visitActions\.filter[\s\S]*?action\.title/, 'include recorded action-item titles');
+  assert.match(branchTables, /action\.description/, 'include action-item descriptions');
   assert.match(branchTables, /comments\.slice\(0, 4\)/);
 }
 
