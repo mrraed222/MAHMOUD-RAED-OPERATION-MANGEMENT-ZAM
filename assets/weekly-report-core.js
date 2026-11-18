@@ -378,19 +378,20 @@
     fri.setUTCDate(sat.getUTCDate() + 6);
     return { from: dstr(sat), to: dstr(fri) };
   }
-  /** لو الفترة المطلوبة فارغة → نختار آخر أسبوع فيه بيانات (مع إبقاء طلب المستخدم محفوظاً) */
+  /** لو الأسبوع الحالي بلا تقارير يومية → نختار آخر أسبوع مسجل فيه تقرير (مع إبقاء طلب المستخدم محفوظاً) */
   function computeAutoRange() {
-    if (state.range !== 'week' || state.forceCurrent || (!SRC.reports.length && !SRC.logs.length)) return null;
+    if (state.range !== 'week' || state.forceCurrent || !SRC.reports.length) return null;
     if (state.from || state.to) return null;   // المستخدم حدد تاريخ بنفسه
     var want = weekRange(0);
-    var hasCurrentActivity = filterRows(SRC.reports, want, true, false).length ||
-      (SRC.logs || []).some(function (x) { return inRange(x.execution_date, want) && state.branches.has(x.branch_id); });
-    if (hasCurrentActivity) return null;
-    var span = dataSpan();
-    if (!span) return null;
-    var alt = weekOf(span.to);
+    var selectedReports = filterRows(SRC.reports, want, true, false);
+    if (selectedReports.length) return null;
+    var eligibleReports = SRC.reports.filter(function (report) { return state.branches.has(report.branch); });
+    if (!eligibleReports.length) return null;
+    var reportDates = eligibleReports.map(function (report) { return report.date; }).sort();
+    var reportSpan = { from: reportDates[0], to: reportDates[reportDates.length - 1] };
+    var alt = weekOf(reportSpan.to);
     if (!alt || alt.from >= want.from) return null;
-    return { alt: alt, want: want, span: span };
+    return { alt: alt, want: want, span: dataSpan(), reportSpan: reportSpan };
   }
   function resolveRange() {
     if (state.range === 'week' && state.auto && state.auto.alt) return state.auto.alt;
@@ -822,12 +823,12 @@
     el.classList.remove('hidden');
     el.innerHTML = '<div class="gap-banner">' +
       '<span class="material-symbols-outlined gap-icon">warning</span>' +
-      '<div class="gap-text"><b>لا توجد بيانات مسجّلة في الفترة ' + a.want.from + ' ← ' + a.want.to + '</b>' +
-      '<div>أحدث بيانات مسجّلة: <b>' + a.span.from + ' ← ' + a.span.to + '</b> — عُرضت الفترة ' +
-      a.alt.from + ' ← ' + a.alt.to + ' تلقائياً حتى لا يظهر التقرير فارغاً.</div></div>' +
+      '<div class="gap-text"><b>لا توجد تقارير يومية في الفترة ' + a.want.from + ' ← ' + a.want.to + '</b>' +
+      '<div>لا توجد تقارير يومية لهذا الأسبوع. عُرض آخر أسبوع يحتوي على تقارير يومية: <b>' +
+      a.alt.from + ' ← ' + a.alt.to + '</b> (آخر تقرير: ' + a.reportSpan.to + '). قد توجد سجلات تشغيلية أحدث خارج هذه الفترة؛ اختر الفترة الحالية لعرضها.</div></div>' +
       '<div class="gap-actions">' +
       '<button id="gapAllBtn" class="slicer px-sm py-xs rounded-full border border-outline-variant text-body-sm">عرض كل البيانات</button>' +
-      '<button id="gapForceBtn" class="slicer px-sm py-xs rounded-full border border-outline-variant text-body-sm">إظهار الفترة الفارغة</button>' +
+      '<button id="gapForceBtn" class="slicer px-sm py-xs rounded-full border border-outline-variant text-body-sm">إظهار الفترة الحالية</button>' +
       '</div></div>';
     var ab = $('#gapAllBtn');
     if (ab) ab.addEventListener('click', function () {
@@ -905,9 +906,9 @@
     var visits = filterRows(SRC.visits, r, true, true);
 
     var cards = [
-      { l: 'إجمالي المبيعات', i: 'payments', v: nf(cur.sales) + ' ر.س', p: nf(prv.sales) + ' ر.س', d: dlt(cur.sales, prv.sales), g: 'up', z: !prv.sales },
-      { l: 'عدد الفواتير', i: 'receipt_long', v: nf(cur.orders), p: nf(prv.orders), d: dlt(cur.orders, prv.orders), g: 'up', z: !prv.orders },
-      { l: 'متوسط الفاتورة', i: 'calculate', v: nf1(cur.avg) + ' ر.س', p: nf1(prv.avg) + ' ر.س', d: dlt(cur.avg, prv.avg), g: 'up', z: !prv.avg },
+      { l: 'إجمالي المبيعات', i: 'payments', v: cur.count ? nf(cur.sales) + ' ر.س' : '—', p: nf(prv.sales) + ' ر.س', d: cur.count ? dlt(cur.sales, prv.sales) : null, detail: cur.count ? '' : 'لا توجد تقارير يومية في الفترة المحددة', g: 'up', z: !prv.sales },
+      { l: 'عدد الفواتير', i: 'receipt_long', v: cur.count ? nf(cur.orders) : '—', p: nf(prv.orders), d: cur.count ? dlt(cur.orders, prv.orders) : null, g: 'up', z: !prv.orders },
+      { l: 'متوسط الفاتورة', i: 'calculate', v: cur.count ? nf1(cur.avg) + ' ر.س' : '—', p: nf1(prv.avg) + ' ر.س', d: cur.count ? dlt(cur.avg, prv.avg) : null, g: 'up', z: !prv.avg },
       { l: 'نسبة الالتزام بقوائم التحقق', i: 'fact_check',
         v: comp && comp.pct != null ? comp.pct + '%' : (comp && comp.coverageIncomplete ? 'غير مكتمل' : '—'),
         detail: complianceCoverageMessage(comp),

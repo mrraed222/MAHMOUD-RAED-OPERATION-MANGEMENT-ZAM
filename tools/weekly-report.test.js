@@ -179,6 +179,24 @@ function testReportWiringAndPrintSafety() {
   assert.match(html, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
 }
 
+function testKpiRangeFallbackRequiresDailyReports() {
+  const core = fs.readFileSync(path.join(__dirname, '..', 'assets', 'weekly-report-core.js'), 'utf8');
+  const start = core.indexOf('function computeAutoRange()');
+  const end = core.indexOf('\n  function resolveRange()', start);
+  assert.ok(start >= 0 && end > start, 'weekly auto-range implementation should be present');
+  const autoRange = core.slice(start, end);
+  assert.match(autoRange, /filterRows\(SRC\.reports, want, true, false\)/,
+    'recent checklist activity must not count as a substitute for daily reports in the KPI range');
+  assert.match(autoRange, /reportSpan/,
+    'the fallback period should be based on the most recent selected-branch daily report');
+  assert.doesNotMatch(autoRange, /SRC\.logs/,
+    'checklist-only activity must not suppress the daily-report fallback');
+  assert.match(core, /cur\.count \? nf\(cur\.sales\) \+ ' ر\.س' : '—'/,
+    'missing daily reports should not be shown as zero sales');
+  assert.match(core, /لا توجد تقارير يومية في الفترة المحددة/,
+    'the sales KPI should explain when the chosen period has no daily reports');
+}
+
 function testIssuesComplaintsAndSupervisorForm() {
   const core = fs.readFileSync(path.join(__dirname, '..', 'assets', 'weekly-report-core.js'), 'utf8');
   const form = fs.readFileSync(path.join(__dirname, '..', 'daily-report', 'index.html'), 'utf8');
@@ -383,6 +401,7 @@ testWeeklyComplianceHonorsMultiBranchScopes();
 testTopIncompleteCap();
 testAppsScriptMappingsWithoutNetwork();
 testReportWiringAndPrintSafety();
+testKpiRangeFallbackRequiresDailyReports();
 testSalesTableMobileAndPrint();
 testVisitWiringFiltersAndTableShape();
 testPrintPeriodAndAccessibleSixTabs();
