@@ -1265,14 +1265,24 @@
       var violations = visitResults.filter(function (row) { return ownIds[String(row.visitId)] && row.violation; }).length;
       var ownOpenActions = visitActions.filter(function (action) { return ownIds[String(action.visitId)] && !isActionClosed(action.status); }).length;
       var comments = [], seenComments = Object.create(null);
-      ownVisits.forEach(function (visit) {
-        [visit.observation].concat((visit.vnotes || []).reduce(function (items, note) {
-          if (note.text) items.push(note.text);
-          if (note.action) items.push('تكليف: ' + note.action);
-          return items;
-        }, [])).forEach(function (comment) {
-          var text = norm(comment);
-          if (text && !seenComments[text]) { seenComments[text] = true; comments.push(text); }
+      function addComment(comment) {
+        var text = norm(comment);
+        if (text && !seenComments[text]) { seenComments[text] = true; comments.push(text); }
+      }
+      ownVisits.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); }).forEach(function (visit) {
+        var visitId = String(visit.id);
+        addComment(visit.observation);
+        if (visit.action) addComment('إجراء تصحيحي: ' + visit.action);
+        (visit.vnotes || []).forEach(function (note) {
+          addComment(note.text);
+          if (note.action) addComment('تكليف: ' + note.action);
+        });
+        visitResults.filter(function (row) { return String(row.visitId) === visitId && row.note; }).forEach(function (row) {
+          addComment('ملاحظة بند ' + row.title + ': ' + row.note);
+        });
+        visitActions.filter(function (action) { return String(action.visitId) === visitId; }).forEach(function (action) {
+          var details = [action.title, action.description].map(norm).filter(Boolean).join(' — ');
+          if (details) addComment('تكليف ' + (isActionClosed(action.status) ? '(مغلق): ' : '(مفتوح): ') + details);
         });
       });
       var commentsHtml = comments.length
