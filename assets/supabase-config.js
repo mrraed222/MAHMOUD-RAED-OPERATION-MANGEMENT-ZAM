@@ -939,6 +939,25 @@ const ZamAPI = {
         });
     },
 
+    async getAnalyticsTechnicalIssues({ branchId = null, dateFrom = null, dateTo = null } = {}) {
+        // بلاغات الأعطال الفنية مصدر منفصل عن shift_issues ولا تملك حقل وردية.
+        return readAllRows(() => {
+            let query = zamClient
+                .from('technical_issues')
+                .select('id,branch_id,title,description,source,priority,status,created_at,resolved_at,branches(name),fridges(name)')
+                .order('created_at', { ascending: false });
+            if (branchId) query = query.eq('branch_id', branchId);
+            if (dateFrom) query = query.gte('created_at', `${dateFrom}T00:00:00+03:00`);
+            if (dateTo) {
+                const endExclusive = new Date(`${dateTo}T00:00:00+03:00`);
+                if (Number.isNaN(endExclusive.getTime())) throw new Error('تاريخ نهاية الفترة غير صالح.');
+                endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+                query = query.lt('created_at', endExclusive.toISOString());
+            }
+            return query;
+        });
+    },
+
     // ============================================
     // إحصائيات سريعة لـ staff-management
     // ============================================

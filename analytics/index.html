@@ -15,8 +15,8 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261117203400"></script><script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
-<script src="../assets/analytics-core.js?v=20261117202000"></script>
+<script src="../assets/supabase-config.js?v=20261118204500"></script><script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
+<script src="../assets/analytics-core.js?v=20261118204500"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -170,7 +170,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   <!-- مشاكل الشفت -->
   <section class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md">
     <div class="flex justify-between items-center mb-sm">
-      <h2 class="font-title-md text-title-md text-primary">مشاكل الشفت</h2>
+      <div>
+        <h2 class="font-title-md text-title-md text-primary">مشاكل الشفت والأعطال الفنية</h2>
+        <p class="text-body-sm text-on-surface-variant">يشمل بلاغات تقارير الشفت وبلاغات الأعطال الفنية؛ الأعطال الفنية لا تحتوي على حقل وردية.</p>
+      </div>
       <button id="export-issues" class="text-body-sm font-bold text-primary hover:underline flex items-center gap-1">
         <span class="material-symbols-outlined text-base">download</span> تصدير Excel
       </button>
@@ -319,13 +322,9 @@ function renderSalesAnalytics(error = null) {
         </tr>`).join('') : `<tr><td colspan="5" class="p-md text-center text-on-surface-variant">لا توجد تقارير مبيعات في الفترة المحددة.</td></tr>`;
 }
 
-function renderIssueAnalytics(error = null) {
+function renderIssueAnalytics(errors = []) {
     const container = document.getElementById('issues-summary');
-    if (error) {
-        container.innerHTML = `<div class="col-span-full p-md text-center text-error border border-outline-variant rounded-xl">${esc(error)}</div>`;
-        return;
-    }
-
+    const errorList = (Array.isArray(errors) ? errors : [errors]).filter(Boolean);
     const summary = ZamAnalyticsCore.summarizeIssues(issuesData);
     const typeText = summary.byType.length
         ? summary.byType.slice(0, 6).map(row => `${esc(row.label)}: ${row.count}`).join(' · ')
@@ -333,7 +332,7 @@ function renderIssueAnalytics(error = null) {
     const priorityText = summary.byPriority.length
         ? summary.byPriority.map(row => `${esc(row.label)}: ${row.count}`).join(' · ')
         : 'لا توجد أولويات مسجلة.';
-    container.innerHTML = [
+    container.innerHTML = (errorList.length ? `<div class="col-span-full p-md text-center text-error border border-outline-variant rounded-xl">تعذّر تحميل بعض مصادر المشاكل: ${errorList.map(esc).join(' · ')}</div>` : '') + [
         ['سجلات المشاكل', summary.total],
         ['أولوية عالية أو عاجلة', summary.highPriorityCount],
         ['الفروع المتأثرة', summary.affectedBranches],
@@ -403,18 +402,21 @@ async function applyFilters() {
     document.getElementById('sales-summary').innerHTML = '<div class="col-span-full p-md text-center text-on-surface-variant">جارِ التحميل...</div>';
     document.getElementById('sales-branch-tbody').innerHTML = '<tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
     document.getElementById('waste-tbody').innerHTML = '<tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
-    document.getElementById('issues-tbody').innerHTML = '<tr><td colspan="5" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
+    document.getElementById('issues-tbody').innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
     document.getElementById('issues-summary').innerHTML = '<div class="col-span-full p-md text-center text-on-surface-variant">جارِ التحميل...</div>';
 
     // كل مصدر مستقل: فشل قراءة واحد لا يُسقط الصفحة، ولا نُظهر بيانات من فترة أخرى مكانه.
-    const [salesRes, wasteRes, issuesRes] = await Promise.allSettled([
+    const [salesRes, wasteRes, issuesRes, technicalIssuesRes] = await Promise.allSettled([
         ZamAPI.getAnalyticsReports({ branchId, dateFrom: from, dateTo: to }),
         ZamAPI.getWasteLogs({ branchId, dateFrom: from, dateTo: to }),
         ZamAPI.getShiftIssues({ branchId, dateFrom: from, dateTo: to }),
+        ZamAPI.getAnalyticsTechnicalIssues({ branchId, dateFrom: from, dateTo: to }),
     ]);
     const salesOutcome = readOutcome(salesRes);
     const wasteOutcome = readOutcome(wasteRes);
     const issuesOutcome = readOutcome(issuesRes);
+    const technicalIssuesOutcome = readOutcome(technicalIssuesRes);
+    const issueReadErrors = [issuesOutcome.error, technicalIssuesOutcome.error].filter(Boolean);
     const visibleBranchRow = row => {
         const id = row.daily_reports?.branch_id ?? row.branch_id;
         if (!id) return false;
@@ -425,11 +427,11 @@ async function applyFilters() {
     };
     analyticsReportsData = salesOutcome.data.filter(visibleBranchRow);
     const waste = wasteOutcome.data.filter(visibleBranchRow);
-    const issues = issuesOutcome.data.filter(visibleBranchRow);
+    const shiftIssues = issuesOutcome.data.filter(visibleBranchRow);
+    issuesData = ZamAnalyticsCore.combineIssueSources(shiftIssues, technicalIssuesOutcome.data).filter(visibleBranchRow);
     wasteData = waste;
-    issuesData = issues;
     renderSalesAnalytics(salesOutcome.error);
-    renderIssueAnalytics(issuesOutcome.error);
+    renderIssueAnalytics(issueReadErrors);
 
     // ملخص الهدر بحسب الفلتر الحالي؛ الكمية تفصل بالوحدة حتى لا نجمع ml مع القطع أو الأكواب.
     const totalItems = waste.length;
@@ -467,7 +469,7 @@ async function applyFilters() {
         </div>
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
             <p class="text-body-sm text-on-surface-variant">مشاكل الشفت</p>
-            <p class="text-xl font-bold text-primary">${issues.length}</p>
+            <p class="text-xl font-bold text-primary">${issuesData.length}</p>
         </div>
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
             <p class="text-body-sm text-on-surface-variant">فروع متأثرة</p>
@@ -487,7 +489,7 @@ async function applyFilters() {
     const PRIORITY_COLOR = { 'عالية': 'text-error', 'متوسطة': 'text-primary', 'منخفضة': 'text-on-surface-variant' };
     renderWasteAggregation(wasteOutcome.error);
 
-    document.getElementById('issues-tbody').innerHTML = issues.length ? issues.map(i => `
+    document.getElementById('issues-tbody').innerHTML = issuesData.length ? issuesData.map(i => `
         <tr class="border-t border-outline-variant">
             <td class="p-sm">${esc(i.daily_reports?.report_date || '—')}</td>
             <td class="p-sm">${esc(i.daily_reports?.branches?.name || '—')}</td>
@@ -496,7 +498,7 @@ async function applyFilters() {
             <td class="p-sm">${esc(i.description || '—')}</td>
             <td class="p-sm">${esc(i.action_taken || '—')}</td>
             <td class="p-sm font-bold ${PRIORITY_COLOR[i.priority] || ''}">${esc(i.priority || '—')}</td>
-        </tr>`).join('') : `<tr><td colspan="7" class="p-md text-center ${issuesOutcome.error ? 'text-error' : 'text-on-surface-variant'}">${issuesOutcome.error ? esc(issuesOutcome.error) : 'لا توجد بيانات في الفترة المحددة.'}</td></tr>`;
+        </tr>`).join('') + (issueReadErrors.length ? `<tr><td colspan="7" class="p-md text-center text-error">تعذّر تحميل بعض مصادر المشاكل: ${issueReadErrors.map(esc).join(' · ')}</td></tr>` : '') : `<tr><td colspan="7" class="p-md text-center ${issueReadErrors.length ? 'text-error' : 'text-on-surface-variant'}">${issueReadErrors.length ? issueReadErrors.map(esc).join(' · ') : 'لا توجد بيانات في الفترة المحددة.'}</td></tr>`;
 }
 
 document.getElementById('apply-filters').addEventListener('click', applyFilters);
@@ -535,10 +537,12 @@ document.getElementById('export-issues').addEventListener('click', () => {
     const rows = issuesData.map(i => ({
         التاريخ: i.daily_reports?.report_date || '',
         الفرع: i.daily_reports?.branches?.name || '',
+        الوردية: i.daily_reports?.shift_type || '',
         النوع: i.issue_type || '',
         الوصف: i.description,
         الإجراء: i.action_taken || '',
         الأولوية: i.priority || '',
+        المصدر: i.analytics_source === 'technical_issues' ? (i.source === 'fridge' ? 'مراقبة الثلاجات' : 'بلاغ فني') : 'تقرير الشفت',
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();

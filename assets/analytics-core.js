@@ -16,6 +16,51 @@
         return item && item.name ? String(item.name) : 'غير محدد';
     }
 
+    function riyadhDateString(value) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).formatToParts(date);
+        const part = type => parts.find(item => item.type === type)?.value || '';
+        return `${part('year')}-${part('month')}-${part('day')}`;
+    }
+
+    function normalizeTechnicalIssues(issues) {
+        return (Array.isArray(issues) ? issues : []).map(issue => {
+            const branch = Array.isArray(issue.branches) ? issue.branches[0] : issue.branches;
+            const fridge = Array.isArray(issue.fridges) ? issue.fridges[0] : issue.fridges;
+            const priority = String(issue.priority || '').trim().toLowerCase();
+            const priorityLabels = { high: 'عالية', critical: 'عاجلة', urgent: 'عاجلة', normal: 'عادية', low: 'منخفضة' };
+            const title = String(issue.title || '').trim();
+            const description = String(issue.description || '').trim();
+            const reportDate = riyadhDateString(issue.created_at);
+
+            return {
+                ...issue,
+                analytics_source: 'technical_issues',
+                issue_type: issue.source === 'fridge' ? 'عطل فني - ثلاجة' : 'مشكلة تقنية',
+                description: [title, description].filter(Boolean).join(' — '),
+                action_taken: issue.status === 'resolved' ? 'تم الحل' : 'قيد المتابعة',
+                priority: priorityLabels[priority] || issue.priority || '',
+                fridge_name: fridge?.name || '',
+                daily_reports: {
+                    branch_id: issue.branch_id || null,
+                    report_date: reportDate,
+                    shift_type: 'غير مرتبط بشفت',
+                    branches: branch || null
+                }
+            };
+        });
+    }
+
+    function combineIssueSources(shiftIssues, technicalIssues) {
+        return [
+            ...(Array.isArray(shiftIssues) ? shiftIssues : []),
+            ...normalizeTechnicalIssues(technicalIssues)
+        ];
+    }
+
     function summarizeSales(reports) {
         const rows = Array.isArray(reports) ? reports : [];
         const branches = new Map();
@@ -90,5 +135,5 @@
         };
     }
 
-    return Object.freeze({ summarizeSales, summarizeIssues });
+    return Object.freeze({ summarizeSales, summarizeIssues, normalizeTechnicalIssues, combineIssueSources });
 });
