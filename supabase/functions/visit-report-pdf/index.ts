@@ -1,6 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
-import fontkit from 'https://esm.sh/@pdf-lib/fontkit@1.1.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -50,105 +49,73 @@ async function readJsonBody(req: Request, maxBytes: number) {
   }
 }
 
-async function loadArabicFont(url: string) {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`Font download failed: ${response.status}`)
-  return new Uint8Array(await response.arrayBuffer())
-}
-
-function wrap(text: string, max = 78) {
-  const words = clean(text, 1200).split(/\s+/)
-  const lines: string[] = []
-  let line = ''
-  for (const word of words) {
-    if ((line + ' ' + word).trim().length > max && line) { lines.push(line); line = word } else line = (line + ' ' + word).trim()
+function decodeRenderedPages(value: unknown) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 20) {
+    throw new RequestBodyError('صفحات تقرير PDF غير صالحة', 400)
   }
-  if (line) lines.push(line)
-  return lines.length ? lines : ['—']
+  let totalEncoded = 0
+  const pages: Uint8Array[] = []
+  for (const item of value) {
+    if (typeof item !== 'string' || item.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(item)) {
+      throw new RequestBodyError('صيغة صورة PDF غير صالحة', 400)
+    }
+    totalEncoded += item.length
+    if (totalEncoded > 8 * 1024 * 1024) throw new RequestBodyError('حجم صور تقرير PDF أكبر من الحد المسموح', 413)
+    let bytes: Uint8Array
+    try {
+      const binary = atob(item)
+      bytes = Uint8Array.from(binary, character => character.charCodeAt(0))
+    } catch {
+      throw new RequestBodyError('تعذر قراءة صفحات تقرير PDF', 400)
+    }
+    if (bytes.length < 3 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) {
+      throw new RequestBodyError('صفحات التقرير يجب أن تكون صور JPEG صالحة', 400)
+    }
+    pages.push(bytes)
+  }
+  return pages
 }
 
-async function buildPdf(visit: any, results: any[], actions: any[], evidence: any[]) {
+async function buildPdf(renderedPages: Uint8Array[], evidence: any[]) {
   const doc = await PDFDocument.create()
-  doc.registerFontkit(fontkit)
-  let regular: any
-  let bold: any
-  try {
-    const [regularBytes, boldBytes] = await Promise.all([
-      loadArabicFont('https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf'),
-      loadArabicFont('https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf'),
-    ])
-    regular = await doc.embedFont(regularBytes, { subset: true })
-    bold = await doc.embedFont(boldBytes, { subset: true })
-  } catch (error) {
-    console.error('Arabic font unavailable, using Helvetica fallback', error)
-    regular = await doc.embedFont(StandardFonts.Helvetica)
-    bold = await doc.embedFont(StandardFonts.HelveticaBold)
+  for (const bytes of renderedPages) {
+    const image = await doc.embedJpg(bytes)
+    const page = doc.addPage([595, 842])
+    page.drawImage(image, { x: 0, y: 0, width: 595, height: 842 })
   }
-  const primary = rgb(0x33 / 255, 0x21 / 255, 0x0d / 255)
-  const muted = rgb(0.35, 0.32, 0.30)
-  let page = doc.addPage([595, 842])
-  let y = 790
-  const ensure = (height = 24) => { if (y < 56 + height) { page = doc.addPage([595, 842]); y = 790 } }
-  const text = (value: unknown, size = 10, isBold = false, color = rgb(0.1, 0.1, 0.1)) => {
-    for (const line of wrap(String(value ?? '—'))) { ensure(size + 12); page.drawText(line, { x: 45, y, size, font: isBold ? bold : regular, color }); y -= size + 7 }
-  }
-  const heading = (value: string) => { ensure(32); page.drawRectangle({ x: 35, y: y - 5, width: 525, height: 25, color: primary }); page.drawText(value, { x: 48, y: y + 2, size: 12, font: bold, color: rgb(1, 1, 1) }); y -= 35 }
-
-  text('تقرير زيارة فرع — Operations Expert', 19, true, primary)
-  text(`الفرع: ${visit.branches?.name || 'غير محدد'} | التاريخ: ${visit.visit_date} | الشفت: ${visit.shift_type === 'Morning' ? 'صباحي' : 'مسائي'}`, 10, false, muted)
-  text(`منفّذ الزيارة: ${visit.visitor_name || '—'} | الحالة: ${visit.status || '—'} | التوقيع: ${visit.signed_at ? 'معتمدة إلكترونياً' : 'غير معتمدة'}`, 10, false, muted)
-  y -= 8
-  heading('النتيجة العامة')
-  text(`الدرجة: ${visit.score_total ?? '—'} من ${visit.score_possible ?? '—'} | النسبة: ${visit.score_percentage == null ? '—' : `${Number(visit.score_percentage).toFixed(0)}%`}`, 13, true, primary)
-  if (visit.observation) text(`ملاحظات عامة: ${visit.observation}`, 10)
-  y -= 8
-  heading('بنود التقييم ودرجاتها')
-  let currentCategory = ''
-  for (const result of results) {
-    const category = result.visit_checklist_templates?.category || 'عام'
-    if (category !== currentCategory) { currentCategory = category; text(category, 11, true, primary) }
-    const score = result.score == null ? 'لا ينطبق' : `${result.score}/10`
-    text(`${result.visit_checklist_templates?.title || 'بند'} — ${score}${result.is_violation ? ' — مخالفة' : ''}`, 10, true)
-    if (Array.isArray(result.subchecks)) for (const check of result.subchecks) text(`• ${check.title || check.code} — ${check.score}/10`, 9, false, muted)
-    if (result.note) text(`ملاحظة: ${result.note}`, 9, false, muted)
-  }
-  if (actions.length) {
-    y -= 8; heading('الإجراءات والمخالفات')
-    for (const action of actions) text(`${action.item_type || 'تكليف'} | ${action.title} | الأولوية: ${action.priority || '—'} | المسؤول: ${action.assigned_role || '—'} | الموعد: ${action.due_date || '—'} | الحالة: ${action.status || '—'}${action.description ? ` | ${action.description}` : ''}`, 9)
-  }
-  if (evidence.length) {
-    y -= 8; heading('مرفقات المخالفات')
-    for (const item of evidence) {
-      const fileName = clean(item.file_name || 'مرفق', 120)
-      if (item.loadError) { text(`${fileName} — ${item.loadError}`, 9, false, muted); continue }
-      const mime = String(item.mime_type || '').toLowerCase()
-      const isPng = mime.includes('png') || /\.png$/i.test(fileName)
-      const isJpeg = mime.includes('jpeg') || mime.includes('jpg') || /\.(jpe?g)$/i.test(fileName)
-      if (!isPng && !isJpeg) { text(`${fileName} — نوع الصورة غير مدعوم داخل PDF`, 9, false, muted); continue }
-      try {
-        const image = isPng ? await doc.embedPng(item.bytes) : await doc.embedJpg(item.bytes)
-        const scale = Math.min(500 / image.width, 590 / image.height, 1)
-        const width = image.width * scale
-        const height = image.height * scale
-        if (y - height - 28 < 56) { page = doc.addPage([595, 842]); y = 790 }
-        text(fileName, 9, true, muted)
-        page.drawImage(image, { x: 45, y: y - height, width, height })
-        y -= height + 18
-      } catch (error) {
-        console.error('Visit evidence could not be embedded', fileName, error)
-        text(`${fileName} — تعذر تضمين الصورة في PDF`, 9, false, muted)
-      }
+  const labelFont = await doc.embedFont(StandardFonts.HelveticaBold)
+  let attachmentNumber = 0
+  for (const item of evidence) {
+    const fileName = clean(item.file_name || 'attachment', 120)
+    if (item.loadError) continue
+    const mime = String(item.mime_type || '').toLowerCase()
+    const isPng = mime.includes('png') || /\.png$/i.test(fileName)
+    const isJpeg = mime.includes('jpeg') || mime.includes('jpg') || /\.(jpe?g)$/i.test(fileName)
+    if (!isPng && !isJpeg) continue
+    try {
+      const image = isPng ? await doc.embedPng(item.bytes) : await doc.embedJpg(item.bytes)
+      const page = doc.addPage([595, 842])
+      const scale = Math.min(525 / image.width, 735 / image.height, 1)
+      const width = image.width * scale
+      const height = image.height * scale
+      page.drawText(`Attachment ${++attachmentNumber}`, { x: 45, y: 805, size: 10, font: labelFont, color: rgb(0.35, 0.32, 0.30) })
+      page.drawImage(image, { x: (595 - width) / 2, y: 45 + (735 - height) / 2, width, height })
+    } catch (error) {
+      console.error('Visit evidence could not be embedded', fileName, error)
     }
   }
-  y -= 10
-  text(`حالة الاعتماد: ${visit.signed_at ? 'معتمدة إلكترونياً' : 'غير معتمدة'} | وقت الاعتماد: ${visit.signed_at ? new Date(visit.signed_at).toLocaleString('ar-SA') : '—'}`, 9, false, muted)
-  text(`تم إنشاء التقرير: ${new Date().toLocaleString('ar-SA')}`, 8, false, muted)
-  text('اعتماد إلكتروني — محمود شريف — إدارة التشغيل', 11, true, primary)
   return await doc.save()
 }
 
 function base64(bytes: Uint8Array) { let binary = ''; const chunk = 0x8000; for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunk, bytes.length))); return btoa(binary) }
-function emailHtml(visit: any, recipients: string[], actions: any[]) { return `<div dir="rtl" style="font-family:Tahoma,Arial;background:#f7f3ef;padding:24px"><div style="max-width:620px;margin:auto;background:#fff;border-radius:16px;padding:28px;border:1px solid #e5d9cf"><h2 style="color:#33210d">تقرير زيارة فرع</h2><p>تم إنشاء تقرير زيارة <b>${esc(visit.branches?.name)}</b> بتاريخ <b>${esc(visit.visit_date)}</b>.</p><p>الدرجة: <b>${visit.score_percentage == null ? '—' : Number(visit.score_percentage).toFixed(0) + '%'}</b></p><p>عدد الإجراءات والمخالفات: <b>${actions.length}</b></p><p style="color:#71655c;font-size:12px">المستلمون: ${recipients.map(esc).join('، ')}</p></div></div>` }
+function emailHtml(visit: any, recipients: string[], actions: any[]) {
+  const quality = esc(visit.quality_status || 'غير محددة')
+  const overrideAt = visit.quality_override_at ? new Date(visit.quality_override_at).toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' }) : '—'
+  const override = visit.quality_override
+    ? `<p style="color:#8d332c">رسوب استثنائي موثق: <b>${esc(visit.quality_override_reason || '—')}</b> · ${esc(overrideAt)}</p>`
+    : ''
+  return `<div dir="rtl" style="font-family:Tahoma,Arial;background:#f7f3ef;padding:24px"><div style="max-width:620px;margin:auto;background:#fff;border-radius:16px;padding:28px;border:1px solid #e5d9cf"><h2 style="color:#33210d">تقرير زيارة فرع</h2><p>تم إنشاء تقرير زيارة <b>${esc(visit.branches?.name)}</b> بتاريخ <b>${esc(visit.visit_date)}</b>.</p><p>الدرجة: <b>${visit.score_percentage == null ? '—' : Number(visit.score_percentage).toFixed(0) + '%'}</b></p><p>حالة الجودة: <b>${quality}</b></p>${override}<p>عدد الإجراءات والمخالفات: <b>${actions.length}</b></p><p>للتواصل: <a href="mailto:operation@zam.sa">operation@zam.sa</a></p><p style="color:#71655c;font-size:12px">المستلمون: ${recipients.map(esc).join('، ')}</p></div></div>`
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -169,26 +136,12 @@ Deno.serve(async (req: Request) => {
     if (!actor || actor.status !== 'active') return json({ error: 'الحساب غير نشط' }, 403)
     const { data: canManageVisits, error: permissionError } = await userClient.rpc('can_manage_branch_visits')
     if (permissionError) throw permissionError
-    const body = await readJsonBody(req, 8 * 1024 * 1024)
-    const suppliedPdf = typeof body.pdf_base64 === 'string' ? body.pdf_base64.trim() : ''
-    let suppliedPdfBytes: Uint8Array | null = null
-    if (suppliedPdf) {
-      if (suppliedPdf.length > 6 * 1024 * 1024) return json({ error: 'حجم PDF أكبر من الحد المسموح' }, 413)
-      if (suppliedPdf.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(suppliedPdf)) return json({ error: 'صيغة PDF المرفق غير صالحة' }, 400)
-      try {
-        const binary = atob(suppliedPdf)
-        if (binary.length > 4 * 1024 * 1024) return json({ error: 'حجم PDF أكبر من الحد المسموح' }, 413)
-        suppliedPdfBytes = Uint8Array.from(binary, character => character.charCodeAt(0))
-      } catch {
-        return json({ error: 'تعذر قراءة PDF المرفق' }, 400)
-      }
-      if (new TextDecoder().decode(suppliedPdfBytes.subarray(0, 5)) !== '%PDF-') return json({ error: 'المرفق ليس ملف PDF صالحًا' }, 400)
-    }
+    const body = await readJsonBody(req, 12 * 1024 * 1024)
     visitId = clean(body.visit_id, 80)
     if (!visitId) return json({ error: 'visit_id مطلوب' }, 400)
     const sendEmail = body.send_email === true
     const modes = Array.isArray(body.recipient_modes) ? body.recipient_modes.filter((x: any) => ['management','shift_supervisor','self'].includes(x)) : []
-    if (suppliedPdfBytes && (!sendEmail || !canManageVisits)) return json({ error: 'إرفاق PDF مخصص يتطلب صلاحية إدارة زيارات الفروع وإرسال البريد' }, 403)
+    const renderedPages = decodeRenderedPages(body.rendered_pages)
     const { data: visit, error: visitError } = await supabaseAdmin.from('supervisory_visits').select('*,branches(name)').eq('id', visitId).maybeSingle()
     if (visitError) throw visitError
     if (!visit) return json({ error: 'الزيارة غير موجودة' }, 404)
@@ -224,19 +177,13 @@ Deno.serve(async (req: Request) => {
       if (fileError || !file) { evidence.push({ ...item, loadError: 'تعذر تحميل المرفق من التخزين' }); continue }
       evidence.push({ ...item, bytes: new Uint8Array(await file.arrayBuffer()) })
     }
-    const pdfBytes = await buildPdf(visit, results || [], actions || [], evidence)
+    const pdfBytes = await buildPdf(renderedPages, evidence)
     const safeBranch = String(visit.branch_id || 'branch').replace(/[^A-Za-z0-9_-]/g, '') || 'branch'
     const path = `${visitId}/visit-${safeBranch}-${visit.visit_date}.pdf`
     const upload = await supabaseAdmin.storage.from('visit-reports').upload(path, pdfBytes, { contentType: 'application/pdf', upsert: true })
     if (upload.error) throw upload.error
     await supabaseAdmin.from('supervisory_visits').update({ pdf_storage_path: path }).eq('id', visitId)
-    const attachmentPath = suppliedPdfBytes
-      ? `${visitId}/email-${safeBranch}-${visit.visit_date}-${crypto.randomUUID()}.pdf`
-      : path
-    if (suppliedPdfBytes) {
-      const emailAttachment = await supabaseAdmin.storage.from('visit-reports').upload(attachmentPath, suppliedPdfBytes, { contentType: 'application/pdf', upsert: false })
-      if (emailAttachment.error) throw emailAttachment.error
-    }
+    const attachmentPath = path
     const signed = await supabaseAdmin.storage.from('visit-reports').createSignedUrl(path, 3600)
     if (signed.error) throw signed.error
     if (!sendEmail) return json({ ok: true, pdf_path: path, signed_url: signed.data.signedUrl, recipients: [] })
@@ -259,7 +206,7 @@ Deno.serve(async (req: Request) => {
     const resendKey = Deno.env.get('RESEND_API_KEY')
     const from = Deno.env.get('RESEND_FROM') || 'Operations Expert <onboarding@resend.dev>'
     if (!resendKey) throw new Error('RESEND_API_KEY غير مضبوط في أسرار Edge Function')
-    const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: recipients, subject: `تقرير زيارة ${visit.branches?.name || ''} - ${visit.visit_date}`, html: emailHtml(visit, recipients, actions || []), attachments: [{ filename: `visit-${safeBranch}-${visit.visit_date}.pdf`, content: base64(suppliedPdfBytes || pdfBytes) }] }) })
+    const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: recipients, subject: `تقرير زيارة ${visit.branches?.name || ''} - ${visit.visit_date}`, html: emailHtml(visit, recipients, actions || []), attachments: [{ filename: `visit-${safeBranch}-${visit.visit_date}.pdf`, content: base64(pdfBytes) }] }) })
     const responseText = await response.text()
     if (!response.ok) throw new Error(`Resend ${response.status}: ${responseText.slice(0, 300)}`)
     await supabaseAdmin.from('visit_email_logs').insert({ visit_id: visitId, sent_by: actorId, recipients, cc_recipients: [], attachment_path: attachmentPath, status: 'sent', sent_at: new Date().toISOString() })

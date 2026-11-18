@@ -916,7 +916,7 @@ const ZamAPI = {
         return readAllRows(() => {
             let query = zamClient
                 .from('waste_logs')
-                .select('*, daily_reports!inner(branch_id, report_date, branches(name))')
+                .select('*, daily_reports!inner(branch_id, report_date, shift_type, branches(name))')
                 .order('created_at', { ascending: false });
             if (branchId) query = query.eq('daily_reports.branch_id', branchId);
             if (dateFrom) query = query.gte('daily_reports.report_date', dateFrom);

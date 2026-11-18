@@ -68,7 +68,7 @@
 
     <form id="form" class="space-y-5">
       <section class="card p-5">
-        <div class="flex justify-between items-center gap-3 flex-wrap"><div><h2 class="text-xl font-bold">نموذج التقييم</h2><p class="muted">15 معياراً كحد أقصى. 10 مطابق، 5 جزئي، 0 غير مطابق، أو لا ينطبق. تفاصيل كل نقطة فرعية داخل المعيار.</p></div><strong id="progress">لم يبدأ التقييم</strong></div>
+        <div class="flex justify-between items-center gap-3 flex-wrap"><div><h2 class="text-xl font-bold">نموذج التقييم</h2></div><strong id="progress">لم يبدأ التقييم</strong></div>
         <div id="items" class="mt-5 space-y-3"><div class="muted">جارٍ تحميل المعايير…</div></div>
       </section>
       <section class="card p-5">
@@ -95,7 +95,10 @@ let branches = [];
 let assignees = [];
 let openItems = [];
 const itemState = new Map();
-const BRANCH_VISIT_CODES = ['BRV-CLEAN-01','BRV-CLEAN-02','BRV-CLEAN-03','BRV-CLEAN-04','BRV-CLEAN-05','BRV-CLEAN-06','BRV-HYGIENE-01','BRV-CUSTOMER-01','BRV-CUSTOMER-02','BRV-CUSTOMER-03','BRV-CUSTOMER-04','BRV-INVENTORY-01','BRV-INVENTORY-02','BRV-OPS-01','BRV-GOV-01'];
+let legacyMode = false;
+let activeAssessmentVersion = 2;
+const NEW_BRANCH_VISIT_CODES = ['BRV-CLEAN-01','BRV-CLEAN-02','BRV-CLEAN-03','BRV-CLEAN-04','BRV-CLEAN-05','BRV-CLEAN-06','BRV-HYGIENE-01','BRV-CUSTOMER-01','BRV-CUSTOMER-02','BRV-CUSTOMER-03','BRV-CUSTOMER-04','BRV-INVENTORY-01','BRV-INVENTORY-02','BRV-OPS-01','BRV-GOV-FIRE','BRV-GOV-EQUIPMENT','BRV-GOV-MUNICIPAL','BRV-GOV-FOOD','BRV-GOV-GMP'];
+const LEGACY_BRANCH_VISIT_CODES = ['BRV-CLEAN-01','BRV-CLEAN-02','BRV-CLEAN-03','BRV-CLEAN-04','BRV-CLEAN-05','BRV-CLEAN-06','BRV-HYGIENE-01','BRV-CUSTOMER-01','BRV-CUSTOMER-02','BRV-CUSTOMER-03','BRV-CUSTOMER-04','BRV-INVENTORY-01','BRV-INVENTORY-02','BRV-OPS-01','BRV-GOV-01'];
 const GOVERNMENT_CHECKS = [
   {code:'GOV-FIRE', title:'اشتراطات وسلامة أجهزة الدفاع المدني'},
   {code:'GOV-EQUIPMENT', title:'سلامة وكفاءة المعدات والإبلاغ عن الأعطال'},
@@ -126,7 +129,8 @@ function saveItemState(card) {
   itemState.set(card.dataset.id, {
     score: score ? score.dataset.score : null,
     note: card.querySelector('[data-note]').value,
-    violation: card.querySelector('[data-violation]').checked,
+    violation: card.querySelector('[data-action]').checked,
+    actionType: card.querySelector('[data-action-type]').value,
     assignee: card.querySelector('[data-assignee]').value,
     due: card.querySelector('[data-due]').value,
     title: card.querySelector('[data-action-title]').value,
@@ -134,6 +138,13 @@ function saveItemState(card) {
     evidenceExists: !!previous.evidenceExists,
     subchecks: Object.fromEntries([...card.querySelectorAll('.subcheck-score.selected')].map(button => [button.dataset.code, Number(button.dataset.score)]))
   });
+}
+function syncActionControls(card) {
+  const hasAction = card.querySelector('[data-action]').checked;
+  const actionType = card.querySelector('[data-action-type]').value;
+  card.querySelector('.action-fields').classList.toggle('hidden', !hasAction);
+  card.querySelector('.evidence').classList.toggle('hidden', !hasAction || actionType !== 'مخالفة');
+  card.querySelector('[data-action-title]').placeholder = actionType === 'مخالفة' ? 'عنوان المخالفة' : 'عنوان التكليف';
 }
 function syncGovernmentScore(card) {
   const choices = [...card.querySelectorAll('.subcheck-score.selected')];
@@ -156,9 +167,9 @@ function restoreItemState(id) {
   }
   if (card.dataset.code === 'BRV-GOV-01') syncGovernmentScore(card);
   card.querySelector('[data-note]').value = state.note || '';
-  card.querySelector('[data-violation]').checked = !!state.violation;
-  card.querySelector('.action-fields').classList.toggle('hidden', !state.violation);
-  card.querySelector('.evidence').classList.toggle('hidden', !state.violation);
+  card.querySelector('[data-action]').checked = !!state.violation;
+  card.querySelector('[data-action-type]').value = state.actionType || 'مخالفة';
+  syncActionControls(card);
   card.querySelector('[data-assignee]').value = state.assignee || '';
   card.querySelector('[data-due]').value = state.due || '';
   card.querySelector('[data-action-title]').value = state.title || '';
@@ -174,7 +185,10 @@ function applicable(template) {
   return (!template.branch_id || template.branch_id === branch.value) && (!template.shift_type || template.shift_type === shift.value);
 }
 function renderItems() {
-  const list = templates.filter(applicable);
+  const visibleCodes = new Set(legacyMode ? LEGACY_BRANCH_VISIT_CODES : NEW_BRANCH_VISIT_CODES);
+  const list = templates.filter(template => visibleCodes.has(template.code)
+    && (legacyMode ? (template.active || template.code === 'BRV-GOV-01') : template.active)
+    && applicable(template));
   items.innerHTML = list.length ? list.map(template => {
     const isGovernment = template.code === 'BRV-GOV-01';
     return `
@@ -188,9 +202,10 @@ function renderItems() {
       <div class="grid md:grid-cols-2 gap-3 mt-3">
         <textarea data-note placeholder="ملاحظة اختيارية" class="w-full border rounded-lg p-2" rows="2"></textarea>
         <div>
-          <label class="flex gap-2 items-center"><input type="checkbox" data-violation> تسجيل مخالفة/تكليف</label>
+          <label class="flex gap-2 items-center"><input type="checkbox" data-action> تسجيل إجراء</label>
           <div class="action-fields hidden mt-2 space-y-2">
-            <input data-action-title class="w-full border rounded-lg p-2" placeholder="عنوان التكليف">
+            <select data-action-type class="w-full border rounded-lg p-2" aria-label="نوع الإجراء"><option value="مخالفة">مخالفة</option><option value="تكليف">تكليف</option></select>
+            <input data-action-title class="w-full border rounded-lg p-2" placeholder="عنوان المخالفة">
             <select data-assignee class="w-full border rounded-lg p-2"><option value="">اختر الموظف المسؤول</option>${assignees.map(person => `<option value="${person.user_id}">${esc(person.full_name)} — ${esc(person.role)}${person.shift_type ? ' — ' + (person.shift_type === 'Morning' ? 'صباحي' : person.shift_type === 'Evening' ? 'مسائي' : 'كلا الشفتين') : ''}</option>`).join('')}</select>
             <input data-due type="date" class="w-full border rounded-lg p-2" aria-label="موعد استحقاق التكليف">
           </div>
@@ -212,8 +227,8 @@ async function loadBranches() {
 }
 async function loadTemplates() {
   const {data, error} = await zamClient.from('visit_checklist_templates')
-    .select('id,code,category,title,instructions,max_score,sort_order,branch_id,shift_type,requires_photo_on_violation')
-    .eq('active', true).in('code', BRANCH_VISIT_CODES).order('sort_order');
+    .select('id,code,category,title,instructions,max_score,sort_order,branch_id,shift_type,requires_photo_on_violation,active')
+    .in('code', [...NEW_BRANCH_VISIT_CODES, 'BRV-GOV-01']).order('sort_order');
   if (error) throw error;
   templates = data || [];
   renderItems();
@@ -265,9 +280,11 @@ async function loadOpenActions() {
 }
 async function loadAssignmentDraft(task) {
   const {data: draft, error: draftError} = await zamClient.from('supervisory_visits')
-    .select('id,status,signed_by,signed_at,observation')
+    .select('id,status,signed_by,signed_at,observation,assessment_version')
     .eq('assignment_id', task.id).maybeSingle();
   if (draftError) throw draftError;
+  activeAssessmentVersion = !draft || draft.assessment_version === 2 ? 2 : 1;
+  legacyMode = activeAssessmentVersion === 1;
   activeVisitId = draft?.id || null;
   itemState.clear();
   generalNote.value = draft?.observation || '';
@@ -276,7 +293,7 @@ async function loadAssignmentDraft(task) {
 
   const [{data: results, error: resultsError}, {data: actions, error: actionsError}, {data: evidence, error: evidenceError}] = await Promise.all([
     zamClient.from('supervisory_visit_results').select('id,item_id,score,result,note,is_violation,subchecks').eq('visit_id', draft.id),
-    zamClient.from('visit_action_items').select('id,result_id,client_key,title,assigned_to,due_date').eq('visit_id', draft.id),
+    zamClient.from('visit_action_items').select('id,result_id,client_key,title,item_type,assigned_to,due_date').eq('visit_id', draft.id),
     zamClient.from('visit_evidence').select('id,result_id,client_key,file_path').eq('visit_id', draft.id)
   ]);
   if (resultsError) throw resultsError;
@@ -288,7 +305,7 @@ async function loadAssignmentDraft(task) {
     const action = actionByResult[result.id];
     itemState.set(result.item_id, {
       score: result.score == null ? (result.result === 'لا ينطبق' ? 'na' : null) : String(result.score),
-      note: result.note || '', violation: !!result.is_violation,
+      note: result.note || '', violation: !!result.is_violation, actionType: action?.item_type || 'مخالفة',
       assignee: action?.assigned_to || '', due: action?.due_date || '', title: action?.title || '', file: null,
       evidenceExists: evidenceResultIds.has(result.id),
       subchecks: Object.fromEntries((result.subchecks || []).map(check => [check.code, Number(check.score)]))
@@ -354,10 +371,9 @@ items.addEventListener('click', event => {
   updateProgress();
 });
 items.addEventListener('change', event => {
-  if (event.target.matches('[data-violation]')) {
+  if (event.target.matches('[data-action], [data-action-type]')) {
     const card = event.target.closest('.item');
-    card.querySelector('.action-fields').classList.toggle('hidden', !event.target.checked);
-    card.querySelector('.evidence').classList.toggle('hidden', !event.target.checked);
+    syncActionControls(card);
     saveItemState(card);
   }
 });
@@ -386,9 +402,10 @@ form.addEventListener('submit', async event => {
   const unscored = cards.filter(card => !card.querySelector('.score.selected:not(.subcheck-score)'));
   if (unscored.length) return show(`تبقّى ${unscored.length} معياراً بدون درجة. أكمل التقييم قبل الاعتماد.`, true);
   if (!confirmEval.checked) return show('أكّد صحة التقييم والبيانات قبل الاعتماد والتوقيع.', true);
-  const violations = cards.filter(card => card.querySelector('[data-violation]').checked);
-  if (violations.some(card => !card.querySelector('[data-file]').files.length && !itemState.get(card.dataset.id)?.evidenceExists)) return show('يجب إرفاق صورة لكل مخالفة قبل الاعتماد.', true);
-  if (violations.some(card => !card.querySelector('[data-assignee]').value)) return show('اختر موظفاً مسؤولاً لكل مخالفة حتى لا يبقى الإجراء بلا تكليف.', true);
+  const actionCards = cards.filter(card => card.querySelector('[data-action]').checked);
+  const violationCards = actionCards.filter(card => card.querySelector('[data-action-type]').value === 'مخالفة');
+  if (violationCards.some(card => !card.querySelector('[data-file]').files.length && !itemState.get(card.dataset.id)?.evidenceExists)) return show('يجب إرفاق صورة لكل مخالفة قبل الاعتماد.', true);
+  if (actionCards.some(card => !card.querySelector('[data-assignee]').value)) return show('اختر موظفاً مسؤولاً لكل إجراء حتى لا يبقى بلا تكليف.', true);
 
   save.disabled = true;
   try {
@@ -402,7 +419,7 @@ form.addEventListener('submit', async event => {
         score: value === 'na' ? null : Number(value),
         result: value === '10' ? 'مطابق' : value === '0' ? 'غير مطابق' : value === 'na' ? 'لا ينطبق' : 'جزئي',
         note: card.querySelector('[data-note]').value.trim() || null,
-        is_violation: card.querySelector('[data-violation]').checked,
+        is_violation: card.querySelector('[data-action]').checked,
         subchecks
       };
     });
@@ -422,6 +439,7 @@ form.addEventListener('submit', async event => {
       score_percentage: percentage,
       checklist_total: possible,
       checklist_done: applicableRows.filter(row => row.score === 10).length,
+      assessment_version: activeAssessmentVersion,
       observation: generalNote.value.trim() || null,
       status: activeAssignmentId ? 'مسودة' : 'معتمدة',
       signed_by: activeAssignmentId ? null : currentUser.id,
@@ -453,13 +471,13 @@ form.addEventListener('submit', async event => {
       .upsert(resultRows, {onConflict: 'visit_id,item_id'}).select('id,item_id');
     if (resultsError) throw resultsError;
     const resultIdByItem = Object.fromEntries((insertedResults || []).map(row => [row.item_id, row.id]));
-    const violationItemIds = new Set(scored.filter(row => row.is_violation).map(row => row.item_id));
+    const actionItemIds = new Set(scored.filter(row => row.is_violation).map(row => row.item_id));
     const actionRows = [];
     const evidenceRows = [];
     const {data: oldActions, error: oldActionsError} = await zamClient.from('visit_action_items').select('id,client_key').eq('visit_id', visit.id);
     if (oldActionsError) throw oldActionsError;
     for (const action of oldActions || []) {
-      if (action.client_key && !violationItemIds.has(action.client_key)) {
+      if (action.client_key && !actionItemIds.has(action.client_key)) {
         const {error} = await zamClient.from('visit_action_items').delete().eq('id', action.id);
         if (error) throw error;
       }
@@ -467,7 +485,7 @@ form.addEventListener('submit', async event => {
     const {data: oldEvidence, error: oldEvidenceError} = await zamClient.from('visit_evidence').select('id,client_key').eq('visit_id', visit.id);
     if (oldEvidenceError) throw oldEvidenceError;
     for (const evidence of oldEvidence || []) {
-      if (evidence.client_key && !violationItemIds.has(evidence.client_key)) {
+      if (evidence.client_key && !actionItemIds.has(evidence.client_key)) {
         const {error} = await zamClient.from('visit_evidence').delete().eq('id', evidence.id);
         if (error) throw error;
       }
@@ -477,6 +495,7 @@ form.addEventListener('submit', async event => {
       const card = cards.find(item => item.dataset.id === row.item_id);
       const assigneeId = card.querySelector('[data-assignee]').value;
       const assignee = assignees.find(person => person.user_id === assigneeId);
+      const actionType = card.querySelector('[data-action-type]').value;
       actionRows.push({
         visit_id: visit.id,
         result_id: resultIdByItem[row.item_id],
@@ -484,8 +503,8 @@ form.addEventListener('submit', async event => {
         branch_id: branch.value,
         title: card.querySelector('[data-action-title]').value.trim() || 'إجراء تصحيحي للمخالفة',
         description: row.note,
-        item_type: 'مخالفة',
-        priority: 'عالية',
+        item_type: actionType,
+        priority: actionType === 'مخالفة' ? 'عالية' : 'متوسطة',
         assigned_to: assigneeId,
         assigned_role: assignee?.role || null,
         shift_type: shift.value,
@@ -494,7 +513,7 @@ form.addEventListener('submit', async event => {
         created_by: currentUser.id
       });
       const file = card.querySelector('[data-file]').files[0];
-      if (file) {
+      if (file && actionType === 'مخالفة') {
         const path = await stableEvidencePath(visit.id, row.item_id, file);
         const {data: upload, error: uploadError} = await zamClient.storage.from('task-evidence').upload(path, file, {upsert: false});
         if (uploadError && !isDuplicateEvidenceUpload(uploadError)) throw uploadError;
