@@ -755,7 +755,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
         }
         try {
             const branchId = canViewAllTechnicalIssues ? null : currentUser.branch_id;
-            const issues = await ZamAPI.getTechnicalIssues(branchId, { onlyOpen: false });
+            const issues = await ZamAPI.getTechnicalIssues(branchId, { onlyOpen: currentUser.role === 'Supervisor' });
             const editable = canResolveTechnicalIssues;
             listEl.innerHTML = issues.length ? issues.map(i => `
                 <div class="py-sm border-b border-outline-variant last:border-0" data-technical-row="${esc(i.id)}">
