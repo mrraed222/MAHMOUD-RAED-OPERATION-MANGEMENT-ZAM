@@ -118,7 +118,7 @@
         }
     </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261117194500"></script>
+<script src="../assets/supabase-config.js?v=20261121212700"></script>
 <style id="zam-design-system">
 :root {
   --zam-coffee: #33210d;
@@ -165,6 +165,15 @@ body.zam-page main > p { color:var(--riwaq-muted); }
 
 /* Registration-specific information hierarchy */
 body.zam-page > header { gap:16px; }
+.register-steps { display:flex; align-items:center; gap:10px; padding:12px; border:1px solid var(--riwaq-line); border-radius:var(--riwaq-radius-sm); background:#f7faf8; }
+.register-steps a { flex:1; display:flex; align-items:center; gap:9px; min-height:42px; padding:5px 9px; text-decoration:none; color:var(--riwaq-ink); font-weight:700; border-radius:8px; }
+.register-steps a:hover { background:#eaf4ef; }
+.register-steps a span { display:grid; place-items:center; width:28px; height:28px; flex:none; border-radius:50%; background:#dcece4; color:#145d43; }
+.branch-status { margin:0 0 14px; padding:10px 12px; border-radius:8px; color:var(--riwaq-muted); background:#f5f7f6; font-size:14px; }
+.branch-status[data-state="error"] { color:#8a2721; background:#fff1ef; }
+.branch-status[data-state="ready"] { color:#145d43; background:#edf6f0; }
+#submitBtn:disabled { cursor:wait; opacity:.72; }
+@media(max-width:640px) { .register-steps { flex-direction:column; align-items:stretch; gap:4px; } .register-steps a { min-height:40px; } }
 body.zam-page > header .register-brand { display:flex; align-items:center; gap:12px; }
 body.zam-page > header .register-brand-copy { display:flex; flex-direction:column; line-height:1.25; }
 body.zam-page > header .register-brand-copy strong { color:var(--riwaq-ink); font-size:15px; }
@@ -219,6 +228,11 @@ body.zam-page .register-footnote { margin:18px 0 0; text-align:right; }
   </div>
   <div class="w-full glass-panel rounded-xl p-md md:p-lg shadow-sm border border-outline-variant transition-all register-card">
     <form class="space-y-md" id="registrationForm" onsubmit="handleRegistration(event)">
+      <nav class="register-steps" aria-label="خطوات طلب التسجيل">
+        <a href="#identity-heading"><span>١</span> البيانات الشخصية</a>
+        <a href="#work-heading"><span>٢</span> الفرع والدور</a>
+        <a href="#security-heading"><span>٣</span> رمز الدخول</a>
+      </nav>
       <section class="register-section" aria-labelledby="identity-heading">
         <h2 class="register-section-heading" id="identity-heading">الصورة والبيانات الشخصية</h2>
         <p class="register-section-note">الصورة اختيارية؛ بقية الحقول في هذا القسم مطلوبة.</p>
@@ -242,8 +256,9 @@ body.zam-page .register-footnote { margin:18px 0 0; text-align:right; }
       <section class="register-section" aria-labelledby="work-heading">
         <h2 class="register-section-heading" id="work-heading">الفرع والدور الوظيفي</h2>
         <p class="register-section-note">اختر الفرع والدور اللذين تعمل بهما؛ الخيارات المتاحة تظهر في القوائم.</p>
+        <div id="branchStatus" class="branch-status" role="status" aria-live="polite">جارٍ تحميل الفروع…</div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
-          <div class="space-y-xs"><label class="font-label-bold text-label-bold text-primary" for="branch">الفرع <span aria-hidden="true">*</span></label><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" aria-hidden="true">storefront</span><select class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg appearance-none cursor-pointer" id="branch" required><option disabled selected value="">اختر الفرع</option></select><span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline" aria-hidden="true">expand_more</span></div></div>
+          <div class="space-y-xs"><label class="font-label-bold text-label-bold text-primary" for="branch">الفرع <span aria-hidden="true">*</span></label><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" aria-hidden="true">storefront</span><select class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg appearance-none cursor-pointer" id="branch" required disabled aria-describedby="branchStatus"><option disabled selected value="">اختر الفرع</option></select><span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline" aria-hidden="true">expand_more</span></div></div>
           <div class="space-y-xs"><label class="font-label-bold text-label-bold text-primary" for="job_title">الدور الوظيفي <span aria-hidden="true">*</span></label><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" aria-hidden="true">badge</span><select class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg appearance-none cursor-pointer" id="job_title" required><option disabled selected value="">اختر الدور الوظيفي</option><option>Barista</option><option>Shift Supervisor</option><option>Kitchen</option><option>Waiter</option></select><span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline" aria-hidden="true">expand_more</span></div></div>
         </div>
       </section>
@@ -284,21 +299,38 @@ body.zam-page .register-footnote { margin:18px 0 0; text-align:right; }
             }
         }
 
-        // تحميل قائمة الفروع الحقيقية من قاعدة البيانات عند فتح الصفحة
-        (async function loadBranchOptions() {
+        // عرض حالة الفروع بوضوح مع إعادة المحاولة دون تغيير مصدر البيانات.
+        async function loadBranchOptions() {
             const select = document.getElementById('branch');
+            const status = document.getElementById('branchStatus');
+            select.disabled = true;
+            status.dataset.state = 'loading';
+            status.textContent = 'جارٍ تحميل قائمة الفروع…';
             try {
                 const branches = await ZamAPI.getBranches();
+                select.querySelectorAll('option:not([value=""])').forEach(option => option.remove());
+                if (!Array.isArray(branches) || branches.length === 0) {
+                    status.dataset.state = 'empty';
+                    status.textContent = 'لا توجد فروع متاحة للاختيار حاليًا. حاول التحديث لاحقًا.';
+                    return;
+                }
                 branches.forEach(b => {
                     const opt = document.createElement('option');
                     opt.value = b.id;
                     opt.textContent = b.name;
                     select.appendChild(opt);
                 });
+                select.disabled = false;
+                status.dataset.state = 'ready';
+                status.textContent = 'تم تحميل الفروع المتاحة.';
             } catch (err) {
                 console.error('تعذر تحميل الفروع:', err);
+                status.dataset.state = 'error';
+                status.innerHTML = 'تعذر تحميل قائمة الفروع. <button type="button" id="retryBranches" class="underline font-bold">إعادة المحاولة</button>';
+                document.getElementById('retryBranches').addEventListener('click', loadBranchOptions, { once: true });
             }
-        })();
+        }
+        loadBranchOptions();
 
         const ROLE_MAP = {
             'Barista': 'Barista',
@@ -342,19 +374,23 @@ body.zam-page .register-footnote { margin:18px 0 0; text-align:right; }
             const jobTitle = document.getElementById('job_title').value;
 
             if (!/^[0-9]{4,6}$/.test(passcode)) {
+                document.getElementById('passcode').focus();
                 if (errorBox) { errorBox.textContent = 'رمز المرور لازم يكون 4 إلى 6 أرقام.'; errorBox.classList.remove('hidden'); }
                 return;
             }
             if (!email.includes('@')) {
+                document.getElementById('email').focus();
                 if (errorBox) { errorBox.textContent = 'البريد الإلكتروني مطلوب — النظام هيستخدمه لإرسال تنبيهات مهامك.'; errorBox.classList.remove('hidden'); }
                 return;
             }
             if (!employee_number) {
+                document.getElementById('employee_number').focus();
                 if (errorBox) { errorBox.textContent = 'الرقم الوظيفي مطلوب.'; errorBox.classList.remove('hidden'); }
                 return;
             }
 
-            btn.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span> Processing...';
+            btn.innerHTML = '<span class="material-symbols-outlined animate-spin" aria-hidden="true">progress_activity</span><span>جارٍ إرسال الطلب…</span>';
+            btn.setAttribute('aria-busy', 'true');
             btn.disabled = true;
             btn.classList.add('opacity-80');
             if (errorBox) errorBox.classList.add('hidden');
@@ -383,8 +419,9 @@ body.zam-page .register-footnote { margin:18px 0 0; text-align:right; }
                 }, 10);
             } catch (err) {
                 console.error('Registration error:', err);
-                if (errorBox) { errorBox.textContent = err.friendly ? err.message : 'حدث خطأ أثناء التسجيل. حاول مرة أخرى.'; errorBox.classList.remove('hidden'); }
-                btn.innerHTML = '<span class="">تسجيل</span>';
+                if (errorBox) { errorBox.textContent = err.friendly ? err.message : 'حدث خطأ أثناء التسجيل. تحقّق من اتصالك ثم حاول مرة أخرى.'; errorBox.classList.remove('hidden'); errorBox.focus(); }
+                btn.innerHTML = '<span>إرسال طلب التسجيل</span><span class="material-symbols-outlined" aria-hidden="true">how_to_reg</span>';
+                btn.removeAttribute('aria-busy');
                 btn.disabled = false;
                 btn.classList.remove('opacity-80');
             }

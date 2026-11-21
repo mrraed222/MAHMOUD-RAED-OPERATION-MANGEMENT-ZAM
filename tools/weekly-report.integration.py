@@ -77,7 +77,7 @@ INIT_JS = r"""
         select(columns) {
           window.__zamMockAudit.reads.push({table, columns});
           const query = {
-            order() { return this; }, range(from, to) {
+            order() { return this; }, eq() { return this; }, limit() { return this; }, range(from, to) {
               const list = rows[table] || [];
               return Promise.resolve({data: list.slice(from, to + 1), error: null});
             },
@@ -91,6 +91,8 @@ INIT_JS = r"""
         upsert() { return denied(table + '.upsert'); }, delete() { return denied(table + '.delete'); }
       };
     },
+    channel() { return { on() { return this; }, subscribe(callback) { if (callback) callback('SUBSCRIBED'); return this; } }; },
+    removeChannel() { return Promise.resolve('ok'); },
     createClient() { return this; }
   };
   sessionStorage.setItem('zam_session_profile', JSON.stringify({id:'30000000-0000-4000-8000-000000000001', role:'Owner', full_name:'مالك اختبار', email:'test@example.invalid'}));
@@ -210,14 +212,14 @@ def request_is_local(url: str, port: int) -> bool:
 def run_regressions(page, failures: list[str], errors: list[str]) -> None:
     try:
         page.wait_for_function("document.querySelectorAll('#weekly-tab-1').length === 1", timeout=5000)
-        # KPIs: labels and deterministic synthetic values.
+        # KPI labels and values use the current semantic card/value classes.
         kpis = page.locator("#kpis").inner_text()
         for label in ("إجمالي المبيعات", "عدد الشكاوى", "سجلات الهدر", "الزيارات الإشرافية", "بلاغات نقص الكادر"):
             if label not in kpis: failures.append("Missing KPI: " + label)
         for label, expected in (("إجمالي المبيعات", "2,000 ر.س"), ("عدد الشكاوى", "1"), ("سجلات الهدر", "2 سجل"),
                                 ("الزيارات الإشرافية", "1"), ("بلاغات نقص الكادر", "1")):
-            card = page.locator("#kpis .card").filter(has_text=label)
-            if card.count() != 1 or card.locator(".font-display-lg").inner_text().strip() != expected:
+            card = page.locator("#kpis .weekly-kpi-card").filter(has_text=label)
+            if card.count() != 1 or card.locator(".weekly-kpi-value").inner_text().strip() != expected:
                 failures.append(f"Unexpected KPI value for {label}: expected {expected}")
         # Branch and shift slicers can be independently selected.
         if page.locator("#branchChips button").count() < 2: failures.append("Branch slicer did not render both synthetic branches")
@@ -235,7 +237,7 @@ def run_regressions(page, failures: list[str], errors: list[str]) -> None:
         if "750 ر.س" not in page.locator("#kpis").inner_text(): failures.append("Branch selection did not scope sales KPI")
         page.locator("#allBranches").click()
         page.wait_for_timeout(150)
-        # Open all six actual tabs. Visit details/actions and issue category appear in tab 2.
+        # Open all six actual tabs. Tab 2 summarizes visits, open actions, notes and shift issues.
         for tab in range(1, 7):
             button = page.locator(f"#weekly-tab-{tab}")
             button.click()
@@ -243,26 +245,23 @@ def run_regressions(page, failures: list[str], errors: list[str]) -> None:
             if not page.locator("#panes").inner_text().strip(): failures.append(f"Tab {tab} rendered an empty pane")
             if tab == 2:
                 content = page.locator("#panes").inner_text()
-                for text in ("نتائج الزيارات الإشرافية", "الإجراءات التصحيحية المفتوحة", "إجراء تصحيحي اختباري", "نظافة الطاولة", "غير مطابق", "نقص موظف في الوردية المسائية"):
+                for text in ("ملخص الزيارات الإشرافية", "التكليفات المفتوحة / المخالفات", "إجراء تصحيحي اختباري", "ملاحظة بند نظافة الطاولة: ملاحظة اختبار", "نقص موظف في الوردية المسائية"):
                     if text not in content: failures.append("Missing visit/shift issue evidence: " + text)
                 if "زيارة قبل الافتتاح" in content or "يجب استبعادها" in content:
                     failures.append("A supervisory visit for a planned branch before its opening date was included")
-                task_count = page.locator("#panes #paneChecks .check-row").count()
-                if task_count != 5: failures.append(f"Expected exactly 5 incomplete tasks out of 8, found {task_count}")
-                links = page.locator("#panes a[href]").evaluate_all("els => els.map(a => a.getAttribute('href'))")
+                task_count = page.locator("#panes .check-row").count()
+                if task_count or page.locator("#panes #paneChecks").count():
+                    failures.append("The current weekly-report contract must not add a separate incomplete-task list")
                 visit_row = page.locator("#panes tr").filter(has_text="مدير الاختبار").first
-                action_row = page.locator("#panes tr").filter(has_text="إجراء تصحيحي اختباري").first
-                for kind, row in (("visit", visit_row), ("action", action_row)):
-                    row_links = row.locator("a[href]").evaluate_all("els => els.map(a => a.getAttribute('href'))") if row.count() else []
-                    if not any("supervisor-dashboard" in str(href) for href in row_links):
-                        failures.append(f"Missing supervisor branch dashboard link adjacent to the {kind} row")
-                # Check action rows/link affordance from the rendered weekly report.
+                visit_links = visit_row.locator("a[href]").evaluate_all("els => els.map(a => a.getAttribute('href'))") if visit_row.count() else []
+                if not any("supervisor-dashboard" in str(href) for href in visit_links):
+                    failures.append("Missing supervisor branch dashboard link adjacent to the visit row")
                 if "إجراء تصحيحي اختباري" not in content: failures.append("Visit action not surfaced in supervisor report")
             if tab == 3 and "تأخر الطلب" not in page.locator("#panes").inner_text():
                 failures.append("Synthetic complaint did not render")
             if tab == 4:
                 content = page.locator("#panes").inner_text()
-                for text in ("حليب", "قهوة", "مراجعة يومية", "إعادة تدريب"):
+                for text in ("حليب", "قهوة", "انتهاء صلاحية", "خطأ تحضير", "2 لتر", "1 كجم"):
                     if text not in content: failures.append("Missing waste evidence: " + text)
             if tab == 5 and "نقص موظف في الوردية المسائية" not in page.locator("#panes").inner_text():
                 failures.append("Synthetic shift issue did not render in the team pane")

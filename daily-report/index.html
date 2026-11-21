@@ -2,7 +2,7 @@
 
 <html dir="rtl" lang="ar"><head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261121180400"></script>
+<script src="../assets/supabase-config.js?v=20261121212700"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script>
   // حماية الشاشة: لازم تسجيل دخول قبل الوصول
@@ -141,40 +141,36 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </style>
   <link rel="stylesheet" href="../assets/riwaq-theme.css">
 <style id="riwaq-page">
-:root { --zam-coffee:#217a5e; --zam-coffee-light:#16392f; --zam-focus:#bd8150; --zam-surface:#fff; }
-body.zam-page { background:#f4f6f2 !important; color:#20312b !important; font-family:'IBM Plex Sans Arabic','Manrope','Tajawal',sans-serif; }
-body.zam-page header { border-color:#e3e9e3 !important; }
-body.zam-page .report-header { right:280px; min-height:80px; height:auto; gap:16px; }
-body.zam-page .report-header .identity { color:#697871; font-size:13px; display:flex; gap:8px; flex-wrap:wrap; }
-body.zam-page main { padding-top:112px !important; }
-body.zam-page main .report-context { border-radius:18px; }
-body.zam-page main .report-card { border-radius:18px; }
-body.zam-page main .report-card h3 { line-height:1.45; }
-body.zam-page main .report-context label { font-weight:700; }
-body.zam-page main .report-section-note { border-right:3px solid #bd8150; padding:8px 12px; background:#f7f8f5; border-radius:8px; }
-body.zam-page :focus-visible { outline:3px solid #bd8150; outline-offset:3px; }
-body.zam-page button, body.zam-page a, body.zam-page input, body.zam-page select { min-height:44px; }
-body.zam-page input[type=checkbox] { min-height:24px; min-width:24px; }
-body.zam-page main { color:#20312b; }
-body.zam-page main > div, body.zam-page main section, body.zam-page main article { scroll-margin-top:88px; }
-body.zam-page main .rounded-xl, body.zam-page main .rounded-lg, body.zam-page main .rounded-full { border-color:#e3e9e3; }
-body.zam-page main .bg-surface-container-lowest { background:#fff !important; }
-body.zam-page main table thead { background:#f0f4ef !important; }
-body.zam-page main th { color:#697871; font-weight:700; }
-body.zam-page main tbody tr:hover { background-color:#f8faf7; }
-body.zam-page main input:not([type=checkbox]), body.zam-page main select, body.zam-page main textarea { border-radius:10px; background-color:#fff; }
-body.zam-page main button.bg-primary { background:#217a5e !important; color:#fff !important; }
-body.zam-page main .text-primary { color:#217a5e !important; }
-body.zam-page main .text-on-surface-variant { color:#697871 !important; }
-body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
-@media (max-width:767px) {
-  body.zam-page .report-header { right:0; margin-right:0 !important; min-height:76px; padding:10px 16px !important; flex-wrap:wrap; }
-  body.zam-page .report-header .brand-mark { width:38px; height:38px; }
-  body.zam-page main { margin-right:0 !important; padding:104px 16px 24px !important; }
-  body.zam-page main .flex.gap-sm { flex-wrap:wrap; }
-  body.zam-page main input:not([type=checkbox]), body.zam-page main select { max-width:100%; }
-  body.zam-page main table { font-size:13px; }
-}
+:root{--zam-coffee:#17664e;--zam-coffee-light:#16392f;--zam-focus:#a75f36;--zam-surface:#fff}
+body.zam-page{background:#f3f6f3!important;color:#20312b!important;font-family:'IBM Plex Sans Arabic','Manrope','Tajawal',sans-serif}
+body.zam-page header{border-color:#e1e9e2!important}
+body.zam-page .report-header{right:280px;min-height:76px;height:auto;gap:14px}
+body.zam-page .report-header .identity{color:#697871;font-size:13px;display:flex;gap:8px;flex-wrap:wrap}
+body.zam-page main{padding-top:108px!important;max-width:1600px}
+body.zam-page main .report-context,body.zam-page main .report-card{border-radius:16px;background:#fff}
+body.zam-page main .report-context{border-top:4px solid #17664e}
+body.zam-page main .report-section-note{border-right:3px solid #bd8150;padding:8px 12px;background:#f7f8f5;border-radius:8px}
+.report-step-nav{display:flex;gap:8px;overflow:auto;padding:4px 1px 8px;scrollbar-width:thin}
+.report-step-nav a{display:flex;align-items:center;gap:8px;white-space:nowrap;background:#fff;border:1px solid #dce6dd;border-radius:999px;padding:8px 14px;color:#365246;text-decoration:none;font-weight:700;font-size:14px}
+.report-step-nav a:hover{background:#edf5ef}.report-step-nav a span{display:grid;place-items:center;background:#e8f1e9;border-radius:50%;width:26px;height:26px;font-size:12px}
+.report-intro{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:20px 24px;background:#eaf3ed;border:1px solid #d9e8dd;border-radius:18px}
+.report-intro h1{font-size:clamp(24px,3vw,34px);font-weight:800;color:#164a39;margin:2px 0 4px}.report-intro p{margin:0;color:#53675d;line-height:1.75;max-width:780px}.report-intro .eyebrow{font-size:12px;font-weight:800;color:#17664e;letter-spacing:.02em}
+.report-log-link{white-space:nowrap;border:1px solid #a9c6b2;background:#fff;border-radius:12px;padding:10px 16px;color:#17664e;font-weight:700;text-decoration:none}
+body.zam-page main .report-card h3{line-height:1.5}body.zam-page main label{line-height:1.6}
+body.zam-page :focus-visible{outline:3px solid #bd8150;outline-offset:3px}
+body.zam-page button,body.zam-page a,body.zam-page input,body.zam-page select,body.zam-page textarea{min-height:44px}
+body.zam-page input[type=checkbox]{min-height:24px;min-width:24px}
+body.zam-page main .bg-primary{background:#17664e!important;color:#fff!important}body.zam-page main .text-primary{color:#17664e!important}
+body.zam-page main .text-on-surface-variant{color:#617168!important}body.zam-page main .border-outline-variant{border-color:#dce6dd!important}
+body.zam-page main input:not([type=checkbox]),body.zam-page main select,body.zam-page main textarea{border-radius:10px;background:#fff}
+body.zam-page main table thead{background:#f0f5f1}body.zam-page main th{color:#53675d;font-weight:700}body.zam-page main tbody tr:hover{background:#f8fbf8}
+body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff2ee;min-width:44px}
+#report-submit{align-items:stretch}#report-submit>label{flex:1}.submit-context{display:flex;flex-direction:column;gap:4px;color:#53675d}.submit-context strong{font-size:18px;color:#164a39}.submit-context span{font-size:13px;line-height:1.6}
+#submitReportBtn{min-width:220px}#submitReportBtn:disabled{opacity:.68;cursor:not-allowed}
+.report-card h3{scroll-margin-top:100px}#report-context,#financial-section,#waste-section,#customer-section,#report-submit{scroll-margin-top:110px}
+@media(max-width:767px){body.zam-page .report-header{right:0;margin-right:0!important;min-height:70px;padding:8px 14px!important;flex-wrap:wrap}body.zam-page main{margin-right:0!important;padding:100px 14px 24px!important}.report-intro{align-items:stretch;flex-direction:column;padding:16px}.report-log-link{text-align:center}.report-step-nav{margin-inline:-2px}.report-step-nav a{font-size:13px;padding:7px 11px}.report-card{padding:16px!important}body.zam-page main table{font-size:13px}body.zam-page main .overflow-x-auto{border:1px solid #e1e9e2;border-radius:12px}#report-submit{align-items:stretch}#submitReportBtn{width:100%;min-width:0}.report-context{padding:16px!important}}
+@media(max-width:480px){.report-step-nav a span{width:22px;height:22px}.report-step-nav a{gap:6px}.report-intro p{font-size:14px}.report-context .grid{gap:12px}}
+@media(prefers-reduced-motion:reduce){.report-step-nav{scroll-behavior:auto}}
 </style>
 </head>
 <body class="zam-page bg-background text-on-surface">
@@ -192,18 +188,19 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 <div class="hidden md:flex gap-xs">
 <span class="px-sm py-xs bg-secondary-container text-on-secondary-container rounded-full text-label-bold font-label-bold">تقرير يومي</span>
 </div>
-<div class="flex gap-sm border-r border-outline-variant pr-md mr-md">
-<div id="notif-bell-slot"></div>
-<button type="button" aria-label="مساعدة" class="w-11 h-11 rounded-full hover:bg-surface-container-high flex items-center justify-center transition-all"><span class="material-symbols-outlined text-on-surface-variant" aria-hidden="true">help</span></button>
-</div>
+
 </div>
 </header>
 <!-- Main Content Canvas -->
 <main class="mr-[280px] min-h-screen p-margin-desktop" aria-labelledby="page-title">
 <!-- Tab 1: Daily Report Form -->
 <section class="tab-content active space-y-gutter animate-fade-in" id="content-report" aria-label="نموذج تقرير الشفت">
-<div class="report-context bg-white border border-outline-variant p-lg card-shadow">
-<h1 class="text-xl font-bold text-primary">بيانات التقرير</h1>
+<nav class="report-step-nav" aria-label="أقسام التقرير">
+<a href="#report-context" aria-current="step"><span>١</span> بيانات التقرير</a><a href="#financial-section"><span>٢</span> المبيعات والفريق</a><a href="#waste-section"><span>٣</span> الهدر</a><a href="#customer-section"><span>٤</span> العملاء والمشكلات</a><a href="#report-submit"><span>٥</span> المراجعة والإرسال</a>
+</nav>
+<div class="report-intro"><div><p class="eyebrow">تقرير الوردية · إدخال ومراجعة</p><h1>تقرير الشفت اليومي</h1><p>أكمل بيانات الوردية ثم راجع الأقسام قبل الإرسال. تُحفظ سجلات التقرير والتقييمات على مراحل؛ إذا ظهر تنبيه بالحفظ الجزئي فلا تعاود الإرسال.</p></div><a class="report-log-link" href="../reports-log/index.html">سجل التقارير <span aria-hidden="true">←</span></a></div>
+<div class="report-context bg-white border border-outline-variant p-lg card-shadow" id="report-context">
+<h2 class="text-xl font-bold text-primary">١ · بيانات التقرير</h2>
 <p class="text-sm text-on-surface-variant mt-xs">ابدأ بتحديد تاريخ التقرير والوردية واسم المشرف، ثم أدخل المبيعات وبقية تفاصيل الشفت. تُراجع أهلية الفرع والتقرير السابق قبل الإرسال.</p>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-gutter mt-md">
 <div class="bg-surface rounded-xl p-md card-shadow border border-outline-variant report-card">
@@ -223,9 +220,9 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </div>
 </div>
 </div>
-<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card">
+<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card" id="financial-section">
 <h3 class="font-title-md text-title-md text-primary border-b border-outline-variant pb-base mb-md flex items-center gap-sm">
-<span class="material-symbols-outlined">payments</span> البيانات المالية
+<span class="material-symbols-outlined" aria-hidden="true">payments</span> ٢ · المبيعات والبيانات المالية
                 </h3>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
 <div>
@@ -262,10 +259,10 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </a>
 </div>
 <!-- Waste Section -->
-<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card">
+<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card" id="waste-section">
 <div class="flex justify-between items-center border-b border-outline-variant pb-base mb-md">
 <h3 class="font-title-md text-title-md text-primary flex items-center gap-sm">
-<span class="material-symbols-outlined text-error">delete_sweep</span> الهدر
+<span class="material-symbols-outlined text-error" aria-hidden="true">delete_sweep</span> ٣ · الهدر
                         </h3>
 <button class="bg-primary text-white px-md py-xs rounded-full text-label-bold flex items-center gap-xs hover:opacity-90 active:scale-95 transition-all" onclick="addRow('waste-table')">
 <span class="material-symbols-outlined text-[18px]">add</span> إضافة
@@ -285,7 +282,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </table>
 </div>
 </div>
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter" id="customer-section">
 <!-- Google Reviews -->
 <div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card">
 <div class="flex justify-between items-center border-b border-outline-variant pb-base mb-md">
@@ -369,7 +366,8 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
     <div id="complaint-list"><p class="text-body-sm text-on-surface-variant">جارِ تحميل الشكاوى...</p></div>
 </div>
 </div>
-<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card flex flex-col md:flex-row items-center justify-between gap-md">
+<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card flex flex-col md:flex-row items-center justify-between gap-md" id="report-submit">
+<div class="submit-context"><strong>٥ · مراجعة التقرير</strong><span>تحقق من التاريخ والوردية والبيانات، ثم أقر بصحتها لإتاحة الإرسال.</span><span id="report-submit-status" role="status" aria-live="polite"></span></div>
 <label class="flex items-center gap-md cursor-pointer">
 <input class="w-6 h-6 rounded border-outline-variant text-primary focus:ring-primary" id="confirmCheck" type="checkbox"/>
 <span class="text-body-lg font-bold text-primary">أقر بصحة جميع البيانات المدخلة في هذا التقرير تحت مسؤوليتي.</span>
@@ -559,6 +557,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 
             btn.disabled = true;
             btn.textContent = 'جارِ التحقق من حالة الفرع...';
+            document.getElementById('report-submit-status').textContent = 'جارٍ التحقق من أهلية الفرع.';
             dateInput.disabled = true;
             shiftInput.disabled = true;
             reportSubmitting = true;
@@ -582,6 +581,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
                 return;
             }
             btn.textContent = 'جارِ التحقق من التقرير السابق...';
+            document.getElementById('report-submit-status').textContent = 'جارٍ فحص وجود تقرير سابق لهذه الوردية.';
             let matches;
             try {
                 matches = await ZamAPI.getDailyReportMatches({
@@ -628,6 +628,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
             const positiveCount = reviewRows.filter(r => r.review_type === 'positive').length;
 
             btn.textContent = 'جارِ الإرسال...';
+            document.getElementById('report-submit-status').textContent = 'جارٍ حفظ التقرير ثم تفاصيل التقييمات.';
             let savedReportId = '';
 
             try {
@@ -673,6 +674,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
                 // إرسال نسخة PDF فورية للإدارة (لا يوقف العملية لو فشل)
                 zamClient.functions.invoke('send-report-copy', { body: { report_id: report.id } }).catch(e => console.error('send-report-copy error:', e));
 
+                document.getElementById('report-submit-status').textContent = 'تم حفظ التقرير بنجاح. جارٍ فتح سجل التقارير.';
                 alert('تم إرسال التقرير بنجاح ✓');
                 window.location.href = '../reports-log/index.html';
             } catch (err) {
@@ -704,6 +706,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
                     partialSubmission = { key: submissionKey, reportId: String(partialReportId) };
                     try { sessionStorage.setItem(submissionKey, String(partialReportId)); } catch (_) {}
                     restoreReportSubmissionForm(btn, dateInput, shiftInput);
+                    document.getElementById('report-submit-status').textContent = 'حُفظ التقرير جزئيًا؛ راجع سجل التقارير مع الإدارة ولا تعاود الإرسال.';
                     alert('تم إنشاء التقرير ' + partialReportId + ' لكن لم يكتمل حفظ كل التفاصيل. أوقفت إعادة إرسال نفس الفرع والتاريخ والوردية لتجنب التكرار؛ راجع سجل التقارير مع الإدارة.');
                     return;
                 }
@@ -712,12 +715,6 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
             }
         });
 
-        (async function mountNotificationBell() {
-            const notificationSlot = document.getElementById('notif-bell-slot');
-            if (!notificationSlot) return;
-            notificationSlot.innerHTML = await renderNotificationBell();
-            attachNotificationBellHandlers();
-        })();
     </script>
 <script>
 (function () {

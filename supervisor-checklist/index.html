@@ -4,7 +4,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/checklist-schedule.js?v=20261121164000"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
-<script src="../assets/supabase-config.js?v=20261121180400"></script>
+<script src="../assets/supabase-config.js?v=20261121212700"></script>
 <script src="../assets/inventory-receiving.js?v=20261117214500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -122,6 +122,15 @@
   body.zam-page main > div { display: flex; flex-direction: column; gap: 22px; }
   body.zam-page main > div > section { margin: 0; }
   body.zam-page #checklist-container { display: grid; gap: 12px; }
+  body.zam-page .supervisor-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+  body.zam-page .summary-card { border:1px solid var(--riwaq-line); border-radius:var(--riwaq-radius); background:var(--riwaq-surface); padding:16px 18px; }
+  body.zam-page .summary-card strong { display:block; font-size:25px; line-height:1.2; color:var(--riwaq-sidebar); }
+  body.zam-page .summary-card span { color:var(--riwaq-muted); font-size:13px; }
+  body.zam-page .workflow-anchor { scroll-margin-top:96px; }
+  body.zam-page #checklist-title { border:0; padding:0; font-size:18px; }
+  body.zam-page #checklist-container > details { margin:0; }
+  body.zam-page .checklist-item { min-height:78px; }
+  @media (max-width:767px) { body.zam-page .supervisor-summary { grid-template-columns:1fr; gap:8px; } body.zam-page .summary-card { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; } body.zam-page .summary-card strong { font-size:20px; } }
   body.zam-page #progress-label { font-weight: 700; }
   body.zam-page main textarea, body.zam-page main select, body.zam-page main input:not([type="checkbox"]) { min-height: 44px; }
   body.zam-page main button, body.zam-page main a { min-height: 44px; }
@@ -232,7 +241,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </div>
 </section>
 
-<section id="inventory-receiving-tasks-section" aria-labelledby="receiving-title" class="hidden rounded-xl border border-secondary bg-secondary-container/20 shadow-sm">
+<section class="supervisor-summary" aria-label="ملخص الوردية" aria-live="polite">
+  <div class="summary-card"><span>إنجاز مهام المشرف</span><strong id="summary-progress">—</strong></div>
+  <div class="summary-card"><span>الوردية المحددة</span><strong id="summary-shift">—</strong></div>
+  <a class="summary-card flex items-center justify-between gap-3" href="#inventory-receiving-tasks-section"><span>أولوية الآن</span><strong class="text-base">الاستلام والفحص ←</strong></a>
+</section>
+
+<section id="inventory-receiving-tasks-section" class="workflow-anchor" aria-labelledby="receiving-title" class="hidden rounded-xl border border-secondary bg-secondary-container/20 shadow-sm">
   <div class="flex flex-col gap-2 border-b border-outline-variant bg-secondary-container/40 px-md py-base sm:flex-row sm:items-center sm:justify-between">
     <div>
       <h2 id="receiving-title" class="font-bold text-primary">أولوية الوردية · استلام التوريدات</h2>
@@ -245,7 +260,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   </div>
 </section>
 
-<section aria-labelledby="checklist-title" class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+<section id="shift-tasks" class="workflow-anchor bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
 <div class="bg-primary text-on-primary px-md py-base flex flex-col md:flex-row justify-between items-center gap-sm">
 	  <div class="flex gap-md items-center">
 	    <h2 id="checklist-title" class="font-bold border-b-2 border-white pb-xs text-body-sm text-white">مهام المشرف في الوردية</h2>
@@ -255,6 +270,27 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <!-- داشبورد الفريق: من المسؤول عن ماذا في هذه الوردية -->
 <div class="divide-y divide-outline-variant" id="checklist-container">
 <p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل المهام من قاعدة البيانات...</p>
+</div>
+</section>
+
+<section id="team-notes" class="workflow-anchor rounded-xl border border-outline-variant bg-surface-container-lowest p-md shadow-sm">
+<div class="mb-md">
+<h2 id="team-notes-title" class="text-lg font-extrabold text-primary">ملاحظات سير العمل</h2>
+<p class="mt-1 text-sm text-on-surface-variant">ملاحظات اختيارية مرتبطة بفرعك والوردية المحددة، وتظهر في داشبورد الفرع.</p>
+</div>
+<label for="team-note-input" class="font-label-bold text-on-surface-variant block mb-base">ملاحظة جديدة (اختياري)</label>
+<textarea id="team-note-input" aria-describedby="note-saved-msg" class="w-full bg-surface border border-outline-variant rounded-xl p-md focus:border-primary focus:ring-1 focus:ring-primary h-32" placeholder="اكتب ملاحظة تتعلق بسير العمل..."></textarea>
+<div class="mt-sm flex flex-wrap items-center gap-sm">
+<button id="save-note-btn" type="button" class="px-md py-xs rounded-lg bg-secondary-container text-on-secondary-container font-label-bold hover:opacity-90 transition-opacity">حفظ الملاحظة</button>
+<span id="note-saved-msg" class="text-tertiary text-body-sm hidden" role="status" aria-live="polite">تم حفظ الملاحظة — ستظهر في داشبورد الفرع</span>
+</div>
+<div id="recent-notes-section" class="mt-lg">
+  <h3 id="recent-notes-title" class="font-bold text-sm text-primary mb-sm flex items-center gap-xs">
+    <span class="material-symbols-outlined text-base" aria-hidden="true">sticky_note_2</span> ملاحظات الفريق السابقة
+  </h3>
+  <div id="recent-notes-list" aria-labelledby="recent-notes-title" aria-live="polite" class="bg-surface-container-lowest border border-outline-variant rounded-xl divide-y divide-outline-variant max-h-64 overflow-y-auto">
+    <p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل الملاحظات...</p>
+  </div>
 </div>
 </section>
 <section aria-labelledby="report-action-title" class="rounded-xl border border-outline-variant bg-surface-container-lowest p-md shadow-sm">
@@ -275,26 +311,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <button class="w-full bg-primary text-on-primary py-md rounded-xl font-bold text-lg flex items-center justify-center gap-sm shadow-lg hover:bg-primary-container active:scale-[0.99] transition-all" id="send-report-btn">
 <span class="material-symbols-outlined">send</span> إرسال التقرير النهائي
 </button>
-</div>
-</section>
-<section aria-labelledby="team-notes-title" class="rounded-xl border border-outline-variant bg-surface-container-lowest p-md shadow-sm">
-<div class="mb-md">
-<h2 id="team-notes-title" class="text-lg font-extrabold text-primary">ملاحظات سير العمل</h2>
-<p class="mt-1 text-sm text-on-surface-variant">ملاحظات اختيارية مرتبطة بفرعك والوردية المحددة، وتظهر في داشبورد الفرع.</p>
-</div>
-<label for="team-note-input" class="font-label-bold text-on-surface-variant block mb-base">ملاحظة جديدة (اختياري)</label>
-<textarea id="team-note-input" aria-describedby="note-saved-msg" class="w-full bg-surface border border-outline-variant rounded-xl p-md focus:border-primary focus:ring-1 focus:ring-primary h-32" placeholder="اكتب ملاحظة تتعلق بسير العمل..."></textarea>
-<div class="mt-sm flex flex-wrap items-center gap-sm">
-<button id="save-note-btn" type="button" class="px-md py-xs rounded-lg bg-secondary-container text-on-secondary-container font-label-bold hover:opacity-90 transition-opacity">حفظ الملاحظة</button>
-<span id="note-saved-msg" class="text-tertiary text-body-sm hidden" role="status" aria-live="polite">تم حفظ الملاحظة — ستظهر في داشبورد الفرع</span>
-</div>
-<div id="recent-notes-section" class="mt-lg">
-  <h3 id="recent-notes-title" class="font-bold text-sm text-primary mb-sm flex items-center gap-xs">
-    <span class="material-symbols-outlined text-base" aria-hidden="true">sticky_note_2</span> ملاحظات الفريق السابقة
-  </h3>
-  <div id="recent-notes-list" aria-labelledby="recent-notes-title" aria-live="polite" class="bg-surface-container-lowest border border-outline-variant rounded-xl divide-y divide-outline-variant max-h-64 overflow-y-auto">
-    <p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل الملاحظات...</p>
-  </div>
 </div>
 </section>
 </div>
@@ -599,12 +615,20 @@ function renderChecklist(templates, logsByTemplate) {
         return String(a.target_time || '99:99').slice(0, 5).localeCompare(String(b.target_time || '99:99').slice(0, 5));
     });
     if (!filteredTemplates.length) {
+        const summaryProgress = document.getElementById('summary-progress');
+        const summaryShift = document.getElementById('summary-shift');
+        if (summaryProgress) summaryProgress.textContent = '0 / 0';
+        if (summaryShift) summaryShift.textContent = currentShift === 'Morning' ? 'صباحية' : 'مسائية';
         container.innerHTML = `<p class="p-md text-on-surface-variant text-body-sm text-center">لا توجد مهام ${activeSubTab === 'my-tasks' ? 'إشرافية خاصة بك' : 'للفريق لربطها بمتابعتك'} مسندة في هذه الوردية حالياً.</p>`;
         progressLabel.textContent = 'لا توجد مهام';
         return;
     }
     const done = filteredTemplates.filter(t => logsByTemplate[t.id]).length;
     progressLabel.textContent = `تم إنجاز ${done} من ${filteredTemplates.length} مهام`;
+    const summaryProgress = document.getElementById('summary-progress');
+    const summaryShift = document.getElementById('summary-shift');
+    if (summaryProgress) summaryProgress.textContent = `${done} / ${filteredTemplates.length}`;
+    if (summaryShift) summaryShift.textContent = currentShift === 'Morning' ? 'صباحية' : 'مسائية';
     const renderTaskCard = item => {
         const log = logsByTemplate[item.id];
         const completed = !!log;
@@ -910,7 +934,7 @@ async function loadChecklist() {
     try {
         await loadCurrentBranchHours();
         if (!ZamBranchLifecycle.isOperational(currentBranchLifecycle, new Date())) {
-            container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">قوائم المهام والإرسال غير متاحة قبل تاريخ افتتاح الفرع.</p>';
+            container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm" role="status">قوائم المهام والإرسال غير متاحة قبل تاريخ افتتاح الفرع.</p>';
             receivingTaskSection.classList.add('hidden');
             progressLabel.textContent = '';
             document.getElementById('send-report-btn').disabled = true;
@@ -951,8 +975,9 @@ async function loadChecklist() {
         await loadOpenReceivingTasks();
     } catch (err) {
         console.error(err);
-        container.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل المهام من قاعدة البيانات.</p>';
+        container.innerHTML = '<div class="p-md text-error text-body-sm" role="alert"><p>تعذّر تحميل المهام من قاعدة البيانات.</p><button type="button" id="retry-checklist-btn" class="mt-3 rounded-lg border px-4 py-2 font-bold">إعادة المحاولة</button></div>';
         document.getElementById('send-report-btn').disabled = true;
+        document.getElementById('retry-checklist-btn')?.addEventListener('click', loadChecklist);
     }
 }
 
@@ -1071,12 +1096,5 @@ try {
     console.error('Error populating dynamic header labels:', e);
 }
 
-// تركيب جرس الإشعارات
-(async function mountNotifBell() {
-    const slot = document.getElementById('notif-bell-slot');
-    if (!slot) return;
-    slot.innerHTML = await renderNotificationBell();
-    attachNotificationBellHandlers();
-})();
 </script>
 </body></html>

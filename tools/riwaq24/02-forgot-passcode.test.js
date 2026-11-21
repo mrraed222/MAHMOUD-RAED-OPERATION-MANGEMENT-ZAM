@@ -1,0 +1,18 @@
+const fs = require('fs');
+const assert = require('assert');
+const path = require('path');
+const html = fs.readFileSync(path.join(__dirname, '../../forgot-passcode/index.html'), 'utf8');
+assert.match(html, /request-passcode-reset/, 'must retain the existing reset request endpoint');
+assert.match(html, /body: \{ email \}/, 'must preserve the exact email request payload');
+assert.match(html, /const email = input\.value\.trim\(\)/, 'must trim the email before sending');
+assert.match(html, /إذا كان هذا البريد مرتبطًا بحساب/, 'must show a non-enumerating general result');
+assert.match(html, /type="submit"/, 'form must submit through keyboard-native submit semantics');
+assert.match(html, /input\.validity\.valid/, 'must validate email format');
+assert.match(html, /if \(btn\.disabled\) return/, 'must prevent duplicate requests');
+assert.match(html, /showStatus\('loading'/, 'must expose a pending state');
+assert.match(html, /showStatus\('success'/, 'must expose a consistent final state');
+assert.match(html, /aria-invalid/, 'validation error must be conveyed accessibly');
+assert.match(html, /href="\.\.\/index\.html"/, 'must preserve the return-to-login route');
+const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n');
+new Function(scripts);
+console.log('02-forgot-passcode: endpoint contract, flow, states, accessibility and inline JS syntax passed');

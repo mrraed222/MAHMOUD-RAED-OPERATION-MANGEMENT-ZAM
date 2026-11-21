@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script src="../assets/supabase-config.js?v=20261121180400"></script>
+  <script src="../assets/supabase-config.js?v=20261121212700"></script>
   <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
   <script src="../assets/inventory-receiving.js?v=20261117214500"></script>
   <script>
@@ -77,6 +77,10 @@
     #add-item-btn, #refresh-history-btn { border-color: var(--riwaq-line); }
     #history-list { overflow: hidden; border-color: var(--riwaq-line); }
     #history-list > * { padding: 14px 16px; }
+    #history-list[aria-busy="true"] { opacity: .72; }
+    #history-list .history-card { transition: background-color .15s ease; }
+    #history-list .history-card:hover { background: var(--riwaq-surface-soft); }
+    #history-list .view-order-btn { min-height: 44px; }
     #receiving-lines { border-color: var(--riwaq-line); background: var(--riwaq-surface-soft); }
     #order-preview dl > div { border-radius: 10px; }
     .mobile-nav { border-color: var(--riwaq-line); background: rgba(255,255,255,.97); padding-bottom: max(.5rem, env(safe-area-inset-bottom)); }
@@ -255,7 +259,7 @@
         <div class="mb-4 border-b border-outline-variant pb-4">
           <p class="mb-1 text-xs font-extrabold text-secondary">٣ · تسجيل الدفعة الواصلة</p>
           <h2 class="text-xl font-extrabold text-primary">تسجيل وصول توريد</h2>
-          <p class="mt-1 text-sm text-on-surface-variant">يُنشأ فحص الاستلام للمشرف فقط بعد تسجيل وصول كمية فعلية وإرفاق صورة السند؛ لا ينشأ عند إنشاء الطلب. لكل دفعة وقت مستقل، ويبدأ حد التخزين البالغ 20 دقيقة من وقت تسجيل وصولها.</p>
+          <p class="mt-1 text-sm text-on-surface-variant">يُنشأ فحص الاستلام للمشرف فقط بعد تسجيل وصول كمية فعلية وإرفاق صورة السند؛ لا ينشأ عند إنشاء الطلب. لكل دفعة وقت مستقل، ويبدأ حد التخزين البالغ 20 دقيقة من وقت تسجيل وصولها. أكمل فحص المطبخ والتخزين ضمن مهام الفحص المرتبطة خلال هذه المهلة ووفق FIFO/FEFO؛ هذه الصفحة توثّق الوصول ولا تنفذ الفحص أو التخزين.</p>
         </div>
         <form id="receiving-form" class="space-y-4">
           <label class="block max-w-2xl text-sm font-bold">طلب التوريد الذي وصلت منه الكمية
@@ -289,7 +293,7 @@
             <button id="refresh-history-btn" type="button" class="rounded-lg border border-outline-variant px-3 py-2 text-sm font-bold text-primary hover:bg-surface-container">تحديث السجل</button>
           </div>
         </div>
-        <div id="history-list" class="divide-y divide-outline-variant rounded-xl border border-outline-variant">
+        <div id="history-list" class="divide-y divide-outline-variant rounded-xl border border-outline-variant" aria-live="polite" aria-busy="true">
           <p class="p-4 text-sm text-on-surface-variant">جارٍ تحميل سجل الطلبات…</p>
         </div>
       </section>
@@ -641,7 +645,8 @@
     }
 
     async function loadHistory() {
-      historyList.innerHTML = '<p class="p-4 text-sm text-on-surface-variant">جارٍ تحميل سجل الطلبات…</p>';
+      historyList.setAttribute('aria-busy', 'true');
+      historyList.innerHTML = '<p class="p-4 text-sm text-on-surface-variant" role="status">جارٍ تحميل سجل الطلبات…</p>';
       let query = zamClient.from('inventory_requests')
         .select('id,branch_id,created_by,shift_type,supplier,created_at,branches(name)')
         .order('created_at', { ascending: false });
@@ -650,6 +655,7 @@
       else if (!inventoryAccess.allBranches) {
         if (!inventoryAccess.branchIds.length) {
           historyList.innerHTML = '<p class="p-4 text-sm text-on-surface-variant">لا توجد فروع ضمن نطاق صلاحيتك.</p>';
+          historyList.setAttribute('aria-busy', 'false');
           return;
         }
         query = query.in('branch_id', inventoryAccess.branchIds);
@@ -658,16 +664,18 @@
       if (error) throw error;
       if (!data?.length) {
         historyList.innerHTML = '<p class="p-4 text-sm text-on-surface-variant">لا توجد طلبات محفوظة ضمن نطاق الفروع المصرح به.</p>';
+        historyList.setAttribute('aria-busy', 'false');
         return;
       }
       historyList.innerHTML = data.map(request => `
-        <div class="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <article class="history-card flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
           <div class="min-w-0">
             <p class="font-extrabold text-primary">${escapeHtml(request.supplier)} <span class="text-xs font-normal text-on-surface-variant">#${escapeHtml(String(request.id).slice(0, 8).toUpperCase())}</span></p>
             <p class="mt-1 text-xs text-on-surface-variant">${escapeHtml(request.branches?.name || displayBranch(request.branch_id))} · ${escapeHtml(SHIFT_LABELS[request.shift_type] || '—')} · ${escapeHtml(formatDate(request.created_at))}</p>
           </div>
           <button type="button" class="view-order-btn shrink-0 rounded-lg border border-outline-variant px-4 py-2 text-sm font-bold text-primary hover:bg-surface-container" data-order-id="${escapeHtml(request.id)}">عرض وطباعة</button>
-        </div>`).join('');
+        </article>`).join('');
+      historyList.setAttribute('aria-busy', 'false');
       historyList.querySelectorAll('.view-order-btn').forEach(button => {
         button.addEventListener('click', () => showSavedOrder(button.dataset.orderId));
       });
@@ -706,12 +714,20 @@
     document.getElementById('refresh-history-btn').addEventListener('click', async () => {
       clearMessages();
       try { await loadHistory(); }
-      catch (error) { console.error(error); setMessage('تعذّر تحديث سجل الطلبات.', true); }
+      catch (error) {
+        console.error(error); historyList.setAttribute('aria-busy', 'false');
+        historyList.innerHTML = '<div class="p-4 text-sm text-error" role="alert"><p class="font-bold">تعذّر تحديث سجل الطلبات.</p><button type="button" class="mt-3 min-h-11 rounded-lg border border-outline-variant px-4 py-2 font-bold" onclick="document.getElementById(\'refresh-history-btn\').click()">إعادة المحاولة</button></div>';
+        setMessage('تعذّر تحديث سجل الطلبات. يمكنك إعادة المحاولة من السجل.', true);
+      }
     });
     document.getElementById('history-branch-filter').addEventListener('change', async () => {
       clearMessages();
       try { await loadHistory(); }
-      catch (error) { console.error(error); setMessage('تعذّر تحميل طلبات هذا الفرع.', true); }
+      catch (error) {
+        console.error(error); historyList.setAttribute('aria-busy', 'false');
+        historyList.innerHTML = '<div class="p-4 text-sm text-error" role="alert"><p class="font-bold">تعذّر تحميل طلبات هذا الفرع.</p><button type="button" class="mt-3 min-h-11 rounded-lg border border-outline-variant px-4 py-2 font-bold" onclick="document.getElementById(\'refresh-history-btn\').click()">إعادة المحاولة</button></div>';
+        setMessage('تعذّر تحميل طلبات هذا الفرع. غيّر الفرع أو أعد تحميل السجل.', true);
+      }
     });
 
     document.getElementById('receipt-request-select').addEventListener('change', async event => {
@@ -832,7 +848,11 @@
         addItemRow();
         setMessage(`تم حفظ الطلب رقم #${requestId.slice(0, 8).toUpperCase()}. يمكنك الآن طباعته أو تجهيز نصه لواتساب.`);
         try { await loadHistory(); }
-        catch (historyError) { console.warn('Request saved, but history refresh failed:', historyError); }
+        catch (historyError) {
+          console.warn('Request saved, but history refresh failed:', historyError);
+          historyList.setAttribute('aria-busy', 'false');
+          historyList.innerHTML = '<div class="p-4 text-sm text-error" role="alert"><p class="font-bold">حُفظ الطلب، لكن تعذّر تحديث السجل.</p><button type="button" class="mt-3 rounded-lg border border-outline-variant px-4 py-2 font-bold" onclick="document.getElementById(\'refresh-history-btn\').click()">إعادة تحميل السجل</button></div>';
+        }
       } catch (error) {
         console.error(error);
         setMessage(error.message || 'تعذّر حفظ الطلب. حاول مرة أخرى.', true);
@@ -867,13 +887,6 @@
         if (!access) return;
         updateShiftButtons();
         if (access.canCreate) addItemRow();
-        const slot = document.getElementById('notif-bell-slot');
-        if (slot && currentUser.role === 'Supervisor') {
-          try {
-            slot.innerHTML = await renderNotificationBell();
-            attachNotificationBellHandlers();
-          } catch (error) { console.warn('Notification bell could not be loaded:', error); }
-        }
         await loadHistory();
         if (access.canReceive) await loadReceivingRequests();
       } catch (error) {
@@ -881,7 +894,8 @@
         document.getElementById('request-section').classList.add('hidden');
         document.documentElement.classList.remove('inventory-access-pending');
         setMessage('تعذّر التحقق من صلاحية الجرد أو تحميل السجلات. حدّث الصفحة أو سجّل الدخول مجدداً.', true);
-        historyList.innerHTML = '<p class="p-4 text-sm font-bold text-error">تعذّر تحميل سجل الطلبات.</p>';
+        historyList.setAttribute('aria-busy', 'false');
+        historyList.innerHTML = '<div class="p-4 text-sm text-error" role="alert"><p class="font-bold">تعذّر تحميل سجل الطلبات.</p><button type="button" class="mt-3 min-h-11 rounded-lg border border-outline-variant px-4 py-2 font-bold" onclick="location.reload()">إعادة المحاولة</button></div>';
       }
     })();
   </script>

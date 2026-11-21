@@ -13,7 +13,7 @@
                 }
             }
         }
-    }catch(_e){}</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/checklist-schedule.js?v=20261121164000"></script><script src="../assets/restroom-hourly.js?v=20261121170500"></script><script src="../assets/supabase-config.js?v=20261121180400"></script><script>
+    }catch(_e){}</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/checklist-schedule.js?v=20261121164000"></script><script src="../assets/restroom-hourly.js?v=20261121170500"></script><script src="../assets/supabase-config.js?v=20261121212700"></script><script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (!['Owner','Admin','Manager','Supervisor'].includes(currentUser.role)) {
       window.location.href = zamRoleHomePath(currentUser.role);
@@ -71,7 +71,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 <style id="checklist-page-structure">
 .checklist-page-header{min-height:88px;display:grid;grid-template-columns:minmax(180px,1fr) minmax(260px,2fr) auto;align-items:center;gap:20px;padding-block:12px}
 .checklist-brand-logo{width:42px;height:42px;object-fit:contain}.checklist-header-brand{display:flex;align-items:center;gap:10px}.checklist-header-brand>div{display:flex;flex-direction:column;gap:2px}.checklist-system-name{font-size:12px;font-weight:800;color:#16392f}.checklist-user-role{font-size:11px;color:#697871}.checklist-header-title h1{margin:0;font-size:20px}.checklist-header-title p{margin:2px 0 0;font-size:13px}.checklist-header-date{white-space:nowrap}
-.checklist-main{padding-top:112px}.checklist-section-intro{margin:0 0 12px}.checklist-section-intro h2{font-size:18px;font-weight:800;color:#16392f;margin:0}.checklist-section-intro p{font-size:13px;color:#697871;margin:3px 0 0}.checklist-scope{padding:18px;margin-bottom:24px;background:#edf3ee;border:1px solid #dbe5dc;border-radius:16px}.checklist-summary{padding:18px;background:#fff;border:1px solid #e3e9e3;border-radius:16px}.checklist-summary>.grid{margin-top:12px}.checklist-results{margin-top:24px}.checklist-results [role=tablist]{display:flex;gap:8px;overflow:auto}.checklist-results button{min-height:44px}.checklist-results table th,.checklist-results table td{vertical-align:top}.checklist-results section{margin-top:24px}
+.checklist-main{padding-top:112px}.checklist-section-intro{margin:0 0 12px}.checklist-section-intro h2{font-size:18px;font-weight:800;color:#16392f;margin:0}.checklist-section-intro p{font-size:13px;color:#697871;margin:3px 0 0}.checklist-scope{padding:18px;margin-bottom:24px;background:#edf3ee;border:1px solid #dbe5dc;border-radius:16px}.checklist-summary{padding:18px;background:#fff;border:1px solid #e3e9e3;border-radius:16px}.checklist-summary>.grid{margin-top:12px}.checklist-results{margin-top:24px}.checklist-results [role=tablist]{display:flex;gap:8px;overflow:auto}.checklist-results button{min-height:44px}.checklist-results table th,.checklist-results table td{vertical-align:top}.checklist-results section{margin-top:24px}.checklist-status{margin:0 0 16px;padding:12px 16px;border:1px solid #dbe5dc;border-radius:12px;background:#fff}.checklist-status:empty{display:none}.checklist-view-switch{display:flex;gap:8px;overflow:auto}.checklist-results table{min-width:760px}.checklist-photo-trigger{display:block;width:100%;height:100%;padding:0;border:0;background:transparent;cursor:zoom-in}.checklist-photo-trigger:focus-visible{outline:3px solid #bd8150;outline-offset:-3px}@media(max-width:767px){.checklist-results table{min-width:680px}}
 @media(max-width:767px){.checklist-page-header{position:relative;left:auto;top:auto;padding:12px 16px;grid-template-columns:1fr auto;gap:8px 12px;min-height:0}.checklist-header-brand{grid-column:1/-1}.checklist-header-title{grid-column:1}.checklist-header-date{grid-column:2;grid-row:2;align-self:start;text-align:left;white-space:normal;font-size:12px}.checklist-header-title p{max-width:38ch}.checklist-main{padding-top:0}.checklist-scope,.checklist-summary{padding:14px}.checklist-results>div:first-of-type{gap:4px}.checklist-results #gallery-view{min-height:80px}.checklist-results #table-view{max-width:calc(100vw - 32px)}}
 </style>
 
@@ -147,10 +147,11 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
     </section>
 
     <section class="checklist-results" aria-labelledby="results-heading">
+    <div id="checklist-status" class="checklist-status" role="status" aria-live="polite" aria-atomic="true"></div>
     <div class="checklist-section-intro"><h2 id="results-heading">سجل التنفيذ والصور</h2><p>يعرض المعرض والجدول السجلات والصور المتاحة فقط ضمن نطاق الفلترة.</p></div>
     <!-- عرض التبديل بين الجدول والمعرض -->
     <div class="flex justify-between items-center mb-sm border-b border-outline-variant pb-xs">
-      <div class="flex gap-sm" aria-label="طريقة عرض سجلات التنفيذ">
+      <div class="checklist-view-switch" role="group" aria-label="طريقة عرض سجلات التنفيذ">
         <button type="button" aria-pressed="true" id="tab-gallery" class="px-md py-sm border-b-2 border-primary font-bold text-primary text-body-sm transition-all flex items-center gap-1"><span class="material-symbols-outlined text-base">grid_view</span> معرض الصور</button>
         <button type="button" aria-pressed="false" id="tab-table" class="px-md py-sm text-on-surface-variant text-body-sm hover:text-primary transition-all flex items-center gap-1"><span class="material-symbols-outlined text-base">table_view</span> جدول التفاصيل</button>
       </div>
@@ -200,9 +201,9 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </main>
 
 <!-- Modal تكبير الصورة -->
-<div id="image-modal" class="fixed inset-0 bg-inverse-surface/90 hidden items-center justify-center z-50 p-margin-mobile">
-  <button id="close-image" class="absolute top-4 right-4 text-white hover:text-primary transition-colors"><span class="material-symbols-outlined text-4xl">close</span></button>
-  <img id="modal-img" src="" class="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"/>
+<div id="image-modal" class="fixed inset-0 bg-inverse-surface/90 hidden items-center justify-center z-50 p-margin-mobile" role="dialog" aria-modal="true" aria-label="عرض صورة تنفيذ المهمة" aria-hidden="true">
+  <button type="button" id="close-image" aria-label="إغلاق عرض الصورة" class="absolute top-4 right-4 text-white hover:text-primary transition-colors"><span class="material-symbols-outlined text-4xl" aria-hidden="true">close</span></button>
+  <img id="modal-img" src="" alt="صورة توثيق تنفيذ المهمة" class="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"/>
 </div>
 
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
@@ -215,24 +216,17 @@ const tabGallery = document.getElementById('tab-gallery');
 const tabTable = document.getElementById('tab-table');
 const galleryView = document.getElementById('gallery-view');
 const tableView = document.getElementById('table-view');
+const checklistStatus = document.getElementById('checklist-status');
+let lastImageTrigger = null;
+function setView(button, other, shown, hidden) {
+    button.setAttribute('aria-pressed', 'true'); other.setAttribute('aria-pressed', 'false');
+    button.className = 'px-md py-sm border-b-2 border-primary font-bold text-primary text-body-sm transition-all flex items-center gap-1';
+    other.className = 'px-md py-sm text-on-surface-variant hover:text-primary text-body-sm transition-all flex items-center gap-1';
+    shown.classList.remove('hidden'); hidden.classList.add('hidden');
+}
 
-tabGallery.addEventListener('click', () => {
-    tabGallery.setAttribute('aria-pressed', 'true');
-    tabTable.setAttribute('aria-pressed', 'false');
-    tabGallery.className = "px-md py-sm border-b-2 border-primary font-bold text-primary text-body-sm transition-all flex items-center gap-1";
-    tabTable.className = "px-md py-sm text-on-surface-variant text-body-sm hover:text-primary transition-all flex items-center gap-1";
-    galleryView.classList.remove('hidden');
-    tableView.classList.add('hidden');
-});
-
-tabTable.addEventListener('click', () => {
-    tabTable.setAttribute('aria-pressed', 'true');
-    tabGallery.setAttribute('aria-pressed', 'false');
-    tabTable.className = "px-md py-sm border-b-2 border-primary font-bold text-primary text-body-sm transition-all flex items-center gap-1";
-    tabGallery.className = "px-md py-sm text-on-surface-variant text-body-sm hover:text-primary transition-all flex items-center gap-1";
-    tableView.classList.remove('hidden');
-    galleryView.classList.add('hidden');
-});
+tabGallery.addEventListener('click', () => setView(tabGallery, tabTable, galleryView, tableView));
+tabTable.addEventListener('click', () => setView(tabTable, tabGallery, tableView, galleryView));
 
 let branchesCache = [];
 
@@ -257,8 +251,11 @@ function shiftLabel(value) {
 }
 
 async function loadBranchOptions() {
-    branchesCache = await ZamAPI.getBranches();
     const sel = document.getElementById('f-branch');
+    try { branchesCache = await ZamAPI.getBranches(); } catch (err) {
+        console.error(err); checklistStatus.innerHTML = '<span class="text-error">تعذّر تحميل قائمة الفروع. يمكنك إعادة المحاولة بعد تحديث الصفحة.</span>';
+        sel.disabled = true; return;
+    }
     branchesCache.filter(branch => ZamBranchLifecycle.isOperational(branch)).forEach(b => {
         const opt = document.createElement('option');
         opt.value = b.id; opt.textContent = b.name;
@@ -272,6 +269,10 @@ async function loadBranchOptions() {
 }
 
 async function loadLogs() {
+    const applyButton = document.getElementById('apply-filters');
+    applyButton.disabled = true; applyButton.setAttribute('aria-busy', 'true');
+    checklistStatus.textContent = 'جارٍ تحديث السجلات…';
+    galleryView.setAttribute('aria-busy', 'true');
     galleryView.innerHTML = '<p class="text-on-surface-variant text-body-sm p-sm">جارِ التحميل...</p>';
     document.getElementById('logs-table-tbody').innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
 
@@ -297,6 +298,7 @@ async function loadLogs() {
         notes = notes.filter(branchOperationalForRecord);
         readings = readings.filter(branchOperationalForRecord);
 
+        checklistStatus.textContent = 'تم تحديث السجل حسب الفلاتر المحددة.';
         // حساب الإحصائيات
         document.getElementById('stat-total-executed').textContent = logs.length + hourlyLogs.length;
         const withPhotos = [...logs, ...hourlyLogs].filter(l => l.photo_url).length;
@@ -312,7 +314,7 @@ async function loadLogs() {
             galleryView.innerHTML = logsWithPhotos.map(l => `
                 <div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col">
                   <div class="h-48 overflow-hidden relative cursor-pointer group flex items-center justify-center bg-surface-container">
-                    <img src="${escHtml(safeImageUrl(l.photo_url))}" class="w-full h-full object-cover group-hover:scale-105 transition-all zoomable-img" data-src="${escHtml(safeImageUrl(l.photo_url))}"/>
+                    <button type="button" class="checklist-photo-trigger zoomable-btn" aria-label="تكبير صورة: ${escHtml(l.checklist_templates?.task_title || l.template_title || 'مهمة')}" data-src="${escHtml(safeImageUrl(l.photo_url))}"><img src="${escHtml(safeImageUrl(l.photo_url))}" alt="توثيق مصور للمهمة ${escHtml(l.checklist_templates?.task_title || l.template_title || '')}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-all"/></button>
                     <div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"><span class="material-symbols-outlined text-4xl">zoom_in</span></div>
                   </div>
                   <div class="p-sm flex flex-col gap-xs flex-1 justify-between">
@@ -381,9 +383,11 @@ async function loadLogs() {
             el.addEventListener('click', () => {
                 const src = safeImageUrl(el.dataset.src);
                 if (!src) return;
+                lastImageTrigger = el;
                 document.getElementById('modal-img').src = src;
-                document.getElementById('image-modal').classList.remove('hidden');
-                document.getElementById('image-modal').classList.add('flex');
+                const modal = document.getElementById('image-modal');
+                modal.classList.remove('hidden'); modal.classList.add('flex'); modal.setAttribute('aria-hidden', 'false');
+                document.getElementById('close-image').focus();
             });
         });
 
@@ -391,13 +395,20 @@ async function loadLogs() {
         console.error(err);
         galleryView.innerHTML = '<p class="col-span-3 text-error text-body-sm text-center">حدث خطأ أثناء تحميل السجلات.</p>';
         document.getElementById('logs-table-tbody').innerHTML = '<tr><td colspan="7" class="p-md text-center text-error">حدث خطأ أثناء تحميل السجلات.</td></tr>';
-    }
+        checklistStatus.innerHTML = '<span class="text-error">تعذّر تحميل بيانات السجل. <button type="button" id="retry-checklist-load" class="underline font-bold">إعادة المحاولة</button></span>';
+        document.getElementById('retry-checklist-load').addEventListener('click', loadLogs);
+    } finally { applyButton.disabled = false; applyButton.removeAttribute('aria-busy'); galleryView.removeAttribute('aria-busy'); }
 }
 
-document.getElementById('close-image').addEventListener('click', () => {
-    document.getElementById('image-modal').classList.add('hidden');
-    document.getElementById('image-modal').classList.remove('flex');
-});
+function closeImageModal() {
+    const modal = document.getElementById('image-modal');
+    modal.classList.add('hidden'); modal.classList.remove('flex'); modal.setAttribute('aria-hidden', 'true');
+    document.getElementById('modal-img').src = '';
+    if (lastImageTrigger?.isConnected) lastImageTrigger.focus();
+}
+document.getElementById('close-image').addEventListener('click', closeImageModal);
+document.getElementById('image-modal').addEventListener('click', event => { if (event.target.id === 'image-modal') closeImageModal(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !document.getElementById('image-modal').classList.contains('hidden')) closeImageModal(); });
 
 document.getElementById('apply-filters').addEventListener('click', loadLogs);
 

@@ -6,7 +6,7 @@
   <title>تسجيل زيارة جديدة | Operations Expert</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../assets/supabase-config.js?v=20261117194500"></script>
+  <script src="../assets/supabase-config.js?v=20261121212700"></script>
   <style>
     body{font-family:Tahoma,sans-serif;background:#f7f3ef;color:#24170c}
     .card{background:#fff;border:1px solid #e5d9cf;border-radius:18px;box-shadow:0 8px 24px #4b362110}
@@ -47,17 +47,51 @@
     }
     @media print { .card { box-shadow: none; } }
   </style>
+  <style>
+    body.zam-page{font-family:var(--font-ui,Tahoma,sans-serif);background:var(--riwaq-bg,#f4f6f4);color:var(--riwaq-ink,#203129)}
+    body.zam-page header.brand{background:var(--riwaq-surface,#fff);color:var(--riwaq-ink);border-bottom:1px solid var(--riwaq-line);box-shadow:0 4px 20px #24372d0b}
+    body.zam-page header.brand>div{max-width:1120px} body.zam-page header.brand h1{font-size:clamp(1.5rem,3vw,2.1rem);line-height:1.2;color:var(--riwaq-sidebar)}
+    body.zam-page header.brand .opacity-75,body.zam-page header.brand .opacity-85{color:var(--riwaq-muted);opacity:1}
+    body.zam-page header.brand img{height:56px;background:transparent;box-shadow:none;padding:0}
+    body.zam-page main{max-width:1120px;padding-top:28px;padding-bottom:64px}
+    body.zam-page .card{padding:clamp(18px,2.5vw,28px);border:1px solid var(--riwaq-line);border-radius:18px;box-shadow:0 5px 22px #2031290b}
+    body.zam-page .flow-label{font-size:.76rem;text-transform:uppercase;color:var(--riwaq-primary);letter-spacing:.045em}
+    body.zam-page h2{font-size:1.25rem;color:var(--riwaq-sidebar)}
+    body.zam-page #message{position:relative;border-inline-start:5px solid #27734a;background:#f1f8f2}
+    body.zam-page #message.text-\[\#8d332c\]{border-inline-start-color:#a3372e;background:#fff4f1}
+    body.zam-page #items{display:grid;gap:14px}
+    body.zam-page .item{padding:clamp(16px,2vw,22px);border-radius:16px;border-color:var(--riwaq-line);box-shadow:0 2px 8px #20312908}
+    body.zam-page .item h3{font-size:1.05rem;margin-top:3px;color:var(--riwaq-sidebar)}
+    body.zam-page .item .score{min-width:52px;min-height:46px;border-radius:12px;font-weight:800}
+    body.zam-page .item .score.selected{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--riwaq-primary)}
+    body.zam-page [data-aggregate]{padding:10px 12px;border-radius:10px;background:#f4f7f4}
+    body.zam-page input:not([type=checkbox]),body.zam-page select,body.zam-page textarea{min-height:46px;padding:10px 12px;border:1px solid var(--riwaq-line);border-radius:10px}
+    body.zam-page textarea{min-height:88px}
+    body.zam-page input[type=checkbox]{width:20px;height:20px;accent-color:var(--riwaq-primary)}
+    body.zam-page button{cursor:pointer} body.zam-page button:disabled{opacity:.58;cursor:wait}
+    body.zam-page #progress{padding:8px 12px;border-radius:999px;background:#edf3ee;color:#245b3b;font-size:.9rem}
+    body.zam-page .assignment-highlight{border-color:var(--riwaq-accent);background:#fbf7f1}
+    .visit-steps{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;padding:0;list-style:none}
+    .visit-steps a{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid var(--riwaq-line);border-radius:999px;background:#fff;color:var(--riwaq-sidebar);font-weight:700;text-decoration:none}
+    .visit-steps a:hover{border-color:var(--riwaq-primary);background:#f6f8f5}
+    #assessmentHeading,#signoffHeading{scroll-margin-top:100px}
+    @media(max-width:700px){body.zam-page header.brand{padding:14px 16px}body.zam-page header.brand>div{align-items:flex-start;flex-direction:column}body.zam-page header.brand .h-20{height:42px}body.zam-page header.brand img{height:42px}body.zam-page main{padding:14px 12px 48px}body.zam-page .card{padding:17px!important}body.zam-page #assessmentHeading+ p{max-width:38ch}.visit-steps{display:grid;grid-template-columns:1fr 1fr}.visit-steps a{justify-content:center;font-size:.87rem}.item .flex.justify-between{align-items:flex-start}body.zam-page #assignmentForm{grid-template-columns:minmax(0,1fr)}}
+    @media(max-width:360px){.visit-steps{grid-template-columns:1fr}body.zam-page .item .score{min-width:45px;padding-inline:8px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+    @media print{.visit-steps,body.zam-page header.brand{display:none!important}body.zam-page main{padding:0}.card{break-inside:avoid}}
+  </style>
 </head>
-<body>
+<body class="zam-page">
   <header class="brand p-6">
     <div class="max-w-5xl mx-auto flex items-center justify-between gap-4">
       <div class="flex items-center gap-4"><img src="../assets/logo/zam-logo.png" alt="شعار زام" class="h-20 w-auto object-contain bg-white rounded-xl p-1 shadow-sm"><div><p class="opacity-75">Operations Expert</p><h1 class="text-3xl font-black">تسجيل زيارة فرع</h1><p class="opacity-85 mt-1">إسناد الزيارة، استكمال التقييم، ثم حفظ الاعتماد والإثباتات.</p></div></div>
-      <nav class="no-print flex items-center gap-2" aria-label="التنقل والإجراءات"><a href="../dashboard/index.html" title="الصفحة الأساسية" aria-label="الصفحة الأساسية" class="w-11 h-11 rounded-full bg-white/20 border border-white/40 text-white inline-flex items-center justify-center hover:bg-white/30 transition"><svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></a><a href="../branch-visits-history/index.html" class="bg-white text-[#33210d] rounded-full px-4 py-2 font-bold inline-flex items-center">السجل والتقارير</a></nav>
+      <nav class="no-print flex items-center gap-2 flex-wrap" aria-label="التنقل والإجراءات"><a href="../dashboard/index.html" title="الصفحة الأساسية" aria-label="الصفحة الأساسية" class="w-11 h-11 rounded-full bg-white/20 border border-white/40 text-white inline-flex items-center justify-center hover:bg-white/30 transition"><svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></a><a href="../branch-visits-history/index.html" class="bg-white text-[#33210d] rounded-full px-4 py-2 font-bold inline-flex items-center">السجل والتقارير</a><div data-zam-header-tools aria-label="أدوات المستخدم"></div></nav>
     </div>
   </header>
   <main class="max-w-5xl mx-auto p-5 md:p-8 space-y-5">
+    <nav class="visit-steps no-print" aria-label="مراحل الزيارة"><a href="#visit-context">١ · السياق والتكليف</a><a href="#assessmentHeading">٢ · التقييم</a><a href="#signoffHeading">٣ · المراجعة والاعتماد</a></nav>
     <div id="message" class="hidden" role="status" aria-live="polite"></div>
-    <section class="card p-4 md:p-5" aria-label="سياق الزيارة"><p class="flow-label text-xs font-bold">سياق الزيارة</p><p class="muted text-sm mt-1">تُحدد بيانات الفرع والموعد والشفت ونوع الزيارة قبل التقييم. عند بدء تكليف، تُطابق هذه البيانات مع التكليف المسند.</p>
+    <section id="visit-context" class="card p-4 md:p-5" aria-label="سياق الزيارة"><p class="flow-label text-xs font-bold">سياق الزيارة</p><p class="muted text-sm mt-1">تُحدد بيانات الفرع والموعد والشفت ونوع الزيارة قبل التقييم. عند بدء تكليف، تُطابق هذه البيانات مع التكليف المسند.</p>
       <div class="grid md:grid-cols-4 gap-3 mt-4">
         <label>الفرع<select id="branch" class="w-full border rounded-lg p-2 mt-1"><option value="">اختر الفرع</option></select></label>
         <label>التاريخ<input id="date" type="date" class="w-full border rounded-lg p-2 mt-1"></label>
@@ -80,7 +114,7 @@
       </form>
     </section>
     <form id="form" class="space-y-5">
-      <section class="card p-5" aria-labelledby="assessmentHeading"><div class="flex justify-between items-center gap-3 flex-wrap"><div><p class="flow-label text-xs font-bold">الخطوة التالية · التقييم</p><h2 id="assessmentHeading" class="text-xl font-bold mt-1">تقييم معايير الزيارة</h2><p class="muted text-sm mt-1">قيّم كل معيار، ثم أضف إجراءً وإثباتًا عند الحاجة.</p></div><strong id="progress" aria-live="polite">لم يبدأ التقييم</strong></div><div id="items" class="mt-5 space-y-3" aria-live="polite"><div class="muted" role="status">جارٍ تحميل المعايير…</div></div></section>
+      <section class="card p-5" aria-labelledby="assessmentHeading"><div class="flex justify-between items-center gap-3 flex-wrap"><div><p class="flow-label text-xs font-bold">الخطوة التالية · التقييم</p><h2 id="assessmentHeading" class="text-xl font-bold mt-1">تقييم معايير الزيارة</h2><p class="muted text-sm mt-1">قيّم كل معيار، ثم أضف إجراءً وإثباتًا عند الحاجة.</p></div><strong id="progress" aria-live="polite">لم يبدأ التقييم</strong></div><div id="items" class="mt-5 space-y-3" aria-live="polite" aria-busy="true"><div class="muted" role="status">جارٍ تحميل المعايير…</div></div></section>
       <section class="card p-5" aria-labelledby="signoffHeading"><p class="flow-label text-xs font-bold">الخطوة الأخيرة · المراجعة والاعتماد</p><h2 id="signoffHeading" class="text-xl font-bold mt-1">مراجعة بيانات الاعتماد</h2><div class="grid md:grid-cols-2 gap-3 mt-3"><label>ملاحظات عامة<textarea id="generalNote" class="w-full border rounded-lg p-2 mt-1" rows="4"></textarea></label><div class="bg-[#f7f3ef] rounded-xl p-4"><p class="muted">منفّذ الزيارة:</p><p id="signer" class="font-bold mt-2"></p><p class="text-sm font-bold mt-2">اعتماد إلكتروني — محمود شريف — إدارة التشغيل</p><p class="text-sm muted mt-2">يحفظ النظام هوية منفّذ الزيارة وتاريخ الاعتماد إلكترونياً.</p><label class="flex gap-2 items-center mt-4"><input id="confirmEval" type="checkbox"> أؤكد صحة التقييم والبيانات</label></div></div><button id="save" class="mt-5 bg-[#33210d] text-white rounded-full px-6 py-3 font-bold" type="submit">اعتماد وتوقيع الزيارة</button></section>
     </form>
   </main>
@@ -88,6 +122,10 @@
 <script>
 const currentUser = ZamSession.requireAuth('../index.html');
 if (!currentUser) throw new Error('يلزم تسجيل الدخول.');
+const sidebarSlot = document.createElement('div');
+sidebarSlot.id = 'sidebar-slot';
+document.body.prepend(sidebarSlot);
+(async () => { sidebarSlot.outerHTML = await renderZamSidebar('branch-visits', currentUser.role); })();
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 const today = new Date().toISOString().slice(0, 10);
 let canManageVisits = false;
@@ -192,16 +230,17 @@ function renderItems() {
   const list = templates.filter(template => visibleCodes.has(template.code)
     && (legacyMode ? (template.active || template.code === 'BRV-GOV-01') : template.active)
     && applicable(template));
+  items.setAttribute('aria-busy', 'false');
   items.innerHTML = list.length ? list.map(template => {
     const isGovernment = template.code === 'BRV-GOV-01';
     return `
     <article class="item" data-id="${template.id}" data-code="${esc(template.code)}">
       <div class="flex justify-between gap-3 flex-wrap">
         <div class="flex-1 min-w-[240px]"><span class="text-xs muted">${esc(template.category)}</span><h3 class="font-bold">${esc(template.title)}</h3><p class="text-sm muted whitespace-pre-line">${esc(template.instructions || '')}</p></div>
-        <div class="flex gap-1 items-start ${isGovernment ? 'hidden' : ''}"><button type="button" class="score" data-score="10">10</button><button type="button" class="score" data-score="5">5</button><button type="button" class="score" data-score="0">0</button><button type="button" class="score" data-score="na">لا ينطبق</button></div>
+        <div role="group" aria-label="درجة المعيار" class="flex gap-1 items-start ${isGovernment ? 'hidden' : ''}"><button type="button" class="score" data-score="10">10</button><button type="button" class="score" data-score="5">5</button><button type="button" class="score" data-score="0">0</button><button type="button" class="score" data-score="na">لا ينطبق</button></div>
         ${isGovernment ? `<div class="hidden">${Array.from({length:11}, (_, i) => `<button type="button" class="score" data-score="${i}">${i}</button>`).join('')}</div>` : ''}
       </div>
-      ${isGovernment ? `<div class="mt-3 space-y-2"><b class="text-sm">قيّم كل نقطة حكومية على حدة (10 مطابق، 5 جزئي، 0 غير مطابق)</b>${GOVERNMENT_CHECKS.map(check => `<div class="rounded-lg border p-3 flex justify-between items-center gap-3 flex-wrap"><span class="text-sm">${esc(check.title)}</span><div class="flex gap-1">${[10,5,0].map(score => `<button type="button" class="subcheck-score score" data-code="${check.code}" data-score="${score}">${score}</button>`).join('')}</div></div>`).join('')}<p data-aggregate class="text-sm font-bold text-[#76583d]">أكمل النقاط الفرعية الخمس (0/5)</p></div>` : ''}
+      ${isGovernment ? `<div class="mt-3 space-y-2"><b class="text-sm">قيّم كل نقطة حكومية على حدة (10 مطابق، 5 جزئي، 0 غير مطابق)</b>${GOVERNMENT_CHECKS.map(check => `<div class="rounded-lg border p-3 flex justify-between items-center gap-3 flex-wrap"><span class="text-sm">${esc(check.title)}</span><div role="group" aria-label="تقييم ${esc(check.title)}" class="flex gap-1">${[10,5,0].map(score => `<button type="button" class="subcheck-score score" data-code="${check.code}" data-score="${score}">${score}</button>`).join('')}</div></div>`).join('')}<p data-aggregate class="text-sm font-bold text-[#76583d]">أكمل النقاط الفرعية الخمس (0/5)</p></div>` : ''}
       <div class="grid md:grid-cols-2 gap-3 mt-3">
         <textarea data-note placeholder="ملاحظة اختيارية" class="w-full border rounded-lg p-2" rows="2"></textarea>
         <div>
@@ -234,6 +273,7 @@ async function loadTemplates() {
     .in('code', [...NEW_BRANCH_VISIT_CODES, 'BRV-GOV-01']).order('sort_order');
   if (error) throw error;
   templates = data || [];
+  items.setAttribute('aria-busy', 'false');
   renderItems();
 }
 async function loadAssignees(branchId) {

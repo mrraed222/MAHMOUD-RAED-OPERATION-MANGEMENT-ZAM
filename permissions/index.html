@@ -15,7 +15,7 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261121180400"></script>
+<script src="../assets/supabase-config.js?v=20261121212700"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (currentUser.role !== 'Owner') {
@@ -49,32 +49,60 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </style>
 <link rel="stylesheet" href="../assets/riwaq-theme.css">
 <style>
-  body.zam-page { background: var(--riwaq-bg) !important; color: var(--riwaq-ink); font-family: var(--font-ui); }
-  header.fixed { background: var(--riwaq-surface) !important; border-color: var(--riwaq-line) !important; box-shadow: 0 2px 12px rgba(29,47,39,.035); }
-  main > div { padding: clamp(16px, 3vw, 32px); display:flex; flex-direction:column; gap:24px; }
-  main > div > section, main > div > div { margin-bottom:0 !important; }
-  main section, main > div > div { border-radius: var(--riwaq-radius); }
-  main section.bg-primary-container\/10 { background: var(--riwaq-surface) !important; border-color: var(--riwaq-line) !important; box-shadow: var(--riwaq-shadow); }
-  main > div > div.bg-surface-container-lowest { border-color: var(--riwaq-line) !important; box-shadow: var(--riwaq-shadow); }
-  input, select { border-radius: var(--riwaq-radius-sm) !important; }
-  @media (max-width: 640px) {
-    header.fixed { height: auto; min-height: 72px; padding: 10px 14px; }
-    header.fixed > div { gap: 8px; }
-    header.fixed img { height: 32px; }
-    header.fixed h1 { font-size: 18px; }
-    header.fixed p { font-size: 11px; line-height: 1.4; }
-    main > div { padding: 112px 14px 24px; gap:16px; }
-    header.fixed { align-items:flex-start; }
-    header.fixed > div { align-items:center; }
-    main section.flex.justify-between.items-center { align-items: flex-start; flex-direction: column; gap: 8px; }
-    main > div > div.overflow-x-auto { overflow-x: auto; border-radius:16px; }
-    table { min-width: 760px; }
-    main section > div.grid { gap: 12px; }
-  }
-  label { display:block; }
-  input, select, button { min-height:44px; }
-  #pending-list > div { box-shadow:var(--riwaq-shadow); }
-  #staff-tbody tr:hover { background:var(--riwaq-bg); }
+  body.zam-page { background:var(--riwaq-bg)!important; color:var(--riwaq-ink); font-family:var(--font-ui); }
+  header.fixed { background:var(--riwaq-surface)!important; border-color:var(--riwaq-line)!important; box-shadow:0 2px 12px rgba(29,47,39,.035); }
+  main > .permissions-layout { max-width:1120px; margin-inline:auto; padding:112px 24px 40px; display:grid; gap:20px; }
+  .panel { border:1px solid var(--riwaq-line); border-radius:18px; background:var(--riwaq-surface); box-shadow:var(--riwaq-shadow); padding:clamp(16px,2.5vw,26px); }
+  .section-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:14px; }
+  .section-heading h2 { font-size:22px; line-height:1.35; font-weight:800; color:var(--riwaq-ink); }
+  .section-heading p,.hint { color:var(--riwaq-muted); line-height:1.65; }
+  .pending-panel { border-color:#e6c9b0; background:linear-gradient(135deg,#fffaf4,var(--riwaq-surface) 55%); }
+  .pending-panel h2 { color:#7b3e1e; }
+  .panel-title { display:flex; align-items:center; gap:10px; }
+  .status-chip { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:5px 10px; background:#f4eadf; color:#69401f; font-weight:700; font-size:14px; white-space:nowrap; }
+  .account-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-items:end; }
+  .field { display:grid; gap:6px; min-width:0; }
+  .field label { font-weight:700; }
+  input,select { min-height:46px; border:1px solid var(--riwaq-line)!important; border-radius:10px!important; padding:9px 12px!important; background:#fff!important; max-width:100%; }
+  button,.button-link { min-height:44px; border-radius:10px; padding:9px 16px; font:inherit; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .primary-action { color:white; background:#33210d; }
+  .quiet-action { border:1px solid var(--riwaq-line); color:var(--riwaq-ink); background:white; }
+  .pending-list,.staff-cards { display:grid; gap:12px; }
+  .pending-card,.staff-card { border:1px solid var(--riwaq-line); border-radius:14px; padding:16px; background:white; }
+  .pending-card { border-inline-start:4px solid #b76539; }
+  .employee-identity { display:flex; align-items:center; gap:12px; min-width:0; }
+  .employee-identity img,.avatar-placeholder { width:48px; height:48px; border-radius:50%; object-fit:cover; flex:none; }
+  .avatar-placeholder { display:grid; place-items:center; background:#f1eeea; }
+  .employee-identity > div { min-width:0; }
+  .employee-identity p { overflow-wrap:anywhere; }
+  .pending-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:16px; align-items:end; }
+  .report-choice { display:flex; gap:9px; align-items:center; min-height:44px; }
+  input[type=checkbox] { min-width:20px; width:20px; height:20px; accent-color:#33210d; }
+  .button-row { display:flex; gap:8px; }
+  .button-row button { flex:1; }
+  .approve-btn { color:#fff; background:#2c6346; }
+  .reject-btn { color:#fff; background:#a23530; }
+  .staff-cards { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .staff-card { display:grid; gap:14px; }
+  .staff-card-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+  .staff-card-head h3 { font-size:18px; font-weight:800; overflow-wrap:anywhere; }
+  .staff-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .staff-card input.passcode-input { width:100%; }
+  .staff-card-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; border-top:1px solid var(--riwaq-line); padding-top:12px; }
+  .message { min-height:24px; }
+  #perms-modal { position:fixed; inset:0; background:rgba(22,25,22,.55); display:grid; place-items:center; z-index:60; padding:16px; }
+  #perms-modal .dialog { background:white; border-radius:18px; padding:22px; width:min(620px,100%); max-height:90dvh; overflow:auto; box-shadow:0 16px 60px #0003; }
+  #perms-modal h3 { font-size:22px; font-weight:800; margin-bottom:6px; }
+  #perms-modal h4 { font-size:16px; font-weight:800; padding-bottom:8px; border-bottom:1px solid var(--riwaq-line); margin-bottom:8px; }
+  .check-list { display:grid; gap:4px; }
+  .check-row { display:flex; align-items:flex-start; gap:10px; padding:8px; border-radius:8px; cursor:pointer; line-height:1.5; }
+  .check-row:hover { background:var(--riwaq-bg); }
+  .dialog-actions { display:flex; justify-content:flex-start; gap:10px; border-top:1px solid var(--riwaq-line); padding-top:14px; margin-top:14px; }
+  .hidden { display:none!important; }
+  :focus-visible { outline:3px solid #b45e40!important; outline-offset:3px; }
+  @media(max-width:760px) { header.fixed { height:auto; min-height:76px; padding:10px 14px; } header.fixed>div { gap:8px; } header.fixed img { height:32px; } header.fixed h1 { font-size:18px; } main.md\:pr-\[280px\] { padding-top:0; } main>.permissions-layout { padding:100px 14px 24px; gap:14px; } .account-grid,.pending-fields,.staff-cards,.staff-fields { grid-template-columns:1fr; } .section-heading { flex-direction:column; } .staff-card-foot { align-items:stretch; flex-direction:column; } }
+  @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; transition-duration:.01ms!important; } }
 </style>
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
@@ -91,67 +119,30 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   </div>
 </header>
 
-<main class="md:pr-[280px] pt-20 min-h-screen"><div class="max-w-5xl mx-auto p-margin-desktop">
-
-  <section class="rounded-xl border border-outline-variant bg-surface-container-lowest p-md" aria-label="مقدمة إدارة الحسابات">
-    <p class="text-body-sm text-on-surface-variant">إدارة حساب المالك وطلبات التسجيل والموظفين وصلاحياتهم. هذه الصفحة متاحة للمالك فقط.</p>
+<main class="md:pr-[280px] min-h-screen"><div class="permissions-layout">
+  <section class="panel" aria-label="مقدمة إدارة الحسابات">
+    <div class="section-heading"><div><h2 id="page-title">إدارة الحسابات والصلاحيات</h2><p>راجع طلبات الانضمام أولًا، ثم حدّث حسابات الفريق ونطاق الوصول.</p></div><span class="status-chip">بوابة المالك</span></div>
+    <p class="hint">التغييرات تطبق على الحسابات الحالية فقط. اختر الدور والفرع والوردية وفق بيانات الموظف، ولا تمنح إلا الصلاحيات المطلوبة.</p>
   </section>
-
-  <!-- طلبات التسجيل أولوية المراجعة -->
-  <section id="pending-section" class="mb-lg hidden" aria-live="polite">
-    <h2 class="font-title-md text-title-md text-error mb-sm flex items-center gap-sm">
-      <span class="material-symbols-outlined" aria-hidden="true">pending_actions</span> طلبات تسجيل قيد المراجعة
-    </h2>
-    <p class="text-body-sm text-on-surface-variant mb-sm">راجع بيانات الطلب وحدد الدور والفرع والوردية قبل القبول أو الرفض.</p>
-    <div id="pending-list" class="flex flex-col gap-sm"></div>
+  <section id="pending-section" class="panel pending-panel" aria-live="polite" aria-labelledby="pending-title">
+    <div class="section-heading"><div><div class="panel-title"><h2 id="pending-title">طلبات التسجيل قيد المراجعة</h2><span id="pending-count" class="status-chip">جارٍ التحميل</span></div><p>راجع بيانات كل متقدم، وحدد الدور والفرع والوردية قبل القبول أو الرفض.</p></div></div>
+    <div id="pending-list" class="pending-list"><p class="hint" role="status">جارٍ تحميل طلبات التسجيل…</p></div>
   </section>
-
-  <!-- حساب المالك -->
-  <section class="bg-primary-container/10 border border-primary/30 rounded-xl p-md mb-lg">
-    <h2 class="font-title-md text-title-md text-primary mb-xs">حساب المالك</h2>
-    <p class="text-body-sm text-on-surface-variant mb-sm">حدّث البريد عند الحاجة؛ اترك رمز المرور فارغًا للإبقاء عليه دون تغيير.</p>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-md items-end">
-      <div>
-        <label for="my-email" class="text-body-sm text-on-surface-variant">البريد الإلكتروني</label>
-        <input id="my-email" type="email" autocomplete="email" class="w-full border border-outline-variant rounded-lg p-sm mt-xs bg-surface-container-lowest"/>
-      </div>
-      <div>
-        <label for="my-passcode" class="text-body-sm text-on-surface-variant">رمز المرور الجديد</label>
-        <input id="my-passcode" type="text" autocomplete="new-password" placeholder="اتركه فارغاً لعدم التغيير" class="w-full border border-outline-variant rounded-lg p-sm mt-xs bg-surface-container-lowest"/>
-      </div>
-      <button id="save-my-account" class="bg-primary text-on-primary rounded-lg p-sm font-bold h-fit">حفظ بيانات الحساب</button>
-    </div>
-    <p id="my-account-msg" class="text-body-sm mt-sm hidden" role="status" aria-live="polite"></p>
+  <section class="panel" aria-labelledby="owner-title">
+    <div class="section-heading"><div><h2 id="owner-title">حساب المالك</h2><p>غيّر البريد عند الحاجة. اترك رمز المرور فارغًا للإبقاء عليه دون تغيير.</p></div></div>
+    <form id="owner-account-form" class="account-grid" novalidate>
+      <div class="field"><label for="my-email">البريد الإلكتروني</label><input id="my-email" type="email" autocomplete="email" required dir="ltr"/></div>
+      <div class="field"><label for="my-passcode">رمز المرور الجديد <span class="hint">(اختياري)</span></label><input id="my-passcode" type="password" autocomplete="new-password" placeholder="اتركه فارغًا لعدم التغيير" dir="ltr"/></div>
+      <button id="save-my-account" type="submit" class="primary-action">حفظ بيانات الحساب</button>
+    </form>
+    <p id="my-account-msg" class="message hint" role="status" aria-live="polite"></p>
   </section>
-
-  <!-- إدارة الموظفين -->
-  <section class="flex justify-between items-center mb-sm">
-    <div><h2 class="font-title-md text-title-md text-primary">حسابات الموظفين</h2><p class="text-body-sm text-on-surface-variant">عدّل الدور والفرع والوردية ورمز المرور، أو افتح صلاحيات الحساب.</p></div>
-    <a href="../register/index.html" class="text-body-sm font-bold text-primary hover:underline flex items-center gap-1 min-h-11">
-      <span class="material-symbols-outlined text-base">person_add</span> إضافة موظف جديد
-    </a>
+  <section class="panel" aria-labelledby="staff-title">
+    <div class="section-heading"><div><h2 id="staff-title">حسابات الموظفين</h2><p>عدّل الدور والفرع والوردية ورمز المرور، أو افتح محرر صلاحيات الحساب.</p></div><a href="../register/index.html" class="button-link quiet-action">إضافة موظف جديد</a></div>
+    <div id="staff-summary" class="hint" role="status" aria-live="polite">جارٍ تحميل الحسابات…</div>
+    <div id="staff-list" class="staff-cards" aria-live="polite"><p class="hint">جارٍ تحميل حسابات الموظفين…</p></div>
   </section>
-
-  <div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-x-auto">
-    <table class="w-full text-body-sm">
-      <thead class="bg-surface-container text-on-surface-variant">
-        <tr>
-          <th class="p-sm text-right">الاسم</th>
-          <th class="p-sm text-right">الدور</th>
-          <th class="p-sm text-right">الفرع</th>
-          <th class="p-sm text-right">الوردية</th>
-          <th class="p-sm text-right">رمز المرور</th>
-          <th class="p-sm text-right">صلاحيات الأدمن</th>
-          <th class="p-sm text-right"></th>
-        </tr>
-      </thead>
-      <tbody id="staff-tbody" aria-live="polite">
-        <tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ تحميل حسابات الموظفين والطلبات…</td></tr>
-      </tbody>
-    </table>
-  </div>
 </div></main>
-
 <script>
 const ROLES = ['Owner', 'Admin', 'Supervisor', 'Barista', 'Kitchen', 'Waiter'];
 const ROLE_LABELS = { Owner: 'مالك', Admin: 'أدمن', Supervisor: 'مشرف وردية', Barista: 'باريستا', Kitchen: 'مطبخ', Waiter: 'خدمة' };
@@ -166,370 +157,73 @@ const PERMS = [
     { key: 'can_manage_inventory', label: 'إدارة الجرد والاطلاع على سجلات الطلبات' },
     { key: 'can_view_all_reports', label: 'الاطلاع على كل التقارير' },
 ];
-
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 document.getElementById('my-email').value = currentUser.email || '';
-
-document.getElementById('save-my-account').addEventListener('click', async () => {
-    const email = document.getElementById('my-email').value.trim();
-    const newPasscode = document.getElementById('my-passcode').value.trim();
-    const msg = document.getElementById('my-account-msg');
-    msg.classList.add('hidden');
-
-    const payload = { email };
-    if (newPasscode) {
-        if (newPasscode.length < 4) {
-            msg.textContent = 'رمز المرور لازم يكون 4 أحرف/أرقام على الأقل.';
-            msg.className = 'text-error text-body-sm mt-sm';
-            return;
-        }
-        payload.passcode = newPasscode;
-    }
-
-    try {
-        await zamClient.from('profiles').update(payload).eq('id', currentUser.id);
-        currentUser.email = email;
-        if (newPasscode) currentUser.passcode = newPasscode;
-        ZamSession.save(currentUser);
-        document.getElementById('my-passcode').value = '';
-        msg.textContent = 'تم الحفظ بنجاح.';
-        msg.className = 'text-tertiary-container text-body-sm mt-sm font-bold';
-    } catch (err) {
-        console.error(err);
-        msg.textContent = err.message?.includes('duplicate') ? 'رمز المرور ده مستخدم بالفعل.' : 'حدث خطأ أثناء الحفظ.';
-        msg.className = 'text-error text-body-sm mt-sm';
-    }
+const accountForm=document.getElementById('owner-account-form');
+accountForm.addEventListener('submit', async event => {
+  event.preventDefault(); const email=document.getElementById('my-email').value.trim();
+  const pass=document.getElementById('my-passcode').value.trim(); const msg=document.getElementById('my-account-msg');
+  msg.textContent='';
+  if (!email || !document.getElementById('my-email').checkValidity()) { msg.textContent='أدخل بريدًا إلكترونيًا صالحًا.'; msg.className='message text-error'; document.getElementById('my-email').focus(); return; }
+  if (pass && pass.length<4) { msg.textContent='رمز المرور لازم يكون 4 أحرف/أرقام على الأقل.'; msg.className='message text-error'; document.getElementById('my-passcode').focus(); return; }
+  const btn=document.getElementById('save-my-account'); btn.disabled=true; btn.textContent='جارٍ الحفظ…';
+  const payload={email}; if(pass) payload.passcode=pass;
+  try { const {error}=await zamClient.from('profiles').update(payload).eq('id',currentUser.id); if(error) throw error;
+    currentUser.email=email; if(pass) currentUser.passcode=pass; ZamSession.save(currentUser); document.getElementById('my-passcode').value='';
+    msg.textContent='تم حفظ بيانات الحساب.'; msg.className='message text-tertiary-container font-bold';
+  } catch(err) { console.error(err); msg.textContent=err.message?.includes('duplicate')?'رمز المرور ده مستخدم بالفعل.':'تعذّر حفظ الحساب. تحقق من الاتصال وحاول مجددًا.'; msg.className='message text-error'; }
+  finally { btn.disabled=false; btn.textContent='حفظ بيانات الحساب'; }
 });
-
-let branchesCache = [];
-let permsCache = {}; // profile_id -> permissions row
-
-function permsCellHTML(emp) {
-    if (emp.role === 'Owner') return '<span class="text-outline text-[11px]">—</span>';
-    const p = permsCache[emp.id] || {};
-    return `<button class="edit-perms-btn text-primary hover:underline text-[12px] font-bold" data-id="${emp.id}">تحديد الصلاحيات</button>`;
-}
-
-function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, character => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
-    }[character]));
-}
-
+let branchesCache=[]; let permsCache={};
+function permsCellHTML(emp) { return emp.role==='Owner' ? '<span class="hint">لا تنطبق على المالك</span>' : `<button type="button" class="edit-perms-btn quiet-action" data-id="${escapeHtml(emp.id)}">تحديد الصلاحيات</button>`; }
 async function openPermsEditor(empId, empName) {
-    const p = permsCache[empId] || {};
-    const existing = document.getElementById('perms-modal');
-    if (existing) existing.remove();
-
-    // جلب الفئات المسندة من جدول employee_task_categories (يدعم تعدد الفئات)
-    let activeCategories = [];
-    try {
-        activeCategories = await ZamAPI.getTaskCategories(empId);
-    } catch (e) {
-        console.error('Error fetching profile categories:', e);
-    }
-
-    // Fetch templates to extract unique categories dynamically
-    let dbCategories = [];
-    try {
-        const { data: templates } = await zamClient.from('checklist_templates').select('category');
-        dbCategories = [...new Set((templates || []).map(t => t.category).filter(Boolean))];
-    } catch (e) {
-        console.error('Error fetching template categories:', e);
-    }
-    const defaultCategories = ['البار', 'الصالة', 'المطبخ', 'مهام المشرفين'];
-    const allCategories = [...new Set([...defaultCategories, ...dbCategories])];
-
-    const modal = document.createElement('div');
-    modal.id = 'perms-modal';
-    modal.className = 'fixed inset-0 bg-inverse-surface/40 flex items-center justify-center z-50 p-margin-mobile';
-    modal.innerHTML = `
-        <div class="bg-surface-container-lowest rounded-xl p-md w-full max-w-sm max-h-[90vh] overflow-y-auto">
-            <h3 class="font-title-md text-title-md text-primary mb-xs">صلاحيات ${empName}</h3>
-            <p class="text-body-sm text-on-surface-variant mb-sm">حدد الأقسام والمهام والصلاحيات. صلاحية مراجعة الإثبات مستقلة عن إسناد الزيارات وإدارتها.</p>
-
-            <div class="mb-md">
-                <h4 class="font-bold text-sm text-primary mb-xs border-b border-outline-variant pb-xs">📋 قوائم المهام المسندة (التحكم المتعدد)</h4>
-                <div class="flex flex-col gap-xs max-h-[150px] overflow-y-auto">
-                    ${allCategories.map(cat => {
-                        const checked = activeCategories.includes(cat);
-                        return `
-                            <label class="flex items-center gap-sm cursor-pointer hover:bg-surface-container p-1 rounded transition-colors">
-                                <input type="checkbox" class="category-checkbox w-5 h-5 text-primary" data-category="${cat}" ${checked ? 'checked' : ''}/>
-                                <span class="text-body-sm text-on-surface">${cat}</span>
-                            </label>
-                        `;
-                    }).join('')}
-                </div>
-            </div>
-
-            <div class="mb-md">
-                <h4 class="font-bold text-sm text-primary mb-xs border-b border-outline-variant pb-xs">🔐 الصلاحيات الإدارية (أدمن/مشرف)</h4>
-                <div class="flex flex-col gap-sm">
-                    ${PERMS.map(perm => `
-                        <label class="flex items-center gap-sm cursor-pointer hover:bg-surface-container p-1 rounded transition-colors">
-                            <input type="checkbox" class="perm-checkbox w-5 h-5 text-primary" data-key="${perm.key}" ${p[perm.key] ? 'checked' : ''}/>
-                            <span class="text-body-sm text-on-surface">${perm.label}</span>
-                        </label>
-                    `).join('')}
-                </div>
-            </div>
-
-            <div id="inventory-scope-panel" class="mb-md rounded-lg border border-outline-variant bg-surface-container-low p-sm ${p.can_manage_inventory ? '' : 'hidden'}">
-                <h4 class="font-bold text-sm text-primary mb-xs">نطاق صلاحية إدارة الجرد</h4>
-                <label for="inventory-scope-mode" class="text-body-sm text-on-surface-variant">السجلات المسموح بالاطلاع عليها</label>
-                <select id="inventory-scope-mode" class="mt-xs w-full rounded-lg border-outline-variant bg-white p-2">
-                    <option value="all" ${p.can_view_all_inventory ? 'selected' : ''}>كل الفروع</option>
-                    <option value="selected" ${!p.can_view_all_inventory ? 'selected' : ''}>فروع محددة</option>
-                </select>
-                <div id="inventory-branch-options" class="mt-sm flex max-h-36 flex-col gap-xs overflow-y-auto ${p.can_view_all_inventory ? 'hidden' : ''}">
-                    ${branchesCache.map(branch => {
-                        const checked = Array.isArray(p.inventory_branch_ids) && p.inventory_branch_ids.includes(branch.id);
-                        return `<label class="flex items-center gap-sm rounded p-1 text-body-sm hover:bg-white">
-                            <input type="checkbox" class="inventory-branch-checkbox h-4 w-4 text-primary" value="${escapeHtml(branch.id)}" ${checked ? 'checked' : ''}/>
-                            <span>${escapeHtml(branch.name)}</span>
-                        </label>`;
-                    }).join('')}
-                </div>
-                <p class="mt-xs text-[11px] text-on-surface-variant">عند اختيار فروع محددة، لا تظهر الطلبات إلا من الفروع المحددة. للمشرف صلاحية سجلات فرعه بالإضافة إلى النطاق الممنوح.</p>
-            </div>
-
-            <div class="flex gap-sm justify-end border-t border-outline-variant pt-sm">
-                <button id="cancel-perms" class="px-md py-xs rounded-lg text-on-surface-variant hover:bg-surface-container">إلغاء</button>
-                <button id="save-perms" class="px-md py-xs bg-primary text-on-primary rounded-lg font-bold hover:bg-primary-hover">حفظ التغييرات</button>
-            </div>
-        </div>`;
-    document.body.appendChild(modal);
-
-    const inventoryPermissionCheckbox = modal.querySelector('.perm-checkbox[data-key="can_manage_inventory"]');
-    const inventoryScopeMode = modal.querySelector('#inventory-scope-mode');
-    const inventoryScopePanel = modal.querySelector('#inventory-scope-panel');
-    const inventoryBranchOptions = modal.querySelector('#inventory-branch-options');
-    const syncInventoryScope = () => {
-        const enabled = !!inventoryPermissionCheckbox?.checked;
-        inventoryScopePanel.classList.toggle('hidden', !enabled);
-        inventoryBranchOptions.classList.toggle('hidden', !enabled || inventoryScopeMode.value !== 'selected');
-    };
-    inventoryPermissionCheckbox?.addEventListener('change', syncInventoryScope);
-    inventoryScopeMode.addEventListener('change', syncInventoryScope);
-    syncInventoryScope();
-
-    document.getElementById('cancel-perms').addEventListener('click', () => modal.remove());
-    document.getElementById('save-perms').addEventListener('click', async () => {
-        // Collect selected admin permissions
-        const payload = { profile_id: empId };
-        modal.querySelectorAll('.perm-checkbox').forEach(cb => { payload[cb.dataset.key] = cb.checked; });
-        const inventoryScopeMode = modal.querySelector('#inventory-scope-mode').value;
-        const selectedInventoryBranches = [...modal.querySelectorAll('.inventory-branch-checkbox:checked')].map(cb => cb.value);
-        if (payload.can_manage_inventory && inventoryScopeMode === 'selected' && !selectedInventoryBranches.length) {
-            alert('اختر فرعاً واحداً على الأقل، أو حدّد خيار كل الفروع.');
-            return;
-        }
-        payload.can_view_all_inventory = !!payload.can_manage_inventory && inventoryScopeMode === 'all';
-        payload.inventory_branch_ids = payload.can_manage_inventory && inventoryScopeMode === 'selected'
-            ? selectedInventoryBranches
-            : [];
-
-        // Collect selected categories
-        const selectedCats = [];
-        modal.querySelectorAll('.category-checkbox').forEach(cb => {
-            if (cb.checked) selectedCats.push(cb.dataset.category);
-        });
-
-        try {
-            // Save admin permissions
-            await zamClient.from('admin_permissions').upsert(payload);
-            permsCache[empId] = payload;
-
-            // حفظ الفئات المتعددة في جدول employee_task_categories المخصص
-            await ZamAPI.replaceTaskCategories(empId, selectedCats);
-
-            modal.remove();
-
-            // Reload list to reflect changes
-            await loadStaff();
-        } catch (err) {
-            console.error(err);
-            alert('حدث خطأ أثناء حفظ الصلاحيات والمهام.');
-        }
-    });
+  const p=permsCache[empId]||{}; const old=document.getElementById('perms-modal'); if(old) old.remove();
+  const [catsResult, templatesResult]=await Promise.allSettled([ZamAPI.getTaskCategories(empId),zamClient.from('checklist_templates').select('category')]);
+  if(catsResult.status==='rejected'||templatesResult.status==='rejected'||templatesResult.value?.error) { alert('تعذّر تحميل بيانات الصلاحيات والفئات. أعد المحاولة.'); return; }
+  const activeCategories=catsResult.value||[]; const dbCategories=(templatesResult.value.data||[]).map(t=>t.category).filter(Boolean);
+  const categories=[...new Set(['البار','الصالة','المطبخ','مهام المشرفين',...dbCategories])];
+  const modal=document.createElement('div'); modal.id='perms-modal'; modal.setAttribute('role','presentation');
+  modal.innerHTML=`<section class="dialog" role="dialog" aria-modal="true" aria-labelledby="perms-title" tabindex="-1"><h3 id="perms-title">صلاحيات ${escapeHtml(empName)}</h3><p class="hint">حدد فئات المهام والصلاحيات الإدارية. مراجعة الإثبات مستقلة عن إسناد الزيارات.</p>
+  <div style="margin-top:18px"><h4>فئات قوائم المهام المسندة</h4><div class="check-list">${categories.map(cat=>`<label class="check-row"><input type="checkbox" class="category-checkbox" data-category="${escapeHtml(cat)}" ${activeCategories.includes(cat)?'checked':''}><span>${escapeHtml(cat)}</span></label>`).join('')}</div></div>
+  <div style="margin-top:18px"><h4>الصلاحيات الإدارية</h4><div class="check-list">${PERMS.map(item=>`<label class="check-row"><input type="checkbox" class="perm-checkbox" data-key="${item.key}" ${p[item.key]?'checked':''}><span>${item.label}</span></label>`).join('')}</div></div>
+  <section id="inventory-scope-panel" class="panel ${p.can_manage_inventory?'':'hidden'}" style="margin-top:14px;padding:14px"><h4>نطاق صلاحية إدارة الجرد</h4><label for="inventory-scope-mode">السجلات المسموح بالاطلاع عليها</label><select id="inventory-scope-mode" class="w-full"><option value="all" ${p.can_view_all_inventory?'selected':''}>كل الفروع</option><option value="selected" ${!p.can_view_all_inventory?'selected':''}>فروع محددة</option></select><div id="inventory-branch-options" class="check-list" style="max-height:150px;overflow:auto;margin-top:8px">${branchesCache.map(branch=>`<label class="check-row"><input type="checkbox" class="inventory-branch-checkbox" value="${escapeHtml(branch.id)}" ${Array.isArray(p.inventory_branch_ids)&&p.inventory_branch_ids.includes(branch.id)?'checked':''}><span>${escapeHtml(branch.name)}</span></label>`).join('')}</div><p class="hint">عند اختيار فروع محددة، لا تظهر الطلبات إلا من الفروع المحددة. للمشرف صلاحية سجلات فرعه بالإضافة إلى النطاق الممنوح.</p></section>
+  <div class="dialog-actions"><button id="cancel-perms" class="quiet-action">إلغاء</button><button id="save-perms" class="primary-action">حفظ التغييرات</button></div><p id="perms-msg" class="message" role="status" aria-live="polite"></p></section>`;
+  document.body.appendChild(modal); const dialog=modal.querySelector('.dialog'); const focusables=()=>[...dialog.querySelectorAll('button,input,select')].filter(el=>!el.disabled); dialog.focus();
+  const close=()=>{document.removeEventListener('keydown',keyHandler);modal.remove();};
+  const keyHandler=e=>{if(e.key==='Escape'){close();return;} if(e.key==='Tab'){const f=focusables(),first=f[0],last=f.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}};
+  document.addEventListener('keydown',keyHandler); modal.addEventListener('click',e=>{if(e.target===modal)close();});
+  const mode=modal.querySelector('#inventory-scope-mode'), branches=modal.querySelector('#inventory-branch-options'), scope=modal.querySelector('#inventory-scope-panel'), inventory=modal.querySelector('[data-key="can_manage_inventory"]');
+  const sync=()=>{scope.classList.toggle('hidden',!inventory.checked);branches.classList.toggle('hidden',!inventory.checked||mode.value!=='selected');}; inventory.addEventListener('change',sync);mode.addEventListener('change',sync);sync();
+  modal.querySelector('#cancel-perms').addEventListener('click',close);
+  modal.querySelector('#save-perms').addEventListener('click',async e=>{const btn=e.currentTarget,msg=modal.querySelector('#perms-msg'); const payload={profile_id:empId}; modal.querySelectorAll('.perm-checkbox').forEach(cb=>payload[cb.dataset.key]=cb.checked);
+    const scopeMode=mode.value,selected=[...modal.querySelectorAll('.inventory-branch-checkbox:checked')].map(cb=>cb.value);
+    if(payload.can_manage_inventory&&scopeMode==='selected'&&!selected.length){msg.textContent='اختر فرعًا واحدًا على الأقل أو حدّد كل الفروع.';msg.className='message text-error';return;}
+    payload.can_view_all_inventory=!!payload.can_manage_inventory&&scopeMode==='all';payload.inventory_branch_ids=payload.can_manage_inventory&&scopeMode==='selected'?selected:[];
+    const selectedCats=[...modal.querySelectorAll('.category-checkbox:checked')].map(cb=>cb.dataset.category); btn.disabled=true;btn.textContent='جارٍ حفظ الصلاحيات…';
+    try {const {error}=await zamClient.from('admin_permissions').upsert(payload);if(error)throw error;permsCache[empId]=payload;
+      try {await ZamAPI.replaceTaskCategories(empId,selectedCats);} catch(categoryError) {console.error(categoryError); msg.textContent='حُفظت الصلاحيات الإدارية، لكن تعذّر إكمال تحديث فئات المهام؛ الفئات السابقة لم تُحذف. أعد المحاولة من المحرر.';msg.className='message text-error';btn.disabled=false;btn.textContent='إعادة حفظ فئات المهام';return;}
+      close();await loadStaff();
+    } catch(err){console.error(err);msg.textContent='تعذّر حفظ الصلاحيات الإدارية. لم يُغلق المحرر؛ تحقق من الاتصال وأعد المحاولة.';msg.className='message text-error';btn.disabled=false;btn.textContent='إعادة المحاولة';}
+  });
 }
-
 function renderPending(pending) {
-    const section = document.getElementById('pending-section');
-    const list = document.getElementById('pending-list');
-    if (!pending.length) { section.classList.add('hidden'); return; }
-    section.classList.remove('hidden');
-
-    list.innerHTML = pending.map(emp => `
-        <div class="bg-error-container/20 border border-error/40 rounded-xl p-md" data-id="${emp.id}">
-            <div class="flex items-center gap-md mb-sm">
-                ${emp.avatar_url ? `<img src="${emp.avatar_url}" class="w-12 h-12 rounded-full object-cover"/>` : '<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined">person</span></div>'}
-                <div>
-                    <p class="font-bold text-on-surface">${emp.full_name} <span class="text-[11px] text-on-surface-variant">(${emp.employee_number || '—'})</span></p>
-                    <p class="text-body-sm text-on-surface-variant">${emp.email || '—'} ${emp.whatsapp_number ? '• ' + emp.whatsapp_number : ''}</p>
-                </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-sm items-end">
-                <div>
-                    <label class="text-[11px] text-on-surface-variant">الدور</label>
-                    <select class="p-role-select w-full border border-outline-variant rounded-lg p-1">
-                        ${ROLES.filter(r => r !== 'Owner').map(r => `<option value="${r}" ${r === emp.role ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
-                    </select>
-                </div>
-                <div>
-                    <label class="text-[11px] text-on-surface-variant">الفرع</label>
-                    <select class="p-branch-select w-full border border-outline-variant rounded-lg p-1">
-                        <option value="">بدون فرع</option>
-                        ${branchesCache.map(b => `<option value="${b.id}" ${b.id === emp.branch_id ? 'selected' : ''}>${b.name}</option>`).join('')}
-                    </select>
-                </div>
-                <div>
-                    <label class="text-[11px] text-on-surface-variant">الوردية</label>
-                    <select class="p-shift-select w-full border border-outline-variant rounded-lg p-1">
-                        <option value="Morning" ${emp.shift_type === 'Morning' ? 'selected' : ''}>صباحي</option>
-                        <option value="Evening" ${emp.shift_type === 'Evening' ? 'selected' : ''}>مسائي</option>
-                        <option value="Both" ${emp.shift_type === 'Both' ? 'selected' : ''}>كلاهما</option>
-                    </select>
-                </div>
-                <label class="flex items-center gap-1 text-body-sm font-bold">
-                    <input type="checkbox" class="p-reports-check w-4 h-4"/> يستلم ملخص/تقرير فرعه
-                </label>
-                <div class="flex gap-sm">
-                    <button class="approve-btn flex-1 bg-tertiary-container text-on-tertiary rounded-lg py-1 text-body-sm font-bold">قبول</button>
-                    <button class="reject-btn flex-1 bg-error text-on-error rounded-lg py-1 text-body-sm font-bold">رفض</button>
-                </div>
-            </div>
-        </div>
-    `).join('');
-
-    list.querySelectorAll('.approve-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const card = btn.closest('[data-id]');
-            const id = card.dataset.id;
-            const role = card.querySelector('.p-role-select').value;
-            const branch_id = card.querySelector('.p-branch-select').value || null;
-            const shift_type = card.querySelector('.p-shift-select').value;
-            const receives_branch_reports = card.querySelector('.p-reports-check').checked;
-            btn.disabled = true;
-            try {
-                await zamClient.from('profiles').update({ status: 'active', role, branch_id, shift_type, receives_branch_reports }).eq('id', id);
-                await loadStaff();
-            } catch (err) {
-                console.error(err);
-                alert('حدث خطأ أثناء الموافقة.');
-                btn.disabled = false;
-            }
-        });
-    });
-
-    list.querySelectorAll('.reject-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            if (!confirm('تأكيد رفض هذا الطلب؟')) return;
-            const card = btn.closest('[data-id]');
-            const id = card.dataset.id;
-            try {
-                await zamClient.from('profiles').update({ status: 'rejected' }).eq('id', id);
-                await loadStaff();
-            } catch (err) {
-                console.error(err);
-                alert('حدث خطأ أثناء الرفض.');
-            }
-        });
-    });
+  const list=document.getElementById('pending-list'),count=document.getElementById('pending-count'); count.textContent=`${pending.length} ${pending.length===1?'طلب':'طلبات'}`;
+  if(!pending.length){list.innerHTML='<p class="hint">لا توجد طلبات تسجيل معلّقة حاليًا.</p>';return;}
+  list.innerHTML=pending.map(emp=>`<article class="pending-card" data-id="${escapeHtml(emp.id)}"><div class="employee-identity">${emp.avatar_url?`<img alt="" src="${escapeHtml(emp.avatar_url)}">`:'<div class="avatar-placeholder" aria-hidden="true">موظف</div>'}<div><p><strong>${escapeHtml(emp.full_name)}</strong> <span class="hint">(${escapeHtml(emp.employee_number||'—')})</span></p><p class="hint" dir="auto">${escapeHtml(emp.email||'—')} ${emp.whatsapp_number?' · '+escapeHtml(emp.whatsapp_number):''}</p></div></div><div class="pending-fields"><div class="field"><label>الدور</label><select class="p-role-select">${ROLES.filter(r=>r!=='Owner').map(r=>`<option value="${r}" ${r===emp.role?'selected':''}>${ROLE_LABELS[r]}</option>`).join('')}</select></div><div class="field"><label>الفرع</label><select class="p-branch-select"><option value="">بدون فرع</option>${branchesCache.map(b=>`<option value="${escapeHtml(b.id)}" ${b.id===emp.branch_id?'selected':''}>${escapeHtml(b.name)}</option>`).join('')}</select></div><div class="field"><label>الوردية</label><select class="p-shift-select"><option value="Morning" ${emp.shift_type==='Morning'?'selected':''}>صباحي</option><option value="Evening" ${emp.shift_type==='Evening'?'selected':''}>مسائي</option><option value="Both" ${emp.shift_type==='Both'?'selected':''}>كلاهما</option></select></div><label class="report-choice"><input type="checkbox" class="p-reports-check"> يستلم ملخص/تقرير فرعه</label><div class="button-row"><button class="approve-btn">قبول الطلب</button><button class="reject-btn">رفض الطلب</button></div><p class="message pending-msg" role="status" aria-live="polite"></p></div></article>`).join('');
+  list.querySelectorAll('.approve-btn').forEach(btn=>btn.addEventListener('click',async()=>{const card=btn.closest('[data-id]'),msg=card.querySelector('.pending-msg');btn.disabled=true;try{const {error}=await zamClient.from('profiles').update({status:'active',role:card.querySelector('.p-role-select').value,branch_id:card.querySelector('.p-branch-select').value||null,shift_type:card.querySelector('.p-shift-select').value,receives_branch_reports:card.querySelector('.p-reports-check').checked}).eq('id',card.dataset.id);if(error)throw error;await loadStaff();}catch(err){console.error(err);msg.textContent='تعذّرت الموافقة؛ لم يتغير الطلب. حاول مجددًا.';msg.className='message pending-msg text-error';btn.disabled=false;}}));
+  list.querySelectorAll('.reject-btn').forEach(btn=>btn.addEventListener('click',async()=>{if(!confirm('تأكيد رفض هذا الطلب؟'))return;const card=btn.closest('[data-id]'),msg=card.querySelector('.pending-msg');btn.disabled=true;try{const {error}=await zamClient.from('profiles').update({status:'rejected'}).eq('id',card.dataset.id);if(error)throw error;await loadStaff();}catch(err){console.error(err);msg.textContent='تعذّر رفض الطلب؛ حاول مجددًا.';msg.className='message pending-msg text-error';btn.disabled=false;}}));
 }
-
 async function loadStaff() {
-    const tbody = document.getElementById('staff-tbody');
-    try {
-        const [branches, staff, permsRes] = await Promise.all([
-            ZamAPI.getBranches(),
-            ZamAPI.getStaff(),
-            zamClient.from('admin_permissions').select('*')
-        ]);
-        branchesCache = branches;
-        (permsRes.data || []).forEach(row => { permsCache[row.profile_id] = row; });
-
-        const pending = staff.filter(e => e.status === 'pending');
-        const others = staff.filter(e => e.status !== 'pending');
-
-        renderPending(pending);
-
-        tbody.innerHTML = others.map(emp => `
-            <tr class="border-t border-outline-variant" data-id="${emp.id}" data-name="${emp.full_name}">
-                <td class="p-sm font-bold">${emp.full_name}${emp.id === currentUser.id ? ' <span class=\"text-[10px] text-primary\">(أنت)</span>' : ''}${emp.status === 'rejected' ? ' <span class=\"text-[10px] text-error font-bold\">(مرفوض)</span>' : ''}</td>
-                <td class="p-sm">
-                    <select class="role-select border border-outline-variant rounded-lg p-1" ${emp.id === currentUser.id ? 'disabled' : ''}>
-                        ${ROLES.map(r => `<option value="${r}" ${r === emp.role ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
-                    </select>
-                </td>
-                <td class="p-sm">
-                    <select class="branch-select border border-outline-variant rounded-lg p-1">
-                        <option value="">بدون فرع</option>
-                        ${branchesCache.map(b => `<option value="${b.id}" ${b.id === emp.branch_id ? 'selected' : ''}>${b.name}</option>`).join('')}
-                    </select>
-                </td>
-                <td class="p-sm">
-                    <select class="shift-select border border-outline-variant rounded-lg p-1">
-                        <option value="Morning" ${emp.shift_type === 'Morning' ? 'selected' : ''}>صباحي</option>
-                        <option value="Evening" ${emp.shift_type === 'Evening' ? 'selected' : ''}>مسائي</option>
-                        <option value="Both" ${emp.shift_type === 'Both' ? 'selected' : ''}>كلاهما</option>
-                    </select>
-                </td>
-                <td class="p-sm">
-                    <input type="text" class="passcode-input border border-outline-variant rounded-lg p-1 w-24" value="${emp.passcode}"/>
-                </td>
-                <td class="p-sm perms-cell">${permsCellHTML(emp)}</td>
-                <td class="p-sm">
-                    <button class="save-row-btn text-primary hover:underline text-[12px] font-bold">حفظ</button>
-                    <span class="row-msg text-[11px]"></span>
-                </td>
-            </tr>
-        `).join('');
-
-        tbody.querySelectorAll('.edit-perms-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const row = btn.closest('tr');
-                openPermsEditor(row.dataset.id, row.dataset.name);
-            });
-        });
-
-        tbody.querySelectorAll('.role-select').forEach(sel => {
-            sel.addEventListener('change', () => {
-                const row = sel.closest('tr');
-                row.querySelector('.perms-cell').innerHTML = permsCellHTML({ id: row.dataset.id, role: sel.value });
-                if (sel.value !== 'Owner') {
-                    row.querySelector('.edit-perms-btn')?.addEventListener('click', () => openPermsEditor(row.dataset.id, row.dataset.name));
-                }
-            });
-        });
-
-        tbody.querySelectorAll('.save-row-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const row = btn.closest('tr');
-                const id = row.dataset.id;
-                const role = row.querySelector('.role-select').value;
-                const branch_id = row.querySelector('.branch-select').value || null;
-                const shift_type = row.querySelector('.shift-select').value;
-                const passcode = row.querySelector('.passcode-input').value.trim();
-                const msgEl = row.querySelector('.row-msg');
-
-                try {
-                    await zamClient.from('profiles').update({ role, branch_id, shift_type, passcode }).eq('id', id);
-                    msgEl.textContent = 'تم ✓';
-                    msgEl.className = 'row-msg text-[11px] text-tertiary-container font-bold';
-                } catch (err) {
-                    console.error(err);
-                    msgEl.textContent = err.message?.includes('duplicate') ? 'الرمز مستخدم' : 'خطأ';
-                    msgEl.className = 'row-msg text-[11px] text-error font-bold';
-                }
-            });
-        });
-    } catch (err) {
-        console.error(err);
-        tbody.innerHTML = '<tr><td colspan="6" class="p-md text-center text-error">تعذّر تحميل بيانات الموظفين.</td></tr>';
-    }
+ const list=document.getElementById('staff-list'),summary=document.getElementById('staff-summary'); summary.textContent='جارٍ تحميل الحسابات والطلبات…';
+ try {const [branches,staff,permsRes]=await Promise.all([ZamAPI.getBranches(),ZamAPI.getStaff(),zamClient.from('admin_permissions').select('*')]);if(permsRes.error)throw permsRes.error;
+  branchesCache=branches||[]; (permsRes.data||[]).forEach(row=>permsCache[row.profile_id]=row); const pending=staff.filter(e=>e.status==='pending'),others=staff.filter(e=>e.status!=='pending'); renderPending(pending); summary.textContent=`${others.length} حسابًا · ${pending.length} طلب معلّق`;
+  if(!others.length){list.innerHTML='<div class="panel hint">لا توجد حسابات موظفين لعرضها.</div>';return;}
+  list.innerHTML=others.map(emp=>`<article class="staff-card" data-id="${escapeHtml(emp.id)}" data-name="${escapeHtml(emp.full_name)}"><div class="staff-card-head"><div><h3>${escapeHtml(emp.full_name)} ${emp.id===currentUser.id?'<span class="hint">(أنت)</span>':''} ${emp.status==='rejected'?'<span class="text-error">(مرفوض)</span>':''}</h3><p class="hint" dir="auto">${escapeHtml(emp.email||'')}</p></div><span class="status-chip">${ROLE_LABELS[emp.role]||escapeHtml(emp.role)}</span></div><div class="staff-fields"><div class="field"><label>الدور</label><select class="role-select" ${emp.id===currentUser.id?'disabled':''}>${ROLES.map(r=>`<option value="${r}" ${r===emp.role?'selected':''}>${ROLE_LABELS[r]}</option>`).join('')}</select></div><div class="field"><label>الفرع</label><select class="branch-select"><option value="">بدون فرع</option>${branchesCache.map(b=>`<option value="${escapeHtml(b.id)}" ${b.id===emp.branch_id?'selected':''}>${escapeHtml(b.name)}</option>`).join('')}</select></div><div class="field"><label>الوردية</label><select class="shift-select"><option value="Morning" ${emp.shift_type==='Morning'?'selected':''}>صباحي</option><option value="Evening" ${emp.shift_type==='Evening'?'selected':''}>مسائي</option><option value="Both" ${emp.shift_type==='Both'?'selected':''}>كلاهما</option></select></div><div class="field"><label>رمز المرور</label><input type="password" class="passcode-input" autocomplete="new-password" value="${escapeHtml(emp.passcode||'')}" dir="ltr"></div></div><div class="perms-cell">${permsCellHTML(emp)}</div><div class="staff-card-foot"><button class="save-row-btn primary-action">حفظ تغييرات الموظف</button><span class="row-msg message" role="status" aria-live="polite"></span></div></article>`).join('');
+  list.querySelectorAll('.edit-perms-btn').forEach(btn=>btn.addEventListener('click',()=>{const card=btn.closest('.staff-card');openPermsEditor(card.dataset.id,card.dataset.name);}));
+  list.querySelectorAll('.role-select').forEach(sel=>sel.addEventListener('change',()=>{const card=sel.closest('.staff-card');card.querySelector('.perms-cell').innerHTML=permsCellHTML({id:card.dataset.id,role:sel.value});card.querySelector('.edit-perms-btn')?.addEventListener('click',()=>openPermsEditor(card.dataset.id,card.dataset.name));}));
+  list.querySelectorAll('.save-row-btn').forEach(btn=>btn.addEventListener('click',async()=>{const card=btn.closest('.staff-card'),msg=card.querySelector('.row-msg');btn.disabled=true;btn.textContent='جارٍ الحفظ…';try{const {error}=await zamClient.from('profiles').update({role:card.querySelector('.role-select').value,branch_id:card.querySelector('.branch-select').value||null,shift_type:card.querySelector('.shift-select').value,passcode:card.querySelector('.passcode-input').value.trim()}).eq('id',card.dataset.id);if(error)throw error;msg.textContent='تم حفظ التغييرات.';msg.className='row-msg message text-tertiary-container font-bold';}catch(err){console.error(err);msg.textContent=err.message?.includes('duplicate')?'رمز المرور مستخدم؛ اختر رمزًا آخر.':'تعذّر الحفظ؛ تحقق من الاتصال وحاول مجددًا.';msg.className='row-msg message text-error';}finally{btn.disabled=false;btn.textContent='حفظ تغييرات الموظف';}}));
+ } catch(err){console.error(err);summary.textContent='تعذّر تحميل بيانات الإدارة.';list.innerHTML='<div class="panel" role="alert"><p class="text-error">تعذّر تحميل الموظفين أو الصلاحيات. تحقق من الاتصال.</p><button id="retry-staff" class="quiet-action" type="button">إعادة المحاولة</button></div>';document.getElementById('pending-list').innerHTML='<p class="hint" role="alert">تعذّر تحميل طلبات التسجيل.</p>';document.getElementById('pending-count').textContent='غير متاح';document.getElementById('retry-staff').addEventListener('click',loadStaff);}
 }
-
 loadStaff();
 </script>
 </body></html>

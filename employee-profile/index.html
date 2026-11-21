@@ -15,7 +15,7 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261121180400"></script>
+<script src="../assets/supabase-config.js?v=20261121212700"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
 </script>
@@ -103,26 +103,27 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     </div>
   </section>
 
+  <section aria-labelledby="contact-heading" class="profile-card bg-surface-container-lowest border border-outline-variant rounded-xl p-lg mb-lg">
+      <h3 id="contact-heading" class="font-title-md text-title-md text-primary mb-sm flex items-center gap-sm"><span class="material-symbols-outlined" aria-hidden="true">contact_mail</span> بيانات التواصل</h3>
+      <p class="text-body-sm text-on-surface-variant mb-sm">بيانات التواصل المسجلة في حسابك. لتحديثها، تواصل مع مسؤول الحساب.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <p class="text-body-sm text-on-surface-variant">البريد الإلكتروني: <span id="p-email" class="text-on-surface font-bold" dir="auto">—</span></p>
+      <p class="text-body-sm text-on-surface-variant">الواتساب: <span id="p-whatsapp" class="text-on-surface font-bold" dir="auto">—</span></p>
+      </div>
+  </section>
+
   <section aria-labelledby="performance-heading" class="profile-card bg-surface-container-lowest border border-outline-variant rounded-xl p-lg mb-lg">
     <div class="flex flex-wrap justify-between items-start gap-3">
       <div>
       <h3 id="performance-heading" class="font-title-md text-title-md text-primary mb-xs flex items-center gap-sm"><span class="material-symbols-outlined" aria-hidden="true">task_alt</span> أداء آخر 7 أيام</h3>
-      <p class="text-body-sm text-on-surface-variant">عدد سجلات تنفيذ المهام المسجلة لك خلال آخر سبعة أيام.</p>
+      <p class="text-body-sm text-on-surface-variant">عدد سجلات تنفيذ المهام المسجلة لك خلال الأيام السبعة الماضية.</p>
       </div>
       <div class="min-w-28 text-start" aria-live="polite" aria-atomic="true">
-        <p class="text-2xl font-bold text-primary" id="p-completion-count">جارٍ التحميل…</p>
+        <p class="text-2xl font-bold text-primary" id="p-completion-count" role="status">جارٍ تحميل السجلات…</p>
         <p class="text-[12px] text-on-surface-variant">سجل تنفيذ</p>
+        <button id="retry-performance-btn" type="button" class="hidden mt-2 underline text-primary min-h-10" aria-label="إعادة تحميل مؤشر الأداء">إعادة المحاولة</button>
       </div>
     </div>
-  </section>
-
-  <section aria-labelledby="contact-heading" class="profile-card bg-surface-container-lowest border border-outline-variant rounded-xl p-lg mb-lg">
-      <h3 id="contact-heading" class="font-title-md text-title-md text-primary mb-sm flex items-center gap-sm"><span class="material-symbols-outlined" aria-hidden="true">contact_mail</span> بيانات التواصل</h3>
-      <p class="text-body-sm text-on-surface-variant mb-sm">تُعرض هنا بيانات التواصل المحفوظة في حسابك.</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <p class="text-body-sm text-on-surface-variant">البريد الإلكتروني: <span id="p-email" class="text-on-surface font-bold">—</span></p>
-      <p class="text-body-sm text-on-surface-variant">الواتساب: <span id="p-whatsapp" class="text-on-surface font-bold">—</span></p>
-      </div>
   </section>
 
   <section id="supervisor-section" aria-labelledby="reports-heading" class="hidden mb-lg">
@@ -130,7 +131,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
       <h3 id="reports-heading" class="font-title-md text-title-md text-primary">آخر التقارير المُرسلة</h3>
       <p class="text-body-sm text-on-surface-variant mt-1">حتى 10 تقارير مرتبطة باسمك، مرتبة من الأحدث.</p>
     </div>
-    <div id="my-reports-list" aria-live="polite" class="profile-card bg-surface-container-lowest border border-outline-variant rounded-xl divide-y divide-outline-variant"><p class="p-md text-on-surface-variant text-body-sm">جارٍ تحميل التقارير…</p></div>
+    <div id="my-reports-list" aria-live="polite" aria-busy="true" class="profile-card bg-surface-container-lowest border border-outline-variant rounded-xl divide-y divide-outline-variant"><p class="p-md text-on-surface-variant text-body-sm">جارٍ تحميل التقارير…</p></div>
   </section>
 
 </div>
@@ -139,7 +140,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <script>
 const ROLE_LABELS = { Owner: 'مالك النظام', Admin: 'أدمن', Supervisor: 'مشرف وردية', Barista: 'باريستا', Kitchen: 'مطبخ', Waiter: 'خدمة' };
 
-document.getElementById('p-name').textContent = currentUser.full_name;
+document.getElementById('p-name').textContent = currentUser.full_name || 'الموظف';
 document.getElementById('p-role-branch').textContent = `${ROLE_LABELS[currentUser.role] || currentUser.role} — ${currentUser.branches?.name || 'بدون فرع'}`;
 document.getElementById('p-number').textContent = currentUser.employee_number ? `الرقم الوظيفي: ${currentUser.employee_number}` : '';
 document.getElementById('p-email').textContent = currentUser.email || '—';
@@ -150,6 +151,7 @@ document.getElementById('avatar-img').src = currentUser.avatar_url || "data:imag
 document.getElementById('change-avatar-btn')?.addEventListener('click', () => {
     document.getElementById('avatar-input').click();
 });
+document.getElementById('retry-performance-btn')?.addEventListener('click', loadPerformance);
 document.getElementById('avatar-input')?.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -157,6 +159,8 @@ document.getElementById('avatar-input')?.addEventListener('change', async (e) =>
     await zamClient.auth.getSession();
     const btn = document.getElementById('change-avatar-btn');
     btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    btn.setAttribute('aria-label', 'جارٍ تحديث الصورة الشخصية');
     try {
         const ext = file.name.split('.').pop() || 'jpg';
         const path = `${currentUser.id}/${Date.now()}.${ext}`;
@@ -168,11 +172,15 @@ document.getElementById('avatar-input')?.addEventListener('change', async (e) =>
         currentUser.avatar_url = data.publicUrl;
         ZamSession.save(currentUser);
         document.getElementById('avatar-img').src = data.publicUrl + '?t=' + Date.now();
+        btn.setAttribute('aria-label', 'تم تحديث الصورة الشخصية');
+        window.setTimeout(() => btn.setAttribute('aria-label', 'تغيير الصورة الشخصية'), 2500);
     } catch (err) {
         console.error(err);
         alert('تعذّر تحديث الصورة الشخصية: ' + (err.message || 'خطأ غير معروف'));
     } finally {
         btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        if (!btn.getAttribute('aria-label')?.startsWith('تم')) btn.setAttribute('aria-label', 'تغيير الصورة الشخصية');
         e.target.value = '';
     }
 });
@@ -188,9 +196,11 @@ async function loadPerformance() {
             .gte('execution_date', weekAgo.toISOString().split('T')[0]);
         if (error) throw error;
         document.getElementById('p-completion-count').textContent = data.length;
+        document.getElementById('retry-performance-btn').classList.add('hidden');
     } catch (err) {
         console.error(err);
-        document.getElementById('p-completion-count').textContent = '—';
+        document.getElementById('p-completion-count').textContent = 'تعذّر تحميل الأداء';
+        document.getElementById('retry-performance-btn').classList.remove('hidden');
     }
 }
 
@@ -198,6 +208,8 @@ async function loadMyReports() {
     if (!['Owner', 'Admin', 'Supervisor'].includes(currentUser.role)) return;
     document.getElementById('supervisor-section').classList.remove('hidden');
     const list = document.getElementById('my-reports-list');
+    list.setAttribute('aria-busy', 'true');
+    list.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm" role="status">جارٍ تحميل التقارير…</p>';
     try {
         const { data, error } = await zamClient
             .from('daily_reports')
@@ -209,6 +221,7 @@ async function loadMyReports() {
 
         if (!data.length) {
             list.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">لا توجد تقارير مرسلة بعد.</p>';
+            list.setAttribute('aria-busy', 'false');
             return;
         }
         list.innerHTML = data.map(r => `
@@ -220,9 +233,11 @@ async function loadMyReports() {
                 <span class="text-[11px] text-on-surface-variant">${r.team_status || ''}</span>
             </div>
         `).join('');
+        list.setAttribute('aria-busy', 'false');
     } catch (err) {
         console.error(err);
-        list.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل التقارير.</p>';
+        list.innerHTML = '<div class="p-md flex flex-wrap items-center gap-3"><p class="text-error text-body-sm" role="alert">تعذّر تحميل التقارير.</p><button type="button" class="underline text-primary min-h-10" onclick="loadMyReports()">إعادة المحاولة</button></div>';
+        list.setAttribute('aria-busy', 'false');
     }
 }
 

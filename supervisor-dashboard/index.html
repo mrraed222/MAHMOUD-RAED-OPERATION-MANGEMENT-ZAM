@@ -3,7 +3,7 @@
 <meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>ZAM Operations - داشبورد الفرع</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261121180400"></script>
+<script src="../assets/supabase-config.js?v=20261121212700"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
   <script src="../assets/checklist-schedule.js?v=20261121164000"></script>
   <script src="../assets/restroom-hourly.js?v=20261121170500"></script>
@@ -150,6 +150,19 @@ body.zam-page header { min-height: 84px; height: auto; }
 body.zam-page header a, body.zam-page header button { min-height: 44px; }
 body.zam-page main section { scroll-margin-top: 104px; }
 body.zam-page [role="progressbar"] { min-width: 0; }
+/* Page-specific information hierarchy: urgent follow-up, report state, then progress. */
+body.zam-page main > div { max-width: 1180px; }
+body.zam-page main section { margin-block-end: 24px; }
+body.zam-page #visit-actions-heading, body.zam-page main h2 { letter-spacing: -.01em; }
+body.zam-page #visit-actions-list article, body.zam-page #team-grid > div, body.zam-page #category-grid > div { border-radius: 16px; box-shadow: var(--riwaq-shadow); }
+body.zam-page #visit-actions-list article { border-inline-start: 4px solid var(--riwaq-focus, #c0583a); }
+body.zam-page #report-status { border-radius: 14px; }
+body.zam-page #team-grid img { width: 48px; height: 48px; }
+body.zam-page #team-grid [role="progressbar"], body.zam-page #category-grid [role="progressbar"] { height: 10px; }
+body.zam-page main a, body.zam-page main button { min-height: 44px; }
+body.zam-page #visit-action-modal[aria-hidden="false"] { overflow-y: auto; }
+body.zam-page #visit-action-modal > div { max-height: calc(100dvh - 32px); overflow-y: auto; }
+body.zam-page .dashboard-section-intro { max-width: 72ch; line-height: 1.7; }
 @media (max-width: 767px) {
  body.zam-page header { position: relative; height: auto; min-height: 0; padding: 14px 16px; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
  body.zam-page header > div:last-child { width: 100%; justify-content: space-between; flex-wrap: wrap; }
@@ -192,20 +205,25 @@ body.zam-page [role="progressbar"] { min-width: 0; }
 </header>
 
 <main class="md:pr-[280px] pt-20 min-h-screen">
-<div class="max-w-6xl mx-auto p-margin-desktop">
+<div class="max-w-6xl mx-auto p-margin-desktop>
+  <section class="mb-md flex flex-wrap items-end justify-between gap-sm" aria-labelledby="dashboard-title">
+    <div><p class="text-body-sm text-on-surface-variant">متابعة القراءة فقط · <span id="branch-context-name">الفرع</span> · <span id="dashboard-shift-context">الوردية الحالية</span></p><h2 id="dashboard-title" class="font-headline-lg text-2xl font-bold text-primary">لوحة متابعة الفرع</h2><p class="dashboard-section-intro text-body-sm text-on-surface-variant">ملخص تقدم الفريق والتقرير والتكليفات المفتوحة. تنفيذ المهام وإضافة الملاحظات يتم من الصفحات المخصصة.</p></div>
+    <button id="refresh-dashboard" type="button" class="inline-flex items-center justify-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-xs font-bold" aria-label="تحديث بيانات لوحة الفرع"><span class="material-symbols-outlined" aria-hidden="true">refresh</span>تحديث البيانات</button>
+    <p id="dashboard-refresh-state" class="sr-only" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="mb-lg" aria-labelledby="visit-actions-heading">
+    <h2 id="visit-actions-heading" class="font-title-md text-title-md text-primary mb-sm flex items-center gap-xs"><span class="material-symbols-outlined" aria-hidden="true">report</span> ما يتطلب إجراءً</h2>
+    <p class="mb-sm text-body-sm text-on-surface-variant dashboard-section-intro">تكليفات الزيارات المفتوحة المسندة لهذا الفرع. هذه الصفحة للمتابعة وإرسال إفادة التكليف فقط، وليست لتنفيذ قائمة المهام.</p>
+    <div id="visit-actions-list" class="space-y-sm" aria-live="polite">
+      <p class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl text-body-sm text-on-surface-variant">جارٍ تحميل التكليفات…</p>
+    </div>
+  </section>
 
   <!-- حالة تقرير الشفت -->
   <section id="report-status" class="rounded-xl p-md mb-lg flex items-center justify-between gap-md border" role="status" aria-live="polite">
     <p class="text-body-sm"><span id="report-text">جارِ فحص تقرير الشفت...</span></p>
     <a href="../daily-report/index.html" class="shrink-0 min-h-[44px] inline-flex items-center bg-primary text-on-primary px-md py-xs rounded-lg font-label-bold hover:bg-primary-container transition-colors">تقرير مشرف الشفت</a>
-  </section>
-
-  <section class="mb-lg" aria-labelledby="visit-actions-heading">
-    <h2 id="visit-actions-heading" class="font-title-md text-title-md text-primary mb-sm flex items-center gap-xs"><span class="material-symbols-outlined" aria-hidden="true">report</span> ما يتطلب إجراءً</h2>
-    <p class="mb-sm text-body-sm text-on-surface-variant">تكليفات الزيارات المفتوحة المسندة لهذا الفرع؛ أرسل الإفادة والإثبات من هنا عند توفر الإجراء.</p>
-    <div id="visit-actions-list" class="space-y-sm" aria-live="polite">
-      <p class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl text-body-sm text-on-surface-variant">جارِ تحميل التكليفات...</p>
-    </div>
   </section>
 
   <!-- الإحصائيات -->
@@ -292,8 +310,8 @@ body.zam-page [role="progressbar"] { min-width: 0; }
 </div>
 </main>
 
-<div id="visit-action-modal" class="fixed inset-0 z-50 hidden bg-black/50 p-4 flex items-center justify-center">
-  <div class="w-full max-w-lg rounded-2xl bg-surface-container-lowest p-md shadow-xl">
+<div id="visit-action-modal" class="fixed inset-0 z-50 hidden bg-black/50 p-4 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="visit-action-title" aria-describedby="visit-action-summary" aria-hidden="true">
+  <div class="w-full max-w-lg rounded-2xl bg-surface-container-lowest p-md shadow-xl" tabindex="-1">
     <h2 id="visit-action-title" class="font-title-md text-title-md text-primary">إفادة تنفيذ التكليف</h2>
     <p id="visit-action-summary" class="mt-xs text-body-sm text-on-surface-variant"></p>
     <p class="mt-sm text-body-sm text-on-surface-variant">اكتب ما تم تنفيذه وأرفق صورة أو ملف PDF؛ سيراجع مسؤول التفتيش الإثبات قبل إغلاق المخالفة.</p>
@@ -450,6 +468,8 @@ function render() {
     );
     const keyFor = task => ZamChecklistDashboard.taskKey(task, now);
     document.getElementById('team-shift-label').textContent = currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية';
+    document.getElementById('dashboard-shift-context').textContent = currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية';
+    document.getElementById('branch-context-name').textContent = cache.branchName || 'الفرع';
 
     const totalTasks = shiftTemplates.length;
     const doneCount = shiftTemplates.filter(t => doneKeys.has(keyFor(t))).length;
@@ -465,9 +485,9 @@ function render() {
     const rs = document.getElementById('report-status');
     rs.className = 'rounded-xl p-md mb-lg flex items-center justify-between gap-md border ' +
         (reportOk ? 'bg-tertiary-fixed/40 border-tertiary text-on-surface' : 'bg-error-container/40 border-error');
-    document.getElementById('report-text').innerHTML = reportOk
-        ? '✅ تقرير <b>' + (currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية') + '</b> مسلَّم اليوم'
-        : '⚠️ تقرير <b>' + (currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية') + '</b> لم يُسلَّم بعد';
+    document.getElementById('report-text').textContent = reportOk
+        ? `تم تسليم تقرير ${currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية'} لهذا اليوم.`
+        : `لم يُسجّل تقرير ${currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية'} لهذا اليوم بعد.`;
 
     // كروت الفريق
     const grid = document.getElementById('team-grid');
@@ -637,6 +657,8 @@ const visitActionForm = document.getElementById('visit-action-form');
 let activeVisitAction = null;
 function closeVisitActionModal() {
     visitActionModal.classList.add('hidden');
+    visitActionModal.setAttribute('aria-hidden', 'true');
+    document.querySelector('.visit-action-submit-btn')?.focus();
     visitActionForm.reset();
     activeVisitAction = null;
 }
@@ -652,6 +674,8 @@ document.getElementById('visit-actions-list').addEventListener('click', event =>
     document.getElementById('visit-action-title').textContent = action.title || 'إفادة تنفيذ التكليف';
     document.getElementById('visit-action-summary').textContent = `${action.item_type || 'تكليف'} · ${action.priority || '—'}${action.due_date ? ' · موعد الاستحقاق: ' + action.due_date : ''}`;
     visitActionModal.classList.remove('hidden');
+    visitActionModal.setAttribute('aria-hidden', 'false');
+    visitActionModal.querySelector('[tabindex="-1"]').focus();
 });
 document.getElementById('cancel-visit-action').addEventListener('click', closeVisitActionModal);
 visitActionForm.addEventListener('submit', async event => {
@@ -761,25 +785,39 @@ function noteCardHTML(n) {
         await loadAll();
     } catch (err) {
         console.error(err);
-        document.getElementById('team-grid').innerHTML = '<p class="text-error text-body-sm col-span-full">تعذّر تحميل بيانات الداشبورد: ' + (err && err.message ? err.message : String(err)) + '</p>';
-    }
-    const slot = document.getElementById('notif-bell-slot');
-    if (slot) {
-        slot.innerHTML = await renderNotificationBell();
-        attachNotificationBellHandlers();
+        const message = 'تعذّر تحميل بيانات لوحة الفرع. تحقق من الاتصال ثم أعد المحاولة.';
+        ['team-grid', 'category-grid', 'notes-list', 'visit-actions-list'].forEach(id => {
+            const target = document.getElementById(id);
+            target.innerHTML = `<div class="p-md text-error text-body-sm" role="alert">${message} <button type="button" class="retry-dashboard underline font-bold">إعادة المحاولة</button></div>`;
+        });
+        document.getElementById('dashboard-refresh-state').textContent = message;
     }
     let refreshRunning = false;
+    const refreshButton = document.getElementById('refresh-dashboard');
+    const refreshState = document.getElementById('dashboard-refresh-state');
     const refreshDashboard = async () => {
         if (refreshRunning || document.hidden) return;
         refreshRunning = true;
+        if (refreshButton) refreshButton.disabled = true;
+        if (refreshState) refreshState.textContent = 'جارٍ تحديث البيانات…';
         try {
             await loadAll();
+            if (refreshState) refreshState.textContent = 'تم تحديث البيانات.';
         } catch (err) {
             console.error('Dashboard refresh error:', err);
+            const message = 'تعذّر تحديث لوحة الفرع. تحقق من الاتصال ثم أعد المحاولة.';
+            if (refreshState) refreshState.textContent = message;
+            ['team-grid', 'category-grid', 'notes-list', 'visit-actions-list'].forEach(id => {
+                document.getElementById(id).innerHTML = `<div class="p-md text-error text-body-sm" role="alert">${message} <button type="button" class="retry-dashboard underline font-bold">إعادة المحاولة</button></div>`;
+            });
         } finally {
             refreshRunning = false;
+            if (refreshButton) refreshButton.disabled = false;
         }
     };
+    refreshButton?.addEventListener('click', refreshDashboard);
+    document.addEventListener('click', event => { if (event.target.closest('.retry-dashboard')) refreshDashboard(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && !visitActionModal.classList.contains('hidden')) closeVisitActionModal(); });
     window.setInterval(refreshDashboard, 60000);
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) refreshDashboard();
