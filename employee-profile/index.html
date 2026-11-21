@@ -44,6 +44,24 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .zam-loading { opacity: .82; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 </style>
+<link rel="stylesheet" href="../assets/riwaq-theme.css">
+<style>
+  body.zam-page { background: var(--riwaq-bg) !important; color: var(--riwaq-ink); font-family: var(--font-ui); }
+  header.fixed { background: var(--riwaq-surface) !important; border-color: var(--riwaq-line) !important; box-shadow: 0 2px 12px rgba(29,47,39,.035); }
+  main > div { padding: clamp(16px, 4vw, 32px); }
+  main > div > div { border-color: var(--riwaq-line) !important; border-radius: var(--riwaq-radius); box-shadow: var(--riwaq-shadow); }
+  main > div > div:first-child { border-inline-start: 4px solid var(--riwaq-primary) !important; }
+  @media (max-width: 520px) {
+    header.fixed { height: 68px; padding-inline: 16px; }
+    header.fixed h1 { font-size: 19px; }
+    header.fixed p { font-size: 12px; }
+    main > div { padding: 16px; }
+    main > div > div:first-child { align-items: flex-start; gap: 12px; padding: 16px; }
+    main > div > div:first-child img { width: 64px; height: 64px; }
+    main .grid { gap: 12px; }
+    main > div > div:not(:first-child) { padding: 16px; }
+  }
+</style>
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('employee-profile', currentUser.role);})();</script>

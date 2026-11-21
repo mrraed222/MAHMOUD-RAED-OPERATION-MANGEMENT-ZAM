@@ -114,6 +114,27 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .zam-loading { opacity: .82; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 </style>
+  <link rel="stylesheet" href="../assets/riwaq-theme.css">
+  <style>
+    body.zam-page { background: var(--riwaq-bg) !important; color: var(--riwaq-ink); }
+    body.zam-page header { background: var(--riwaq-surface) !important; border-color: var(--riwaq-line) !important; box-shadow: 0 2px 12px rgba(29,47,39,.045); }
+    body.zam-page main { color: var(--riwaq-ink); }
+    body.zam-page main > div { padding: 28px; }
+    body.zam-page main section > div, body.zam-page #log-list { border-color: var(--riwaq-line) !important; border-radius: var(--riwaq-radius); box-shadow: var(--riwaq-shadow); }
+    body.zam-page #log-list > div { padding-block: 18px; }
+    body.zam-page #image-modal { backdrop-filter: blur(3px); }
+    @media (max-width: 767px) {
+      body.zam-page header { height: auto; min-height: 5rem; padding: 12px 16px; gap: 10px; flex-wrap: wrap; }
+      body.zam-page header > div { gap: 10px; }
+      body.zam-page header > div:last-child { width: 100%; justify-content: space-between; }
+      body.zam-page main { padding-top: 8rem; }
+      body.zam-page main > div { padding: 16px; }
+      body.zam-page main section.grid { grid-template-columns: 1fr; gap: 10px; }
+      body.zam-page #log-list > div { align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+      body.zam-page #log-list > div > div { align-items: flex-start; min-width: 0; }
+      body.zam-page #log-list p { overflow-wrap: anywhere; }
+    }
+  </style>
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

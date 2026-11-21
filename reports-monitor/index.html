@@ -50,6 +50,31 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .zam-loading { opacity: .82; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 </style>
+  <link rel="stylesheet" href="../assets/riwaq-theme.css">
+<style id="riwaq-page">
+:root { --zam-coffee:#217a5e; --zam-coffee-light:#16392f; --zam-focus:#bd8150; --zam-surface:#fff; }
+body.zam-page { background:#f4f6f2 !important; color:#20312b !important; font-family:'IBM Plex Sans Arabic','Manrope','Tajawal',sans-serif; }
+body.zam-page header { border-color:#e3e9e3 !important; }
+body.zam-page main { color:#20312b; }
+body.zam-page main > div, body.zam-page main section, body.zam-page main article { scroll-margin-top:88px; }
+body.zam-page main .rounded-xl, body.zam-page main .rounded-lg, body.zam-page main .rounded-full { border-color:#e3e9e3; }
+body.zam-page main .bg-surface-container-lowest { background:#fff !important; }
+body.zam-page main table thead { background:#f0f4ef !important; }
+body.zam-page main th { color:#697871; font-weight:700; }
+body.zam-page main tbody tr:hover { background-color:#f8faf7; }
+body.zam-page main input:not([type=checkbox]), body.zam-page main select, body.zam-page main textarea { border-radius:10px; background-color:#fff; }
+body.zam-page main button.bg-primary { background:#217a5e !important; color:#fff !important; }
+body.zam-page main .text-primary { color:#217a5e !important; }
+body.zam-page main .text-on-surface-variant { color:#697871 !important; }
+body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
+@media (max-width:767px) {
+  body.zam-page header { padding-inline:16px !important; gap:12px; }
+  body.zam-page main { padding-inline:16px !important; }
+  body.zam-page main .flex.gap-sm { flex-wrap:wrap; }
+  body.zam-page main input:not([type=checkbox]), body.zam-page main select { max-width:100%; }
+  body.zam-page main table { font-size:13px; }
+}
+</style>
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('reports-monitor', currentUser.role);})();</script>

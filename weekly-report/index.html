@@ -324,7 +324,47 @@
     .print-signature strong { font-size:12pt; }
     .bg-primary { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
     .bg-surface-container, .bg-surface-container-lowest { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+    /* Keep full sales trend/branch visuals in print; screen-height clipping is not suitable for paper. */
+    #chartTrend, #chartBranch { max-height:none !important; height:auto !important; overflow:visible !important; }
+    #chartTrend svg, #chartBranch svg { display:block; width:100% !important; max-width:100% !important; height:auto !important; max-height:none !important; overflow:visible !important; }
+    #panes > .print-pane .sales-table { break-inside:auto !important; page-break-inside:auto !important; }
+    #panes .sales-table thead { display:table-header-group !important; }
+    #panes .sales-table tbody { display:table-row-group !important; }
+    #panes .sales-table tr { break-inside:avoid !important; page-break-inside:avoid !important; }
+    #panes .sales-table th, #panes .sales-table td { overflow:visible !important; overflow-wrap:anywhere; }
+    #panes .sales-table-wrap, #panes .overflow-x-auto { max-height:none !important; overflow:visible !important; }
+    /* Let long sales lists flow across paper pages without splitting a data row. */
+    #overviewCharts > div:first-child, #overviewBranchCharts > div:first-child,
+    #chartTrend .chart-list, #chartBranch .chart-list { display:block !important; break-inside:auto !important; page-break-inside:auto !important; }
+    #chartTrend .trend-row, #chartBranch .branch-row { break-inside:avoid !important; page-break-inside:avoid !important; }
+    #overviewCharts > div:first-child h3, #overviewBranchCharts > div:first-child h3,
+    #chartTrend .chart-legend { break-after:avoid; page-break-after:avoid; }
   }
+</style>
+  <link rel="stylesheet" href="../assets/riwaq-theme.css">
+<style id="riwaq-page">
+:root { --zam-coffee:#217a5e; --zam-coffee-light:#16392f; --zam-focus:#bd8150; --zam-surface:#fff; }
+body.zam-page { background:#f4f6f2 !important; color:#20312b !important; font-family:'IBM Plex Sans Arabic','Manrope','Tajawal',sans-serif; }
+body.zam-page header { border-color:#e3e9e3 !important; }
+body.zam-page main { color:#20312b; }
+body.zam-page main > div, body.zam-page main section, body.zam-page main article { scroll-margin-top:88px; }
+body.zam-page main .rounded-xl, body.zam-page main .rounded-lg, body.zam-page main .rounded-full { border-color:#e3e9e3; }
+body.zam-page main .bg-surface-container-lowest { background:#fff !important; }
+body.zam-page main table thead { background:#f0f4ef !important; }
+body.zam-page main th { color:#697871; font-weight:700; }
+body.zam-page main tbody tr:hover { background-color:#f8faf7; }
+body.zam-page main input:not([type=checkbox]), body.zam-page main select, body.zam-page main textarea { border-radius:10px; background-color:#fff; }
+body.zam-page main button.bg-primary { background:#217a5e !important; color:#fff !important; }
+body.zam-page main .text-primary { color:#217a5e !important; }
+body.zam-page main .text-on-surface-variant { color:#697871 !important; }
+body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
+@media (max-width:767px) {
+  body.zam-page header { padding-inline:16px !important; gap:12px; }
+  body.zam-page main { padding-inline:16px !important; }
+  body.zam-page main .flex.gap-sm { flex-wrap:wrap; }
+  body.zam-page main input:not([type=checkbox]), body.zam-page main select { max-width:100%; }
+  body.zam-page main table { font-size:13px; }
+}
 </style>
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">

@@ -43,6 +43,20 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .zam-loading { opacity: .82; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 </style>
+<link rel="stylesheet" href="assets/riwaq-theme.css">
+<style>
+body.zam-page { min-height:100vh; padding:24px 16px; background:var(--riwaq-bg) !important; color:var(--riwaq-ink); }
+body.zam-page main { width:min(100%, 440px); padding-inline:20px; }
+body.zam-page main > div:first-child { margin-bottom:24px; }
+body.zam-page main > div:first-child h1 { color:var(--riwaq-sidebar); font-family:var(--font-latin),var(--font-ui); font-size:clamp(24px,5vw,30px); line-height:1.3; }
+body.zam-page main > div:first-child p { color:var(--riwaq-muted); }
+body.zam-page .login-card { padding:28px; border:1px solid var(--riwaq-line); border-radius:var(--riwaq-radius); box-shadow:var(--riwaq-shadow); }
+body.zam-page .login-card input { min-height:58px; border-radius:var(--riwaq-radius-sm); border-color:var(--riwaq-line); color:var(--riwaq-ink); }
+body.zam-page .login-card button { min-height:50px; border-radius:var(--riwaq-radius-sm); background:var(--riwaq-primary); }
+body.zam-page .login-card a { min-height:32px; display:inline-flex; align-items:center; justify-content:center; color:var(--riwaq-primary); }
+body.zam-page main > div:last-child { margin-top:34px; color:var(--riwaq-muted); }
+@media(max-width:480px) { body.zam-page { align-items:flex-start; padding:clamp(24px,9vh,64px) 12px 24px; } body.zam-page main { padding-inline:8px; } body.zam-page .login-card { padding:20px 16px; } }
+</style>
 </head><body class="zam-page flex items-center justify-center min-h-screen bg-background">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/supabase-config.js?v=20261117194500"></script>

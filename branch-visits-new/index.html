@@ -17,6 +17,30 @@
     .assignment-highlight{border-color:#76583d;background:#fffaf5}
     @media print{.no-print{display:none!important}body{background:#fff}.card{box-shadow:none}}
   </style>
+  <link rel="stylesheet" href="../assets/riwaq-theme.css">
+  <style>
+    body { background: var(--riwaq-bg) !important; color: var(--riwaq-ink); }
+    .card { background: var(--riwaq-surface); border-color: var(--riwaq-line); border-radius: var(--riwaq-radius); box-shadow: var(--riwaq-shadow); }
+    .brand { background: var(--riwaq-sidebar); color: #fff; }
+    .muted { color: var(--riwaq-muted); }
+    .item { border-color: var(--riwaq-line); border-radius: var(--riwaq-radius-sm); }
+    .score { border-color: #c6d3ca; color: var(--riwaq-ink); background: #fff; min-height: 36px; }
+    .score.selected { border-color: var(--riwaq-primary); background: var(--riwaq-primary); color: #fff; }
+    .alert { background: var(--riwaq-warning-bg); border-color: #ebd6ad; color: var(--riwaq-warning); }
+    .assignment-highlight { border-color: var(--riwaq-accent); background: #fbf7f1; }
+    input:not([type=checkbox]):not([type=radio]), select, textarea { border-color: var(--riwaq-line); border-radius: 9px; background-color: #fff; color: var(--riwaq-ink); }
+    button.bg-\[\#33210d\] { background-color: var(--riwaq-primary) !important; }
+    @media (max-width: 640px) {
+      header.brand { padding: 16px; }
+      header.brand .h-20 { height: 3.5rem; }
+      main { padding: 16px !important; }
+      .card { padding: 16px !important; }
+      .score { padding-inline: 10px; }
+      .item .flex.justify-between { align-items: flex-start; }
+      #assignmentForm { grid-template-columns: minmax(0,1fr); }
+    }
+    @media print { .card { box-shadow: none; } }
+  </style>
 </head>
 <body>
   <header class="brand p-6">
