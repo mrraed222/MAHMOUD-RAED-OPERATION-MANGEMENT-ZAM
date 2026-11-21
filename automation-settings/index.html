@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html dir="rtl" lang="ar"><head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261121180400"></script>
+<script src="../assets/supabase-config.js?v=20261121212700"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: anyone without this permission is sent home
@@ -170,228 +170,16 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   }
 </style>
 </head>
-<body class="zam-page bg-background text-on-surface overflow-x-hidden">
-<div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('automation-settings', currentUser.role);})();</script>
-<main class="mr-[280px] min-h-screen">
-<header class="flex justify-between items-center w-full h-20 px-margin-desktop sticky top-0 bg-surface dark:bg-surface-dim z-40 border-b border-outline-variant shadow-sm">
-<div class="flex items-center gap-lg">
-<h2 class="font-headline-lg text-primary">إدارة أتمتة التقارير</h2>
-</div>
-<div class="flex items-center gap-md">
-<div id="notif-bell-slot"></div>
-<a href="../employee-profile/index.html" class="block rounded-full focus-visible:outline focus-visible:outline-3" aria-label="الملف الشخصي">
-<img class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary object-cover" id="header-avatar" alt="الصورة الشخصية"
-     src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>"/>
-</a>
-</div>
-</header>
-<section class="p-lg max-w-5xl mx-auto" aria-labelledby="page-title">
-<div class="mb-lg">
-<p class="text-body-sm text-on-surface-variant mb-xs">إدارة الإرسال الفوري ومواعيد التقارير</p>
-<h1 id="page-title" class="font-display-lg text-primary mb-xs">أتمتة التقارير</h1>
-<p class="font-body-lg text-on-surface-variant">اضبط ما إذا كانت التقارير تُرسل فور وصولها، وأنشئ مواعيد الإرسال حسب النوع والوردية والفرع.</p>
-</div>
-<section class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant mb-lg" aria-labelledby="instant-title">
-<div class="flex items-center justify-between gap-md">
-<div>
-<h2 id="instant-title" class="font-title-md text-title-md text-primary mb-xs">الإرسال الفوري</h2>
-<p class="text-body-sm text-on-surface-variant">إرسال نسخة PDF إلى إيميلات الإدارة عند استلام تقرير جديد.</p>
-</div>
-<label class="relative inline-flex items-center cursor-pointer gap-sm min-h-11" for="instant-forward-toggle">
-<span class="text-body-sm text-on-surface-variant">تفعيل</span>
-<input type="checkbox" id="instant-forward-toggle" class="sr-only peer" aria-label="تفعيل الإرسال الفوري">
-<span aria-hidden="true" class="toggle-bg w-14 h-7 bg-outline-variant rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-1 after:right-1 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></span>
-</label>
-</div>
-</section>
-<section class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant mb-lg" aria-labelledby="create-title">
-<div class="mb-md">
-<h2 id="create-title" class="font-title-md text-title-md text-primary">إضافة موعد إرسال</h2>
-<p class="text-body-sm text-on-surface-variant mt-xs">اختر نوع التقرير ونطاقه ووقت الإرسال اليومي.</p>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-sm items-end">
-<div>
-<label for="new-report-type" class="text-body-sm text-on-surface-variant">نوع التقرير</label>
-<select id="new-report-type" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
-<option value="checklist_summary">ملخص تشيك ليست بالفئات</option>
-<option value="manager_reports_summary">ملخص أداء التقارير</option>
-<option value="missed_report_alert">تنبيه تأخر تسليم التقارير</option>
-<option value="employee_task_reminder">تنبيه مهام الموظفين (موجّه لكل موظف حسب فرعه وورديته)</option>
-<option value="supervisor_task_reminder">تنبيه المهام الإشرافية (موجّه لكل مشرف)</option>
-</select>
-</div>
-<div>
-<label for="new-shift-type" class="text-body-sm text-on-surface-variant">الوردية</label>
-<select id="new-shift-type" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
-<option value="">كل الورديات</option>
-<option value="Morning">الوردية الصباحية</option>
-<option value="Evening">الوردية المسائية</option>
-</select>
-</div>
-<div>
-<label for="new-branch" class="text-body-sm text-on-surface-variant">الفرع</label>
-<select id="new-branch" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
-<option value="">كل الفروع (تقرير واحد مجمّع)</option>
-</select>
-</div>
-<div>
-<label for="new-send-time" class="text-body-sm text-on-surface-variant">موعد الإرسال اليومي</label>
-<input type="time" id="new-send-time" value="21:00" class="w-full border border-outline-variant rounded-lg p-sm mt-xs"/>
-</div>
-<button id="add-schedule-btn" class="bg-primary text-on-primary rounded-lg p-sm font-bold min-h-11">إضافة الموعد</button>
-</div>
-<p class="text-body-sm text-on-surface-variant mt-md p-sm rounded-lg bg-surface-container-low" role="note">قد يختلف وقت وصول البريد عن الوقت المحدد. لا تعرض هذه الشاشة تأكيدًا على توقيت تنفيذ الإرسال.</p>
-</section>
-<section class="bg-surface rounded-xl card-shadow border border-outline-variant overflow-hidden" aria-labelledby="schedules-title">
-<div class="p-lg border-b border-outline-variant flex flex-wrap items-center justify-between gap-md">
-<div>
-<h2 id="schedules-title" class="font-title-md text-title-md text-primary">مواعيد الإرسال</h2>
-<p class="text-body-sm text-on-surface-variant mt-xs">المواعيد النشطة والمتوقفة؛ استخدم مرشّح الوردية لتضييق القائمة.</p>
-</div>
-<div class="flex flex-wrap gap-sm" role="group" aria-label="تصفية المواعيد حسب الوردية">
-<button type="button" data-shift-btn="Morning" aria-pressed="false" class="px-md py-xs min-h-11 rounded-full border border-outline-variant font-label-bold text-on-surface-variant hover:bg-surface-container transition-all">الوردية الصباحية</button>
-<button type="button" data-shift-btn="Evening" aria-pressed="false" class="px-md py-xs min-h-11 rounded-full border border-outline-variant font-label-bold text-on-surface-variant hover:bg-surface-container transition-all">الوردية المسائية</button>
-</div>
-</div>
-<div id="schedules-list" class="p-lg" aria-live="polite" aria-busy="true">
-<p class="text-on-surface-variant text-body-sm" role="status">جارٍ تحميل المواعيد…</p>
-</div>
-</section>
-</section>
-</main>
+<body class="zam-page"><div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('automation-settings',currentUser.role)})();</script><main><header><h2>إدارة أتمتة التقارير</h2><div id="notif-bell-slot"></div></header><section class="automation-page" aria-labelledby="page-title"><div class="intro"><p>الإعدادات التشغيلية</p><h1 id="page-title">إدارة أتمتة التقارير</h1><p>تحكم في الإرسال الفوري، وأنشئ مواعيد الإرسال بحسب النوع والوردية والفرع.</p></div><section class="panel instant"><div><h2>01 · الإرسال الفوري</h2><p>إرسال نسخة PDF إلى إيميلات الإدارة عند استلام تقرير جديد.</p></div><label class="switch" for="instant-forward-toggle"><span id="instant-state">جارٍ التحقق…</span><input id="instant-forward-toggle" type="checkbox" disabled aria-label="تفعيل الإرسال الفوري"><i aria-hidden="true"></i></label></section><section class="panel"><h2>02 · إنشاء موعد إرسال</h2><p>الفراغ في نطاق الفرع أو الوردية يعني الكل.</p><form id="schedule-form"><div><label for="new-report-type">نوع التقرير</label><select id="new-report-type"><option value="checklist_summary">ملخص تشيك ليست بالفئات</option><option value="manager_reports_summary">ملخص أداء التقارير</option><option value="missed_report_alert">تنبيه تأخر تسليم التقارير</option><option value="employee_task_reminder">تنبيه مهام الموظفين (موجّه لكل موظف حسب فرعه وورديته)</option><option value="supervisor_task_reminder">تنبيه المهام الإشرافية (موجّه لكل مشرف)</option></select></div><div><label for="new-shift-type">نطاق الوردية</label><select id="new-shift-type"><option value="">كل الورديات</option><option value="Morning">الوردية الصباحية</option><option value="Evening">الوردية المسائية</option></select></div><div><label for="new-branch">نطاق الفرع</label><select id="new-branch"><option value="">كل الفروع (تقرير واحد مجمّع)</option></select></div><div><label for="new-send-time">وقت الإرسال اليومي</label><input type="time" id="new-send-time" value="21:00" required></div><button id="add-schedule-btn" type="submit">إضافة الموعد</button></form><p class="note">وقت الجدولة يصف الإعداد المحفوظ فقط؛ لا تثبت هذه الشاشة آلية التنفيذ كل 10 دقائق أو وقت وصول البريد.</p><p id="form-status" role="status" aria-live="polite"></p></section><section class="panel"><div class="list-head"><div><h2>03 · المواعيد المحفوظة</h2><p>راجع الحالة والنطاق، وفعّل الموعد أو أوقفه أو احذفه.</p></div><div class="counts"><span><b id="active-count">—</b> نشط</span><span><b id="paused-count">—</b> متوقف</span></div></div><div class="tools" role="group" aria-label="تصفية المواعيد حسب الوردية"><button type="button" data-shift-btn="Morning" aria-pressed="false">الصباحية</button><button type="button" data-shift-btn="Evening" aria-pressed="false">المسائية</button><button type="button" id="clear-filter" aria-pressed="true">كل الورديات</button><button type="button" id="retry-schedules">إعادة تحميل</button></div><div id="schedules-list" aria-live="polite" aria-busy="true"><p role="status">جارٍ تحميل المواعيد…</p></div></section></section></main>
+<style>body.zam-page{margin:0;background:#f5f7f5;color:#1d3028;font-family:Tajawal,sans-serif}main{margin-right:280px;min-height:100vh}main>header{height:72px;position:sticky;top:0;background:#fff;border-bottom:1px solid #dce5de;z-index:3;display:flex;align-items:center;justify-content:space-between;padding:0 28px}.automation-page{max-width:1050px;margin:auto;padding:28px 24px 48px}.intro{margin-bottom:22px}.intro>p:first-child{color:#386b50;font-weight:800;margin:0}.intro h1{font-size:clamp(27px,3vw,36px);margin:4px 0;font-weight:800}.intro p:last-child,.panel>p,.panel>div>p{color:#66746b;line-height:1.6}.panel{background:white;border:1px solid #dce5de;border-radius:16px;padding:22px;margin-bottom:16px;box-shadow:0 4px 16px #25382d08}.panel h2{margin:0;font-size:21px}.instant,.list-head{display:flex;align-items:center;justify-content:space-between;gap:16px}.switch{display:flex;align-items:center;gap:12px;cursor:pointer;font-weight:700}.switch input{width:22px;height:22px;accent-color:#26734a}.switch i{display:none}form{display:grid;grid-template-columns:1.5fr 1fr 1.2fr .8fr auto;gap:12px;align-items:end;margin-top:18px}form>div{display:grid;gap:6px;min-width:0}label{font-weight:700}select,input[type=time]{height:46px;border:1px solid #d4ded7;border-radius:9px;padding:8px;background:white;color:inherit;font:inherit;min-width:0}button{font:inherit;cursor:pointer}form button{height:46px;border:0;border-radius:9px;padding:0 18px;color:white;background:#286548;font-weight:800}.note{background:#f5f6f2;border-radius:9px;padding:11px}.counts,.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.counts span{border:1px solid #dce5de;border-radius:9px;padding:8px 12px;color:#66746b}.counts b{font-size:18px;color:#1d3028}.tools{border-top:1px solid #e5ebe6;padding-top:14px;margin-top:14px}.tools button{border:1px solid #dce5de;border-radius:24px;background:white;padding:8px 15px;min-height:42px}.tools button[aria-pressed=true]{background:#eaf3ed;color:#205d3c;font-weight:800}#schedules-list .schedule-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 4px;border-bottom:1px solid #e5ebe6}.schedule-title{font-weight:800;font-size:17px;margin:0 0 5px}.schedule-meta{color:#66746b;margin:0}.row-actions{display:flex;align-items:center;gap:12px}.row-actions label{white-space:nowrap}.row-actions button{border:1px solid #e7cccc;border-radius:9px;background:white;color:#933;padding:9px 14px;min-height:42px}.empty-box{padding:24px;text-align:center;background:#f8f9f7;border-radius:10px;color:#66746b}.error-box{padding:14px;background:#fff0ee;color:#8a2424;border-radius:10px}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #c0583a;outline-offset:2px}@media(max-width:850px){form{grid-template-columns:repeat(2,minmax(0,1fr))}form button{grid-column:1/-1}}@media(max-width:600px){main{margin-right:0}.automation-page{padding:20px 14px 36px}.panel{padding:17px}.instant,.list-head{align-items:flex-start;flex-direction:column}.counts{width:100%}.counts span{flex:1;text-align:center}form{grid-template-columns:1fr}form button{grid-column:auto}#schedules-list .schedule-row{align-items:flex-start;flex-direction:column}.row-actions{width:100%;justify-content:space-between}}</style>
 <script>
-const searchInput = document.querySelector('input[type="text"]');
-if (searchInput) {
-    searchInput.onfocus = () => searchInput.parentElement.classList.add('ring-2', 'ring-primary/20', 'border-primary');
-    searchInput.onblur = () => searchInput.parentElement.classList.remove('ring-2', 'ring-primary/20', 'border-primary');
-}
-
-const REPORT_TYPE_LABELS = {
-    checklist_summary: 'ملخص تشيك ليست بالفئات',
-    manager_reports_summary: 'ملخص أداء التقارير',
-    missed_report_alert: 'تنبيه تأخر تسليم التقارير',
-    employee_task_reminder: 'تنبيه مهام الموظفين (موجّه)',
-    supervisor_task_reminder: 'تنبيه المهام الإشرافية (موجّه)',
-};
-
-const SHIFT_LABELS = { Morning: 'الوردية الصباحية', Evening: 'الوردية المسائية' };
-
-let branchesCache = [];
-let currentShiftFilter = null; // 'morning' | 'evening' | null (الكل)
-
-function applyShiftFilter(shift) {
-    currentShiftFilter = (currentShiftFilter === shift) ? null : shift;
-    document.querySelectorAll('[data-shift-btn]').forEach(b => {
-        const active = b.dataset.shiftBtn === currentShiftFilter;
-        b.classList.toggle('bg-primary-container', active);
-        b.classList.toggle('text-on-primary-container', active);
-    });
-    loadSchedules();
-}
-
-document.querySelectorAll('[data-shift-btn]').forEach(b => {
-    b.addEventListener('click', () => applyShiftFilter(b.dataset.shiftBtn));
-});
-
-async function loadBranchOptions() {
-    branchesCache = await ZamAPI.getBranches();
-    const sel = document.getElementById('new-branch');
-    branchesCache.forEach(b => {
-        const opt = document.createElement('option');
-        opt.value = b.id; opt.textContent = b.name;
-        sel.appendChild(opt);
-    });
-}
-
-async function loadInstantForwardToggle() {
-    const { data } = await zamClient.from('automation_settings').select('*').eq('key', 'instant_report_forward').maybeSingle();
-    document.getElementById('instant-forward-toggle').checked = data ? data.is_active : true;
-}
-
-document.getElementById('instant-forward-toggle').addEventListener('change', async (e) => {
-    try {
-        await zamClient.from('automation_settings').upsert({ key: 'instant_report_forward', is_active: e.target.checked });
-    } catch (err) {
-        console.error(err);
-        alert('حدث خطأ أثناء حفظ الإعداد.');
-    }
-});
-
-async function loadSchedules() {
-    const container = document.getElementById('schedules-list');
-    try {
-        const { data, error } = await zamClient.from('automation_schedules').select('*, branches(name)').order('send_time');
-        if (error) throw error;
-        const rows = currentShiftFilter ? data.filter(s => s.shift_type === currentShiftFilter) : data;
-        if (!rows.length) {
-            container.innerHTML = '<p class="text-on-surface-variant text-body-sm">لا توجد مواعيد مضبوطة بعد. أضف أول موعد من الأعلى.</p>';
-            return;
-        }
-        container.innerHTML = rows.map(s => `
-            <div class="flex items-center justify-between border-b border-outline-variant py-sm last:border-0" data-id="${s.id}">
-                <div>
-                    <p class="font-bold text-on-surface">${REPORT_TYPE_LABELS[s.report_type] || s.report_type}</p>
-                    <p class="text-body-sm text-on-surface-variant">${s.branches ? s.branches.name : 'كل الفروع'} — الساعة ${s.send_time?.slice(0,5)}${s.shift_type ? ' — ' + (SHIFT_LABELS[s.shift_type] || s.shift_type) : ''}</p>
-                </div>
-                <div class="flex items-center gap-sm">
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" class="sched-toggle sr-only peer" ${s.is_active ? 'checked' : ''}>
-                        <div class="toggle-bg w-12 h-6 bg-outline-variant rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-1 after:right-1 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-container"></div>
-                    </label>
-                    <button class="delete-sched-btn text-error"><span class="material-symbols-outlined text-[20px]">delete</span></button>
-                </div>
-            </div>
-        `).join('');
-        container.querySelectorAll('.sched-toggle').forEach(cb => {
-            cb.addEventListener('change', async (e) => {
-                const id = e.target.closest('[data-id]').dataset.id;
-                await zamClient.from('automation_schedules').update({ is_active: e.target.checked }).eq('id', id);
-            });
-        });
-        container.querySelectorAll('.delete-sched-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                if (!confirm('حذف هذا الموعد نهائياً؟')) return;
-                const id = btn.closest('[data-id]').dataset.id;
-                await zamClient.from('automation_schedules').delete().eq('id', id);
-                await loadSchedules();
-            });
-        });
-    } catch (err) {
-        console.error(err);
-        container.innerHTML = '<p class="text-error text-body-sm">تعذّر تحميل الجدولة.</p>';
-    }
-}
-
-document.getElementById('add-schedule-btn').addEventListener('click', async () => {
-    const report_type = document.getElementById('new-report-type').value;
-    const branch_id = document.getElementById('new-branch').value || null;
-    const send_time = document.getElementById('new-send-time').value;
-    const shift_type = document.getElementById('new-shift-type').value || null;
-    if (!send_time) { alert('حدد موعد الإرسال.'); return; }
-    try {
-        await zamClient.from('automation_schedules').insert([{ report_type, branch_id, send_time, shift_type, is_active: true }]);
-        await loadSchedules();
-    } catch (err) {
-        console.error(err);
-        alert('حدث خطأ أثناء إضافة الموعد. تأكد إن عندك صلاحية "إعدادات الأتمتة".');
-    }
-});
-
-(async function init() {
-    // عرض الصورة الرمزية للمستخدم
-    const headerAvatar = document.getElementById('header-avatar');
-    if (headerAvatar && currentUser.avatar_url) headerAvatar.src = currentUser.avatar_url;
-
-    await loadBranchOptions();
-    await loadInstantForwardToggle();
-    await loadSchedules();
-
-    // تركيب جرس الإشعارات
-    const slot = document.getElementById('notif-bell-slot');
-    if (slot) {
-        slot.innerHTML = await renderNotificationBell();
-        attachNotificationBellHandlers();
-    }
-})();
-</script>
-</body></html>
+const REPORT_TYPE_LABELS={checklist_summary:'ملخص تشيك ليست بالفئات',manager_reports_summary:'ملخص أداء التقارير',missed_report_alert:'تنبيه تأخر تسليم التقارير',employee_task_reminder:'تنبيه مهام الموظفين (موجّه)',supervisor_task_reminder:'تنبيه المهام الإشرافية (موجّه)'};
+const SHIFT_LABELS={Morning:'الوردية الصباحية',Evening:'الوردية المسائية'};let currentShiftFilter=null,cachedSchedules=[];
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function showStatus(m){document.getElementById('form-status').textContent=m}
+function renderSchedules(){const c=document.getElementById('schedules-list'),rows=currentShiftFilter?cachedSchedules.filter(s=>s.shift_type===currentShiftFilter):cachedSchedules;document.getElementById('active-count').textContent=cachedSchedules.filter(s=>s.is_active).length;document.getElementById('paused-count').textContent=cachedSchedules.filter(s=>!s.is_active).length;c.setAttribute('aria-busy','false');if(!rows.length){c.innerHTML='<div class="empty-box">'+(cachedSchedules.length?'لا توجد مواعيد في هذا النطاق.':'لا توجد مواعيد محفوظة بعد؛ أضف أول موعد أعلاه.')+'</div>';return}c.innerHTML=rows.map(s=>`<article class="schedule-row" data-id="${esc(s.id)}"><div><p class="schedule-title">${esc(REPORT_TYPE_LABELS[s.report_type]||s.report_type)} · ${s.is_active?'نشط':'متوقف'}</p><p class="schedule-meta">${esc(s.branches?.name||'كل الفروع — تقرير واحد مجمّع')} · ${esc((s.send_time||'').slice(0,5))} · ${esc(SHIFT_LABELS[s.shift_type]||'كل الورديات')}</p></div><div class="row-actions"><label><input type="checkbox" class="sched-toggle" ${s.is_active?'checked':''} aria-label="تفعيل أو إيقاف الموعد"> ${s.is_active?'إيقاف':'تفعيل'}</label><button class="delete-sched-btn" type="button">حذف</button></div></article>`).join('');c.querySelectorAll('.sched-toggle').forEach(x=>x.onchange=async e=>{const s=cachedSchedules.find(y=>String(y.id)===e.target.closest('[data-id]').dataset.id),v=e.target.checked;e.target.disabled=true;try{const {error}=await zamClient.from('automation_schedules').update({is_active:v}).eq('id',s.id);if(error)throw error;s.is_active=v;renderSchedules();showStatus('تم حفظ حالة الموعد.')}catch(err){e.target.checked=!v;e.target.disabled=false;showStatus('تعذر حفظ الحالة؛ حاول مرة أخرى.')}});c.querySelectorAll('.delete-sched-btn').forEach(b=>b.onclick=async()=>{if(!confirm('حذف هذا الموعد نهائيًا؟'))return;const s=cachedSchedules.find(y=>String(y.id)===b.closest('[data-id]').dataset.id);try{const {error}=await zamClient.from('automation_schedules').delete().eq('id',s.id);if(error)throw error;await loadSchedules();showStatus('تم حذف الموعد.')}catch(err){showStatus('تعذر حذف الموعد. حاول مرة أخرى.')}})}
+async function loadSchedules(){const c=document.getElementById('schedules-list');c.setAttribute('aria-busy','true');c.innerHTML='<p role="status">جارٍ تحميل المواعيد…</p>';try{const {data,error}=await zamClient.from('automation_schedules').select('*, branches(name)').order('send_time');if(error)throw error;cachedSchedules=data||[];renderSchedules()}catch(err){console.error(err);c.setAttribute('aria-busy','false');c.innerHTML='<div class="error-box" role="alert">تعذر تحميل المواعيد. أعد المحاولة.</div>';document.getElementById('active-count').textContent='—';document.getElementById('paused-count').textContent='—'}}
+async function init(){const sel=document.getElementById('new-branch');try{(await ZamAPI.getBranches()).forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.name;sel.append(o)})}catch(e){sel.disabled=true;showStatus('تعذر تحميل الفروع.')}try{const {data,error}=await zamClient.from('automation_settings').select('*').eq('key','instant_report_forward').maybeSingle();if(error)throw error;const t=document.getElementById('instant-forward-toggle');t.checked=data?data.is_active:true;t.disabled=false;document.getElementById('instant-state').textContent=t.checked?'مفعّل':'متوقف'}catch(e){document.getElementById('instant-state').textContent='تعذر قراءة الحالة'}await loadSchedules();if(currentUser.avatar_url&&document.getElementById('header-avatar'))document.getElementById('header-avatar').src=currentUser.avatar_url}
+document.getElementById('instant-forward-toggle').onchange=async e=>{const v=e.target.checked;e.target.disabled=true;try{const {error}=await zamClient.from('automation_settings').upsert({key:'instant_report_forward',is_active:v});if(error)throw error;document.getElementById('instant-state').textContent=v?'مفعّل':'متوقف';showStatus('تم حفظ الإعداد.')}catch(err){e.target.checked=!v;showStatus('تعذر حفظ الإعداد.')}finally{e.target.disabled=false}};
+document.getElementById('schedule-form').onsubmit=async e=>{e.preventDefault();const b=document.getElementById('add-schedule-btn'),report_type=document.getElementById('new-report-type').value,branch_id=document.getElementById('new-branch').value||null,send_time=document.getElementById('new-send-time').value,shift_type=document.getElementById('new-shift-type').value||null;if(!send_time){showStatus('حدد وقت الإرسال.');return}b.disabled=true;try{const {error}=await zamClient.from('automation_schedules').insert([{report_type,branch_id,send_time,shift_type,is_active:true}]);if(error)throw error;await loadSchedules();showStatus('تمت إضافة الموعد وتفعيله.')}catch(err){showStatus('تعذر إضافة الموعد؛ تحقق من الاتصال والصلاحية.')}finally{b.disabled=false}};
+document.querySelectorAll('[data-shift-btn]').forEach(b=>b.onclick=()=>{currentShiftFilter=currentShiftFilter===b.dataset.shiftBtn?null:b.dataset.shiftBtn;document.querySelectorAll('[data-shift-btn]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.shiftBtn===currentShiftFilter)));document.getElementById('clear-filter').setAttribute('aria-pressed',String(!currentShiftFilter));renderSchedules()});document.getElementById('clear-filter').onclick=()=>{currentShiftFilter=null;document.querySelectorAll('[data-shift-btn]').forEach(x=>x.setAttribute('aria-pressed','false'));document.getElementById('clear-filter').setAttribute('aria-pressed','true');renderSchedules()};document.getElementById('retry-schedules').onclick=loadSchedules;init();
+</script></body></html>

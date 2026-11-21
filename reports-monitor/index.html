@@ -1,214 +1,59 @@
-<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>ZAM Operations - متابعة تقارير المشرفين</title><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "colors": {
-                        "on-primary-container": "#bd9f83","primary-fixed": "#fedcbe","on-error-container": "#93000a","on-surface-variant": "#4e453d","on-primary-fixed": "#291806","on-tertiary": "#ffffff","surface-bright": "#fcf9f8","on-error": "#ffffff","error": "#ba1a1a","secondary-fixed": "#e4e4cc","on-primary-fixed-variant": "#59422c","primary-container": "#4b3621","on-secondary-fixed-variant": "#474836","tertiary-fixed": "#94f990","tertiary-fixed-dim": "#78dc77","on-secondary-container": "#636451","secondary-container": "#e1e1c9","outline-variant": "#d2c4ba","surface-container-highest": "#e4e2e1","background": "#fcf9f8","on-primary": "#ffffff","on-secondary-fixed": "#1b1d0e","inverse-surface": "#303030","inverse-primary": "#e1c1a4","on-surface": "#1b1c1c","tertiary": "#002c06","primary": "#33210d","surface-container": "#f0eded","primary-fixed-dim": "#e1c1a4","on-background": "#1b1c1c","on-secondary": "#ffffff","inverse-on-surface": "#f3f0f0","surface-tint": "#725a42","secondary-fixed-dim": "#c8c8b0","outline": "#80756c","on-tertiary-container": "#56b958","surface-container-high": "#eae7e7","secondary": "#5e604d","error-container": "#ffdad6","tertiary-container": "#00450e","surface-container-lowest": "#ffffff","surface": "#fcf9f8","surface-variant": "#e4e2e1","surface-container-low": "#f6f3f2","on-tertiary-fixed-variant": "#005313","surface-dim": "#dcd9d9","on-tertiary-fixed": "#002204"
-                    },
-                    "borderRadius": {"DEFAULT": "0.125rem","lg": "0.25rem","xl": "0.5rem","full": "0.75rem"},
-                    "spacing": {"margin-mobile": "16px","xl": "64px","sm": "12px","margin-desktop": "32px","lg": "40px","gutter": "24px","base": "8px","xs": "4px","md": "24px"},
-                    "fontFamily": {"title-md": ["Tajawal", "sans-serif"], "headline-lg": ["Tajawal", "sans-serif"], "label-bold": ["Tajawal", "sans-serif"], "display-lg": ["Tajawal", "sans-serif"], "body-lg": ["Tajawal", "sans-serif"], "body-sm": ["Tajawal", "sans-serif"]},
-                    "fontSize": {"title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],"headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],"label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],"display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],"body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],"body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]}
-                }
-            }
-        }
-    }catch(_e){}</script>
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>مراقبة تسليم التقارير | ZAM Operation</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/riwaq-theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261121180400"></script>
+<script src="../assets/supabase-config.js?v=20261121212700"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
-  if (!['Owner','Admin','Manager'].includes(currentUser.role)) {
-      window.location.href = zamRoleHomePath(currentUser.role);
-  }
-  // real permission gate: admin/manager without this permission is sent home
+  if (!['Owner','Admin','Manager'].includes(currentUser.role)) window.location.href = zamRoleHomePath(currentUser.role);
   (async () => { if (!(await ZamAPI.requireAdminPerm('can_view_all_reports'))) window.location.href = zamRoleHomePath(currentUser.role); })();
 </script>
-<style id="zam-design-system">
-:root {
-  --zam-coffee: #33210d;
-  --zam-coffee-light: #4b3621;
-  --zam-focus: #c0583a;
-  --zam-surface: #fcf9f8;
-}
-body.zam-page {
-  font-family: "Tajawal", sans-serif;
-  text-rendering: optimizeLegibility;
-}
-@keyframes zamFadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes zamLogoGlow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(192, 88, 58, .20)); } 50% { filter: drop-shadow(0 0 12px rgba(192, 88, 58, .48)); } }
-@keyframes zamSoftPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(192, 88, 58, .22); } 50% { box-shadow: 0 0 0 7px rgba(192, 88, 58, 0); } }
-.zam-logo { animation: zamFadeInUp .32s cubic-bezier(.2,.7,.3,1) both; }
-body.zam-page main { animation: zamFadeInUp .28s cubic-bezier(.2,.7,.3,1) both; }
-.zam-card { transition: transform .16s ease, border-color .16s ease, background-color .16s ease; }
-.zam-card:hover { transform: translateY(-1px); border-color: var(--zam-focus) !important; }
-.zam-btn, button, [role="button"] { transition: background-color .14s ease, border-color .14s ease; }
-.zam-btn:hover, button:hover, [role="button"]:hover { filter: brightness(.98); }
-.zam-btn:active, button:active, [role="button"]:active { filter: brightness(.95); }
-input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .42); outline-offset: 2px; }
-.zam-loading { opacity: .82; }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
-</style>
-  <link rel="stylesheet" href="../assets/riwaq-theme.css">
-<style id="riwaq-page">
-:root { --zam-coffee:#217a5e; --zam-coffee-light:#16392f; --zam-focus:#bd8150; --zam-surface:#fff; }
-body.zam-page { background:#f4f6f2 !important; color:#20312b !important; font-family:'IBM Plex Sans Arabic','Manrope','Tajawal',sans-serif; }
-body.zam-page header { border-color:#e3e9e3 !important; }
-body.zam-page main { color:#20312b; }
-body.zam-page main > div, body.zam-page main section, body.zam-page main article { scroll-margin-top:88px; }
-body.zam-page main .rounded-xl, body.zam-page main .rounded-lg, body.zam-page main .rounded-full { border-color:#e3e9e3; }
-body.zam-page main .bg-surface-container-lowest { background:#fff !important; }
-body.zam-page main table thead { background:#f0f4ef !important; }
-body.zam-page main th { color:#697871; font-weight:700; }
-body.zam-page main tbody tr:hover { background-color:#f8faf7; }
-body.zam-page main input:not([type=checkbox]), body.zam-page main select, body.zam-page main textarea { border-radius:10px; background-color:#fff; }
-body.zam-page main button.bg-primary { background:#217a5e !important; color:#fff !important; }
-body.zam-page main .text-primary { color:#217a5e !important; }
-body.zam-page main .text-on-surface-variant { color:#697871 !important; }
-body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
-@media (max-width:767px) {
-  body.zam-page header { padding-inline:16px !important; gap:12px; }
-  body.zam-page main { padding-inline:16px !important; }
-  body.zam-page main input:not([type=checkbox]), body.zam-page main select { max-width:100%; }
-  body.zam-page .monitor-header { height:auto; min-height:80px; padding-block:10px; align-items:flex-start; flex-wrap:wrap; gap:10px; }
-  body.zam-page .monitor-header > div:last-child { width:100%; }
-  body.zam-page main { padding-top:176px !important; }
-  body.zam-page .monitor-brand img { width:38px; height:38px; }
-  body.zam-page .monitor-header h1 { font-size:20px; line-height:1.35; }
-  body.zam-page .monitor-header p { font-size:14px; }
-  body.zam-page .monitor-date { width:100%; min-height:44px; }
-  body.zam-page main table { min-width:560px; font-size:15px; }
-  body.zam-page .monitor-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-}
-body.zam-page .monitor-header { gap:24px; }
-body.zam-page .monitor-brand { display:flex; align-items:center; gap:14px; min-width:0; }
-body.zam-page .monitor-brand img { width:44px; height:44px; object-fit:contain; flex:none; }
-body.zam-page .monitor-date { min-height:44px; }
-body.zam-page .monitor-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-bottom:24px; }
-body.zam-page .monitor-shift { min-width:0; }
-body.zam-page .monitor-shift-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-body.zam-page .monitor-stat { text-align:start; min-height:100px; display:flex; flex-direction:column; justify-content:space-between; }
-body.zam-page .monitor-table-wrap { overflow-x:auto; }
-body.zam-page .monitor-table-wrap:focus-visible { outline:3px solid rgba(192,88,58,.42); outline-offset:3px; }
-@media (max-width:767px) { body.zam-page .monitor-summary { grid-template-columns:1fr; gap:12px; } }
+<style>
+:root{--rm-line:#e1e8e2;--rm-ink:#20312b;--rm-muted:#687970;--rm-green:#217a5e;--rm-red:#a73b35;--rm-bg:#f4f6f2}
+*{box-sizing:border-box}body{margin:0;background:var(--rm-bg);color:var(--rm-ink);font-family:'IBM Plex Sans Arabic','Tajawal',sans-serif}.rm-page-header{position:relative;display:flex;align-items:center;gap:14px;padding:12px clamp(16px,3vw,42px);min-height:76px;background:#fff;border-bottom:1px solid var(--rm-line)}.rm-page-header img{width:42px;height:42px;object-fit:contain}.rm-page-header h1{font-size:19px;margin:0}.rm-page-header p{font-size:13px;color:var(--rm-muted);margin:3px 0 0}.rm-main{padding:26px clamp(16px,3vw,42px) 64px;min-height:100vh}.rm-wrap{max-width:1100px;margin:auto}.rm-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:24px}.rm-title{margin:0;font-size:clamp(24px,3vw,34px);line-height:1.25}.rm-sub{color:var(--rm-muted);margin:8px 0 0;max-width:720px;line-height:1.7}.rm-controls,.rm-actions{display:flex;align-items:end;gap:10px;flex-wrap:wrap}.rm-control{display:grid;gap:6px;font-weight:700;font-size:14px}.rm-control input{height:46px;min-width:190px;border:1px solid var(--rm-line);border-radius:10px;padding:8px 12px;background:white;color:inherit}.rm-btn{min-height:44px;border:1px solid var(--rm-line);border-radius:10px;background:#fff;padding:9px 16px;font-weight:700;cursor:pointer}.rm-btn.primary{background:var(--rm-green);border-color:var(--rm-green);color:#fff}.rm-btn:focus-visible,.rm-control input:focus-visible,.rm-table-wrap:focus-visible{outline:3px solid #2069d5;outline-offset:2px}.rm-note{padding:14px 16px;background:#edf4ef;border-inline-start:4px solid var(--rm-green);border-radius:10px;color:#40564b;line-height:1.65;margin-bottom:20px}.rm-section{margin-top:26px}.rm-section-head{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:12px}.rm-section h2{font-size:20px;margin:0}.rm-section-head p{color:var(--rm-muted);margin:4px 0 0;font-size:14px}.rm-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.rm-card{background:#fff;border:1px solid var(--rm-line);border-radius:14px;padding:18px;box-shadow:0 5px 20px #1d2f2708}.rm-card h3{margin:0 0 14px;font-size:17px}.rm-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.rm-stat{background:#f7f9f7;border-radius:10px;padding:13px}.rm-stat span{display:block;color:var(--rm-muted);font-size:14px}.rm-stat strong{display:block;font-size:26px;margin-top:4px}.rm-stat.ok strong{color:var(--rm-green)}.rm-stat.missing strong{color:var(--rm-red)}.rm-table-wrap{overflow:auto;background:white;border:1px solid var(--rm-line);border-radius:14px}.rm-table{width:100%;border-collapse:collapse;text-align:start}.rm-table th,.rm-table td{padding:14px 16px;border-bottom:1px solid var(--rm-line);vertical-align:middle}.rm-table th{background:#f0f4ef;color:#57675e;font-size:14px}.rm-table tr:last-child td{border-bottom:0}.rm-table tbody tr:hover{background:#fafcf9}.rm-state{display:inline-flex;align-items:center;gap:7px;font-weight:700}.rm-state.ok{color:#287752}.rm-state.missing{color:var(--rm-red)}.rm-empty,.rm-error,.rm-loading{padding:26px;text-align:center;color:var(--rm-muted)}.rm-error{color:var(--rm-red);background:#fff8f7}.rm-mobile-list{display:none}.rm-branch-card{background:white;border:1px solid var(--rm-line);border-radius:12px;padding:15px;margin-bottom:10px}.rm-branch-card h3{margin:0 0 12px}.rm-mobile-shifts{display:grid;grid-template-columns:1fr 1fr;gap:10px}.rm-mobile-shift{background:#f7f9f7;border-radius:9px;padding:10px}.rm-mobile-shift small{display:block;color:var(--rm-muted);margin-bottom:6px}.rm-status{min-height:26px}.rm-statusline{font-size:14px;color:var(--rm-muted)}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:900px){.rm-main{padding:24px 18px 48px}}@media(max-width:640px){.rm-main{padding:20px 14px 40px}.rm-page-header{padding:10px 14px}.rm-heading{display:block}.rm-controls{margin-top:18px;align-items:stretch}.rm-control{flex:1}.rm-control input{width:100%;min-width:0}.rm-actions{width:100%}.rm-actions .rm-btn{flex:1}.rm-summary{grid-template-columns:1fr;gap:10px}.rm-section-head{display:block}.rm-table-wrap{display:none}.rm-mobile-list{display:block}.rm-mobile-shifts{grid-template-columns:1fr 1fr}.rm-card{padding:15px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
 </style>
 </head>
-<body class="zam-page bg-background text-on-surface overflow-x-hidden">
-<div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('reports-monitor', currentUser.role);})();</script>
-
-<header class="monitor-header fixed top-0 left-0 w-full md:pr-[312px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
-  <div class="monitor-brand">
-    <img src="../assets/logo/zam-logo.png" alt="زام" width="44" height="44">
-    <div>
-      <p class="text-sm font-bold text-on-surface-variant">ZAM Operation</p>
-      <h1 class="font-title-md text-title-md text-primary">متابعة تسليم التقارير</h1>
-      <p class="text-body-sm text-on-surface-variant">حالة التقارير المسجّلة لكل فرع ووردية</p>
-    </div>
-  </div>
-  <div class="flex flex-col gap-1">
-    <label for="check-date" class="text-sm font-bold text-on-surface-variant">تاريخ التقرير</label>
-    <input type="date" id="check-date" class="monitor-date border border-outline-variant rounded-lg p-sm" aria-label="تاريخ التقرير">
-  </div>
-</header>
-
-<main class="md:pr-[280px] pt-20 min-h-screen">
-<div class="max-w-4xl mx-auto p-margin-desktop">
-  <section aria-labelledby="monitor-summary-title">
-    <div class="mb-3">
-      <h2 id="monitor-summary-title" class="text-xl font-bold text-primary">ملخص حسب الوردية</h2>
-      <p class="text-body-sm text-on-surface-variant mt-1">الأعداد تبيّن التقارير المسجّلة أو التي لم يُسجّل لها تقرير في التاريخ المحدد؛ ولا تعني تجاوز موعد تسليم.</p>
-    </div>
-    <div class="monitor-summary">
-      <section class="monitor-shift bg-surface-container-lowest border border-outline-variant rounded-xl p-md" aria-labelledby="morning-title">
-        <h3 id="morning-title" class="font-bold text-primary mb-3">الوردية الصباحية</h3>
-        <div class="monitor-shift-grid">
-          <div class="monitor-stat bg-surface-container-low rounded-lg p-md"><p class="text-body-sm text-on-surface-variant">تم تسجيل التقرير</p><p class="text-2xl font-bold text-tertiary-container" id="c-morning-done" aria-live="polite">—</p></div>
-          <div class="monitor-stat bg-surface-container-low rounded-lg p-md"><p class="text-body-sm text-on-surface-variant">لم يُسجّل تقرير</p><p class="text-2xl font-bold text-error" id="c-morning-missing" aria-live="polite">—</p></div>
-        </div>
-      </section>
-      <section class="monitor-shift bg-surface-container-lowest border border-outline-variant rounded-xl p-md" aria-labelledby="evening-title">
-        <h3 id="evening-title" class="font-bold text-primary mb-3">الوردية المسائية</h3>
-        <div class="monitor-shift-grid">
-          <div class="monitor-stat bg-surface-container-low rounded-lg p-md"><p class="text-body-sm text-on-surface-variant">تم تسجيل التقرير</p><p class="text-2xl font-bold text-tertiary-container" id="c-evening-done" aria-live="polite">—</p></div>
-          <div class="monitor-stat bg-surface-container-low rounded-lg p-md"><p class="text-body-sm text-on-surface-variant">لم يُسجّل تقرير</p><p class="text-2xl font-bold text-error" id="c-evening-missing" aria-live="polite">—</p></div>
-        </div>
-      </section>
-    </div>
-  </section>
-
-  <section aria-labelledby="monitor-list-title" class="mt-8">
-    <div class="mb-3">
-      <h2 id="monitor-list-title" class="text-xl font-bold text-primary">الحالة حسب الفرع</h2>
-      <p class="text-body-sm text-on-surface-variant mt-1">اختر تاريخًا آخر لمراجعة التسجيلات. حالة الغياب تعني أن السجل غير موجود فقط.</p>
-    </div>
-  <div class="monitor-table-wrap bg-surface-container-lowest rounded-xl border border-outline-variant" tabindex="0" role="region" aria-label="جدول تقارير الفروع، يمكن التمرير أفقيًا على الشاشة الضيقة">
-    <table class="w-full text-body-sm">
-      <caption class="sr-only">حالة تسجيل التقرير لكل فرع في الورديتين الصباحية والمسائية</caption>
-      <thead class="bg-surface-container text-on-surface-variant">
-        <tr>
-          <th scope="col" class="p-md text-right">الفرع</th>
-          <th scope="col" class="p-md text-right">الوردية الصباحية</th>
-          <th scope="col" class="p-md text-right">الوردية المسائية</th>
-        </tr>
-      </thead>
-      <tbody id="monitor-tbody" aria-live="polite"><tr><td colspan="3" class="p-md text-center text-on-surface-variant">جارِ تحميل بيانات الفروع والتقارير...</td></tr></tbody>
-    </table>
-  </div>
-  </section>
-</div>
-</main>
-
+<body class="zam-page">
+<div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('reports-monitor',currentUser.role);})();</script>
+<header class="rm-page-header"><img src="../assets/logo/zam-logo.png" alt="شعار زام" width="42" height="42"><div><h1>مراقبة تسليم التقارير</h1><p>ZAM Operation · متابعة تسجيل التقارير حسب الفرع والوردية</p></div></header>
+<main class="rm-main"><div class="rm-wrap">
+<header class="rm-heading"><div><p style="margin:0 0 6px;color:#217a5e;font-weight:700">التقارير · متابعة التسجيل</p><h1 class="rm-title">مراقبة تسليم التقارير</h1><p class="rm-sub">راجع ما إذا كان لكل فرع سجل تقرير في الوردية الصباحية والمسائية للتاريخ المحدد.</p></div>
+<div class="rm-controls"><label class="rm-control" for="check-date">تاريخ التقرير <input type="date" id="check-date"></label><div class="rm-actions"><button class="rm-btn primary" id="refresh-monitor" type="button">تحديث البيانات</button></div></div></header>
+<div class="rm-note" role="note">«لم يُسجّل» تعني أن سجل التقرير غير موجود لهذا الفرع والوردية فقط؛ لا تشير إلى التأخر عن موعد تسليم. التاريخ يُراجع وفق تاريخ التقرير المحلي (الرياض).</div>
+<section class="rm-section" aria-labelledby="summary-title"><div class="rm-section-head"><div><h2 id="summary-title">ملخص التغطية</h2><p id="summary-context">حسب الفروع التشغيلية في التاريخ المحدد</p></div></div><div class="rm-summary">
+<article class="rm-card"><h3>الوردية الصباحية</h3><div class="rm-stats"><div class="rm-stat ok"><span>تم تسجيل التقرير</span><strong id="c-morning-done" aria-live="polite">—</strong></div><div class="rm-stat missing"><span>لم يُسجّل تقرير</span><strong id="c-morning-missing" aria-live="polite">—</strong></div></div></article>
+<article class="rm-card"><h3>الوردية المسائية</h3><div class="rm-stats"><div class="rm-stat ok"><span>تم تسجيل التقرير</span><strong id="c-evening-done" aria-live="polite">—</strong></div><div class="rm-stat missing"><span>لم يُسجّل تقرير</span><strong id="c-evening-missing" aria-live="polite">—</strong></div></div></article></div></section>
+<section class="rm-section" aria-labelledby="list-title"><div class="rm-section-head"><div><h2 id="list-title">حالة التسجيل حسب الفرع</h2><p id="results-count">—</p></div><label class="rm-control" for="sort-branches">ترتيب الفروع<select id="sort-branches" class="rm-btn" aria-label="ترتيب الفروع"><option value="asc">أبجديًا: أ إلى ي</option><option value="desc">أبجديًا: ي إلى أ</option></select></label></div>
+<div id="monitor-feedback" class="rm-statusline" role="status" aria-live="polite"></div><div class="rm-table-wrap" tabindex="0" role="region" aria-label="جدول حالة التقارير للفروع"><table class="rm-table"><caption class="sr-only">حالة تسجيل التقرير لكل فرع في الورديتين الصباحية والمسائية</caption><thead><tr><th scope="col">الفرع</th><th scope="col">الوردية الصباحية</th><th scope="col">الوردية المسائية</th></tr></thead><tbody id="monitor-tbody"><tr><td colspan="3" class="rm-loading">جارٍ تحميل البيانات…</td></tr></tbody></table></div><div id="monitor-mobile" class="rm-mobile-list" aria-label="حالة التقارير لكل فرع"></div></section>
+</div></main>
 <script>
-document.getElementById('check-date').value = ZamBranchLifecycle.riyadhDateString(new Date());
-document.getElementById('check-date').addEventListener('change', loadMonitor);
-
-function statusBadge(submitted, time) {
-    if (submitted) {
-        return `<span class="inline-flex items-center gap-1 text-tertiary-container font-bold text-[12px]"><span class="material-symbols-outlined text-[16px]">check_circle</span> تم (${time || ''})</span>`;
-    }
-    return `<span class="inline-flex items-center gap-1 text-error font-bold text-[12px]"><span class="material-symbols-outlined text-[16px]">error</span> لم يُسجّل</span>`;
+const dateInput=document.getElementById('check-date');
+const tbody=document.getElementById('monitor-tbody');
+let branchRows=[];
+dateInput.value=ZamBranchLifecycle.riyadhDateString(new Date());
+dateInput.addEventListener('change',loadMonitor);
+document.getElementById('refresh-monitor').addEventListener('click',loadMonitor);
+document.getElementById('sort-branches').addEventListener('change',renderMonitor);
+function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function statusBadge(submitted,time){return submitted?`<span class="rm-state ok"><span aria-hidden="true">✓</span> تم التسجيل${time?` · ${escapeHtml(time)}`:''}</span>`:'<span class="rm-state missing"><span aria-hidden="true">—</span> لم يُسجّل</span>';}
+function showLoading(){document.getElementById('monitor-feedback').textContent='جارٍ تحميل بيانات الفروع والتقارير…';tbody.innerHTML='<tr><td colspan="3" class="rm-loading">جارٍ التحميل…</td></tr>';document.getElementById('monitor-mobile').innerHTML='';['c-morning-done','c-morning-missing','c-evening-done','c-evening-missing'].forEach(id=>document.getElementById(id).textContent='—');}
+function renderMonitor(){const sort=document.getElementById('sort-branches').value;const rows=[...branchRows].sort((a,b)=>String(a.branch.name).localeCompare(String(b.branch.name),'ar')*(sort==='desc'?-1:1));const done={Morning:0,Evening:0};rows.forEach(x=>{if(x.morning)done.Morning++;if(x.evening)done.Evening++;});
+ document.getElementById('c-morning-done').textContent=done.Morning;document.getElementById('c-morning-missing').textContent=rows.length-done.Morning;document.getElementById('c-evening-done').textContent=done.Evening;document.getElementById('c-evening-missing').textContent=rows.length-done.Evening;document.getElementById('results-count').textContent=`${rows.length} ${rows.length===1?'فرع':'فروع'} ضمن النطاق`;
+ const mobile=document.getElementById('monitor-mobile');if(!rows.length){tbody.innerHTML='<tr><td colspan="3" class="rm-empty">لا توجد فروع تشغيلية لعرضها في هذا التاريخ.</td></tr>';mobile.innerHTML='<div class="rm-card rm-empty">لا توجد فروع تشغيلية لعرضها في هذا التاريخ.</div>';document.getElementById('monitor-feedback').textContent='اكتمل التحديث؛ لا توجد فروع ضمن النطاق.';return;}
+ tbody.innerHTML=rows.map(x=>`<tr><th scope="row">${escapeHtml(x.branch.name)}</th><td>${statusBadge(!!x.morning,x.morning?.entry_time?.slice(0,5))}</td><td>${statusBadge(!!x.evening,x.evening?.entry_time?.slice(0,5))}</td></tr>`).join('');
+ mobile.innerHTML=rows.map(x=>`<article class="rm-branch-card"><h3>${escapeHtml(x.branch.name)}</h3><div class="rm-mobile-shifts"><div class="rm-mobile-shift"><small>الصباحية</small>${statusBadge(!!x.morning,x.morning?.entry_time?.slice(0,5))}</div><div class="rm-mobile-shift"><small>المسائية</small>${statusBadge(!!x.evening,x.evening?.entry_time?.slice(0,5))}</div></div></article>`).join('');document.getElementById('monitor-feedback').textContent=`اكتمل التحديث — ${rows.length} فرع.`;
 }
-
-async function loadMonitor() {
-    const date = document.getElementById('check-date').value;
-    const tbody = document.getElementById('monitor-tbody');
-    tbody.innerHTML = '<tr><td colspan="3" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
-
-    try {
-        const [allBranches, reportsRes] = await Promise.all([
-            ZamAPI.getBranches(),
-            zamClient.from('daily_reports').select('branch_id, shift_type, entry_time').eq('report_date', date)
-        ]);
-        const branches = allBranches.filter(branch => ZamBranchLifecycle.isOperational(branch, date));
-        const reports = reportsRes.data || [];
-
-        let morningDone = 0, morningMissing = 0, eveningDone = 0, eveningMissing = 0;
-
-        tbody.innerHTML = branches.map(b => {
-            const morning = reports.find(r => r.branch_id === b.id && r.shift_type === 'Morning');
-            const evening = reports.find(r => r.branch_id === b.id && r.shift_type === 'Evening');
-            morning ? morningDone++ : morningMissing++;
-            evening ? eveningDone++ : eveningMissing++;
-
-            return `
-                <tr class="border-t border-outline-variant">
-                    <td class="p-sm font-bold">${b.name}</td>
-                    <td class="p-sm">${statusBadge(!!morning, morning?.entry_time?.slice(0,5))}</td>
-                    <td class="p-sm">${statusBadge(!!evening, evening?.entry_time?.slice(0,5))}</td>
-                </tr>`;
-        }).join('');
-
-        document.getElementById('c-morning-done').textContent = morningDone;
-        document.getElementById('c-morning-missing').textContent = morningMissing;
-        document.getElementById('c-evening-done').textContent = eveningDone;
-        document.getElementById('c-evening-missing').textContent = eveningMissing;
-    } catch (err) {
-        console.error(err);
-        tbody.innerHTML = '<tr><td colspan="3" class="p-md text-center text-error">تعذّر تحميل البيانات.</td></tr>';
-    }
-}
-
+async function loadMonitor(){const date=dateInput.value;if(!date){document.getElementById('monitor-feedback').textContent='اختر تاريخًا صالحًا لعرض التقارير.';return;}showLoading();document.getElementById('refresh-monitor').disabled=true;
+ try{const [allBranches,reportsRes]=await Promise.all([ZamAPI.getBranches(),zamClient.from('daily_reports').select('branch_id, shift_type, entry_time').eq('report_date',date)]);if(reportsRes.error)throw reportsRes.error;const branches=allBranches.filter(branch=>ZamBranchLifecycle.isOperational(branch,date));const reports=reportsRes.data||[];branchRows=branches.map(branch=>({branch,morning:reports.find(r=>r.branch_id===branch.id&&r.shift_type==='Morning'),evening:reports.find(r=>r.branch_id===branch.id&&r.shift_type==='Evening')}));renderMonitor();}
+ catch(err){console.error(err);branchRows=[];['c-morning-done','c-morning-missing','c-evening-done','c-evening-missing'].forEach(id=>document.getElementById(id).textContent='—');document.getElementById('results-count').textContent='';document.getElementById('monitor-feedback').textContent='تعذّر تحميل بيانات المراقبة. تحقق من الاتصال ثم أعد المحاولة.';tbody.innerHTML='<tr><td colspan="3" class="rm-error">تعذّر تحميل البيانات. استخدم «تحديث البيانات» لإعادة المحاولة.</td></tr>';document.getElementById('monitor-mobile').innerHTML='<div class="rm-card rm-error">تعذّر تحميل البيانات. استخدم «تحديث البيانات» لإعادة المحاولة.</div>';}
+ finally{document.getElementById('refresh-monitor').disabled=false;}}
 loadMonitor();
 </script>
 </body></html>

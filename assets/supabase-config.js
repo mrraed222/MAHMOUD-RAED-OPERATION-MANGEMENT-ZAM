@@ -208,6 +208,9 @@ function installZamSidebarExperience() {
         .zam-sidebar-scrim { display: none !important; position: fixed; inset: 0; z-index: 50; border: 0; background: rgba(27,28,28,.48); }
         .zam-sidebar-close { position: absolute; inset-block-start: 8px; inset-inline-end: 8px; display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 10px; border: 1px solid #d2c4ba; border-radius: 999px; background: #fff; color: #33210d; font: inherit; font-weight: 700; cursor: pointer; }
         .zam-header-tools { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; direction: rtl; min-width: 0; }
+        .zam-header-tools #notif-bell-slot { order: 1; flex: 0 0 auto; }
+        .zam-header-tools .zam-sidebar-toggle { order: 2; }
+        .zam-header-tools .zam-header-account { order: 3; }
         .zam-sidebar-toggle {
             display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px;
             padding: 0 12px; border: 1px solid #d2c4ba; border-radius: 999px; background: #fff;
@@ -217,7 +220,9 @@ function installZamSidebarExperience() {
         .zam-header-account { display: inline-flex; align-items: center; gap: 7px; min-width: 0; max-width: 220px; padding: 4px 8px; border: 1px solid #d2c4ba; border-radius: 999px; background: #f6f3f2; color: #33210d; }
         .zam-header-logo { width: 30px !important; height: 30px !important; flex: 0 0 30px; object-fit: contain; border-radius: 6px; background: #fff; }
         .zam-header-avatar { width: 32px !important; height: 32px !important; flex: 0 0 32px; border-radius: 50%; object-fit: cover; }
+        .zam-header-identity-copy { display: flex; flex-direction: column; min-width: 0; text-align: right; }
         .zam-header-employee-name { display: block; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 700; }
+        .zam-header-employee-role { display:block; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; color:#66736d; }
         header.zam-app-header { height: auto !important; min-height: var(--zam-header-min-height, 64px); flex-wrap: wrap !important; gap: 8px; box-sizing: border-box; }
         header.zam-app-header > :not(.zam-header-tools) { min-width: 0; }
         @media (min-width: 768px) {
@@ -233,11 +238,26 @@ function installZamSidebarExperience() {
             body [class~="mr-[280px]"], body [class~="md:mr-[280px]"] { margin-right: 0 !important; }
             body.zam-sidebar-open .zam-sidebar-scrim { display: block !important; }
             header.zam-app-header { padding-inline: 16px !important; }
+            header.zam-app-header {
+                display: grid !important; grid-template-columns: minmax(0, 1fr);
+                grid-template-areas: "brand" "tools" "extra"; align-items: center;
+                justify-content: initial; gap: 8px; padding-block: 8px !important;
+            }
+            header.zam-app-header > .zam-header-tools {
+                grid-area: tools; justify-self: start; flex: 0 0 auto !important; width: max-content;
+            }
+            header.zam-app-header > :not(.zam-header-tools):nth-child(2) { grid-area: brand; min-width: 0; }
+            header.zam-app-header > :not(.zam-header-tools):nth-child(3) {
+                grid-area: extra; justify-self: start; width: max-content; max-width: 100%;
+            }
             .zam-header-tools { gap: 6px; }
-            .zam-header-account { gap: 5px; padding: 3px 6px; }
+            .zam-header-account { flex: 0 0 auto; gap: 5px; max-width: 140px; padding: 3px 6px; }
+            .zam-sidebar-toggle { width: 44px; min-width: 44px; padding-inline: 0 !important; gap: 0; font-size: 0; }
+            .zam-sidebar-toggle-text { display: none; }
             .zam-header-logo { width: 26px !important; height: 26px !important; flex-basis: 26px; }
             .zam-header-avatar { width: 30px !important; height: 30px !important; flex-basis: 30px; }
             .zam-header-employee-name { max-width: clamp(56px, 22vw, 92px); font-size: 12px; }
+            .zam-header-employee-role { max-width: clamp(56px, 22vw, 92px); }
         }
         @media (prefers-reduced-motion: reduce) { .zam-sidebar { transition: none !important; } }
     `;
@@ -268,10 +288,13 @@ function installZamSidebarExperience() {
 
         const profile = typeof ZamSession !== 'undefined' ? ZamSession.get() : null;
         const employeeName = profile?.full_name || profile?.name || 'حسابي';
+        const employeeRole = ({Owner:'مالك النظام',Admin:'مدير النظام',Manager:'مدير',Supervisor:'مشرف',Barista:'باريستا',Kitchen:'مطبخ',Waiter:'نادل',Quality:'جودة','Quality Manager':'مدير جودة'})[profile?.role] || profile?.role || '';
         const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
 
-        const tools = document.createElement('div');
-        tools.className = 'zam-header-tools';
+        const hostedTools = header.querySelector('[data-zam-header-tools]');
+        const tools = hostedTools || document.createElement('div');
+        tools.classList.add('zam-header-tools');
+        tools.setAttribute('data-zam-header-tools', '');
         const toggle = document.createElement('button');
         toggle.type = 'button';
         toggle.className = 'zam-sidebar-toggle';
@@ -319,13 +342,28 @@ function installZamSidebarExperience() {
         name.className = 'zam-header-employee-name';
         name.textContent = employeeName;
         name.title = employeeName;
-        account.appendChild(name);
-        tools.append(toggle, account);
-        header.prepend(tools);
+        const identityCopy = document.createElement('span');
+        identityCopy.className = 'zam-header-identity-copy';
+        identityCopy.appendChild(name);
+        if (employeeRole) {
+            const role = document.createElement('span');
+            role.className = 'zam-header-employee-role';
+            role.textContent = employeeRole;
+            identityCopy.appendChild(role);
+        }
+        account.appendChild(identityCopy);
+        let notificationSlot = document.getElementById('notif-bell-slot');
+        if (!notificationSlot) {
+            notificationSlot = document.createElement('div');
+            notificationSlot.id = 'notif-bell-slot';
+        }
+        tools.replaceChildren(toggle, notificationSlot, account);
+        if (!hostedTools) header.prepend(tools);
 
         const initialHeaderHeight = Math.round(header.getBoundingClientRect().height) || 64;
         header.style.setProperty('--zam-header-min-height', `${initialHeaderHeight}px`);
         header.classList.add('zam-app-header');
+        refreshNotificationBell().catch(err => { console.error('Notification initialization error:', err); showNotificationFailure(err); });
         const main = document.querySelector('main');
         const syncMainOffset = () => {
             if (main && window.getComputedStyle(header).position === 'fixed') {
@@ -449,74 +487,41 @@ function safeNotificationPath(path) {
 }
 
 async function getLiveNotifications(profile) {
-    const { data, error } = await zamClient
-        .from('notifications')
-        .select('id, notification_type, title, body, priority, link_path, is_read, created_at')
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false })
-        .limit(ZAM_NOTIFICATION_PAGE_SIZE);
-    if (error) throw error;
-    return data || [];
+    const [listResult, countResult] = await Promise.all([
+        zamClient.from('notifications')
+            .select('id, notification_type, title, body, priority, link_path, is_read, created_at')
+            .eq('user_id', profile.id).order('created_at', { ascending: false }).limit(ZAM_NOTIFICATION_PAGE_SIZE),
+        zamClient.from('notifications').select('id', { count: 'exact', head: true })
+            .eq('user_id', profile.id).eq('is_read', false)
+    ]);
+    if (listResult.error) throw listResult.error;
+    if (countResult.error) throw countResult.error;
+    return { notifications: listResult.data || [], unreadCount: countResult.count || 0 };
 }
-
+function showNotificationFailure(error) {
+    const slot = document.getElementById('notif-bell-slot');
+    if (!slot) return;
+    console.error('Notification bell fetch error:', error);
+    slot.innerHTML = `<div class="relative"><button id="zam-notif-btn" type="button" aria-label="تعذر تحميل الإشعارات" aria-expanded="false" aria-controls="zam-notif-menu" class="w-10 h-10 rounded-full flex items-center justify-center text-error" title="تعذر تحميل الإشعارات"><span class="material-symbols-outlined" aria-hidden="true">notifications_off</span></button><div id="zam-notif-menu" class="hidden absolute left-0 mt-xs w-80 max-w-[calc(100vw-2rem)] bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg z-50 p-md" role="status" aria-live="polite">تعذر تحميل الإشعارات. أعد المحاولة.</div></div>`;
+    attachNotificationBellHandlers();
+}
 async function renderNotificationBell() {
     const profile = ZamSession.get();
     if (!profile) return '';
-
-    let notifications = [];
-    try {
-        notifications = await getLiveNotifications(profile);
-    } catch (err) {
-        console.error('Notification bell fetch error:', err);
-    }
-
-    const unreadCount = notifications.filter(notification => !notification.is_read).length;
+    const result = await getLiveNotifications(profile);
+    const notifications = result.notifications;
+    const unreadCount = result.unreadCount;
     const badgeLabel = unreadCount > 99 ? '99+' : unreadCount;
-    const badge = unreadCount > 0
-        ? `<span class="absolute -top-1 -right-1 bg-error text-on-error text-[10px] font-bold rounded-full min-w-5 h-5 px-[3px] flex items-center justify-center">${badgeLabel}</span>`
-        : '';
+    const badge = unreadCount > 0 ? `<span class="absolute -top-1 -right-1 bg-error text-on-error text-[10px] font-bold rounded-full min-w-5 h-5 px-[3px] flex items-center justify-center" aria-label="${unreadCount} إشعارات غير مقروءة">${badgeLabel}</span>` : '';
     const notificationItems = notifications.map(notification => {
         const unreadStyle = notification.is_read ? '' : 'bg-primary-container/10';
         const titleWeight = notification.is_read ? 'font-body-lg' : 'font-bold';
         const path = safeNotificationPath(notification.link_path);
-        return `
-            <a href="${path}" data-notification-link data-notification-id="${notification.id}"
-               class="flex items-start gap-sm p-sm hover:bg-surface-container border-b border-outline-variant transition-colors ${unreadStyle}">
-                <span class="material-symbols-outlined shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[18px] ${notificationTone(notification.priority)}">${notificationIcon(notification.notification_type)}</span>
-                <span class="min-w-0 flex-1">
-                    <span class="flex items-center justify-between gap-xs">
-                        <span class="${titleWeight} text-body-sm text-on-surface truncate">${escapeNotificationText(notification.title)}</span>
-                        ${notification.is_read ? '' : '<span class="w-2 h-2 rounded-full bg-primary shrink-0" aria-label="غير مقروء"></span>'}
-                    </span>
-                    <span class="block text-[11px] leading-relaxed text-on-surface-variant mt-[2px]">${escapeNotificationText(notification.body)}</span>
-                    <span class="block text-[10px] text-on-surface-variant mt-[3px]">${formatNotificationTime(notification.created_at)}</span>
-                </span>
-            </a>`;
+        return `<a href="${path}" data-notification-link data-notification-id="${escapeNotificationText(notification.id)}" class="flex items-start gap-sm p-sm hover:bg-surface-container border-b border-outline-variant transition-colors ${unreadStyle}"><span class="material-symbols-outlined shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[18px] ${notificationTone(notification.priority)}" aria-hidden="true">${notificationIcon(notification.notification_type)}</span><span class="min-w-0 flex-1"><span class="flex items-center justify-between gap-xs"><span class="${titleWeight} text-body-sm text-on-surface truncate">${escapeNotificationText(notification.title)}</span>${notification.is_read ? '' : '<span class="w-2 h-2 rounded-full bg-primary shrink-0" aria-label="غير مقروء"></span>'}</span><span class="block text-[11px] leading-relaxed text-on-surface-variant mt-[2px]">${escapeNotificationText(notification.body)}</span><span class="block text-[10px] text-on-surface-variant mt-[3px]">${formatNotificationTime(notification.created_at)}</span></span></a>`;
     }).join('');
-
-    return `
-        <div class="relative" id="zam-notif-wrapper">
-            <button id="zam-notif-btn" type="button" aria-label="فتح الإشعارات" aria-expanded="false"
-                class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container active:scale-95 transition-[transform,background-color] text-on-surface-variant relative">
-                <span class="material-symbols-outlined">notifications</span>
-                ${badge}
-            </button>
-            <div id="zam-notif-menu" class="hidden absolute left-0 mt-xs w-80 max-w-[calc(100vw-2rem)] bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg z-50 overflow-hidden" role="menu">
-                <div class="p-sm bg-primary text-on-primary flex items-center justify-between gap-sm">
-                    <div>
-                        <p class="font-bold text-body-sm">الإشعارات التشغيلية</p>
-                        <p class="text-[10px] opacity-80">${unreadCount ? `${unreadCount} غير مقروء` : 'أنت على اطلاع'}</p>
-                    </div>
-                    ${unreadCount ? '<button id="zam-mark-all-notifications" type="button" class="text-[11px] font-bold underline underline-offset-2">تحديد الكل كمقروء</button>' : ''}
-                </div>
-                <div class="max-h-80 overflow-y-auto">
-                    ${notificationItems || '<p class="p-md text-center text-on-surface-variant text-body-sm">لا توجد إشعارات تشغيلية حالياً.</p>'}
-                </div>
-            </div>
-        </div>
-    `;
+    const empty = notifications.length === 0 ? '<p class="p-md text-center text-on-surface-variant text-body-sm">لا توجد إشعارات تشغيلية حالياً.</p>' : '';
+    return `<div class="relative" id="zam-notif-wrapper"><button id="zam-notif-btn" type="button" aria-label="فتح الإشعارات${unreadCount ? `، ${unreadCount} غير مقروء` : ''}" aria-expanded="false" aria-controls="zam-notif-menu" class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container active:scale-95 transition-[transform,background-color] text-on-surface-variant relative"><span class="material-symbols-outlined" aria-hidden="true">notifications</span>${badge}</button><div id="zam-notif-menu" class="hidden absolute left-0 mt-xs w-80 max-w-[calc(100vw-2rem)] bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg z-50 overflow-hidden" role="region" aria-label="الإشعارات التشغيلية"><div class="p-sm bg-primary text-on-primary flex items-center justify-between gap-sm"><div><p class="font-bold text-body-sm">الإشعارات التشغيلية</p><p class="text-[10px] opacity-80">${unreadCount ? `${unreadCount} غير مقروء` : 'أنت على اطلاع'}</p></div>${unreadCount ? '<button id="zam-mark-all-notifications" type="button" class="text-[11px] font-bold underline underline-offset-2">تحديد الكل كمقروء</button>' : ''}</div><div class="max-h-80 overflow-y-auto">${notificationItems}${empty}</div></div></div>`;
 }
-
 async function markNotificationRead(notificationId) {
     const profile = ZamSession.get();
     if (!profile || !notificationId) return;
@@ -543,8 +548,9 @@ async function markAllNotificationsRead() {
 async function refreshNotificationBell() {
     const slot = document.getElementById('notif-bell-slot');
     if (!slot) return;
-    slot.innerHTML = await renderNotificationBell();
-    attachNotificationBellHandlers();
+    slot.innerHTML = '<button type="button" class="w-10 h-10 rounded-full text-on-surface-variant" aria-label="تحميل الإشعارات" disabled><span class="material-symbols-outlined" aria-hidden="true">notifications</span></button>';
+    try { slot.innerHTML = await renderNotificationBell(); attachNotificationBellHandlers(); }
+    catch (err) { showNotificationFailure(err); }
 }
 
 function subscribeNotificationBell(profile) {
@@ -562,7 +568,14 @@ function subscribeNotificationBell(profile) {
                 refreshNotificationBell().catch(err => console.error('Notification refresh error:', err));
             }, 120);
         })
-        .subscribe();
+        .subscribe((status) => {
+            const slot = document.getElementById('notif-bell-slot');
+            if (!slot) return;
+            slot.querySelector('[data-zam-realtime-status]')?.remove();
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                slot.insertAdjacentHTML('beforeend', '<span data-zam-realtime-status role="status" aria-live="polite" class="absolute top-full right-0 mt-1 z-50 rounded bg-error-container p-1 text-error text-[10px] whitespace-nowrap">التحديث الفوري غير متاح؛ أعد فتح الإشعارات للتحديث.</span>');
+            }
+        });
 }
 
 function attachNotificationBellHandlers() {
@@ -570,9 +583,12 @@ function attachNotificationBellHandlers() {
     const btn = document.getElementById('zam-notif-btn');
     const menu = document.getElementById('zam-notif-menu');
     if (!profile || !btn || !menu) return;
+    if (btn.dataset.zamBound === 'true') return;
+    btn.dataset.zamBound = 'true';
 
     btn.addEventListener('click', (event) => {
         event.stopPropagation();
+        if (btn.getAttribute('aria-label') === 'تعذر تحميل الإشعارات') { refreshNotificationBell(); return; }
         const willOpen = menu.classList.contains('hidden');
         menu.classList.toggle('hidden');
         btn.setAttribute('aria-expanded', String(willOpen));
@@ -584,10 +600,12 @@ function attachNotificationBellHandlers() {
             const destination = link.getAttribute('href') || '../dashboard/index.html';
             try {
                 await markNotificationRead(link.dataset.notificationId);
+                window.location.href = destination;
             } catch (err) {
                 console.error('Notification read update error:', err);
+                const menu = document.getElementById('zam-notif-menu');
+                if (menu) menu.insertAdjacentHTML('afterbegin', '<p role="alert" class="p-sm text-error text-body-sm">تعذر تحديث حالة القراءة؛ بقيت هنا ولم تُفتح الوجهة. أعد المحاولة.</p>');
             }
-            window.location.href = destination;
         });
     });
 
@@ -597,10 +615,18 @@ function attachNotificationBellHandlers() {
             await refreshNotificationBell();
         } catch (err) {
             console.error('Mark all notifications read error:', err);
+            document.getElementById('zam-notif-menu')?.insertAdjacentHTML('afterbegin', '<p role="alert" class="p-sm text-error text-body-sm">تعذر تحديد الإشعارات كمقروءة. أعد المحاولة.</p>');
         }
     });
 
     if (!window.__zamNotificationDocumentCloseBound) {
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && !document.getElementById('zam-notif-menu')?.classList.contains('hidden')) {
+                document.getElementById('zam-notif-menu')?.classList.add('hidden');
+                document.getElementById('zam-notif-btn')?.setAttribute('aria-expanded', 'false');
+                document.getElementById('zam-notif-btn')?.focus();
+            }
+        });
         document.addEventListener('click', (event) => {
             if (!document.getElementById('zam-notif-wrapper')?.contains(event.target)) {
                 document.getElementById('zam-notif-menu')?.classList.add('hidden');
@@ -778,15 +804,29 @@ const ZamAPI = {
     },
 
     async replaceTaskCategories(profileId, categories) {
-        const { error: deleteError } = await zamClient
-            .from('employee_task_categories')
-            .delete()
-            .eq('profile_id', profileId);
-        if (deleteError) throw deleteError;
-        if (!categories || !categories.length) return;
-        const rows = categories.map(category => ({ profile_id: profileId, category }));
-        const { error } = await zamClient.from('employee_task_categories').insert(rows);
-        if (error) throw error;
+        const currentCategories = await ZamAPI.getTaskCategories(profileId);
+        const nextCategories = Array.from(new Set(categories || []));
+        const currentSet = new Set(currentCategories);
+        const nextSet = new Set(nextCategories);
+        const categoriesToAdd = nextCategories.filter(category => !currentSet.has(category));
+        const categoriesToRemove = Array.from(currentSet).filter(category => !nextSet.has(category));
+
+        // Add first: a failed insert must not erase the employee's existing assignments.
+        if (categoriesToAdd.length) {
+            const rows = categoriesToAdd.map(category => ({ profile_id: profileId, category }));
+            const { error } = await zamClient.from('employee_task_categories').insert(rows);
+            if (error) throw error;
+        }
+
+        // Only remove old rows after all additions succeeded. A failed delete leaves
+        // the previous categories intact, so retrying safely completes the diff.
+        if (categoriesToRemove.length) {
+            const { error } = await zamClient.from('employee_task_categories')
+                .delete()
+                .eq('profile_id', profileId)
+                .in('category', categoriesToRemove);
+            if (error) throw error;
+        }
     },
 
     // ============================================

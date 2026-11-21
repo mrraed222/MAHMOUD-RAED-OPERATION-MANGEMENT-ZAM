@@ -1,326 +1,60 @@
 <!DOCTYPE html>
 <html dir="rtl" lang="ar"><head>
-<meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport">
-<title>ZAM Operations - تفاصيل الفرع</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZAM Operations - سجل تنفيذ الفرع</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script id="tailwind-config">
-        tailwind.config = {
-          darkMode: "class",
-          theme: {
-            extend: {
-              "colors": {
-                      "inverse-surface": "#303030",
-                      "primary-fixed-dim": "#e1c1a4",
-                      "secondary-fixed-dim": "#c8c8b0",
-                      "outline-variant": "#d2c4ba",
-                      "on-tertiary-container": "#56b958",
-                      "on-primary": "#ffffff",
-                      "tertiary-container": "#00450e",
-                      "on-tertiary": "#ffffff",
-                      "primary-container": "#4b3621",
-                      "on-primary-fixed-variant": "#59422c",
-                      "surface-tint": "#725a42",
-                      "error-container": "#ffdad6",
-                      "secondary": "#5e604d",
-                      "error": "#ba1a1a",
-                      "secondary-container": "#e1e1c9",
-                      "surface": "#fcf9f8",
-                      "on-secondary": "#ffffff",
-                      "on-primary-fixed": "#291806",
-                      "on-error-container": "#93000a",
-                      "on-tertiary-fixed-variant": "#005313",
-                      "inverse-on-surface": "#f3f0f0",
-                      "surface-container": "#f0eded",
-                      "on-tertiary-fixed": "#002204",
-                      "outline": "#80756c",
-                      "on-surface-variant": "#4e453d",
-                      "on-secondary-fixed-variant": "#474836",
-                      "inverse-primary": "#e1c1a4",
-                      "background": "#fcf9f8",
-                      "tertiary": "#002c06",
-                      "tertiary-fixed-dim": "#78dc77",
-                      "surface-variant": "#e4e2e1",
-                      "on-secondary-container": "#636451",
-                      "on-background": "#1b1c1c",
-                      "surface-container-lowest": "#ffffff",
-                      "secondary-fixed": "#e4e4cc",
-                      "surface-dim": "#dcd9d9",
-                      "on-primary-container": "#bd9f83",
-                      "on-surface": "#1b1c1c",
-                      "surface-container-high": "#eae7e7",
-                      "surface-bright": "#fcf9f8",
-                      "on-error": "#ffffff",
-                      "tertiary-fixed": "#94f990",
-                      "primary-fixed": "#fedcbe",
-                      "surface-container-low": "#f6f3f2",
-                      "on-secondary-fixed": "#1b1d0e",
-                      "surface-container-highest": "#e4e2e1",
-                      "primary": "#33210d"
-              },
-              "borderRadius": {
-                      "DEFAULT": "0.125rem",
-                      "lg": "0.25rem",
-                      "xl": "0.5rem",
-                      "full": "0.75rem"
-              },
-              "spacing": {
-                      "xs": "4px",
-                      "md": "24px",
-                      "gutter": "24px",
-                      "margin-desktop": "32px",
-                      "xl": "64px",
-                      "sm": "12px",
-                      "lg": "40px",
-                      "base": "8px",
-                      "margin-mobile": "16px"
-              },
-              "fontFamily": {"title-md": ["Tajawal", "sans-serif"], "headline-lg": ["Tajawal", "sans-serif"], "label-bold": ["Tajawal", "sans-serif"], "display-lg": ["Tajawal", "sans-serif"], "body-lg": ["Tajawal", "sans-serif"], "body-sm": ["Tajawal", "sans-serif"]},
-              "fontSize": {
-                      "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
-                      "label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
-                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
-                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
-                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
-                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
-                      "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}]
-              }
-            },
-          },
-        }
-    </script>
-<style id="zam-design-system">
-:root {
-  --zam-coffee: #33210d;
-  --zam-coffee-light: #4b3621;
-  --zam-focus: #c0583a;
-  --zam-surface: #fcf9f8;
-}
-body.zam-page {
-  font-family: "Tajawal", sans-serif;
-  text-rendering: optimizeLegibility;
-}
-@keyframes zamFadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes zamLogoGlow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(192, 88, 58, .20)); } 50% { filter: drop-shadow(0 0 12px rgba(192, 88, 58, .48)); } }
-@keyframes zamSoftPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(192, 88, 58, .22); } 50% { box-shadow: 0 0 0 7px rgba(192, 88, 58, 0); } }
-.zam-logo { animation: zamFadeInUp .32s cubic-bezier(.2,.7,.3,1) both; }
-body.zam-page main { animation: zamFadeInUp .28s cubic-bezier(.2,.7,.3,1) both; }
-.zam-card { transition: transform .16s ease, border-color .16s ease, background-color .16s ease; }
-.zam-card:hover { transform: translateY(-1px); border-color: var(--zam-focus) !important; }
-.zam-btn, button, [role="button"] { transition: background-color .14s ease, border-color .14s ease; }
-.zam-btn:hover, button:hover, [role="button"]:hover { filter: brightness(.98); }
-.zam-btn:active, button:active, [role="button"]:active { filter: brightness(.95); }
-input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .42); outline-offset: 2px; }
-.zam-loading { opacity: .82; }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
-</style>
-  <link rel="stylesheet" href="../assets/riwaq-theme.css">
-  <style>
-    body.zam-page { background: var(--riwaq-bg) !important; color: var(--riwaq-ink); }
-    body.zam-page header { background: var(--riwaq-surface) !important; border-color: var(--riwaq-line) !important; box-shadow: 0 2px 12px rgba(29,47,39,.045); }
-    body.zam-page main { color: var(--riwaq-ink); }
-    body.zam-page main > div { padding: 28px; }
-    body.zam-page main section > div, body.zam-page #log-list { border-color: var(--riwaq-line) !important; border-radius: var(--riwaq-radius); box-shadow: var(--riwaq-shadow); }
-    body.zam-page header { min-height: 88px; height: auto; padding-block: 12px; }
-    body.zam-page #log-list > div { padding: 20px; }
-    body.zam-page #date-filter { min-height: 44px; }
-    body.zam-page .branch-stat { min-height: 124px; display: flex; flex-direction: column; justify-content: center; text-align: start; }
-    body.zam-page .branch-stat p:last-child { margin-top: 8px; }
-    body.zam-page .log-intro { border-inline-start: 4px solid var(--riwaq-accent, #a64b35); }
-    body.zam-page #image-modal { backdrop-filter: blur(3px); }
-    @media (max-width: 767px) {
-      body.zam-page header { height: auto; min-height: 5rem; padding: 12px 16px; gap: 10px; flex-wrap: wrap; }
-      body.zam-page header > div { gap: 10px; }
-      body.zam-page header > div:last-child { width: 100%; justify-content: space-between; }
-      body.zam-page main { padding-top: 9rem; }
-      body.zam-page main > div { padding: 16px; }
-      body.zam-page main section.grid { grid-template-columns: 1fr; gap: 10px; }
-      body.zam-page header > div:first-child { align-items: flex-start; }
-      body.zam-page .branch-stat { min-height: 92px; }
-      body.zam-page #log-list > div { align-items: flex-start; gap: 10px; flex-wrap: wrap; }
-      body.zam-page #log-list > div > div { align-items: flex-start; min-width: 0; }
-      body.zam-page #log-list p { overflow-wrap: anywhere; }
-    }
-  </style>
-</head>
-<body class="zam-page bg-background text-on-surface overflow-x-hidden">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261121180400"></script>
-<script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
+<link rel="stylesheet" href="../assets/riwaq-theme.css">
+<style>
+:root{--ink:#202c27;--muted:#61716a;--line:#dce4df;--paper:#fff;--wash:#f3f6f3;--accent:#a64b35;--focus:#a64b35}*{box-sizing:border-box}body{margin:0;background:var(--riwaq-bg,#f2f5f2);color:var(--ink);font-family:Tajawal,sans-serif}header{min-height:88px;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 2px 12px #1d2f270b;z-index:40}main{padding-top:112px;padding-bottom:48px}.page-wrap{max-width:1180px;margin:auto;padding:24px}.context{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:20px}.context h2{margin:0;font-size:26px}.context p{margin:5px 0 0;color:var(--muted)}.toolbar,.panel,.stat{background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:0 5px 18px #22372d08}.toolbar{display:flex;align-items:end;gap:12px;padding:16px;margin-bottom:18px;flex-wrap:wrap}.field{display:grid;gap:5px;min-width:150px}.field label{font-weight:700;font-size:14px}.field input,.field select{height:44px;border:1px solid #bdc9c2;border-radius:9px;padding:8px 11px;background:#fff;color:var(--ink);font:inherit}.field.search{flex:1;min-width:200px}.action{border:1px solid #9aa99f;border-radius:9px;padding:10px 16px;min-height:44px;background:#fff;color:var(--ink);font:700 15px Tajawal,sans-serif;cursor:pointer}.action.primary{background:#274b3b;color:#fff;border-color:#274b3b}.action:disabled{opacity:.6;cursor:wait}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:22px}.stat{padding:18px;min-height:125px}.stat-label{color:var(--muted);font-weight:600}.stat-value{font-size:27px;font-weight:800;margin-top:8px}.stat-hint{font-size:13px;color:var(--muted);margin-top:3px}.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line)}.section-head h3{margin:0;font-size:21px}.section-head p{margin:3px 0 0;color:var(--muted);font-size:14px}.result-count{font-size:13px;color:var(--muted);white-space:nowrap}.log-row{display:grid;grid-template-columns:76px minmax(0,1fr) auto;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid var(--line)}.log-row:last-child{border-bottom:0}.thumb,.no-photo{width:76px;height:76px;border-radius:12px;object-fit:cover;background:var(--wash);border:1px solid var(--line)}.thumb{cursor:zoom-in}.thumb:focus-visible,.action:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #c0583a77;outline-offset:2px}.log-main{min-width:0}.log-main h4{margin:0;font-size:17px}.meta{margin:4px 0;color:var(--muted);font-size:14px}.note{margin:7px 0 0;padding:8px 11px;border-inline-start:3px solid #c8d4cd;background:#f7f9f7;border-radius:5px;overflow-wrap:anywhere}.badge{border-radius:999px;background:#e8f2eb;color:#28533b;padding:6px 10px;font-weight:700;font-size:13px}.badge.flagged{background:#ffebe7;color:#8c3122}.state{padding:32px 20px;text-align:center;color:var(--muted)}.state.error{color:#8c3122;background:#fff8f6}.state button{margin-inline-start:8px}.hidden{display:none!important}.modal{position:fixed;inset:0;background:#111b18ed;z-index:80;display:flex;align-items:center;justify-content:center;padding:20px}.modal[hidden]{display:none}.modal img{max-width:min(92vw,1200px);max-height:82vh;object-fit:contain;border-radius:12px}.modal-close{position:absolute;top:16px;inset-inline-end:16px;background:#fff;color:#222}.notice{padding:12px 16px;border:1px solid #ead8ad;background:#fff9e8;color:#665120;border-radius:12px;margin-bottom:18px}@media(max-width:767px){header{padding:10px 14px;flex-wrap:wrap}main{padding-top:138px}.page-wrap{padding:16px}.context{display:block}.context h2{font-size:23px}.toolbar{align-items:stretch}.field,.field.search{width:100%;min-width:0}.toolbar .action{flex:1}.stats{grid-template-columns:1fr;gap:10px}.stat{min-height:90px;padding:14px}.stat-value{font-size:23px}.section-head{align-items:flex-start;padding:15px;flex-direction:column}.log-row{grid-template-columns:60px minmax(0,1fr);gap:11px;padding:14px}.thumb,.no-photo{width:60px;height:60px}.badge{grid-column:2;justify-self:start}.meta{line-height:1.5}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+</style></head>
+<body class="zam-page">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/supabase-config.js?v=20261121212700"></script><script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
-  if (!['Owner','Admin','Manager','Supervisor'].includes(currentUser.role)) {
-      window.location.href = zamRoleHomePath(currentUser.role);
-  }
+  if (!['Owner','Admin','Manager','Supervisor'].includes(currentUser.role)) window.location.href = zamRoleHomePath(currentUser.role);
   const params = new URLSearchParams(window.location.search);
   const branchId = params.get('branch');
-  if (currentUser.role === 'Supervisor' && branchId !== currentUser.branch_id) {
-      window.location.href = `index.html?branch=${currentUser.branch_id}&name=${encodeURIComponent(currentUser.branches?.name || 'فرعي')}`;
-  }
+  if (currentUser.role === 'Supervisor' && branchId !== currentUser.branch_id) window.location.href = `index.html?branch=${currentUser.branch_id}&name=${encodeURIComponent(currentUser.branches?.name || 'فرعي')}`;
 </script>
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('branches', currentUser.role);})();</script>
-<header class="fixed top-0 left-0 w-full md:pr-[312px] bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop" aria-label="رأس الصفحة">
-  <div class="flex items-center gap-md min-w-0">
-    <a href="../dashboard/index.html" class="text-on-surface-variant hover:text-primary inline-flex min-w-[44px] min-h-[44px] items-center justify-center" aria-label="العودة إلى لوحة أداء الفروع"><span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
-    <img src="../assets/logo/zam-logo.png" alt="ZAM" class="w-10 h-10 object-contain shrink-0"/>
-    <div class="min-w-0">
-      <p class="text-xs font-bold text-on-surface-variant">ZAM Operations</p>
-      <p class="text-xs text-on-surface-variant"><span id="viewer-identity"></span></p>
-      <h1 class="font-title-md text-title-md text-primary" id="branch-title">تفاصيل الفرع</h1>
-      <p class="text-body-sm text-on-surface-variant">سجل تنفيذ اليوم بالصور والملاحظات</p>
-    </div>
-  </div>
-  <div class="flex items-center gap-md">
-    <label for="date-filter" class="text-body-sm font-bold text-on-surface-variant">تاريخ التنفيذ</label>
-    <input type="date" id="date-filter" class="border border-outline-variant rounded-lg px-sm py-xs text-body-sm" aria-describedby="date-hint"/>
-    <div id="notif-bell-slot"></div>
-  </div>
+<header class="fixed top-0 left-0 w-full md:pr-[312px] flex justify-between items-center px-6" aria-label="رأس الصفحة">
+  <div class="flex items-center gap-4 min-w-0"><a href="../dashboard/index.html" class="inline-flex min-w-[44px] min-h-[44px] items-center justify-center" aria-label="العودة إلى لوحة أداء الفروع"><span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a><img src="../assets/logo/zam-logo.png" alt="ZAM" width="40" height="40"><div class="min-w-0"><p class="text-xs font-bold">ZAM Operations</p><p class="text-xs"><span id="viewer-identity"></span></p><h1 id="branch-title" class="text-xl font-bold">سجل تنفيذ الفرع</h1></div></div>
+  <div class="flex items-center gap-3"><label for="date-filter" class="font-bold">تاريخ التنفيذ</label><input type="date" id="date-filter" aria-describedby="date-hint" class="border rounded-lg px-3 py-2 min-h-[44px]"><div id="notif-bell-slot"></div></div>
 </header>
-<main class="md:pr-[280px] pt-20 min-h-screen"><div class="max-w-5xl mx-auto p-margin-desktop">
-  <p id="date-hint" class="text-body-sm text-on-surface-variant mb-md">اختر تاريخًا لمراجعة سجلات التنفيذ المسجلة لذلك اليوم. لا تعرض هذه الصفحة إلا البيانات المتاحة في السجل.</p>
-  <section class="grid grid-cols-3 gap-md mb-lg" aria-label="ملخص تنفيذ الفرع">
-    <div class="branch-stat bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
-      <p class="text-body-sm text-on-surface-variant">نسبة المهام المنفذة</p>
-      <p class="text-2xl font-bold text-primary" id="branch-pct">—</p>
-    </div>
-    <div class="branch-stat bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
-      <p class="text-body-sm text-on-surface-variant">مبيعات اليوم</p>
-      <p class="text-2xl font-bold text-primary" id="branch-sales">—</p>
-    </div>
-    <div class="branch-stat bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
-      <p class="text-body-sm text-on-surface-variant">مهام بصور إثبات</p>
-      <p class="text-2xl font-bold text-primary" id="branch-photos">—</p>
-    </div>
-  </section>
-  <div class="log-intro bg-surface-container-lowest rounded-xl p-md mb-sm">
-    <h2 class="font-title-md text-title-md text-primary">سجل التنفيذ</h2>
-    <p class="text-body-sm text-on-surface-variant mt-xs">تُعرض المهمة والمنفذ والوقت والملاحظة والصورة عند توفرها. قد لا تتضمن السجلات بيانات حرارة أو جهاز.</p>
-  </div>
-  <div class="bg-surface-container-lowest rounded-xl border border-outline-variant divide-y divide-outline-variant" id="log-list">
-    <p class="p-md text-on-surface-variant text-body-sm" role="status" aria-live="polite">جارِ تحميل سجل التنفيذ…</p>
-  </div>
+<main class="md:pr-[280px]"><div class="page-wrap">
+  <div class="context"><div><h2>تنفيذ الفرع والصور</h2><p id="date-hint">راجع إنجاز المهام والمبيعات وسجلات الإثبات المسجلة لهذا الفرع والتاريخ.</p></div><button id="refresh-btn" class="action primary" type="button"><span class="material-symbols-outlined align-middle" aria-hidden="true">refresh</span> تحديث البيانات</button></div>
+  <div id="branch-state" class="notice" role="status" aria-live="polite" hidden></div>
+  <section class="toolbar" aria-label="تصفية سجل التنفيذ"><div class="field search"><label for="search-filter">بحث في المهام والسجلات</label><input id="search-filter" type="search" placeholder="اسم المهمة أو المنفذ أو الملاحظة" autocomplete="off"></div><div class="field"><label for="status-filter">حالة السجل</label><select id="status-filter"><option value="all">كل الحالات</option><option value="flagged">تحتاج مراجعة</option><option value="other">بقية الحالات</option></select></div><div class="field"><label for="photo-filter">الإثبات</label><select id="photo-filter"><option value="all">الكل</option><option value="with">مع صورة</option><option value="without">بدون صورة</option></select></div><button id="clear-filters" class="action" type="button">مسح الفلاتر</button></section>
+  <section class="stats" aria-label="ملخص تنفيذ الفرع"><article class="stat"><div class="stat-label">نسبة المهام المنفذة</div><div class="stat-value" id="branch-pct" aria-live="polite">—</div><div class="stat-hint">المقام: عدد القوالب المحمّلة لهذا الفرع</div></article><article class="stat"><div class="stat-label">مبيعات اليوم</div><div class="stat-value" id="branch-sales" aria-live="polite">—</div><div class="stat-hint">مجموع تقارير اليوم المتاحة (ر.س)</div></article><article class="stat"><div class="stat-label">مهام بصور إثبات</div><div class="stat-value" id="branch-photos" aria-live="polite">—</div><div class="stat-hint">عدد سجلات التنفيذ التي تحتوي رابط صورة</div></article></section>
+  <section class="panel" aria-labelledby="log-heading"><div class="section-head"><div><h3 id="log-heading">سجل التنفيذ</h3><p>المهمة والمنفذ والوقت والملاحظة والصورة عند توفرها. قد لا تتضمن السجلات بيانات حرارة أو جهاز.</p></div><span id="result-count" class="result-count" aria-live="polite"></span></div><div id="log-list" aria-live="polite" aria-busy="false"><div class="state">اختر التاريخ لعرض السجلات.</div></div></section>
 </div></main>
-<div id="image-modal" class="fixed inset-0 bg-inverse-surface/90 hidden items-center justify-center z-50 p-margin-mobile" role="dialog" aria-modal="true" aria-label="عرض صورة إثبات">
-  <button id="close-image" class="absolute top-4 right-4 text-white hover:text-primary transition-colors min-w-[48px] min-h-[48px]" aria-label="إغلاق الصورة"><span class="material-symbols-outlined text-4xl" aria-hidden="true">close</span></button>
-  <img id="modal-img" src="" alt="صورة إثبات التنفيذ" class="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"/>
-</div>
+<div id="image-modal" class="modal" role="dialog" aria-modal="true" aria-label="عرض صورة إثبات" hidden><button id="close-image" class="action modal-close" type="button" aria-label="إغلاق الصورة"><span class="material-symbols-outlined" aria-hidden="true">close</span></button><img id="modal-img" src="" alt="صورة إثبات التنفيذ"></div>
 <script>
 const branchName = params.get('name') || 'الفرع';
-document.getElementById('branch-title').textContent = decodeURIComponent(branchName);
-const viewerRoleLabels = { Owner: 'مالك', Admin: 'مدير النظام', Manager: 'مدير', Supervisor: 'مشرف وردية' };
+document.getElementById('branch-title').textContent = `سجل تنفيذ ${branchName}`;
+const viewerRoleLabels = { Owner:'مالك', Admin:'مدير النظام', Manager:'مدير', Supervisor:'مشرف وردية' };
 document.getElementById('viewer-identity').textContent = [currentUser.full_name || currentUser.name || '', viewerRoleLabels[currentUser.role] || currentUser.role || ''].filter(Boolean).join(' · ');
-
-const dateFilter = document.getElementById('date-filter');
-dateFilter.value = ZamBranchLifecycle.riyadhDateString(new Date());
-dateFilter.addEventListener('change', loadBranchDetail);
-
-/**
- * تم إصلاح تحميل البيانات: بدل select(*) مع علاقات قد تفشل
- * في Supabase إذا لم تكن FK relationships مُعلنة، نفصل الاستعلامات
- * ونُغني السجلات يدوياً. هذا أكثر مرونة وأقل عرضة للأخطاء.
- */
-async function loadBranchDetail() {
-    if (!branchId) return;
-    const date = dateFilter.value;
-    const listEl = document.getElementById('log-list');
-    listEl.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
-
-    try {
-        const branchRes = await zamClient.from('branches').select('name, lifecycle_status, planned_opening_date').eq('id', branchId).maybeSingle();
-        if (branchRes.error) throw branchRes.error;
-        if (!ZamBranchLifecycle.isOperational(branchRes.data, date)) {
-            document.getElementById('branch-pct').textContent = '—';
-            document.getElementById('branch-sales').textContent = '—';
-            document.getElementById('branch-photos').textContent = '—';
-            listEl.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">بيانات الفرع غير متاحة قبل تاريخ الافتتاح المؤكد.</p>';
-            return;
-        }
-        // استعلامات منفصلة لتفادي مشاكل العلاقات (FK) في Supabase
-        const [logsRes, templates, reportsRes] = await Promise.all([
-            zamClient.from('checklist_logs').select('*')
-                .eq('branch_id', branchId).eq('execution_date', date)
-                .order('created_at', { ascending: false }),
-            ZamAPI.getTemplates(null, null, branchId),
-            zamClient.from('daily_reports').select('total_sales')
-                .eq('branch_id', branchId).eq('report_date', date),
-        ]);
-
-        if (logsRes.error) throw logsRes.error;
-        const logs = logsRes.data || [];
-        const reports = reportsRes.data || [];
-
-        // خرائط للتغنية اليدوية
-        const templateMap = Object.fromEntries(templates.map(t => [t.id, t]));
-
-        // جلب أسماء منفذي المهام (دفعة واحدة لتحسين الأداء)
-        const executorIds = [...new Set(logs.map(l => l.executed_by).filter(Boolean))];
-        const executorMap = {};
-        if (executorIds.length) {
-            const { data: executors } = await zamClient
-                .from('profiles')
-                .select('id, full_name')
-                .in('id', executorIds);
-            (executors || []).forEach(p => { executorMap[p.id] = p.full_name; });
-        }
-
-        const totalSales = reports.reduce((s, r) => s + (Number(r.total_sales) || 0), 0);
-        const doneCount = new Set(logs.map(l => l.template_id)).size;
-        const pct = templates.length ? Math.round((doneCount / templates.length) * 100) : 0;
-        const withPhotos = logs.filter(l => l.photo_url).length;
-
-        document.getElementById('branch-pct').textContent = pct + '%';
-        document.getElementById('branch-sales').textContent = totalSales.toLocaleString('ar-EG') + ' ر.س';
-        document.getElementById('branch-photos').textContent = withPhotos;
-
-        if (!logs.length) {
-            listEl.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">لا توجد سجلات تنفيذ في هذا التاريخ.</p>';
-            return;
-        }
-
-        listEl.innerHTML = logs.map(log => {
-            const template = templateMap[log.template_id] || {};
-            const executorName = executorMap[log.executed_by] || '—';
-            return `
-            <div class="p-md flex items-center justify-between gap-md">
-                <div class="flex items-center gap-md">
-                    ${log.photo_url ? `<img src="${log.photo_url}" class="w-14 h-14 rounded-lg object-cover border border-outline-variant cursor-pointer zoomable-img" data-src="${log.photo_url}"/>` : '<div class="w-14 h-14 rounded-lg bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined text-outline">check_circle</span></div>'}
-                    <div>
-                        <h4 class="font-bold text-on-surface">${template.task_title || 'مهمة'}</h4>
-                        <p class="text-body-sm text-on-surface-variant">${template.category || ''} • نفّذها: ${executorName} • ${new Date(log.created_at).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'})}</p>
-                        ${log.notes ? `<p class="text-body-sm text-on-surface-variant italic">"${log.notes}"</p>` : ''}
-                    </div>
-                </div>
-                <span class="text-[11px] font-bold px-sm py-xs rounded-full ${log.status === 'Flagged' ? 'bg-error-container text-on-error-container' : 'bg-tertiary-fixed/20 text-tertiary-container'}">${log.status}</span>
-            </div>`;
-        }).join('');
-
-        // ربط مستمعي تكبير الصور
-        listEl.querySelectorAll('.zoomable-img').forEach(img => {
-            img.addEventListener('click', () => {
-                document.getElementById('modal-img').src = img.dataset.src;
-                document.getElementById('image-modal').classList.remove('hidden');
-                document.getElementById('image-modal').classList.add('flex');
-            });
-        });
-    } catch (err) {
-        console.error(err);
-        listEl.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل السجل: ' + (err.message || 'خطأ غير معروف') + '</p>';
-    }
+const dateFilter=document.getElementById('date-filter'), listEl=document.getElementById('log-list');
+dateFilter.value=ZamBranchLifecycle.riyadhDateString(new Date());
+let records=[]; let loadToken=0;
+function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function setState(message,kind=''){const box=document.getElementById('branch-state');box.hidden=!message;box.className=kind==='error'?'notice state error':'notice';box.textContent=message||'';}
+function applyFilters(){const query=document.getElementById('search-filter').value.trim().toLocaleLowerCase();const status=document.getElementById('status-filter').value, photo=document.getElementById('photo-filter').value;const rows=records.filter(r=>{const hay=[r.title,r.category,r.executor,r.notes,r.status].join(' ').toLocaleLowerCase();return (!query||hay.includes(query))&&(status==='all'||(status==='flagged'?r.status==='Flagged':r.status!=='Flagged'))&&(photo==='all'||(photo==='with'?!!r.photo:!r.photo));});document.getElementById('result-count').textContent=`عرض ${rows.length} من ${records.length} سجل`;if(!rows.length){listEl.innerHTML=`<div class="state">${records.length?'لا توجد سجلات تطابق الفلاتر.':'لا توجد سجلات تنفيذ في هذا التاريخ.'}</div>`;return;}listEl.innerHTML=rows.map((r,i)=>`<article class="log-row"><div>${r.photo?`<button type="button" class="p-0 border-0 bg-transparent" data-image-index="${i}" aria-label="عرض صورة إثبات ${esc(r.title)}"><img class="thumb" src="${esc(r.photo)}" alt="صورة إثبات: ${esc(r.title)}" loading="lazy"></button>`:'<div class="no-photo flex items-center justify-center" aria-label="لا توجد صورة"><span class="material-symbols-outlined" aria-hidden="true">image_not_supported</span></div>'}</div><div class="log-main"><h4>${esc(r.title||'مهمة')}</h4><p class="meta">${esc(r.category||'')} · نفّذها: ${esc(r.executor||'—')} · ${esc(r.time||'وقت غير متاح')}</p>${r.notes?`<p class="note">${esc(r.notes)}</p>`:''}</div><span class="badge ${r.status==='Flagged'?'flagged':''}">${r.status==='Flagged'?'تحتاج مراجعة':esc(r.status||'منفذة')}</span></article>`).join('');listEl.querySelectorAll('[data-image-index]').forEach(btn=>btn.addEventListener('click',()=>openImage(rows[Number(btn.dataset.imageIndex)]?.photo,btn)));}
+function openImage(src,trigger){if(!src)return;const modal=document.getElementById('image-modal');modal.hidden=false;modal.dataset.triggerId=trigger?.id||'';document.getElementById('modal-img').src=src;document.getElementById('close-image').focus();}
+async function loadBranchDetail(){const token=++loadToken;if(!branchId){setState('لم يُحدّد الفرع في عنوان الصفحة.','error');listEl.innerHTML='<div class="state">تعذّر تحديد سجل الفرع.</div>';return;}const date=dateFilter.value;if(!date)return;const button=document.getElementById('refresh-btn');button.disabled=true;button.textContent='جارٍ التحديث…';listEl.setAttribute('aria-busy','true');listEl.innerHTML='<div class="state" role="status">جارٍ تحميل سجل التنفيذ…</div>';setState('');document.getElementById('result-count').textContent='';
+try{const branchRes=await zamClient.from('branches').select('name, lifecycle_status, planned_opening_date').eq('id',branchId).maybeSingle();if(token!==loadToken)return;if(branchRes.error)throw branchRes.error;if(!ZamBranchLifecycle.isOperational(branchRes.data,date)){records=[];['branch-pct','branch-sales','branch-photos'].forEach(id=>document.getElementById(id).textContent='—');setState('بيانات الفرع غير متاحة قبل تاريخ الافتتاح المؤكد.');listEl.innerHTML='<div class="state">لا تتوفر بيانات لهذا الفرع في التاريخ المحدد.</div>';return;}
+const [logsRes,templatesResult,reportsRes]=await Promise.allSettled([zamClient.from('checklist_logs').select('*').eq('branch_id',branchId).eq('execution_date',date).order('created_at',{ascending:false}),ZamAPI.getTemplates(null,null,branchId),zamClient.from('daily_reports').select('total_sales').eq('branch_id',branchId).eq('report_date',date)]);if(token!==loadToken)return;
+const errors=[];const logsFailure=logsRes.status==='rejected'||logsRes.value.error;const logs=logsFailure?[]:(logsRes.value.data||[]);const templatesFailure=templatesResult.status==='rejected';const templates=templatesFailure?[]:templatesResult.value;const reportsFailure=reportsRes.status==='rejected'||reportsRes.value.error;const reports=reportsFailure?[]:(reportsRes.value.data||[]);
+if(logsFailure)errors.push('سجل المهام');if(templatesFailure)errors.push('قوالب المهام');if(reportsFailure)errors.push('المبيعات');
+const templateMap=Object.fromEntries((templates||[]).map(t=>[t.id,t]));const executorIds=[...new Set(logs.map(l=>l.executed_by).filter(Boolean))];let executorMap={},executorFailure=false;if(executorIds.length){try{const res=await zamClient.from('profiles').select('id, full_name').in('id',executorIds);if(token!==loadToken)return;if(res.error)throw res.error;(res.data||[]).forEach(p=>executorMap[p.id]=p.full_name);}catch(e){executorFailure=true;errors.push('أسماء المنفذين');}}
+const sales=reports.reduce((s,r)=>s+(Number(r.total_sales)||0),0);document.getElementById('branch-sales').textContent=reportsFailure?'غير متاح':sales.toLocaleString('ar-EG')+' ر.س';document.getElementById('branch-pct').textContent=(templatesFailure||logsFailure)?'غير متاح':(templates.length?Math.round((new Set(logs.map(l=>l.template_id)).size/templates.length)*100):0)+'%';document.getElementById('branch-photos').textContent=logsFailure?'غير متاح':logs.filter(l=>l.photo_url).length;
+records=logs.map(log=>{const t=templateMap[log.template_id]||{};return{title:t.task_title||'مهمة',category:t.category||'',executor:executorMap[log.executed_by]||'—',time:log.created_at?new Date(log.created_at).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}):'',notes:log.notes||'',photo:log.photo_url||'',status:log.status||''};});if(templatesFailure&&logs.length)errors.push('تعذر تحميل أسماء بعض المهام');applyFilters();if(errors.length){setState(`تعذّر تحميل: ${[...new Set(errors)].join('، ')}. البيانات المعروضة قد تكون جزئية. استخدم «تحديث البيانات» للمحاولة مجددًا.`,'error');}
+}catch(err){if(token!==loadToken)return;console.error(err);records=[];setState('تعذّر تحميل بيانات الفرع. تحقق من الاتصال ثم أعد المحاولة.','error');listEl.innerHTML='<div class="state error">فشل تحميل سجل الفرع. <button class="action" type="button" id="retry-load">إعادة المحاولة</button></div>';document.getElementById('retry-load')?.addEventListener('click',loadBranchDetail);}finally{if(token===loadToken){button.disabled=false;button.innerHTML='<span class="material-symbols-outlined align-middle" aria-hidden="true">refresh</span> تحديث البيانات';listEl.setAttribute('aria-busy','false');}}
 }
+dateFilter.addEventListener('change',loadBranchDetail);document.getElementById('refresh-btn').addEventListener('click',loadBranchDetail);['search-filter','status-filter','photo-filter'].forEach(id=>document.getElementById(id).addEventListener(id==='search-filter'?'input':'change',applyFilters));document.getElementById('clear-filters').addEventListener('click',()=>{document.getElementById('search-filter').value='';document.getElementById('status-filter').value='all';document.getElementById('photo-filter').value='all';applyFilters();});
+function closeImage(){const modal=document.getElementById('image-modal');modal.hidden=true;document.getElementById('modal-img').src='';document.querySelector('[data-image-index]')?.focus();}document.getElementById('close-image').addEventListener('click',closeImage);document.getElementById('image-modal').addEventListener('click',e=>{if(e.target.id==='image-modal')closeImage();});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!document.getElementById('image-modal').hidden)closeImage();});
+loadBranchDetail();
 
-document.getElementById('close-image')?.addEventListener('click', () => {
-    document.getElementById('image-modal').classList.add('hidden');
-    document.getElementById('image-modal').classList.remove('flex');
-});
-
-loadBranchDetail().catch(err => console.error(err));
-
-// تركيب جرس الإشعارات
-(async function mountNotifBell() {
-    const slot = document.getElementById('notif-bell-slot');
-    if (!slot) return;
-    slot.innerHTML = await renderNotificationBell();
-    attachNotificationBellHandlers();
-})();
-</script>
-</body></html>
+</script></body></html>

@@ -48,8 +48,13 @@
     input:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .5); outline-offset: 3px; }
     .privacy-note { display: flex; gap: 9px; margin: 16px 0 20px; padding: 12px; border-radius: 10px; background: #f7f5f2; color: var(--riwaq-muted, #625951); font-size: 14px; line-height: 1.6; }
     .privacy-note .material-symbols-outlined { flex: 0 0 auto; font-size: 20px; color: var(--riwaq-primary, #6b4424); }
-    #status-msg { margin: 0 0 14px; padding: 10px 12px; border-radius: 8px; line-height: 1.6; }
-    #status-msg.hidden { display: none; }
+    #status-msg { margin: 0 0 14px; padding: 12px 14px; border: 1px solid transparent; border-radius: 10px; line-height: 1.6; }
+    #status-msg[hidden] { display: none; }
+    #status-msg[data-state="error"] { color: #8b1e16; border-color: #efc5bf; background: #fff4f2; }
+    #status-msg[data-state="loading"] { color: #51351d; border-color: #e6d3bd; background: #fbf7f1; }
+    #status-msg[data-state="success"] { color: #245d3a; border-color: #c3dfcb; background: #f0f8f2; }
+    .required-note { margin: -2px 0 0; color: var(--riwaq-muted, #6b625b); font-size: 13px; }
+    #submit-btn .material-symbols-outlined { vertical-align: middle; }
     #submit-btn { width: 100%; min-height: 52px; margin: 0 0 16px; padding: 12px 18px; border: 0; border-radius: 10px; background: var(--riwaq-primary, #51351d); color: #fff; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; }
     #submit-btn:disabled { cursor: wait; opacity: .75; }
     .back-link { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; color: var(--riwaq-primary, #51351d); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
@@ -59,7 +64,7 @@
 </head>
 <body>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../assets/supabase-config.js?v=20261117194500"></script>
+  <script src="../assets/supabase-config.js?v=20261121212700"></script>
   <div class="page-shell">
     <main aria-labelledby="page-title">
       <section class="intro" aria-label="معلومات استعادة رمز المرور">
@@ -75,46 +80,62 @@
         </div>
       </section>
       <section class="form-panel" aria-labelledby="form-title">
-        <h2 id="form-title">طلب إعادة التعيين</h2>
-        <p class="form-hint">استخدم البريد الذي سجلت به في النظام.</p>
+        <h2 id="form-title">أرسل طلبك للإدارة</h2>
+        <p class="form-hint">أدخل البريد الإلكتروني المرتبط بحسابك. ستظهر رسالة موحّدة حفاظًا على خصوصية الحسابات.</p>
         <form id="reset-form" novalidate>
-          <label for="email-input">البريد الإلكتروني</label>
-          <input id="email-input" name="email" type="email" autocomplete="email" inputmode="email" dir="ltr" placeholder="name@example.com" aria-describedby="privacy-note status-msg">
+          <label for="email-input">البريد الإلكتروني <span aria-hidden="true">*</span></label>
+          <input id="email-input" name="email" type="email" autocomplete="email" inputmode="email" dir="ltr" placeholder="name@example.com" aria-describedby="email-help privacy-note status-msg" required>
+          <p class="required-note" id="email-help">حقل مطلوب — استخدم بريدًا بصيغة صحيحة.</p>
           <p class="privacy-note" id="privacy-note"><span class="material-symbols-outlined" aria-hidden="true">info</span><span>للحفاظ على خصوصية الحسابات، ستظهر الرسالة نفسها سواء كان البريد مسجلًا أم لا.</span></p>
-          <p id="status-msg" class="hidden" role="status" aria-live="polite" aria-atomic="true"></p>
-          <button id="submit-btn" type="button">إرسال الطلب</button>
+          <p id="status-msg" hidden role="status" aria-live="polite" aria-atomic="true"></p>
+          <button id="submit-btn" type="submit">إرسال الطلب</button>
         </form>
         <a href="../index.html" class="back-link">الرجوع لتسجيل الدخول</a>
       </section>
     </main>
   </div>
   <script>
+const form = document.getElementById('reset-form');
 const input = document.getElementById('email-input');
 const btn = document.getElementById('submit-btn');
 const msg = document.getElementById('status-msg');
 
-async function handleSubmit() {
+function showStatus(state, text, role) {
+    msg.dataset.state = state;
+    msg.textContent = text;
+    msg.setAttribute('role', role || 'status');
+    msg.setAttribute('aria-live', role === 'alert' ? 'assertive' : 'polite');
+    msg.hidden = false;
+}
+
+form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (btn.disabled) return;
     const email = input.value.trim();
-    if (!email || !email.includes('@')) {
-        msg.textContent = 'من فضلك أدخل بريد إلكتروني صحيح.';
-        msg.className = 'text-error text-body-sm mb-sm';
+    input.value = email;
+    if (!email || !input.validity.valid) {
+        showStatus('error', 'من فضلك أدخل بريدًا إلكترونيًا صحيحًا.', 'alert');
+        input.setAttribute('aria-invalid', 'true');
+        input.focus();
         return;
     }
+    input.removeAttribute('aria-invalid');
     btn.disabled = true;
-    btn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span>';
+    btn.setAttribute('aria-busy', 'true');
+    btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">progress_activity</span> جارٍ إرسال الطلب…';
+    showStatus('loading', 'جارٍ إرسال طلبك بأمان. يرجى الانتظار…');
     try {
+        // Keep the existing endpoint and exact trimmed-email payload. The UI intentionally
+        // gives the same response for resolved results and thrown errors.
         await zamClient.functions.invoke('request-passcode-reset', { body: { email } });
     } catch (err) {
         console.error(err);
     } finally {
-        msg.textContent = 'لو الإيميل ده مسجل عندنا، الإدارة هتتواصل معاك قريبًا لإعادة تعيين رمز المرور.';
-        msg.className = 'text-tertiary-container text-body-sm mb-sm font-bold';
-        btn.innerHTML = 'تم الإرسال ✓';
+        showStatus('success', 'إذا كان هذا البريد مرتبطًا بحساب، فستتواصل معك الإدارة قريبًا لإعادة تعيين رمز المرور.');
+        btn.removeAttribute('aria-busy');
+        btn.innerHTML = 'تم إرسال الطلب';
     }
-}
-
-btn.addEventListener('click', handleSubmit);
-input.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSubmit(); });
-  </script>
+});
+</script>
 </body>
 </html>

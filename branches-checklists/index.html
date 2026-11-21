@@ -16,7 +16,7 @@
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
-<script src="../assets/supabase-config.js?v=20261121180400"></script>
+<script src="../assets/supabase-config.js?v=20261121212700"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: admin without this permission is sent home
@@ -89,6 +89,25 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   body.zam-page #branch-modal button { min-height: 42px; border-radius: 9px; }
   body.zam-page #branch-modal #save-branch-btn { background: var(--riwaq-primary); color: #fff; }
   body.zam-page :focus-visible { outline-color: var(--riwaq-focus) !important; }
+  body.zam-page .branches-layout { max-width: 1120px; }
+  body.zam-page .branches-toolbar { display:grid; grid-template-columns:minmax(220px,1fr) minmax(180px,.45fr); gap:12px; margin:18px 0 16px; }
+  body.zam-page .branches-toolbar input, body.zam-page .branches-toolbar select { min-height:46px; width:100%; border:1px solid var(--riwaq-line); border-radius:10px; background:#fff; padding:10px 13px; }
+  body.zam-page .branches-summary { display:flex; flex-wrap:wrap; gap:10px; margin:16px 0; }
+  body.zam-page .branches-summary > div { flex:1 1 150px; padding:13px 16px; border:1px solid var(--riwaq-line); border-radius:12px; background:var(--riwaq-surface); }
+  body.zam-page .branches-summary strong { display:block; font-size:22px; line-height:1.2; }
+  body.zam-page .branches-summary span { color:var(--riwaq-muted); font-size:14px; }
+  body.zam-page .branches-feedback { min-height:0; margin:0; }
+  body.zam-page .branches-feedback:not(:empty) { margin:12px 0; padding:12px 14px; border-radius:10px; background:#fff; border:1px solid var(--riwaq-line); }
+  body.zam-page #branch-modal[aria-hidden="false"] { display:flex; }
+  body.zam-page #branch-modal > div { max-width:520px; width:min(100%,520px); }
+  body.zam-page #branch-modal input, body.zam-page #branch-modal select { margin-bottom:14px; }
+  body.zam-page #branch-modal .field-help { margin:-9px 0 14px; color:var(--riwaq-muted); font-size:14px; line-height:1.6; }
+  body.zam-page #branches-list > article { min-width:0; padding:18px; border:1px solid var(--riwaq-line); border-radius:14px; background:var(--riwaq-surface); box-shadow:var(--riwaq-shadow); }
+  body.zam-page #branches-list > article .branch-name { overflow-wrap:anywhere; font-size:18px; font-weight:700; }
+  body.zam-page .branches-actions button { min-width:44px; min-height:44px; }
+  body.zam-page .branch-empty { grid-column:1/-1; padding:22px; border:1px dashed var(--riwaq-line); border-radius:12px; background:var(--riwaq-surface); }
+  body.zam-page .branch-modal-actions { display:flex; gap:10px; justify-content:flex-start; margin-top:12px; }
+  body.zam-page #save-branch-btn[disabled] { opacity:.65; cursor:wait; }
   @media (max-width: 640px) {
     body.zam-page header { height: auto; min-height: 76px; gap: 12px; padding: 12px 16px; }
     body.zam-page header h1 { font-size: 17px; }
@@ -96,6 +115,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     body.zam-page .branches-brand { gap: 8px; }
     body.zam-page .branches-brand img { width: 32px; height: 32px; }
     body.zam-page #add-branch-btn { flex: 0 0 auto; min-height: 44px; padding-inline: 10px; font-size: 12px; }
+    body.zam-page .branches-toolbar { grid-template-columns:1fr; }
     body.zam-page main { padding-top: 76px; }
     body.zam-page main > div { padding: 18px 16px 26px; }
     body.zam-page main > div { gap: 22px; }
@@ -131,17 +151,29 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </header>
 
 <main class="md:pr-[280px] pt-20 min-h-screen">
-<div class="max-w-4xl mx-auto p-margin-desktop">
+<div class="branches-layout mx-auto p-margin-desktop">
 
   <section class="branches-catalog" aria-labelledby="branches-heading">
     <div class="branches-section-heading">
       <div>
         <h2 id="branches-heading">دليل الفروع</h2>
-        <p>راجع الموقع وحالة التشغيل وعدد الموظفين النشطين. استخدم إجراءات البطاقة لتعديل بيانات الفرع أو حذفه.</p>
+        <p>دليل الفروع وحالة تشغيلها وطاقمها. ابحث أو صفِّ الدليل، ثم عدّل بيانات الفرع أو احذفه عند الحاجة.</p>
       </div>
     </div>
-    <div id="branches-list" class="grid grid-cols-1 md:grid-cols-2 gap-md" aria-live="polite">
-      <p class="text-on-surface-variant text-body-sm">جارِ تحميل الفروع…</p>
+    <div class="branches-summary" aria-label="ملخص الفروع">
+      <div><strong id="branch-total">—</strong><span>إجمالي الفروع</span></div>
+      <div><strong id="branch-operational">—</strong><span>تشغيلي حسب الحالة الحالية</span></div>
+      <div><strong id="branch-staff-total">—</strong><span>موظفون نشطون عبر الفروع</span></div>
+    </div>
+    <div class="branches-toolbar" aria-label="أدوات دليل الفروع">
+      <label class="sr-only" for="branch-search">البحث باسم الفرع أو الموقع</label>
+      <input id="branch-search" type="search" placeholder="ابحث باسم الفرع أو الموقع" autocomplete="off">
+      <label class="sr-only" for="branch-status-filter">تصفية حسب حالة الفرع</label>
+      <select id="branch-status-filter"><option value="all">كل حالات التشغيل</option><option value="operational">نشط تشغيليًا</option><option value="planned">قيد التجهيز</option><option value="unclassified">غير مصنّف</option></select>
+    </div>
+    <p id="branch-feedback" class="branches-feedback" role="status" aria-live="polite"></p>
+    <div id="branches-list" class="grid grid-cols-1 md:grid-cols-2 gap-md" aria-live="polite" aria-busy="true">
+      <p class="branch-empty">جارٍ تحميل دليل الفروع…</p>
     </div>
   </section>
 
@@ -168,12 +200,14 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </main>
 
 <!-- Modal إضافة/تعديل فرع -->
-<div id="branch-modal" class="fixed inset-0 bg-inverse-surface/40 hidden items-center justify-center z-50 p-margin-mobile">
-  <div class="bg-surface-container-lowest rounded-xl p-md w-full max-w-sm">
+<div id="branch-modal" class="fixed inset-0 bg-inverse-surface/40 hidden items-center justify-center z-50 p-margin-mobile" aria-hidden="true">
+  <div class="bg-surface-container-lowest rounded-xl p-md w-full max-w-sm" role="dialog" aria-modal="true" aria-labelledby="branch-modal-title" aria-describedby="branch-modal-description">
     <h3 class="font-title-md text-title-md text-primary mb-md" id="branch-modal-title">فرع جديد</h3>
-    <label for="branch-name-input" class="text-body-sm text-on-surface-variant">اسم الفرع</label>
-    <input id="branch-name-input" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-md" placeholder="مثال: زام - حي النرجس"/>
-    <label for="branch-location-input" class="text-body-sm text-on-surface-variant">الموقع / الحي</label>
+    <p id="branch-modal-description" class="text-body-sm text-on-surface-variant">أدخل بيانات الدليل الحالية. الاسم مطلوب، والموقع اختياري.</p>
+    <label for="branch-name-input" class="text-body-sm text-on-surface-variant">اسم الفرع <span aria-hidden="true">*</span></label>
+    <input id="branch-name-input" required aria-describedby="branch-name-error" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-md" placeholder="مثال: زام - حي النرجس"/>
+    <p id="branch-name-error" class="field-help" aria-live="polite"></p>
+    <label for="branch-location-input" class="text-body-sm text-on-surface-variant">الموقع / الحي <span>(اختياري)</span></label>
     <input id="branch-location-input" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-md" placeholder="مثال: الروضة"/>
     <label for="branch-lifecycle-input" class="text-body-sm text-on-surface-variant">حالة التشغيل</label>
     <select id="branch-lifecycle-input" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-md">
@@ -183,9 +217,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     </select>
     <label for="branch-opening-date-input" class="text-body-sm text-on-surface-variant">تاريخ الافتتاح المؤكد (اختياري)</label>
     <input id="branch-opening-date-input" type="date" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-sm"/>
-    <p class="text-[11px] text-on-surface-variant mb-md">الفرع المخطط بلا تاريخ مؤكد لا يظهر في المهام أو مؤشرات التشغيل. وإذا حُدد تاريخ، يبدأ احتسابه تشغيليًا في ذلك اليوم بتوقيت الرياض. الفروع القديمة غير المصنّفة تبقى على سلوكها الحالي.</p>
-    <p class="text-[11px] text-on-surface-variant mb-md">الوردية الصباحية 05:30–15:30، والمسائية 15:30–02:30 بتوقيت الرياض. تختفي مهام الموظف بعد ساعة من نهاية الوردية.</p>
-    <div class="flex gap-sm justify-end">
+    <p class="field-help">تنبيه: تاريخ الافتتاح المخطط لا يثبت وحده تأكيد افتتاح فعلي. تبقى الفروع غير المصنفة على السلوك الحالي، ويظل احتساب التشغيل وفق قاعدة النظام القائمة.</p>
+    <p class="field-help">الورديات المعروضة هنا للتوضيح فقط؛ هذه الصفحة لا تغيّر إعدادات الورديات أو مهام الموظفين.</p>
+    <div class="branch-modal-actions">
       <button id="cancel-branch-modal" class="px-md py-sm rounded-lg text-on-surface-variant">إلغاء</button>
       <button id="save-branch-btn" class="px-md py-sm bg-primary text-on-primary rounded-lg font-bold">حفظ</button>
     </div>
@@ -195,112 +229,75 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <script>
 let editingBranchId = null;
 let branchesById = new Map();
-
+let branchData = [];
+let branchStaff = [];
+const $ = id => document.getElementById(id);
+function announceBranch(message, kind = 'info') { const el = $('branch-feedback'); el.textContent = message; el.dataset.kind = kind; }
 function openBranchModal(branch = null) {
     editingBranchId = branch ? branch.id : null;
-    document.getElementById('branch-modal-title').textContent = branch ? 'تعديل الفرع' : 'فرع جديد';
-    document.getElementById('branch-name-input').value = branch?.name || '';
-    document.getElementById('branch-location-input').value = branch?.location || '';
-    document.getElementById('branch-lifecycle-input').value = branch?.lifecycle_status || (branch ? '' : 'planned');
-    document.getElementById('branch-opening-date-input').value = branch?.planned_opening_date || '';
-    document.getElementById('branch-modal').classList.remove('hidden');
-    document.getElementById('branch-modal').classList.add('flex');
+    $('branch-modal-title').textContent = branch ? 'تعديل بيانات الفرع' : 'إضافة فرع إلى الدليل';
+    $('branch-name-input').value = branch?.name || ''; $('branch-location-input').value = branch?.location || '';
+    $('branch-lifecycle-input').value = branch?.lifecycle_status || (branch ? '' : 'planned');
+    $('branch-opening-date-input').value = branch?.planned_opening_date || ''; $('branch-name-error').textContent = '';
+    $('branch-name-input').removeAttribute('aria-invalid'); $('branch-modal').classList.remove('hidden'); $('branch-modal').classList.add('flex');
+    $('branch-modal').setAttribute('aria-hidden', 'false'); $('branch-name-input').focus();
 }
-function closeBranchModal() {
-    document.getElementById('branch-modal').classList.add('hidden');
-    document.getElementById('branch-modal').classList.remove('flex');
-}
-
-document.getElementById('add-branch-btn').addEventListener('click', () => openBranchModal());
-document.getElementById('cancel-branch-modal').addEventListener('click', closeBranchModal);
-
-document.getElementById('save-branch-btn').addEventListener('click', async () => {
-    const name = document.getElementById('branch-name-input').value.trim();
-    if (!name) { alert('اكتب اسم الفرع.'); return; }
-    const lifecycleStatus = document.getElementById('branch-lifecycle-input').value || null;
-    const openingDate = document.getElementById('branch-opening-date-input').value || null;
-    const location = document.getElementById('branch-location-input').value.trim() || null;
+function closeBranchModal() { $('branch-modal').classList.add('hidden'); $('branch-modal').classList.remove('flex'); $('branch-modal').setAttribute('aria-hidden', 'true'); $('add-branch-btn').focus(); }
+$('add-branch-btn').addEventListener('click', () => openBranchModal());
+$('cancel-branch-modal').addEventListener('click', closeBranchModal);
+$('branch-modal').addEventListener('click', e => { if (e.target === $('branch-modal')) closeBranchModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('branch-modal').getAttribute('aria-hidden') === 'false') closeBranchModal(); });
+$('branch-search').addEventListener('input', renderBranches);
+$('branch-status-filter').addEventListener('change', renderBranches);
+$('save-branch-btn').addEventListener('click', async () => {
+    const name = $('branch-name-input').value.trim();
+    if (!name) { $('branch-name-error').textContent = 'اسم الفرع مطلوب. أدخل الاسم للمتابعة.'; $('branch-name-input').setAttribute('aria-invalid','true'); $('branch-name-input').focus(); return; }
+    $('branch-name-error').textContent = ''; $('branch-name-input').removeAttribute('aria-invalid');
+    const lifecycleStatus = $('branch-lifecycle-input').value || null, openingDate = $('branch-opening-date-input').value || null, location = $('branch-location-input').value.trim() || null;
+    const button = $('save-branch-btn'); button.disabled = true; button.textContent = 'جارٍ الحفظ…';
     try {
-        let result;
         const payload = { name, location, lifecycle_status: lifecycleStatus, planned_opening_date: openingDate };
-        if (editingBranchId) {
-            result = await zamClient.from('branches').update(payload).eq('id', editingBranchId);
-        } else {
-            result = await zamClient.from('branches').insert([{ ...payload, lifecycle_status: lifecycleStatus || 'planned' }]);
-        }
+        const result = editingBranchId ? await zamClient.from('branches').update(payload).eq('id', editingBranchId) : await zamClient.from('branches').insert([{ ...payload, lifecycle_status: lifecycleStatus || 'planned' }]);
         if (result.error) throw result.error;
-        closeBranchModal();
-        await loadBranches();
-    } catch (err) {
-        console.error(err);
-        alert('تعذّر حفظ اسم الفرع. تحقق من صلاحية إدارة الفروع.');
-    }
+        closeBranchModal(); announceBranch(editingBranchId ? 'تم تحديث بيانات الفرع.' : 'تمت إضافة الفرع إلى الدليل.', 'success'); await loadBranches();
+    } catch (err) { console.error(err); announceBranch('تعذّر حفظ التغييرات. تحقّق من الاتصال وصلاحية إدارة الفروع ثم حاول مجددًا.', 'error'); }
+    finally { button.disabled = false; button.textContent = 'حفظ'; }
 });
-
 async function deleteBranch(id, name) {
-    if (!confirm(`تأكيد حذف فرع "${name}"؟ ده هيأثر على كل بياناته المرتبطة.`)) return;
-    try {
-        await zamClient.from('branches').delete().eq('id', id);
-        await loadBranches();
-    } catch (err) {
-        console.error(err);
-        alert('تعذّر الحذف. تأكد إن عندك الصلاحية اللازمة.');
-    }
+    if (!confirm(`سيُحذف الفرع «${name}». قد يؤثر ذلك على البيانات المرتبطة به. هل تريد المتابعة؟`)) return;
+    try { const result = await zamClient.from('branches').delete().eq('id', id); if (result.error) throw result.error;
+        announceBranch(`تم حذف الفرع «${name}».`, 'success'); await loadBranches();
+    } catch (err) { console.error(err); announceBranch('تعذّر حذف الفرع. ربما توجد بيانات مرتبطة أو لا تتوفر الصلاحية؛ لم نعرض العملية كنجاح.', 'error'); }
 }
-
-function escapeBranchText(value) {
-    return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+function escapeBranchText(value) { return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])); }
+function renderBranches() {
+    const container = $('branches-list'), query = $('branch-search').value.trim().toLocaleLowerCase('ar'), filter = $('branch-status-filter').value;
+    $('branch-total').textContent = branchData.length;
+    $('branch-operational').textContent = branchData.filter(b => ZamBranchLifecycle.isOperational(b)).length;
+    $('branch-staff-total').textContent = branchStaff.filter(s => s.status === 'active').length;
+    const shown = branchData.filter(b => {
+        const matchesText = `${b.name || ''} ${b.location || ''}`.toLocaleLowerCase('ar').includes(query);
+        const state = b.lifecycle_status == null ? 'unclassified' : ZamBranchLifecycle.isOperational(b) ? 'operational' : 'planned';
+        return matchesText && (filter === 'all' || filter === state);
+    });
+    if (!branchData.length) { container.innerHTML = '<div class="branch-empty"><strong>لا توجد فروع في الدليل بعد.</strong><p>أضف أول فرع لبدء تنظيم الدليل.</p><button class="zam-btn" onclick="openBranchModal()">إضافة أول فرع</button></div>'; container.setAttribute('aria-busy','false'); return; }
+    if (!shown.length) { container.innerHTML = '<p class="branch-empty">لا توجد نتائج مطابقة. جرّب تغيير البحث أو حالة التشغيل.</p>'; container.setAttribute('aria-busy','false'); return; }
+    container.innerHTML = shown.map(b => {
+        const staffCount = branchStaff.filter(s => s.branch_id === b.id && s.status === 'active').length;
+        const active = ZamBranchLifecycle.isOperational(b), lifecycleLabel = ZamBranchLifecycle.label(b);
+        const lifecycleStyle = b.lifecycle_status == null ? 'bg-surface-container text-on-surface-variant' : active ? 'bg-tertiary-container text-on-tertiary' : 'bg-secondary-container text-on-secondary-container';
+        return `<article><div class="flex items-start justify-between gap-3"><div class="flex items-start gap-sm min-w-0"><div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container shrink-0"><span class="material-symbols-outlined" aria-hidden="true">storefront</span></div><div class="min-w-0"><h3 class="branch-name">${escapeBranchText(b.name)}</h3><p class="text-body-sm text-on-surface-variant">${escapeBranchText(b.location || 'الموقع غير محدد')}</p><p class="text-body-sm text-on-surface-variant">${staffCount} موظف نشط</p><span class="inline-block mt-2 rounded-full px-2 py-1 text-body-sm ${lifecycleStyle}">${escapeBranchText(lifecycleLabel)}${b.lifecycle_status == null ? ' · السلوك الحالي' : ''}</span>${b.lifecycle_status === 'planned' && b.planned_opening_date ? `<p class="text-body-sm text-on-surface-variant mt-2">تاريخ افتتاح مخطط: <time dir="ltr">${escapeBranchText(b.planned_opening_date)}</time> — ليس تأكيدًا لافتتاح فعلي.</p>` : ''}</div></div><div class="branches-actions flex gap-xs shrink-0"><button type="button" class="edit-branch-btn p-1" data-id="${escapeBranchText(b.id)}" aria-label="تعديل ${escapeBranchText(b.name)}"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button><button type="button" class="delete-branch-btn p-1 text-error" data-id="${escapeBranchText(b.id)}" aria-label="حذف ${escapeBranchText(b.name)}"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button></div></div></article>`;
+    }).join('');
+    container.setAttribute('aria-busy','false');
+    container.querySelectorAll('.edit-branch-btn').forEach(btn => btn.addEventListener('click', () => openBranchModal(branchesById.get(String(btn.dataset.id)))));
+    container.querySelectorAll('.delete-branch-btn').forEach(btn => btn.addEventListener('click', () => deleteBranch(btn.dataset.id, branchesById.get(String(btn.dataset.id))?.name || '')));
 }
-
 async function loadBranches() {
-    const container = document.getElementById('branches-list');
-    try {
-        const [branches, staff] = await Promise.all([ZamAPI.getBranches(), ZamAPI.getStaff()]);
-        branchesById = new Map((branches || []).map(branch => [String(branch.id), branch]));
-
-        if (!branches.length) {
-            container.innerHTML = '<p class="text-on-surface-variant text-body-sm">لا توجد فروع بعد. أضف أول فرع من الأعلى.</p>';
-            return;
-        }
-
-        container.innerHTML = branches.map(b => {
-            const staffCount = staff.filter(s => s.branch_id === b.id && s.status === 'active').length;
-            const active = ZamBranchLifecycle.isOperational(b);
-            const lifecycleLabel = ZamBranchLifecycle.label(b);
-            const lifecycleStyle = b.lifecycle_status == null
-                ? 'bg-surface-container text-on-surface-variant'
-                : active ? 'bg-tertiary-container text-on-tertiary' : 'bg-secondary-container text-on-secondary-container';
-            return `
-            <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex items-center justify-between">
-                <div class="flex items-center gap-sm">
-                    <div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container">
-                        <span class="material-symbols-outlined">storefront</span>
-                    </div>
-                    <div>
-                        <p class="font-bold text-on-surface">${escapeBranchText(b.name)}</p>
-                        <p class="text-[12px] text-on-surface-variant">${escapeBranchText(b.location || 'الموقع غير محدد')} · ${staffCount} موظف نشط</p>
-                        <span class="inline-block mt-1 rounded-full px-2 py-0.5 text-[11px] ${lifecycleStyle}">${escapeBranchText(lifecycleLabel)}</span>
-                    </div>
-                </div>
-                <div class="flex gap-xs">
-                    <button class="edit-branch-btn p-1 text-on-surface-variant hover:text-primary" data-id="${escapeBranchText(b.id)}" aria-label="تعديل ${escapeBranchText(b.name)}"><span class="material-symbols-outlined text-[20px]">edit</span></button>
-                    <button class="delete-branch-btn p-1 text-error hover:opacity-70" data-id="${escapeBranchText(b.id)}" aria-label="حذف ${escapeBranchText(b.name)}"><span class="material-symbols-outlined text-[20px]">delete</span></button>
-                </div>
-            </div>`;
-        }).join('');
-
-        container.querySelectorAll('.edit-branch-btn').forEach(btn => {
-            btn.addEventListener('click', () => openBranchModal(branchesById.get(String(btn.dataset.id))));
-        });
-        container.querySelectorAll('.delete-branch-btn').forEach(btn => {
-            btn.addEventListener('click', () => deleteBranch(btn.dataset.id, branchesById.get(String(btn.dataset.id))?.name || ''));
-        });
-    } catch (err) {
-        console.error(err);
-        container.innerHTML = '<p class="text-error text-body-sm">تعذّر تحميل الفروع.</p>';
-    }
+    const container = $('branches-list'); container.setAttribute('aria-busy','true'); container.innerHTML = '<p class="branch-empty">جارٍ تحميل دليل الفروع…</p>';
+    try { const [branches, staff] = await Promise.all([ZamAPI.getBranches(), ZamAPI.getStaff()]);
+        branchData = branches || []; branchStaff = staff || []; branchesById = new Map(branchData.map(b => [String(b.id), b])); renderBranches();
+    } catch (err) { console.error(err); container.setAttribute('aria-busy','false'); container.innerHTML = '<div class="branch-empty" role="alert"><strong>تعذّر تحميل دليل الفروع أو بيانات الطاقم.</strong><p>تحقّق من الاتصال ثم أعد المحاولة.</p><button type="button" id="retry-branches-btn">إعادة المحاولة</button></div>'; $('retry-branches-btn').addEventListener('click', loadBranches); }
 }
-
 loadBranches();
 </script>
 </body></html>

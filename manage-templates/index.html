@@ -18,7 +18,7 @@
 <script src="../assets/checklist-schedule.js?v=20261121164000"></script>
 <script src="../assets/restroom-hourly.js?v=20261121170500"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
-<script src="../assets/supabase-config.js?v=20261121180400"></script>
+<script src="../assets/supabase-config.js?v=20261121212700"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: anyone without this permission is sent home
@@ -56,7 +56,7 @@ body.zam-page { background:#f4f6f2 !important; color:#20312b; font-family:var(--
 body.zam-page header.fixed { min-height:92px; height:auto; padding-block:12px; background:#fff; border-color:#e3e9e3; box-shadow:0 3px 14px rgba(29,47,39,.045); }
 .zam-page .page-brand { display:flex; align-items:center; gap:12px; min-width:0; }
 .zam-page .page-brand img { width:48px; height:48px; object-fit:contain; flex:none; }
-.zam-page .page-actions { display:flex; align-items:center; gap:10px; flex:none; }
+ .zam-page .page-actions { display:flex; align-items:center; gap:10px; flex:none; }
 .zam-page #templates-container > section, .zam-page #restroom-setup-slot > section { scroll-margin-top:110px; }
 .zam-page #templates-container details > summary:focus-visible { outline:3px solid rgba(192,88,58,.55); outline-offset:-3px; }
 .zam-page .page-intro { border-inline-start:4px solid #217a5e; }
@@ -90,6 +90,7 @@ body.zam-page button.bg-primary { background:#217a5e !important; }
  body.zam-page header.fixed h1 { font-size:18px; }
  body.zam-page header.fixed p { max-width:58ch; line-height:1.55; }
  .zam-page .page-actions button { min-height:44px; margin:0; padding-inline:10px; font-size:12px; justify-content:center; }
+ .zam-page .page-actions [data-zam-header-tools] { grid-column:1 / -1; justify-content:center; }
  body.zam-page main { padding-top:0; }
  body.zam-page main > div { padding:20px 14px 32px; }
  #templates-container > section > div:first-child { align-items:flex-start; flex-direction:column; gap:10px; }
@@ -102,6 +103,24 @@ body.zam-page button.bg-primary { background:#217a5e !important; }
  #template-modal .grid.grid-cols-2, #fridge-modal .grid.grid-cols-2 { grid-template-columns:minmax(0,1fr); }
  #template-modal .col-span-2, #fridge-modal .col-span-2 { grid-column:1; }
 }
+</style>
+<style id="template-management-ux">
+/* Task-first organization layered onto the approved shell; no data or API changes. */
+body.zam-page main > div{max-width:1200px}
+.page-intro{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.48fr);align-items:center;gap:16px;padding:20px 22px!important}
+.page-intro h2{font-size:19px}.page-intro p{max-width:75ch;line-height:1.8}
+.page-intro:after{content:"التعديلات تنشئ إصدارًا جديدًا؛ الأرشفة تحفظ النسخ وسجلات التنفيذ.";display:block;padding:12px 14px;border:1px solid #e8dbc4;border-radius:10px;background:#fbf7ef;color:#695633;font-size:12px;line-height:1.7}
+.template-tools{display:grid;grid-template-columns:minmax(220px,1fr) minmax(150px,.4fr) auto;gap:10px;align-items:end;margin:18px 0;padding:16px;border:1px solid #e3e9e3;border-radius:14px;background:#fff}
+.template-tools label{display:grid;gap:5px;color:#50645a;font-size:12px;font-weight:700}.template-tools input,.template-tools select{width:100%;min-height:44px;padding:8px 11px;border:1px solid #d6e0d8;border-radius:9px;background:#fff;color:#20312b;font:inherit}
+.template-tools .tool-count{align-self:center;color:#697871;font-size:12px}.template-tools input:focus-visible,.template-tools select:focus-visible,#template-modal :focus-visible,#fridge-modal :focus-visible{outline:3px solid rgba(33,122,94,.35);outline-offset:2px}
+#templates-container>section{padding-bottom:10px}#templates-container>section>div:first-child h2{font-size:20px}
+#templates-container details{margin-block:10px}#templates-container details>summary{min-height:66px;padding:15px 18px}
+#templates-container details>summary::-webkit-details-marker{display:none}#templates-container details>summary:focus-visible{outline:3px solid #217a5e;outline-offset:2px}
+#templates-container details article{gap:18px}#templates-container details article>div:last-child{min-width:190px;align-self:stretch;align-content:start;padding-inline-start:14px;border-inline-start:1px solid #e7ece7}
+#templates-container details article button{min-height:42px;white-space:normal}#restroom-setup-slot:empty{display:none}
+#template-modal[aria-hidden="false"],#fridge-modal[aria-hidden="false"]{overscroll-behavior:contain}
+@media(max-width:760px){.page-intro{grid-template-columns:1fr;padding:16px!important}.page-intro:after{font-size:11px}.template-tools{grid-template-columns:1fr;padding:12px}.template-tools .tool-count{justify-self:start}.template-tools input,.template-tools select{min-height:46px}#templates-container details article>div:last-child{min-width:0;padding:10px 0 0;border-inline-start:0;border-top:1px solid #e7ece7}#templates-container details article button{flex:1 1 auto}}
+@media(min-width:761px) and (max-width:980px){body.zam-page header.fixed{padding-inline:20px}.template-tools{grid-template-columns:1fr 1fr}.template-tools .tool-count{grid-column:1/-1}}
 </style>
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
@@ -119,6 +138,7 @@ body.zam-page button.bg-primary { background:#217a5e !important; }
   <div class="page-actions">
     <button id="open-fridges-btn" type="button" class="border border-primary text-primary rounded-lg px-md py-sm font-bold flex items-center gap-1"><span aria-hidden="true">🧊</span> إدارة الثلاجات والفريزرات</button>
     <button id="add-template-btn" type="button" class="bg-primary text-on-primary rounded-lg px-md py-sm font-bold flex items-center gap-1"><span class="material-symbols-outlined text-base" aria-hidden="true">add</span> مهمة جديدة</button>
+    <div data-zam-header-tools aria-label="أدوات المستخدم"></div>
   </div>
 </header>
 
@@ -127,6 +147,11 @@ body.zam-page button.bg-primary { background:#217a5e !important; }
   <section class="page-intro mb-md rounded-xl bg-white p-md" aria-label="معلومات إدارة القوالب">
     <h2 class="font-bold text-primary">تهيئة القوالب ثم مراجعة النسخ</h2>
     <p class="mt-xs text-body-sm text-on-surface-variant leading-6">ابدأ بتهيئة جدول الحمامات إذا ظهر تنبيه التهيئة، ثم راجع القوالب النشطة والأسبوعية. التعديلات تُنشئ إصدارًا جديدًا، والأرشفة تحفظ النسخة وسجلات التنفيذ.</p>
+  </section>
+  <section class="template-tools" aria-label="البحث في القوالب النشطة">
+    <label for="template-search">ابحث في اسم المهمة أو التعليمات أو الفئة<input id="template-search" type="search" autocomplete="off" placeholder="مثال: دورة المياه" aria-describedby="template-search-count"></label>
+    <label for="template-frequency-filter">التكرار<select id="template-frequency-filter"><option value="all">كل التكرارات</option><option value="daily">يومي</option><option value="weekly">أسبوعي</option><option value="monthly">شهري</option><option value="hourly">كل ساعة</option></select></label>
+    <span class="tool-count" id="template-search-count" role="status" aria-live="polite">تظهر القوالب النشطة والأسبوعية والأرشيف أدناه.</span>
   </section>
   <div id="restroom-setup-slot" class="mb-md" aria-live="polite"></div>
   <div id="templates-container" aria-live="polite" aria-busy="true">
@@ -592,7 +617,7 @@ async function loadTemplates() {
                   <p class="mt-sm text-[11px] font-bold text-error">تُقفل كل مرة بعد 20 دقيقة، وتبقى حالتها ظاهرة في سجل الإدارة.</p>
                 </details>` : '';
             return `
-                <article class="p-md flex flex-col sm:flex-row sm:items-start sm:justify-between gap-md bg-surface-container-lowest">
+                <article data-template-card data-frequency="${frEsc(task.frequency || 'daily')}" class="p-md flex flex-col sm:flex-row sm:items-start sm:justify-between gap-md bg-surface-container-lowest">
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-xs mb-xs">
                           <h4 class="font-bold text-on-surface text-body-lg leading-6">
@@ -708,11 +733,31 @@ async function loadTemplates() {
                 alert('تعذّر إنشاء الإصدار النشط الجديد.');
             }
         }));
+        applyTemplateFilters();
     } catch (err) {
         console.error(err);
         container.setAttribute('aria-busy', 'false');
-        container.innerHTML = '<p class="rounded-xl border border-error bg-error-container/40 p-md text-error text-body-sm" role="alert">تعذّر تحميل قوائم التحقق. تحقّق من الاتصال والصلاحية ثم أعد تحميل الصفحة.</p>';
+        container.innerHTML = '<div class="rounded-xl border border-error bg-error-container/40 p-md text-error text-body-sm" role="alert"><p>تعذّر تحميل قوائم التحقق. تحقّق من الاتصال والصلاحية ثم أعد المحاولة.</p><button id="retry-templates" type="button" class="mt-sm rounded-lg border border-error px-md py-sm font-bold">إعادة المحاولة</button></div>';
+        document.getElementById('retry-templates').addEventListener('click', event => { event.currentTarget.disabled = true; event.currentTarget.textContent = 'جارٍ إعادة التحميل…'; container.setAttribute('aria-busy','true'); loadTemplates(); });
     }
+}
+
+function applyTemplateFilters() {
+    const query = (document.getElementById('template-search')?.value || '').trim().toLocaleLowerCase('ar');
+    const frequency = document.getElementById('template-frequency-filter')?.value || 'all';
+    const cards = [...document.querySelectorAll('#templates-container [data-template-card]')];
+    let visible = 0;
+    cards.forEach(card => {
+        const matches = (!query || card.textContent.toLocaleLowerCase('ar').includes(query)) && (frequency === 'all' || card.dataset.frequency === frequency);
+        card.hidden = !matches;
+        if (matches) visible++;
+    });
+    document.querySelectorAll('#templates-container details').forEach(group => {
+        if (!group.querySelector('[data-template-card]')) return;
+        group.hidden = !group.querySelector('[data-template-card]:not([hidden])');
+    });
+    const count = document.getElementById('template-search-count');
+    if (count) count.textContent = query || frequency !== 'all' ? `${visible} قالب مطابق من القوالب المحمّلة، بما فيها الأرشيف.` : `${cards.length} قالب محمّل؛ النشطة والأسبوعية والأرشيف محفوظة في أقسامها.`;
 }
 
 // ===== إدارة الثلاجات =====
@@ -844,6 +889,8 @@ document.getElementById('fr-save').addEventListener('click', async () => {
     }
 });
 
+document.getElementById('template-search').addEventListener('input', applyTemplateFilters);
+document.getElementById('template-frequency-filter').addEventListener('change', applyTemplateFilters);
 loadTemplates();
 </script>
 </body></html>

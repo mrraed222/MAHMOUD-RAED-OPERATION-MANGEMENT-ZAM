@@ -18,7 +18,7 @@
     <script src="../assets/checklist-schedule.js?v=20261121164000"></script>
 <script src="../assets/restroom-hourly.js?v=20261121170500"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
-<script src="../assets/supabase-config.js?v=20261121180400"></script>
+<script src="../assets/supabase-config.js?v=20261121212700"></script>
 <script>
   let currentUser = ZamSession.requireAuth('../index.html');
   // دور المالك متابعة وإدارة فقط؛ لا ينفذ قائمة مهام يومية.
@@ -106,6 +106,46 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     body.zam-page header .shift-btn { padding-inline: 5px; font-size: 11px; }
     body.zam-page header img { display: none; }
   }
+
+/* Deep employee task-flow rebuild */
+body.zam-page { background: #f3f5f2 !important; }
+body.zam-page header { padding-inline: clamp(14px, 3vw, 40px); }
+body.zam-page header > div:first-child { flex: 1; }
+body.zam-page main > div { max-width: 1020px; padding-top: clamp(22px, 4vw, 42px); }
+.task-overview { position: relative; border: 0 !important; border-radius: 20px !important; padding: clamp(20px, 3vw, 32px) !important; box-shadow: 0 12px 34px rgba(34,53,43,.08); }
+.task-overview:before { content:""; position:absolute; inset-block:18px; inset-inline-start:0; width:4px; border-radius:0 5px 5px 0; background:#47765d; }
+.task-overview #checklist-heading { font-size: clamp(24px,3vw,32px); line-height:1.35; letter-spacing:-.02em; }
+.task-overview > div > div:last-child { background:#f1f5f1; border:1px solid #dce7de; min-height:58px; }
+#progress-label { color:#315f47 !important; }
+#checklist-container { padding: clamp(12px,2vw,22px); background:#f7f8f6; }
+.checklist-category { border-radius:16px !important; box-shadow:0 3px 12px rgba(34,53,43,.045) !important; }
+.checklist-category > summary { padding:16px 20px !important; }
+.checklist-item { border-radius:14px !important; border-inline-start:3px solid #d8e4db !important; }
+.checklist-item:has(.task-checkbox:checked) { border-inline-start-color:#43805d !important; }
+.checklist-item h4 { font-size:16px; line-height:1.7; }
+.task-actions { padding-inline-start:0 !important; padding-inline-end:0 !important; }
+.task-actions label, .restroom-photo + span { min-height:44px; }
+.task-note, .restroom-note { width:100%; min-height:78px; padding:12px 14px; background:#fff; }
+.task-status:empty { display:none; }
+.state-panel { padding:22px; text-align:center; border:1px solid #d9e3dc; border-radius:14px; background:white; color:#536259; }
+.state-panel strong { display:block; font-size:18px; color:#293c30; }
+.state-panel p { margin:6px 0 14px; }
+.state-panel button { min-height:44px; padding:9px 18px; border:0; border-radius:10px; background:#315f47; color:white; font-weight:700; cursor:pointer; }
+#email-summary-card:not(.hidden) { border-radius:16px; padding:20px; }
+body.zam-page :focus-visible { outline:3px solid rgba(49,95,71,.55) !important; outline-offset:3px; }
+body.zam-page button, body.zam-page label, body.zam-page summary { touch-action: manipulation; }
+@media(max-width:767px) {
+ body.zam-page header { padding-block:10px; }
+ body.zam-page header > div:first-child { min-width:0; }
+ body.zam-page header #user-branch-label { max-width:48vw; }
+ body.zam-page main > div { padding-inline:14px; }
+ .task-overview { border-radius:16px !important; }
+ #checklist-container { padding:10px; }
+ .checklist-category > summary { padding:14px !important; }
+ .checklist-item { padding:14px !important; }
+ .task-actions { padding-inline:0 !important; }
+}
+@media(max-width:380px) { body.zam-page header .shift-btn { font-size:10px; } }
 </style>
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
@@ -121,7 +161,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     </div>
   </div>
   <div class="flex items-center gap-sm">
-    <div class="flex items-center gap-xs bg-surface-container px-sm py-xs rounded-full">
+    <div id="notif-bell-slot"></div>
+    <div class="flex items-center gap-xs bg-surface-container px-sm py-xs rounded-full" role="group" aria-label="اختيار الوردية">
       <button class="shift-btn px-sm py-1 rounded-full text-[11px] font-bold transition-colors" data-shift="Morning">الوردية الصباحية</button>
       <button class="shift-btn px-sm py-1 rounded-full text-[11px] font-bold transition-colors" data-shift="Evening">الوردية المسائية</button>
     </div>
@@ -129,12 +170,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </header>
 
 <main class="md:pr-[280px] pt-20 min-h-screen"><div class="max-w-3xl mx-auto p-margin-desktop">
-  <section class="mb-md rounded-xl border border-outline-variant bg-surface-container-lowest p-md sm:p-lg" aria-labelledby="checklist-heading">
+  <section class="mb-md rounded-xl border border-outline-variant bg-surface-container-lowest p-md sm:p-lg task-overview" aria-labelledby="checklist-heading">
     <div class="flex flex-col gap-sm sm:flex-row sm:items-end sm:justify-between">
       <div class="min-w-0">
         <p class="text-[12px] font-bold text-primary">تنفيذ الوردية</p>
         <h2 id="checklist-heading" class="mt-xs text-2xl font-bold text-on-surface">قائمة مهامك</h2>
-        <p class="mt-xs text-body-sm text-on-surface-variant">ابدأ بالمهام المستحقة الآن، ثم سجّل الإثبات أو الملاحظة عند طلبها.</p>
+        <p class="mt-xs text-body-sm text-on-surface-variant">ابدأ بالمهمة المتاحة الآن. أرفق الإثبات عندما يُطلب، وسجّل الملاحظة عند وجود عطل أو نقص.</p>
       </div>
       <div class="flex flex-wrap items-center justify-between gap-sm rounded-lg bg-surface-container-low px-md py-sm sm:min-w-[220px] sm:justify-end">
         <span class="text-[12px] font-bold text-on-surface-variant">التقدم</span>
@@ -148,7 +189,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
       <h2 id="task-list-heading" class="font-bold text-body-lg text-on-surface">المهام المتاحة</h2>
       <p class="mt-xs text-[12px] text-on-surface-variant" id="category-label">—</p>
     </div>
-    <div class="divide-y divide-outline-variant" id="checklist-container" aria-live="polite" aria-busy="false" aria-relevant="additions text">
+    <div class="divide-y divide-outline-variant" id="checklist-container" aria-live="polite" aria-busy="true" aria-relevant="additions text">
       <p class="p-md text-on-surface-variant text-body-sm" role="status">جارِ تحميل المهام...</p>
     </div>
   </section>
@@ -305,7 +346,8 @@ async function saveTaskCompletion(templateId, notes = null, photo_url = null) {
 
 async function loadMyChecklist() {
     categoryLabel.textContent = myCategories.length ? `مهامك: ${myCategories.join(' و ')} — ${currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية'}` : 'كل الفئات';
-    container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل المهام...</p>';
+    container.setAttribute("aria-busy", "true");
+    container.innerHTML = '<div class="state-panel loading-state" role="status">جارٍ تحديث المهام والإنجازات…</div>';
     document.getElementById('email-summary-card').classList.add('hidden');
 
     try {
@@ -621,6 +663,7 @@ async function loadMyChecklist() {
             </details>`;
         };
         container.innerHTML = templates.length ? categoryGroups.map(renderCategory).join('') : container.innerHTML;
+        container.setAttribute("aria-busy", "false");
 
         container.querySelectorAll('.restroom-step').forEach(input => {
             input.addEventListener('change', () => {
@@ -755,7 +798,9 @@ async function loadMyChecklist() {
         });
     } catch (err) {
         console.error(err);
-        container.innerHTML = '<p class="p-md text-error text-body-sm">تعذّر تحميل المهام من قاعدة البيانات.</p>';
+        container.setAttribute("aria-busy", "false");
+        container.innerHTML = '<div class="state-panel" role="alert"><strong>تعذّر تحميل المهام</strong><p>تحقق من الاتصال ثم أعد المحاولة. لم يتم تغيير أي إنجاز محفوظ.</p><button id="retry-checklist-btn" type="button">إعادة تحميل المهام</button></div>';
+        document.getElementById("retry-checklist-btn")?.addEventListener("click", loadMyChecklist);
     }
 }
 

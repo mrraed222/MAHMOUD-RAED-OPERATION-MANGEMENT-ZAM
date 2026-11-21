@@ -1,0 +1,60 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const source = fs.readFileSync(path.join(__dirname, '../../assets/supabase-config.js'), 'utf8');
+
+test('shared header mounts the live bell beside identity and preserves employee role context', () => {
+  assert.match(source, /tools\.replaceChildren\(toggle, notificationSlot, account\)/);
+  assert.match(source, /header\.querySelector\('\[data-zam-header-tools\]'\)/);
+  assert.match(source, /if \(!hostedTools\) header\.prepend\(tools\)/);
+  assert.match(source, /refreshNotificationBell\(\)\.catch/);
+  assert.match(source, /zam-header-employee-role/);
+  assert.match(source, /profile\?\.role/);
+  assert.match(source, /document\.getElementById\('notif-bell-slot'\)/);
+});
+
+test('notification reads remain scoped to the authenticated profile and use exact unread count', () => {
+  assert.match(source, /\.eq\('user_id', profile\.id\)\.order\('created_at'/);
+  assert.match(source, /select\('id', \{ count: 'exact', head: true \}\)/);
+  assert.match(source, /\.eq\('user_id', profile\.id\)\.eq\('is_read', false\)/);
+  assert.match(source, /\.eq\('id', notificationId\)\s*\.eq\('user_id', profile\.id\)/);
+  assert.match(source, /\.update\(\{ is_read: true, read_at:/);
+  assert.match(source, /\.limit\(ZAM_NOTIFICATION_PAGE_SIZE\)/);
+});
+
+test('loading, empty, fetch failure, read failure, and realtime updates are visible', () => {
+  assert.match(source, /aria-label=\\?"تحميل الإشعارات/);
+  assert.match(source, /لا توجد إشعارات تشغيلية حالياً/);
+  assert.match(source, /تعذر تحميل الإشعارات/);
+  assert.match(source, /تعذر تحديث حالة القراءة/);
+  assert.match(source, /تعذر تحديد الإشعارات كمقروءة/);
+  assert.match(source, /postgres_changes/);
+  assert.match(source, /window\.setTimeout\(\(\) => \{/);
+});
+
+test('bell and menu controls expose labels, expanded state and keyboard-native buttons', () => {
+  assert.match(source, /aria-expanded="false" aria-controls="zam-notif-menu"/);
+  assert.match(source, /role="region" aria-label="الإشعارات التشغيلية"/);
+  assert.match(source, /id="zam-mark-all-notifications" type="button"/);
+  assert.match(source, /btn\.dataset\.zamBound === 'true'/);
+});
+
+test('mobile header stacks brand, controls and shift context without shrinking the identity', () => {
+  assert.match(source, /grid-template-areas: "brand" "tools" "extra"/);
+  assert.match(source, /grid-area: tools; justify-self: start; flex: 0 0 auto !important; width: max-content/);
+  assert.match(source, /grid-area: extra; justify-self: start; width: max-content; max-width: 100%/);
+  assert.match(source, /\.zam-header-account \{ flex: 0 0 auto; gap: 5px; max-width: 140px/);
+  assert.match(source, /\.zam-sidebar-toggle \{ width: 44px; min-width: 44px/);
+  assert.match(source, /\.zam-sidebar-toggle-text \{ display: none; \}/);
+  assert.match(source, /setAttribute\('aria-label', 'إظهار قائمة التنقل'\)/);
+});
+
+test('pages rely on the shared header instead of issuing duplicate bell reads or handlers', () => {
+  for (const page of ['staff-management', 'supervisor-checklist', 'supervisor-dashboard', 'branch-detail']) {
+    const html = fs.readFileSync(path.join(__dirname, `../../${page}/index.html`), 'utf8');
+    assert.doesNotMatch(html, /renderNotificationBell\s*\(/, `${page} must not perform a second bell fetch`);
+    assert.doesNotMatch(html, /attachNotificationBellHandlers\s*\(/, `${page} must not rebind shared bell handlers`);
+  }
+});

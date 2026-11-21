@@ -15,7 +15,7 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261121180400"></script><script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
+<script src="../assets/supabase-config.js?v=20261121212700"></script><script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script src="../assets/analytics-core.js?v=20261118204500"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
@@ -106,13 +106,13 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
   <section aria-label="نطاق التحليل" class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md mb-lg grid grid-cols-1 md:grid-cols-6 gap-sm items-end">
     <div class="md:col-span-6"><h2 class="font-title-md text-title-md text-primary">نطاق التحليل</h2><p class="text-body-sm text-on-surface-variant">اختر الفرع والفترة ثم طبّق التغييرات لتحديث الأقسام.</p></div>
     <div>
-      <label class="text-body-sm text-on-surface-variant">الفرع</label>
+      <label for="f-branch" class="text-body-sm text-on-surface-variant">الفرع</label>
       <select id="f-branch" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
         <option value="">كل الفروع (مجمّع)</option>
       </select>
     </div>
     <div>
-      <label class="text-body-sm text-on-surface-variant">الفترة</label>
+      <label for="f-preset" class="text-body-sm text-on-surface-variant">الفترة</label>
       <select id="f-preset" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
         <option value="week" selected>الأسبوع الحالي</option>
         <option value="all">كل البيانات</option>
@@ -125,19 +125,21 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
       </select>
     </div>
     <div id="month-wrap" class="hidden">
-      <label class="text-body-sm text-on-surface-variant">اختر الشهر</label>
+      <label for="f-month" class="text-body-sm text-on-surface-variant">اختر الشهر</label>
       <input type="month" id="f-month" class="w-full border border-outline-variant rounded-lg p-sm mt-xs"/>
     </div>
     <div id="custom-from-wrap" class="hidden">
-      <label class="text-body-sm text-on-surface-variant">من تاريخ</label>
+      <label for="f-from" class="text-body-sm text-on-surface-variant">من تاريخ</label>
       <input type="date" id="f-from" class="w-full border border-outline-variant rounded-lg p-sm mt-xs"/>
     </div>
     <div id="custom-to-wrap" class="hidden">
-      <label class="text-body-sm text-on-surface-variant">إلى تاريخ</label>
+      <label for="f-to" class="text-body-sm text-on-surface-variant">إلى تاريخ</label>
       <input type="date" id="f-to" class="w-full border border-outline-variant rounded-lg p-sm mt-xs"/>
     </div>
-    <button id="apply-filters" class="bg-primary text-on-primary rounded-lg p-sm font-bold">تطبيق الفلتر</button>
+    <button id="apply-filters" type="button" class="bg-primary text-on-primary rounded-lg p-sm font-bold" aria-controls="sales-section waste-section issues-section">تطبيق الفلتر</button>
   </section>
+
+  <p id="analytics-status" class="mb-md rounded-lg border border-outline-variant bg-white px-md py-sm text-body-sm text-on-surface-variant" role="status" aria-live="polite">حدّد النطاق ثم طبّق الفلتر لعرض النتائج.</p>
 
   <!-- مؤشرات المبيعات من تقارير الشفت -->
   <section id="sales-section" class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md" aria-labelledby="sales-title">
@@ -434,6 +436,23 @@ function renderWasteAggregation(error = null) {
 }
 
 async function applyFilters() {
+    const applyButton = document.getElementById('apply-filters');
+    const status = document.getElementById('analytics-status');
+    const preset = document.getElementById('f-preset').value;
+    if (preset === 'custom') {
+        const fromValue = document.getElementById('f-from').value;
+        const toValue = document.getElementById('f-to').value;
+        if ((fromValue && !toValue) || (!fromValue && toValue) || (fromValue && toValue && fromValue > toValue)) {
+            status.textContent = 'تحقق من الفترة: أدخل التاريخين معًا، واجعل تاريخ البداية قبل تاريخ النهاية.';
+            status.classList.add('text-error');
+            (fromValue && !toValue ? document.getElementById('f-to') : document.getElementById('f-from')).focus();
+            return;
+        }
+    }
+    applyButton.disabled = true;
+    applyButton.setAttribute('aria-busy', 'true');
+    status.classList.remove('text-error');
+    status.textContent = 'جارٍ تحميل بيانات المبيعات والهدر والمشكلات كلٌّ على حدة…';
     const branchId = document.getElementById('f-branch').value || null;
     const { from, to } = getDateRange();
 
@@ -537,6 +556,10 @@ async function applyFilters() {
             <td class="p-sm">${esc(i.action_taken || '—')}</td>
             <td class="p-sm font-bold ${PRIORITY_COLOR[i.priority] || ''}">${esc(i.priority || '—')}</td>
         </tr>`).join('') + (issueReadErrors.length ? `<tr><td colspan="7" class="p-md text-center text-error">تعذّر تحميل بعض مصادر المشاكل: ${issueReadErrors.map(esc).join(' · ')}</td></tr>` : '') : `<tr><td colspan="7" class="p-md text-center ${issueReadErrors.length ? 'text-error' : 'text-on-surface-variant'}">${issueReadErrors.length ? issueReadErrors.map(esc).join(' · ') : 'لا توجد بيانات في الفترة المحددة.'}</td></tr>`;
+    const failedSources = [salesOutcome.error, wasteOutcome.error, ...issueReadErrors].filter(Boolean).length;
+    status.textContent = failedSources ? `اكتمل التحديث مع تعذّر قراءة ${failedSources} ${failedSources === 1 ? 'مصدر' : 'مصادر'}؛ النتائج الأخرى مستقلة.` : 'اكتمل تحديث التحليلات وفق النطاق المحدد.';
+    applyButton.disabled = false;
+    applyButton.removeAttribute('aria-busy');
 }
 
 document.getElementById('apply-filters').addEventListener('click', applyFilters);
@@ -588,6 +611,13 @@ document.getElementById('export-issues').addEventListener('click', () => {
     XLSX.writeFile(wb, `تقرير_المشاكل_${new Date().toISOString().split('T')[0]}.xlsx`);
 });
 
-loadBranches().then(applyFilters);
+loadBranches().then(applyFilters).catch(error => {
+    const status = document.getElementById('analytics-status');
+    status.textContent = `تعذّر تحميل قائمة الفروع: ${error && error.message ? error.message : 'خطأ غير معروف'}. يمكنك إعادة المحاولة بتحديث الصفحة.`;
+    status.classList.add('text-error');
+    document.getElementById('sales-summary').innerHTML = '<div class="col-span-full p-md text-center text-error">تعذّر بدء التحليلات بسبب فشل تحميل الفروع.</div>';
+    document.getElementById('waste-summary').innerHTML = '<div class="col-span-full p-md text-center text-error">تعذّر تحميل البيانات.</div>';
+    document.getElementById('issues-summary').innerHTML = '<div class="col-span-full p-md text-center text-error">تعذّر تحميل البيانات.</div>';
+});
 </script>
 </body></html>

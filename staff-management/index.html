@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html class="light" dir="rtl" lang="ar"><head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261121180400"></script>
+<script src="../assets/supabase-config.js?v=20261121212700"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: admin without this permission is sent home
@@ -257,26 +257,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </select>
 </div>
 </div>
-<div class="flex-1 overflow-x-auto custom-scrollbar" role="region" aria-label="قائمة الموظفين" tabindex="0">
-<table class="w-full text-right border-collapse">
-<caption class="sr-only">موظفو الطاقم وبيانات الدور والفرع والحالة</caption>
-<thead>
-<tr class="bg-surface-container text-on-surface-variant font-label-bold text-[11px] uppercase tracking-wider">
-<th scope="col" class="py-md px-md border-b border-outline-variant">الاسم</th>
-<th scope="col" class="py-md px-md border-b border-outline-variant">الدور الوظيفي</th>
-<th scope="col" class="py-md px-md border-b border-outline-variant">الفرع</th>
-<th scope="col" class="py-md px-md border-b border-outline-variant">رمز المرور</th>
-<th scope="col" class="py-md px-md border-b border-outline-variant">الحالة</th>
-<th scope="col" class="py-md px-md border-b border-outline-variant"><span class="sr-only">إجراء</span></th>
-</tr>
-</thead>
-<tbody class="divide-y divide-outline-variant" id="staff-tbody">
-  <tr><td colspan="6" class="py-md px-md text-center text-on-surface-variant" role="status" aria-live="polite">جارٍ تحميل بيانات الموظفين...</td></tr>
-</tbody>
-</table>
-</div>
+<div id="staff-list" class="flex-1 p-md grid grid-cols-1 xl:grid-cols-2 gap-sm" role="list" aria-label="قائمة الموظفين" aria-busy="true"><p class="col-span-full py-lg text-center text-on-surface-variant" role="status" aria-live="polite">جارٍ تحميل بيانات الموظفين...</p></div>
 <div class="p-md border-t border-outline-variant flex justify-between items-center bg-surface-container-low text-[11px] text-on-surface-variant font-bold">
-<span id="staff-count-label">عرض 0 من 0 موظف</span>
+<span id="staff-count-label" aria-live="polite">عرض 0 من 0 موظف</span><button id="retry-staff-btn" type="button" class="underline text-primary" hidden>إعادة المحاولة</button>
 </div>
 </div>
 </div>
@@ -323,9 +306,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </div>
 </main>
 <!-- مودال تعديل موظف -->
-<div id="edit-modal" class="fixed inset-0 bg-inverse-surface/40 hidden items-center justify-center z-50 p-margin-mobile">
-  <div class="bg-surface-container-lowest rounded-xl p-md w-full max-w-md max-h-[90vh] overflow-y-auto">
-    <h3 class="font-title-md text-title-md text-primary mb-xs">تعديل بيانات الموظف</h3>
+<div id="edit-modal" class="fixed inset-0 bg-inverse-surface/50 hidden items-center justify-center z-50 p-margin-mobile" aria-hidden="true">
+  <div class="bg-surface-container-lowest rounded-xl p-md w-full max-w-md max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+    <h3 id="edit-modal-title" class="font-title-md text-title-md text-primary mb-xs">تعديل بيانات الموظف</h3>
     <p class="text-body-sm text-on-surface-variant mb-sm" id="edit-modal-name">—</p>
     <div class="space-y-sm">
       <div>
@@ -338,7 +321,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
       </div>
       <div>
         <label for="edit-passcode" class="text-body-sm text-on-surface-variant">رمز المرور</label>
-        <input id="edit-passcode" class="w-full border border-outline-variant rounded-lg p-sm mt-xs bg-surface-container-lowest"/>
+        <input id="edit-passcode" type="password" autocomplete="new-password" class="w-full border border-outline-variant rounded-lg p-sm mt-xs bg-surface-container-lowest"/>
       </div>
       <div>
         <label for="edit-whatsapp" class="text-body-sm text-on-surface-variant">الواتساب</label>
@@ -377,52 +360,13 @@ function filterStaff() {
 }
 
 function renderStaff() {
-    const tbody = document.getElementById('staff-tbody');
-    const filtered = filterStaff();
+    const list = document.getElementById('staff-list'), filtered = filterStaff();
+    list.setAttribute('aria-busy', 'false');
     document.getElementById('staff-count-label').textContent = `عرض ${filtered.length} من ${allStaff.length} موظف`;
-
-    if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="py-md px-md text-center text-on-surface-variant">لا يوجد موظفون مطابقون.</td></tr>';
-        return;
-    }
-
-    tbody.innerHTML = filtered.map(emp => `
-        <tr class="hover:bg-surface-container-low transition-colors group" data-id="${emp.id}">
-            <td class="py-md px-md">
-                <div class="flex items-center gap-sm">
-                    <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center font-bold text-on-secondary-container overflow-hidden">
-                        ${emp.avatar_url
-                            ? `<img src="${emp.avatar_url}" class="w-full h-full object-cover"/>`
-                            : initials(emp.full_name)}
-                    </div>
-                    <div>
-                        <div class="font-bold text-on-surface">${emp.full_name}</div>
-                        <div class="text-[11px] text-on-surface-variant">${emp.email || '—'}</div>
-                    </div>
-                </div>
-            </td>
-            <td class="py-md px-md text-body-sm">
-                <span class="px-sm py-xs bg-secondary-fixed text-on-secondary-fixed-variant rounded-lg text-[11px] font-bold">${ROLE_LABELS[emp.role] || emp.role}</span>
-            </td>
-            <td class="py-md px-md text-body-sm">${emp.branches ? emp.branches.name : '—'}</td>
-            <td class="py-md px-md text-body-sm font-mono tracking-widest text-primary">**** ${String(emp.passcode || '').slice(-3)}</td>
-            <td class="py-md px-md">
-                <span class="inline-flex items-center gap-1 text-[11px] font-bold ${emp.status === 'active' ? 'text-tertiary-container bg-tertiary-fixed-dim/20' : emp.status === 'pending' ? 'text-error bg-error-container/20' : 'text-on-surface-variant bg-surface-container'} px-sm py-xs rounded-full">
-                    <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
-                    ${STATUS_LABELS[emp.status] || emp.status}
-                </span>
-            </td>
-            <td class="py-md px-md text-left">
-                <button class="edit-employee-btn min-h-11 min-w-11 text-on-surface-variant hover:text-primary focus-visible:opacity-100 opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="تعديل بيانات الموظف" data-id="${emp.id}">
-                    <span class="material-symbols-outlined">edit</span>
-                </button>
-            </td>
-        </tr>
-    `).join('');
-
-    tbody.querySelectorAll('.edit-employee-btn').forEach(btn => {
-        btn.addEventListener('click', () => openEditModal(btn.dataset.id));
-    });
+    document.getElementById('retry-staff-btn').hidden = true;
+    if (!filtered.length) { list.innerHTML = `<div class="col-span-full rounded-xl border border-dashed border-outline-variant p-lg text-center" role="status"><strong class="block text-primary">${allStaff.length ? 'لا توجد نتائج مطابقة' : 'لا يوجد موظفون بعد'}</strong><span class="text-body-sm text-on-surface-variant">${allStaff.length ? 'جرّب تعديل عبارة البحث أو اختيار كل الفروع.' : 'عند توفر بيانات الطاقم ستظهر هنا.'}</span></div>`; return; }
+    list.innerHTML = filtered.map(emp => `<article class="zam-card rounded-xl border border-outline-variant bg-surface-container-lowest p-md flex flex-col gap-sm" role="listitem"><div class="flex items-start gap-sm"><div class="w-12 h-12 shrink-0 rounded-full bg-secondary-container flex items-center justify-center font-bold overflow-hidden">${emp.avatar_url ? `<img alt="" src="${emp.avatar_url}" class="w-full h-full object-cover"/>` : initials(emp.full_name)}</div><div class="min-w-0 flex-1"><h3 class="font-bold truncate">${emp.full_name}</h3><p class="text-body-sm text-on-surface-variant break-all">${emp.email || 'لا يوجد بريد مسجل'}</p></div><span class="shrink-0 px-sm py-xs rounded-full text-[11px] font-bold">${STATUS_LABELS[emp.status] || emp.status || 'غير محدد'}</span></div><dl class="grid grid-cols-2 gap-sm text-body-sm border-t border-outline-variant pt-sm"><div><dt class="text-[11px] text-on-surface-variant">الدور</dt><dd class="font-bold">${ROLE_LABELS[emp.role] || emp.role || '—'}</dd></div><div><dt class="text-[11px] text-on-surface-variant">الفرع</dt><dd class="font-bold">${emp.branches ? emp.branches.name : '—'}</dd></div><div><dt class="text-[11px] text-on-surface-variant">رمز المرور</dt><dd class="font-mono tracking-widest" aria-label="رمز مرور مخفي">•••• ${String(emp.passcode || '').slice(-3)}</dd></div><div class="flex items-end justify-end"><button type="button" class="edit-employee-btn min-h-11 px-md border border-outline-variant rounded-lg font-bold text-primary inline-flex items-center gap-xs" aria-label="تعديل بيانات ${emp.full_name}" data-id="${emp.id}"><span class="material-symbols-outlined" aria-hidden="true">edit</span>تعديل</button></div></dl></article>`).join('');
+    list.querySelectorAll('.edit-employee-btn').forEach(btn => btn.addEventListener('click', () => openEditModal(btn.dataset.id)));
 }
 
 function openEditModal(id) {
@@ -438,6 +382,8 @@ function openEditModal(id) {
     const modal = document.getElementById('edit-modal');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
+    modal.setAttribute('aria-hidden', 'false');
+    document.getElementById('edit-name').focus();
     document.getElementById('edit-save').onclick = async () => {
         const payload = {
             full_name: document.getElementById('edit-name').value.trim(),
@@ -453,18 +399,22 @@ function openEditModal(id) {
             return;
         }
         try {
-            await zamClient.from('profiles').update(payload).eq('id', id);
+            const { error } = await zamClient.from('profiles').update(payload).eq('id', id);
+            if (error) throw error;
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+            modal.setAttribute('aria-hidden', 'true');
             await loadStaff();
         } catch (err) {
-            document.getElementById('edit-error').textContent = err.message?.includes('duplicate') ? 'رمز المرور مستخدم.' : 'حدث خطأ.';
+            document.getElementById('edit-error').textContent = err.message?.toLowerCase().includes('duplicate') ? 'رمز المرور مستخدم.' : 'تعذر حفظ التعديلات. تحقق من الاتصال وحاول مجددًا.';
             document.getElementById('edit-error').classList.remove('hidden');
         }
     };
     document.getElementById('edit-cancel').onclick = () => {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
+        modal.setAttribute('aria-hidden', 'true');
+        document.querySelector(`[data-id="${id}"].edit-employee-btn`)?.focus();
     };
 }
 
@@ -538,11 +488,13 @@ async function loadStaff() {
             }).join('');
         }
 
-        document.getElementById('staff-total-count').textContent = activeStaff.length;
+        document.getElementById('staff-total-count').textContent = staff.length;
         renderStaff();
     } catch (err) {
         console.error(err);
-        tbody.innerHTML = '<tr><td colspan="6" class="py-md px-md text-center text-error">تعذّر تحميل بيانات الموظفين.</td></tr>';
+        document.getElementById('staff-list').setAttribute('aria-busy', 'false');
+        document.getElementById('staff-list').innerHTML = '<div class="col-span-full rounded-xl border border-error bg-error-container/20 p-lg text-center" role="alert"><strong class="block">تعذّر تحميل بيانات الموظفين</strong><span class="text-body-sm">تحقق من الاتصال ثم أعد المحاولة.</span></div>';
+        document.getElementById('retry-staff-btn').hidden = false;
     }
 }
 
@@ -555,10 +507,13 @@ document.getElementById('export-csv-btn')?.addEventListener('click', async () =>
     }
 });
 
+document.getElementById('retry-staff-btn')?.addEventListener('click', loadStaff);
 // ربط البحث الحي وفلتر الفرع
 document.getElementById('search-input')?.addEventListener('input', () => {
     if (allStaff.length) renderStaff();
 });
+document.getElementById('edit-modal')?.addEventListener('click', e => { if (e.target.id === 'edit-modal') document.getElementById('edit-cancel').click(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.getElementById('edit-modal').classList.contains('hidden')) document.getElementById('edit-cancel').click(); });
 document.getElementById('branch-filter')?.addEventListener('change', () => {
     if (allStaff.length) renderStaff();
 });
@@ -566,12 +521,6 @@ document.getElementById('branch-filter')?.addEventListener('change', () => {
 (async function init() {
     await loadStaff();
     await loadStats();
-    // تركيب جرس الإشعارات
-    const slot = document.getElementById('notif-bell-slot');
-    if (slot) {
-        slot.innerHTML = await renderNotificationBell();
-        attachNotificationBellHandlers();
-    }
 })();
 </script>
 </body></html>
