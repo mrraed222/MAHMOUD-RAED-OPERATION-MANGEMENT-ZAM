@@ -117,6 +117,15 @@
   }
   body.zam-page > header h2 { color: var(--riwaq-sidebar) !important; }
   body.zam-page main > div { max-width: 1120px; padding: 28px 32px 40px; }
+  body.zam-page > header { min-height: 76px; }
+  body.zam-page > header .zam-brand-mark { width: 38px; height: 38px; object-fit: contain; }
+  body.zam-page main > div { display: flex; flex-direction: column; gap: 22px; }
+  body.zam-page main > div > section { margin: 0; }
+  body.zam-page #checklist-container { display: grid; gap: 12px; }
+  body.zam-page #progress-label { font-weight: 700; }
+  body.zam-page main textarea, body.zam-page main select, body.zam-page main input:not([type="checkbox"]) { min-height: 44px; }
+  body.zam-page main button, body.zam-page main a { min-height: 44px; }
+  body.zam-page main button:disabled { cursor: not-allowed; opacity: .62; }
   body.zam-page main section { border-color: var(--riwaq-line); }
   body.zam-page main section.bg-surface-container-lowest,
   body.zam-page #inventory-receiving-tasks-section,
@@ -140,12 +149,14 @@
     border-color: var(--riwaq-line) !important;
   }
   @media (max-width: 767px) {
-    body.zam-page > header { height: 64px; padding-inline: 14px; }
+    body.zam-page > header { height: auto; min-height: 64px; padding: 8px 14px; gap: 8px; }
     body.zam-page > header h2 { font-size: 18px; }
+    body.zam-page > header .zam-brand-mark { width: 32px; height: 32px; }
+    body.zam-page > header .brand-title { font-size: 14px; }
     body.zam-page > header #shift-toggle { gap: 2px; }
     body.zam-page > header .shift-btn { padding-inline: 8px; font-size: 11px; }
-    body.zam-page main { padding-top: 64px; padding-bottom: 92px; }
-    body.zam-page main > div { padding: 20px 14px 28px; }
+    body.zam-page main { padding-top: 72px; padding-bottom: 92px; }
+    body.zam-page main > div { padding: 20px 14px 28px; gap: 16px; }
     body.zam-page main h1 { font-size: 25px; line-height: 1.35; }
     body.zam-page main section:first-child { align-items: flex-start; }
     body.zam-page main section:first-child > div:last-child { align-items: flex-start; text-align: start; }
@@ -185,7 +196,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('supervisor-checklist', currentUser.role);})();</script>
 <header class="fixed top-0 left-0 w-full md:pr-[312px] h-20 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline shadow-sm z-40 flex justify-between items-center px-margin-desktop">
 <div class="flex items-center gap-md">
-<h2 class="font-headline-lg text-headline-lg font-black text-primary">ZAM Operations</h2>
+<img class="zam-brand-mark" src="../assets/logo/zam-logo.png" alt="شعار ZAM"/>
+<h2 class="brand-title font-headline-lg text-headline-lg font-black text-primary">ZAM Operations</h2>
 <div class="hidden lg:flex items-center gap-base">
 <span class="bg-secondary-container text-on-secondary-container px-base py-xs rounded text-label-bold" id="branch-badge">ZAM</span>
 <span class="text-on-surface-variant font-label-bold" id="branch-name-label">—</span>
@@ -208,10 +220,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </header>
 <main class="md:pr-[280px] pt-20 min-h-screen">
 <div class="p-margin-desktop max-w-5xl mx-auto space-y-md">
-<section class="flex flex-col md:flex-row md:items-end justify-between gap-base border-b border-outline-variant pb-md">
+<section aria-labelledby="page-title" class="flex flex-col md:flex-row md:items-end justify-between gap-base border-b border-outline-variant pb-md">
 <div>
-<h1 class="font-display-lg text-primary text-[32px] font-black">دليل المهام اليومية</h1>
-<p class="text-on-surface-variant font-body-lg">متابعة دقيقة لمعايير الجودة والتشغيل في فرع "<span id="branch-sub-label">—</span>"</p>
+<p class="mb-1 text-xs font-bold tracking-wide text-secondary">مساحة التشغيل · المشرف</p>
+<h1 id="page-title" class="font-display-lg text-primary text-[32px] font-black">لوحة المشرف اليومية</h1>
+<p class="text-on-surface-variant font-body-lg">مهام الوردية والاستلام والملاحظات — فرع <span id="branch-sub-label">—</span></p>
 </div>
 <div class="flex flex-col items-end text-left">
 <span class="text-label-bold text-on-surface-variant uppercase tracking-widest">تاريخ اليوم</span>
@@ -219,10 +232,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </div>
 </section>
 
-<section id="inventory-receiving-tasks-section" class="hidden rounded-xl border border-secondary bg-secondary-container/20 shadow-sm">
+<section id="inventory-receiving-tasks-section" aria-labelledby="receiving-title" class="hidden rounded-xl border border-secondary bg-secondary-container/20 shadow-sm">
   <div class="flex flex-col gap-2 border-b border-outline-variant bg-secondary-container/40 px-md py-base sm:flex-row sm:items-center sm:justify-between">
     <div>
-      <h2 class="font-bold text-primary">استلام التوريدات — مهام المشرف</h2>
+      <h2 id="receiving-title" class="font-bold text-primary">أولوية الوردية · استلام التوريدات</h2>
       <p class="text-xs text-on-surface-variant">تظهر المهمة فور تسجيل المشرف وصول أي كمية، وتُحسب مهلة التخزين لكل دفعة من وقت وصولها.</p>
     </div>
     <button id="refresh-receiving-tasks-btn" type="button" class="rounded-lg border border-outline-variant bg-white px-3 py-2 text-sm font-bold text-primary">تحديث مهام الاستلام</button>
@@ -232,36 +245,25 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   </div>
 </section>
 
-<section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+<section aria-labelledby="checklist-title" class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
 <div class="bg-primary text-on-primary px-md py-base flex flex-col md:flex-row justify-between items-center gap-sm">
 	  <div class="flex gap-md items-center">
-	    <span class="font-bold border-b-2 border-white pb-xs text-body-sm text-white">📋 مهامي اليومية</span>
+	    <h2 id="checklist-title" class="font-bold border-b-2 border-white pb-xs text-body-sm text-white">مهام المشرف في الوردية</h2>
 	  </div>
-  <span class="text-xs opacity-80" id="progress-label">جارِ التحميل...</span>
+	  <span class="text-xs opacity-90" id="progress-label" role="status" aria-live="polite" aria-atomic="true">جارِ التحميل...</span>
 </div>
 <!-- داشبورد الفريق: من المسؤول عن ماذا في هذه الوردية -->
 <div class="divide-y divide-outline-variant" id="checklist-container">
 <p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل المهام من قاعدة البيانات...</p>
 </div>
 </section>
-<section class="grid grid-cols-1 md:grid-cols-3 gap-md">
+<section aria-labelledby="report-action-title" class="rounded-xl border border-outline-variant bg-surface-container-lowest p-md shadow-sm">
+<div class="grid grid-cols-1 gap-md md:grid-cols-3 md:items-center">
 <div class="md:col-span-2">
-<label class="font-label-bold text-on-surface-variant block mb-base">ملاحظات إضافية (اختياري)</label>
-<textarea id="team-note-input" class="w-full bg-surface border border-outline-variant rounded-xl p-md focus:border-primary focus:ring-1 focus:ring-primary h-32" placeholder="اكتب أي ملاحظات تتعلق بسير العمل هنا..."></textarea>
-<button id="save-note-btn" class="mt-xs px-md py-xs rounded-lg bg-secondary-container text-on-secondary-container font-label-bold hover:opacity-90 transition-opacity">حفظ الملاحظة</button>
-<span id="note-saved-msg" class="text-tertiary text-body-sm hidden mr-sm">✓ تم حفظ الملاحظة — ستظهر في داشبورد الفرع</span>
-
-<!-- عرض ملاحظات الفريق السابقة -->
-<div id="recent-notes-section" class="mt-md">
-  <h3 class="font-bold text-sm text-primary mb-sm flex items-center gap-xs">
-    <span class="material-symbols-outlined text-base">sticky_note_2</span> ملاحظات الفريق اليومية
-  </h3>
-  <div id="recent-notes-list" class="bg-surface-container-lowest border border-outline-variant rounded-xl divide-y divide-outline-variant max-h-64 overflow-y-auto">
-    <p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>
-  </div>
+<h2 id="report-action-title" class="mb-1 text-lg font-extrabold text-primary">الخطوة التالية · التقرير اليومي</h2>
+<p class="text-sm text-on-surface-variant">انتقل إلى التقرير بعد مراجعة مهام الوردية والاستلام. لا تُرسل هذه الشاشة تقريرًا تلقائيًا.</p>
 </div>
-</div>
-<div class="flex flex-col justify-end gap-base">
+<div class="flex flex-col gap-base">
 <div class="bg-secondary-container/30 p-md rounded-xl border border-secondary-container">
 <p class="text-body-sm text-secondary font-bold mb-xs flex items-center gap-xs">
 <span class="material-symbols-outlined text-sm">info</span> تنبيه النظام
@@ -273,6 +275,26 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <button class="w-full bg-primary text-on-primary py-md rounded-xl font-bold text-lg flex items-center justify-center gap-sm shadow-lg hover:bg-primary-container active:scale-[0.99] transition-all" id="send-report-btn">
 <span class="material-symbols-outlined">send</span> إرسال التقرير النهائي
 </button>
+</div>
+</section>
+<section aria-labelledby="team-notes-title" class="rounded-xl border border-outline-variant bg-surface-container-lowest p-md shadow-sm">
+<div class="mb-md">
+<h2 id="team-notes-title" class="text-lg font-extrabold text-primary">ملاحظات سير العمل</h2>
+<p class="mt-1 text-sm text-on-surface-variant">ملاحظات اختيارية مرتبطة بفرعك والوردية المحددة، وتظهر في داشبورد الفرع.</p>
+</div>
+<label for="team-note-input" class="font-label-bold text-on-surface-variant block mb-base">ملاحظة جديدة (اختياري)</label>
+<textarea id="team-note-input" aria-describedby="note-saved-msg" class="w-full bg-surface border border-outline-variant rounded-xl p-md focus:border-primary focus:ring-1 focus:ring-primary h-32" placeholder="اكتب ملاحظة تتعلق بسير العمل..."></textarea>
+<div class="mt-sm flex flex-wrap items-center gap-sm">
+<button id="save-note-btn" type="button" class="px-md py-xs rounded-lg bg-secondary-container text-on-secondary-container font-label-bold hover:opacity-90 transition-opacity">حفظ الملاحظة</button>
+<span id="note-saved-msg" class="text-tertiary text-body-sm hidden" role="status" aria-live="polite">تم حفظ الملاحظة — ستظهر في داشبورد الفرع</span>
+</div>
+<div id="recent-notes-section" class="mt-lg">
+  <h3 id="recent-notes-title" class="font-bold text-sm text-primary mb-sm flex items-center gap-xs">
+    <span class="material-symbols-outlined text-base" aria-hidden="true">sticky_note_2</span> ملاحظات الفريق السابقة
+  </h3>
+  <div id="recent-notes-list" aria-labelledby="recent-notes-title" aria-live="polite" class="bg-surface-container-lowest border border-outline-variant rounded-xl divide-y divide-outline-variant max-h-64 overflow-y-auto">
+    <p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل الملاحظات...</p>
+  </div>
 </div>
 </section>
 </div>

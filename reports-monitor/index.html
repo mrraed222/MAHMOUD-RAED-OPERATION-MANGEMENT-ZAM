@@ -70,57 +70,92 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 @media (max-width:767px) {
   body.zam-page header { padding-inline:16px !important; gap:12px; }
   body.zam-page main { padding-inline:16px !important; }
-  body.zam-page main .flex.gap-sm { flex-wrap:wrap; }
   body.zam-page main input:not([type=checkbox]), body.zam-page main select { max-width:100%; }
-  body.zam-page main table { font-size:13px; }
+  body.zam-page .monitor-header { height:auto; min-height:80px; padding-block:10px; align-items:flex-start; flex-wrap:wrap; gap:10px; }
+  body.zam-page .monitor-header > div:last-child { width:100%; }
+  body.zam-page main { padding-top:176px !important; }
+  body.zam-page .monitor-brand img { width:38px; height:38px; }
+  body.zam-page .monitor-header h1 { font-size:20px; line-height:1.35; }
+  body.zam-page .monitor-header p { font-size:14px; }
+  body.zam-page .monitor-date { width:100%; min-height:44px; }
+  body.zam-page main table { min-width:560px; font-size:15px; }
+  body.zam-page .monitor-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 }
+body.zam-page .monitor-header { gap:24px; }
+body.zam-page .monitor-brand { display:flex; align-items:center; gap:14px; min-width:0; }
+body.zam-page .monitor-brand img { width:44px; height:44px; object-fit:contain; flex:none; }
+body.zam-page .monitor-date { min-height:44px; }
+body.zam-page .monitor-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-bottom:24px; }
+body.zam-page .monitor-shift { min-width:0; }
+body.zam-page .monitor-shift-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+body.zam-page .monitor-stat { text-align:start; min-height:100px; display:flex; flex-direction:column; justify-content:space-between; }
+body.zam-page .monitor-table-wrap { overflow-x:auto; }
+body.zam-page .monitor-table-wrap:focus-visible { outline:3px solid rgba(192,88,58,.42); outline-offset:3px; }
+@media (max-width:767px) { body.zam-page .monitor-summary { grid-template-columns:1fr; gap:12px; } }
 </style>
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('reports-monitor', currentUser.role);})();</script>
 
-<header class="fixed top-0 left-0 w-full md:pr-[312px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
-  <div>
-    <h1 class="font-title-md text-title-md text-primary">متابعة تقارير المشرفين</h1>
-    <p class="text-body-sm text-on-surface-variant">هل كل فرع سلّم تقاريره اليوم؟</p>
+<header class="monitor-header fixed top-0 left-0 w-full md:pr-[312px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
+  <div class="monitor-brand">
+    <img src="../assets/logo/zam-logo.png" alt="زام" width="44" height="44">
+    <div>
+      <p class="text-sm font-bold text-on-surface-variant">ZAM Operation</p>
+      <h1 class="font-title-md text-title-md text-primary">متابعة تسليم التقارير</h1>
+      <p class="text-body-sm text-on-surface-variant">حالة التقارير المسجّلة لكل فرع ووردية</p>
+    </div>
   </div>
-  <input type="date" id="check-date" class="border border-outline-variant rounded-lg p-sm"/>
+  <div class="flex flex-col gap-1">
+    <label for="check-date" class="text-sm font-bold text-on-surface-variant">تاريخ التقرير</label>
+    <input type="date" id="check-date" class="monitor-date border border-outline-variant rounded-lg p-sm" aria-label="تاريخ التقرير">
+  </div>
 </header>
 
 <main class="md:pr-[280px] pt-20 min-h-screen">
 <div class="max-w-4xl mx-auto p-margin-desktop">
+  <section aria-labelledby="monitor-summary-title">
+    <div class="mb-3">
+      <h2 id="monitor-summary-title" class="text-xl font-bold text-primary">ملخص حسب الوردية</h2>
+      <p class="text-body-sm text-on-surface-variant mt-1">الأعداد تبيّن التقارير المسجّلة أو التي لم يُسجّل لها تقرير في التاريخ المحدد؛ ولا تعني تجاوز موعد تسليم.</p>
+    </div>
+    <div class="monitor-summary">
+      <section class="monitor-shift bg-surface-container-lowest border border-outline-variant rounded-xl p-md" aria-labelledby="morning-title">
+        <h3 id="morning-title" class="font-bold text-primary mb-3">الوردية الصباحية</h3>
+        <div class="monitor-shift-grid">
+          <div class="monitor-stat bg-surface-container-low rounded-lg p-md"><p class="text-body-sm text-on-surface-variant">تم تسجيل التقرير</p><p class="text-2xl font-bold text-tertiary-container" id="c-morning-done" aria-live="polite">—</p></div>
+          <div class="monitor-stat bg-surface-container-low rounded-lg p-md"><p class="text-body-sm text-on-surface-variant">لم يُسجّل تقرير</p><p class="text-2xl font-bold text-error" id="c-morning-missing" aria-live="polite">—</p></div>
+        </div>
+      </section>
+      <section class="monitor-shift bg-surface-container-lowest border border-outline-variant rounded-xl p-md" aria-labelledby="evening-title">
+        <h3 id="evening-title" class="font-bold text-primary mb-3">الوردية المسائية</h3>
+        <div class="monitor-shift-grid">
+          <div class="monitor-stat bg-surface-container-low rounded-lg p-md"><p class="text-body-sm text-on-surface-variant">تم تسجيل التقرير</p><p class="text-2xl font-bold text-tertiary-container" id="c-evening-done" aria-live="polite">—</p></div>
+          <div class="monitor-stat bg-surface-container-low rounded-lg p-md"><p class="text-body-sm text-on-surface-variant">لم يُسجّل تقرير</p><p class="text-2xl font-bold text-error" id="c-evening-missing" aria-live="polite">—</p></div>
+        </div>
+      </section>
+    </div>
+  </section>
 
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-md mb-lg">
-    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
-      <p class="text-body-sm text-on-surface-variant">سلّموا الصباحي</p>
-      <p class="text-2xl font-bold text-tertiary-container" id="c-morning-done">—</p>
+  <section aria-labelledby="monitor-list-title" class="mt-8">
+    <div class="mb-3">
+      <h2 id="monitor-list-title" class="text-xl font-bold text-primary">الحالة حسب الفرع</h2>
+      <p class="text-body-sm text-on-surface-variant mt-1">اختر تاريخًا آخر لمراجعة التسجيلات. حالة الغياب تعني أن السجل غير موجود فقط.</p>
     </div>
-    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
-      <p class="text-body-sm text-on-surface-variant">متأخرين الصباحي</p>
-      <p class="text-2xl font-bold text-error" id="c-morning-missing">—</p>
-    </div>
-    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
-      <p class="text-body-sm text-on-surface-variant">سلّموا المسائي</p>
-      <p class="text-2xl font-bold text-tertiary-container" id="c-evening-done">—</p>
-    </div>
-    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
-      <p class="text-body-sm text-on-surface-variant">متأخرين المسائي</p>
-      <p class="text-2xl font-bold text-error" id="c-evening-missing">—</p>
-    </div>
-  </div>
-
-  <div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+  <div class="monitor-table-wrap bg-surface-container-lowest rounded-xl border border-outline-variant" tabindex="0" role="region" aria-label="جدول تقارير الفروع، يمكن التمرير أفقيًا على الشاشة الضيقة">
     <table class="w-full text-body-sm">
+      <caption class="sr-only">حالة تسجيل التقرير لكل فرع في الورديتين الصباحية والمسائية</caption>
       <thead class="bg-surface-container text-on-surface-variant">
         <tr>
-          <th class="p-sm text-right">الفرع</th>
-          <th class="p-sm text-right">الوردية الصباحية</th>
-          <th class="p-sm text-right">الوردية المسائية</th>
+          <th scope="col" class="p-md text-right">الفرع</th>
+          <th scope="col" class="p-md text-right">الوردية الصباحية</th>
+          <th scope="col" class="p-md text-right">الوردية المسائية</th>
         </tr>
       </thead>
-      <tbody id="monitor-tbody"><tr><td colspan="3" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody>
+      <tbody id="monitor-tbody" aria-live="polite"><tr><td colspan="3" class="p-md text-center text-on-surface-variant">جارِ تحميل بيانات الفروع والتقارير...</td></tr></tbody>
     </table>
   </div>
+  </section>
 </div>
 </main>
 
@@ -132,7 +167,7 @@ function statusBadge(submitted, time) {
     if (submitted) {
         return `<span class="inline-flex items-center gap-1 text-tertiary-container font-bold text-[12px]"><span class="material-symbols-outlined text-[16px]">check_circle</span> تم (${time || ''})</span>`;
     }
-    return `<span class="inline-flex items-center gap-1 text-error font-bold text-[12px]"><span class="material-symbols-outlined text-[16px]">error</span> لم يُرسل بعد</span>`;
+    return `<span class="inline-flex items-center gap-1 text-error font-bold text-[12px]"><span class="material-symbols-outlined text-[16px]">error</span> لم يُسجّل</span>`;
 }
 
 async function loadMonitor() {

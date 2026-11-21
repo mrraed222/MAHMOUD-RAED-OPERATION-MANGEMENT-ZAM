@@ -57,6 +57,19 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   body.zam-page header { background: var(--riwaq-surface); border-color: var(--riwaq-line); box-shadow: 0 4px 18px rgba(29,47,39,.04); }
   body.zam-page header h1 { color: var(--riwaq-ink); font-family: var(--font-ui); font-size: 20px; font-weight: 700; }
   body.zam-page header p { color: var(--riwaq-muted); }
+  body.zam-page .branches-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  body.zam-page .branches-brand img { width: 40px; height: 40px; object-fit: contain; flex: 0 0 auto; }
+  body.zam-page .branches-title { min-width: 0; }
+  body.zam-page main > div { display: grid; gap: 28px; }
+  body.zam-page .branches-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+  body.zam-page .branches-section-heading h2 { margin: 0; font-size: 19px; font-weight: 700; color: var(--riwaq-ink); }
+  body.zam-page .branches-section-heading p { margin: 4px 0 0; color: var(--riwaq-muted); font-size: 13px; line-height: 1.65; }
+  body.zam-page .branches-catalog { min-width: 0; }
+  body.zam-page #branches-list:empty { display: none; }
+  body.zam-page #branches-list > p { grid-column: 1 / -1; margin: 0; padding: 20px; border: 1px dashed var(--riwaq-line); border-radius: var(--riwaq-radius-sm); background: var(--riwaq-surface); line-height: 1.7; }
+  body.zam-page .branches-related { border-top: 1px solid var(--riwaq-line); padding-top: 22px; }
+  body.zam-page .branches-related h2 { margin: 0 0 4px; font-size: 17px; font-weight: 700; }
+  body.zam-page .branches-related > p { margin: 0 0 14px; color: var(--riwaq-muted); font-size: 13px; }
   body.zam-page #add-branch-btn { min-height: 42px; border-radius: var(--riwaq-radius-sm); background: var(--riwaq-primary); color: #fff; }
   body.zam-page #branches-list > div { min-width: 0; min-height: 104px; padding: 18px; border-color: var(--riwaq-line); border-radius: var(--riwaq-radius); background: var(--riwaq-surface); box-shadow: var(--riwaq-shadow); transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
   body.zam-page #branches-list > div:hover { border-color: #c6d8cc; box-shadow: 0 8px 24px rgba(29,47,39,.08); transform: translateY(-1px); }
@@ -80,9 +93,14 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     body.zam-page header { height: auto; min-height: 76px; gap: 12px; padding: 12px 16px; }
     body.zam-page header h1 { font-size: 17px; }
     body.zam-page header p { max-width: 25ch; font-size: 12px; }
-    body.zam-page #add-branch-btn { flex: 0 0 auto; padding-inline: 12px; font-size: 13px; }
+    body.zam-page .branches-brand { gap: 8px; }
+    body.zam-page .branches-brand img { width: 32px; height: 32px; }
+    body.zam-page #add-branch-btn { flex: 0 0 auto; min-height: 44px; padding-inline: 10px; font-size: 12px; }
     body.zam-page main { padding-top: 76px; }
     body.zam-page main > div { padding: 18px 16px 26px; }
+    body.zam-page main > div { gap: 22px; }
+    body.zam-page .branches-section-heading { align-items: start; }
+    body.zam-page .branches-section-heading h2 { font-size: 17px; }
     body.zam-page #branches-list { gap: 10px; margin-bottom: 22px; }
     body.zam-page #branches-list > div { min-height: 96px; padding: 14px 12px; gap: 8px; }
     body.zam-page #branches-list > div > div:first-child { gap: 9px; }
@@ -100,9 +118,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('branches', currentUser.role);})();</script>
 
 <header class="fixed top-0 left-0 w-full md:pr-[312px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
-  <div>
-    <h1 class="font-title-md text-title-md text-primary">إدارة الفروع</h1>
-    <p class="text-body-sm text-on-surface-variant">إضافة وتعديل وحذف فروع زام</p>
+  <div class="branches-brand">
+    <img src="../assets/logo/zam-logo.png" alt="زام" width="40" height="40">
+    <div class="branches-title">
+      <h1 class="font-title-md text-title-md text-primary">إدارة الفروع</h1>
+      <p class="text-body-sm text-on-surface-variant">دليل الفروع وحالات تشغيلها</p>
+    </div>
   </div>
   <button id="add-branch-btn" class="bg-primary text-on-primary rounded-lg px-md py-sm font-bold flex items-center gap-1">
     <span class="material-symbols-outlined text-base">add_business</span> إضافة فرع جديد
@@ -112,11 +133,22 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <main class="md:pr-[280px] pt-20 min-h-screen">
 <div class="max-w-4xl mx-auto p-margin-desktop">
 
-  <div id="branches-list" class="grid grid-cols-1 md:grid-cols-2 gap-md mb-lg">
-    <p class="text-on-surface-variant text-body-sm">جارِ التحميل...</p>
-  </div>
+  <section class="branches-catalog" aria-labelledby="branches-heading">
+    <div class="branches-section-heading">
+      <div>
+        <h2 id="branches-heading">دليل الفروع</h2>
+        <p>راجع الموقع وحالة التشغيل وعدد الموظفين النشطين. استخدم إجراءات البطاقة لتعديل بيانات الفرع أو حذفه.</p>
+      </div>
+    </div>
+    <div id="branches-list" class="grid grid-cols-1 md:grid-cols-2 gap-md" aria-live="polite">
+      <p class="text-on-surface-variant text-body-sm">جارِ تحميل الفروع…</p>
+    </div>
+  </section>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-md">
+  <section class="branches-related" aria-labelledby="branches-related-heading">
+    <h2 id="branches-related-heading">إدارة مرتبطة</h2>
+    <p>انتقل إلى إدارة أداء الفروع أو قوائم التحقق أو طاقم الفروع.</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-md">
     <a href="../dashboard/index.html" class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md hover:border-primary transition-all flex items-center gap-sm">
       <span class="material-symbols-outlined text-primary">insights</span>
       <div><p class="font-bold">أداء الفروع</p><p class="text-[12px] text-on-surface-variant">داشبورد متابعة التشغيل</p></div>
@@ -129,7 +161,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
       <span class="material-symbols-outlined text-primary">groups</span>
       <div><p class="font-bold">الطاقم</p><p class="text-[12px] text-on-surface-variant">موظفو كل فرع</p></div>
     </a>
-  </div>
+    </div>
+  </section>
 
 </div>
 </main>
@@ -138,17 +171,17 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <div id="branch-modal" class="fixed inset-0 bg-inverse-surface/40 hidden items-center justify-center z-50 p-margin-mobile">
   <div class="bg-surface-container-lowest rounded-xl p-md w-full max-w-sm">
     <h3 class="font-title-md text-title-md text-primary mb-md" id="branch-modal-title">فرع جديد</h3>
-    <label class="text-body-sm text-on-surface-variant">اسم الفرع</label>
+    <label for="branch-name-input" class="text-body-sm text-on-surface-variant">اسم الفرع</label>
     <input id="branch-name-input" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-md" placeholder="مثال: زام - حي النرجس"/>
-    <label class="text-body-sm text-on-surface-variant">الموقع / الحي</label>
+    <label for="branch-location-input" class="text-body-sm text-on-surface-variant">الموقع / الحي</label>
     <input id="branch-location-input" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-md" placeholder="مثال: الروضة"/>
-    <label class="text-body-sm text-on-surface-variant">حالة التشغيل</label>
+    <label for="branch-lifecycle-input" class="text-body-sm text-on-surface-variant">حالة التشغيل</label>
     <select id="branch-lifecycle-input" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-md">
       <option value="">غير مصنّف — إبقاء السلوك الحالي</option>
       <option value="planned">قيد التجهيز — غير تشغيلي</option>
       <option value="operational">نشط تشغيليًا</option>
     </select>
-    <label class="text-body-sm text-on-surface-variant">تاريخ الافتتاح المؤكد (اختياري)</label>
+    <label for="branch-opening-date-input" class="text-body-sm text-on-surface-variant">تاريخ الافتتاح المؤكد (اختياري)</label>
     <input id="branch-opening-date-input" type="date" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-sm"/>
     <p class="text-[11px] text-on-surface-variant mb-md">الفرع المخطط بلا تاريخ مؤكد لا يظهر في المهام أو مؤشرات التشغيل. وإذا حُدد تاريخ، يبدأ احتسابه تشغيليًا في ذلك اليوم بتوقيت الرياض. الفروع القديمة غير المصنّفة تبقى على سلوكها الحالي.</p>
     <p class="text-[11px] text-on-surface-variant mb-md">الوردية الصباحية 05:30–15:30، والمسائية 15:30–02:30 بتوقيت الرياض. تختفي مهام الموظف بعد ساعة من نهاية الوردية.</p>

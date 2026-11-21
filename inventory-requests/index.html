@@ -59,6 +59,7 @@
     .material-symbols-outlined { vertical-align: middle; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
     input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid var(--riwaq-focus); outline-offset: 2px; }
     .site-header { background: rgba(255, 255, 255, .96); border-color: var(--riwaq-line); box-shadow: 0 2px 10px rgba(29, 47, 39, .04); }
+    .site-header img { flex: 0 0 auto; }
     #page-content { max-width: 1180px; }
     #page-content > .no-print:first-child { gap: 1.25rem; border-color: var(--riwaq-line); }
     #page-content > .no-print:first-child > div:first-child { max-width: 760px; }
@@ -80,6 +81,7 @@
     #order-preview dl > div { border-radius: 10px; }
     .mobile-nav { border-color: var(--riwaq-line); background: rgba(255,255,255,.97); padding-bottom: max(.5rem, env(safe-area-inset-bottom)); }
     @media (max-width: 639px) {
+      .site-header { padding-inline: 12px; }
       #page-content { padding-inline: 14px; }
       #page-content > .no-print:first-child { padding-bottom: 16px; }
       #request-section, #receiving-section, #order-preview, #page-content > section.no-print:last-child { padding: 16px; }
@@ -125,8 +127,8 @@
 
   <header class="site-header fixed top-0 left-0 z-40 flex h-16 w-full items-center justify-between border-b border-outline-variant bg-surface px-4 shadow-sm md:pr-[312px] md:px-8">
     <div class="flex min-w-0 items-center gap-3">
-      <a href="../supervisor-dashboard/index.html" class="flex items-center gap-2 text-primary" aria-label="لوحة المشرف">
-        <span class="material-symbols-outlined">inventory_2</span>
+      <a href="../supervisor-dashboard/index.html" class="flex shrink-0 items-center gap-2 text-primary" aria-label="لوحة المشرف">
+        <img src="../assets/logo/zam-logo.png" alt="" class="h-9 w-9 object-contain" />
         <span class="hidden font-extrabold sm:inline">ZAM Operations</span>
       </a>
       <span class="hidden text-on-surface-variant sm:inline">|</span>
@@ -151,12 +153,13 @@
         </div>
       </section>
 
-      <div id="page-error" class="hidden rounded-xl border border-error bg-error-container p-4 text-sm font-bold text-error" role="alert"></div>
-      <div id="page-message" class="hidden rounded-xl border border-outline-variant bg-secondary-container p-4 text-sm font-bold text-on-surface" role="status"></div>
+      <div id="page-error" class="hidden rounded-xl border border-error bg-error-container p-4 text-sm font-bold text-error" role="alert" aria-live="assertive"></div>
+      <div id="page-message" class="hidden rounded-xl border border-outline-variant bg-secondary-container p-4 text-sm font-bold text-on-surface" role="status" aria-live="polite"></div>
 
       <section id="request-section" class="no-print rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm md:p-6">
         <div class="mb-5 flex flex-col gap-3 border-b border-outline-variant pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
+            <p class="mb-1 text-xs font-extrabold text-secondary">١ · إنشاء الطلب</p>
             <h2 class="text-xl font-extrabold text-primary">إنشاء طلب جرد جديد</h2>
             <p class="mt-1 text-sm text-on-surface-variant">أنشئ طلباً مستقلاً لكل جهة توريد.</p>
           </div>
@@ -203,31 +206,6 @@
         </form>
       </section>
 
-      <section id="receiving-section" class="no-print hidden rounded-2xl border border-secondary bg-secondary-container/30 p-4 shadow-sm md:p-6">
-        <div class="mb-4 border-b border-outline-variant pb-4">
-          <h2 class="text-xl font-extrabold text-primary">تسجيل وصول توريد</h2>
-          <p class="mt-1 text-sm text-on-surface-variant">يُنشأ فحص الاستلام للمشرف فقط بعد تسجيل وصول كمية فعلية وإرفاق صورة السند؛ لا ينشأ عند إنشاء الطلب. لكل دفعة وقت مستقل، ويبدأ حد التخزين البالغ 20 دقيقة من وقت تسجيل وصولها.</p>
-        </div>
-        <form id="receiving-form" class="space-y-4">
-          <label class="block max-w-2xl text-sm font-bold">طلب التوريد الذي وصلت منه الكمية
-            <select id="receipt-request-select" required class="mt-1 w-full rounded-xl border-outline-variant bg-white px-3 py-3">
-              <option value="">اختر طلباً من فرعك</option>
-            </select>
-          </label>
-          <div id="receiving-lines" class="space-y-3 rounded-xl border border-outline-variant bg-white p-3" aria-live="polite">
-            <p class="text-sm text-on-surface-variant">اختر طلباً لعرض أصنافه والكميات المتبقية.</p>
-          </div>
-          <label class="block max-w-2xl text-sm font-bold">صورة سند التسليم / الاستلام <span class="text-error">*</span>
-            <input id="receipt-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required class="mt-1 block w-full rounded-xl border border-outline-variant bg-white p-3 text-sm" />
-            <span class="mt-1 block text-xs font-normal text-on-surface-variant">JPG أو PNG أو WebP، بحد أقصى 10 ميجابايت.</span>
-          </label>
-          <div class="flex flex-wrap items-center gap-3 border-t border-outline-variant pt-4">
-            <button id="record-receipt-btn" type="submit" class="rounded-xl bg-primary px-6 py-3 font-extrabold text-on-primary disabled:cursor-wait disabled:opacity-60">تسجيل الوصول وإنشاء مهام الفحص</button>
-            <span id="receipt-form-status" class="text-sm text-on-surface-variant" role="status" aria-live="polite"></span>
-          </div>
-        </form>
-      </section>
-
       <section id="order-preview" class="hidden rounded-2xl border border-outline-variant bg-white p-4 shadow-sm md:p-6">
         <div class="print-branding" aria-label="شعار زام وصورة الموظف">
           <img id="print-zam-logo" class="print-zam-logo" src="../assets/logo/zam-logo.png" alt="شعار زام" />
@@ -235,7 +213,7 @@
         </div>
         <div class="mb-5 flex flex-col gap-4 border-b border-outline-variant pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p class="text-sm font-bold text-secondary">طلب جرد داخلي</p>
+            <p class="text-sm font-bold text-secondary">٢ · مراجعة الطلب المحفوظ</p>
             <h2 class="mt-1 text-2xl font-black text-primary">قائمة الأصناف المطلوبة</h2>
             <p id="order-number" class="mt-2 text-sm font-bold"></p>
           </div>
@@ -273,9 +251,36 @@
         <p class="mt-5 text-center text-xs text-on-surface-variant">نموذج طلب داخلي — تتم مراجعة الكميات قبل الإرسال للجهة المعنية.</p>
       </section>
 
+      <section id="receiving-section" class="no-print hidden rounded-2xl border border-secondary bg-secondary-container/30 p-4 shadow-sm md:p-6">
+        <div class="mb-4 border-b border-outline-variant pb-4">
+          <p class="mb-1 text-xs font-extrabold text-secondary">٣ · تسجيل الدفعة الواصلة</p>
+          <h2 class="text-xl font-extrabold text-primary">تسجيل وصول توريد</h2>
+          <p class="mt-1 text-sm text-on-surface-variant">يُنشأ فحص الاستلام للمشرف فقط بعد تسجيل وصول كمية فعلية وإرفاق صورة السند؛ لا ينشأ عند إنشاء الطلب. لكل دفعة وقت مستقل، ويبدأ حد التخزين البالغ 20 دقيقة من وقت تسجيل وصولها.</p>
+        </div>
+        <form id="receiving-form" class="space-y-4">
+          <label class="block max-w-2xl text-sm font-bold">طلب التوريد الذي وصلت منه الكمية
+            <select id="receipt-request-select" required class="mt-1 w-full rounded-xl border-outline-variant bg-white px-3 py-3">
+              <option value="">اختر طلباً من فرعك</option>
+            </select>
+          </label>
+          <div id="receiving-lines" class="space-y-3 rounded-xl border border-outline-variant bg-white p-3" aria-live="polite">
+            <p class="text-sm text-on-surface-variant">اختر طلباً لعرض أصنافه والكميات المتبقية.</p>
+          </div>
+          <label class="block max-w-2xl text-sm font-bold">صورة سند التسليم / الاستلام <span class="text-error">*</span>
+            <input id="receipt-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required class="mt-1 block w-full rounded-xl border border-outline-variant bg-white p-3 text-sm" />
+            <span class="mt-1 block text-xs font-normal text-on-surface-variant">JPG أو PNG أو WebP، بحد أقصى 10 ميجابايت.</span>
+          </label>
+          <div class="flex flex-wrap items-center gap-3 border-t border-outline-variant pt-4">
+            <button id="record-receipt-btn" type="submit" class="rounded-xl bg-primary px-6 py-3 font-extrabold text-on-primary disabled:cursor-wait disabled:opacity-60">تسجيل الوصول وإنشاء مهام الفحص</button>
+            <span id="receipt-form-status" class="text-sm text-on-surface-variant" role="status" aria-live="polite"></span>
+          </div>
+        </form>
+      </section>
+
       <section class="no-print rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm md:p-6">
         <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
+            <p class="mb-1 text-xs font-extrabold text-secondary">٤ · متابعة الطلبات المحفوظة</p>
             <h2 id="history-title" class="text-xl font-extrabold text-primary">سجل طلبات الجرد</h2>
             <p id="history-description" class="mt-1 text-sm text-on-surface-variant">تظهر طلبات الصباح والليل لهذا الفرع فقط.</p>
           </div>

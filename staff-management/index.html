@@ -135,6 +135,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   body.zam-page { background: var(--riwaq-bg) !important; color: var(--riwaq-ink); font-family: var(--font-ui); }
   header.fixed { background: var(--riwaq-surface) !important; border-color: var(--riwaq-line) !important; box-shadow: 0 2px 12px rgba(29,47,39,.035); }
   main { padding-inline: clamp(16px, 3vw, 32px); }
+  #page-title { scroll-margin-top: 6rem; }
+  #staff-tbody tr { min-height: 64px; }
+  #staff-tbody .edit-employee-btn { border-radius: .5rem; }
+  #employee-photos-row img { flex-shrink: 0; }
+  @media (min-width: 768px) { #staff-tbody tr:hover { background: var(--riwaq-surface-muted); } }
   main section.bg-surface-container-lowest, main > div > section.bg-surface-container-lowest,
   main .bg-surface, main .bg-surface-container-lowest { border-color: var(--riwaq-line) !important; border-radius: var(--riwaq-radius); box-shadow: var(--riwaq-shadow); }
   .header-accent { border-bottom: 2px solid var(--riwaq-accent) !important; }
@@ -142,11 +147,14 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   table thead tr { background: var(--riwaq-surface-muted) !important; }
   @media (max-width: 767px) {
     header.fixed { height: auto; min-height: 64px; padding: 10px 14px; gap: 10px; }
+    header.fixed .h-10 { height: 2rem; }
+    header.fixed .font-headline-lg { font-size: 18px; }
     header.fixed > div:first-child { gap: 8px; }
     header.fixed > div:last-child { gap: 8px; }
     header.fixed .rounded-full { font-size: 12px; }
     main { padding: 76px 14px 20px; }
     main section.flex.justify-between.items-end { align-items: flex-start; flex-direction: column; gap: 12px; }
+    main section.flex.justify-between.items-end p { max-width: 62ch; }
     main section.flex.justify-between.items-end > div:last-child { width: 100%; flex-wrap: wrap; }
     main section.flex.justify-between.items-end > div:last-child > * { flex: 1; justify-content: center; }
     main .grid.grid-cols-12 { gap: 16px; }
@@ -154,6 +162,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     main .p-md.bg-surface-container-low { flex-wrap: wrap; gap: 10px; }
     main .p-md.bg-surface-container-low > div { width: 100%; }
     table { min-width: 680px; }
+    #staff-tbody .edit-employee-btn { opacity: 1; }
+    #edit-modal > div { max-height: calc(100dvh - 24px); }
     main section.grid.grid-cols-1.md\:grid-cols-3 { gap: 12px; }
   }
 </style>
@@ -171,10 +181,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </div>
 </div>
 <div class="flex items-center gap-md">
-<div class="flex bg-surface-container rounded-full p-1 border border-outline-variant">
-<button class="px-md py-1 rounded-full text-body-sm font-bold bg-primary text-on-primary">الوردية الصباحية</button>
-<button class="px-md py-1 rounded-full text-body-sm text-on-surface-variant hover:bg-surface-container-highest">الوردية المسائية</button>
-</div>
 <!-- جرس الإشعارات الموحد -->
 <div id="notif-bell-slot"></div>
 <div class="flex items-center gap-sm">
@@ -187,22 +193,17 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </header>
 <main class="md:mr-[280px] pt-20 p-margin-desktop">
 <div class="flex flex-col gap-gutter">
-<section class="bg-surface-container-lowest p-md border border-outline-variant rounded-xl shadow-sm mb-xs">
-  <h4 class="font-title-md text-primary mb-sm flex items-center gap-sm"><span class="material-symbols-outlined">face</span> صور موظفيني</h4>
-  <div class="flex gap-md overflow-x-auto pb-xs scrollbar-thin" id="employee-photos-row">
-    <p class="text-on-surface-variant text-body-sm">تحميل صور الموظفين...</p>
-  </div>
-</section>
 <section class="flex justify-between items-end pb-base header-accent">
 <div>
 <nav class="flex items-center gap-xs text-body-sm text-on-surface-variant mb-xs">
-<span>الإعدادات</span>
-<span class="material-symbols-outlined text-sm">chevron_left</span>
-<span class="text-primary font-bold">صلاحيات الموظفين</span>
+<span>الإدارة</span>
+<span class="material-symbols-outlined text-sm" aria-hidden="true">chevron_left</span>
+<span class="text-primary font-bold" aria-current="page">إدارة الطاقم</span>
 </nav>
-<h3 class="font-headline-lg text-primary">إدارة الطاقم والأدوار</h3>
+<h1 class="font-headline-lg text-primary" id="page-title">إدارة الطاقم</h1>
+<p class="text-body-sm text-on-surface-variant mt-1">ابحث عن الموظفين حسب الاسم أو البريد أو الرقم الوظيفي، أو صفِّ القائمة حسب الفرع. التصدير يشمل بيانات الطاقم.</p>
 </div>
-<div class="flex gap-sm">
+<div class="flex gap-sm" aria-label="إجراءات إدارة الطاقم">
     <!-- زر "تصدير التقرير" مربوط بـ exportStaffToCSV -->
     <button id="export-csv-btn" class="border border-primary text-primary px-md py-sm rounded-xl font-label-bold hover:bg-primary-fixed transition-colors">تصدير CSV</button>
     <!-- زر "إضافة موظف" مربوط بفتح register -->
@@ -245,8 +246,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <div class="bg-surface rounded-xl border border-outline-variant shadow-sm overflow-hidden h-full flex flex-col">
 <div class="p-md bg-surface-container-low border-b border-outline-variant flex justify-between items-center">
 <div class="relative w-72">
+<label class="sr-only" for="search-input">البحث بالاسم أو البريد الإلكتروني أو الرقم الوظيفي</label>
 <span class="material-symbols-outlined absolute right-sm top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-<input id="search-input" class="w-full bg-white border border-outline-variant rounded-full py-base pr-lg pl-md text-body-sm focus:border-primary focus:ring-0" placeholder="البحث عن موظف..." type="text"/>
+<input id="search-input" class="w-full bg-white border border-outline-variant rounded-full py-base pr-lg pl-md text-body-sm focus:border-primary focus:ring-0" placeholder="الاسم أو البريد أو الرقم الوظيفي" aria-label="البحث عن موظف بالاسم أو البريد أو الرقم الوظيفي" type="search"/>
 </div>
 <div class="flex gap-sm items-center">
 <label for="branch-filter" class="text-body-sm text-on-surface-variant font-label-bold flex items-center gap-xs"><span class="material-symbols-outlined text-base">filter_list</span> الفرع</label>
@@ -255,20 +257,21 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </select>
 </div>
 </div>
-<div class="flex-1 overflow-x-auto custom-scrollbar">
+<div class="flex-1 overflow-x-auto custom-scrollbar" role="region" aria-label="قائمة الموظفين" tabindex="0">
 <table class="w-full text-right border-collapse">
+<caption class="sr-only">موظفو الطاقم وبيانات الدور والفرع والحالة</caption>
 <thead>
 <tr class="bg-surface-container text-on-surface-variant font-label-bold text-[11px] uppercase tracking-wider">
-<th class="py-md px-md border-b border-outline-variant">الاسم</th>
-<th class="py-md px-md border-b border-outline-variant">الدور الوظيفي</th>
-<th class="py-md px-md border-b border-outline-variant">الفرع</th>
-<th class="py-md px-md border-b border-outline-variant">رمز المرور</th>
-<th class="py-md px-md border-b border-outline-variant">الحالة</th>
-<th class="py-md px-md border-b border-outline-variant"></th>
+<th scope="col" class="py-md px-md border-b border-outline-variant">الاسم</th>
+<th scope="col" class="py-md px-md border-b border-outline-variant">الدور الوظيفي</th>
+<th scope="col" class="py-md px-md border-b border-outline-variant">الفرع</th>
+<th scope="col" class="py-md px-md border-b border-outline-variant">رمز المرور</th>
+<th scope="col" class="py-md px-md border-b border-outline-variant">الحالة</th>
+<th scope="col" class="py-md px-md border-b border-outline-variant"><span class="sr-only">إجراء</span></th>
 </tr>
 </thead>
 <tbody class="divide-y divide-outline-variant" id="staff-tbody">
-  <tr><td colspan="6" class="py-md px-md text-center text-on-surface-variant">جارٍ التحميل...</td></tr>
+  <tr><td colspan="6" class="py-md px-md text-center text-on-surface-variant" role="status" aria-live="polite">جارٍ تحميل بيانات الموظفين...</td></tr>
 </tbody>
 </table>
 </div>
@@ -311,6 +314,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </div>
 </div>
 </section>
+<section class="bg-surface-container-lowest p-md border border-outline-variant rounded-xl shadow-sm mb-xs">
+  <h4 class="font-title-md text-primary mb-sm flex items-center gap-sm"><span class="material-symbols-outlined">face</span> صور موظفيني</h4>
+  <div class="flex gap-md overflow-x-auto pb-xs scrollbar-thin" id="employee-photos-row">
+    <p class="text-on-surface-variant text-body-sm">تحميل صور الموظفين...</p>
+  </div>
+</section>
 </div>
 </main>
 <!-- مودال تعديل موظف -->
@@ -320,19 +329,19 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     <p class="text-body-sm text-on-surface-variant mb-sm" id="edit-modal-name">—</p>
     <div class="space-y-sm">
       <div>
-        <label class="text-body-sm text-on-surface-variant">الاسم</label>
+        <label for="edit-name" class="text-body-sm text-on-surface-variant">الاسم</label>
         <input id="edit-name" class="w-full border border-outline-variant rounded-lg p-sm mt-xs bg-surface-container-lowest"/>
       </div>
       <div>
-        <label class="text-body-sm text-on-surface-variant">البريد الإلكتروني</label>
+        <label for="edit-email" class="text-body-sm text-on-surface-variant">البريد الإلكتروني</label>
         <input id="edit-email" type="email" class="w-full border border-outline-variant rounded-lg p-sm mt-xs bg-surface-container-lowest"/>
       </div>
       <div>
-        <label class="text-body-sm text-on-surface-variant">رمز المرور</label>
+        <label for="edit-passcode" class="text-body-sm text-on-surface-variant">رمز المرور</label>
         <input id="edit-passcode" class="w-full border border-outline-variant rounded-lg p-sm mt-xs bg-surface-container-lowest"/>
       </div>
       <div>
-        <label class="text-body-sm text-on-surface-variant">الواتساب</label>
+        <label for="edit-whatsapp" class="text-body-sm text-on-surface-variant">الواتساب</label>
         <input id="edit-whatsapp" class="w-full border border-outline-variant rounded-lg p-sm mt-xs bg-surface-container-lowest"/>
       </div>
     </div>
@@ -404,7 +413,7 @@ function renderStaff() {
                 </span>
             </td>
             <td class="py-md px-md text-left">
-                <button class="edit-employee-btn text-on-surface-variant hover:text-primary transition-opacity opacity-0 group-hover:opacity-100" data-id="${emp.id}">
+                <button class="edit-employee-btn min-h-11 min-w-11 text-on-surface-variant hover:text-primary focus-visible:opacity-100 opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="تعديل بيانات الموظف" data-id="${emp.id}">
                     <span class="material-symbols-outlined">edit</span>
                 </button>
             </td>

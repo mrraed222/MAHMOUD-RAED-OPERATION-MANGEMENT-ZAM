@@ -80,18 +80,31 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('analytics', currentUser.role);})();</script>
 
-<header class="fixed top-0 left-0 w-full md:pr-[312px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
-  <div>
-    <h1 class="font-title-md text-title-md text-primary">داشبورد التحليلات</h1>
-    <p class="text-body-sm text-on-surface-variant">مؤشرات المبيعات والهدر ومشاكل الشفت — حسب الفرع والفترة</p>
+<header class="fixed top-0 left-0 w-full md:pr-[312px] min-h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-margin-desktop py-sm" aria-label="رأس صفحة التحليلات">
+  <div class="flex items-center gap-3 min-w-0">
+    <img src="../assets/logo/zam-logo.png" alt="ZAM" class="w-10 h-10 object-contain shrink-0" />
+    <div class="min-w-0">
+      <p class="text-xs font-bold text-on-surface-variant">ZAM Operation</p>
+      <h1 class="font-title-md text-title-md text-primary">التحليلات</h1>
+    </div>
   </div>
+  <span class="text-sm font-bold text-on-surface-variant">مساحة التحليلات</span>
 </header>
 
-<main class="md:pr-[280px] pt-20 min-h-screen">
+<main class="md:pr-[280px] pt-24 min-h-screen">
 <div class="max-w-6xl mx-auto p-margin-desktop">
+  <div class="mb-md">
+    <p class="text-body-sm text-on-surface-variant">مقارنة المبيعات والهدر ومشكلات الشفت حسب الفرع والفترة المحددين. قد تتوفر نتائج جزئية عند تعذر قراءة مصدر مستقل.</p>
+  </div>
+  <nav aria-label="أقسام التحليلات" class="mb-md flex flex-wrap gap-2">
+    <a class="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-bold text-primary focus-visible:outline" href="#sales-section">المبيعات</a>
+    <a class="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-bold text-primary focus-visible:outline" href="#waste-section">الهدر</a>
+    <a class="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-bold text-primary focus-visible:outline" href="#issues-section">المشكلات</a>
+  </nav>
 
   <!-- الفلاتر -->
-  <section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md mb-lg grid grid-cols-1 md:grid-cols-6 gap-sm items-end">
+  <section aria-label="نطاق التحليل" class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md mb-lg grid grid-cols-1 md:grid-cols-6 gap-sm items-end">
+    <div class="md:col-span-6"><h2 class="font-title-md text-title-md text-primary">نطاق التحليل</h2><p class="text-body-sm text-on-surface-variant">اختر الفرع والفترة ثم طبّق التغييرات لتحديث الأقسام.</p></div>
     <div>
       <label class="text-body-sm text-on-surface-variant">الفرع</label>
       <select id="f-branch" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
@@ -127,15 +140,15 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
   </section>
 
   <!-- مؤشرات المبيعات من تقارير الشفت -->
-  <section class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md">
+  <section id="sales-section" class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md" aria-labelledby="sales-title">
     <div class="flex justify-between items-center mb-sm">
       <div>
-        <h2 class="font-title-md text-title-md text-primary">مؤشرات المبيعات</h2>
+        <h2 id="sales-title" class="font-title-md text-title-md text-primary">مؤشرات المبيعات</h2>
         <p class="text-body-sm text-on-surface-variant">المتوسط مرجّح من إجمالي المبيعات ÷ إجمالي الطلبات ضمن الفلاتر الحالية.</p>
       </div>
       <span class="material-symbols-outlined text-primary">monitoring</span>
     </div>
-    <div id="sales-summary" class="grid grid-cols-2 md:grid-cols-4 gap-md mb-md"></div>
+    <div id="sales-summary" aria-live="polite" class="grid grid-cols-2 md:grid-cols-4 gap-md mb-md"></div>
     <h3 class="font-title-md text-title-md text-primary mb-sm">المبيعات حسب الفرع</h3>
     <div class="max-h-[34vh] overflow-auto rounded-lg border border-outline-variant">
       <table class="w-full text-body-sm min-w-[720px]">
@@ -148,14 +161,14 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
   </section>
 
   <!-- ملخص الهدر -->
-  <section class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md">
+  <section id="waste-section" class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md" aria-labelledby="waste-title">
     <div class="flex justify-between items-center mb-sm">
-      <h2 class="font-title-md text-title-md text-primary">الهدر</h2>
+      <h2 id="waste-title" class="font-title-md text-title-md text-primary">الهدر</h2>
       <button id="export-waste" class="text-body-sm font-bold text-primary hover:underline flex items-center gap-1">
         <span class="material-symbols-outlined text-base">download</span> تصدير Excel
       </button>
     </div>
-    <div id="waste-summary" class="grid grid-cols-2 md:grid-cols-5 gap-md mb-sm"></div>
+    <div id="waste-summary" aria-live="polite" class="grid grid-cols-2 md:grid-cols-5 gap-md mb-sm"></div>
     <div class="max-h-[38vh] overflow-auto rounded-lg border border-outline-variant">
       <table class="w-full text-body-sm min-w-[720px]">
         <thead class="bg-surface-container text-on-surface-variant sticky top-0 z-10">
@@ -193,17 +206,17 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
   </section>
 
   <!-- مشاكل الشفت -->
-  <section class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md">
+  <section id="issues-section" class="mb-lg bg-surface-container-lowest rounded-xl border border-outline-variant p-md" aria-labelledby="issues-title">
     <div class="flex justify-between items-center mb-sm">
       <div>
-        <h2 class="font-title-md text-title-md text-primary">مشاكل الشفت والأعطال الفنية</h2>
+        <h2 id="issues-title" class="font-title-md text-title-md text-primary">مشاكل الشفت والأعطال الفنية</h2>
         <p class="text-body-sm text-on-surface-variant">يشمل بلاغات تقارير الشفت وبلاغات الأعطال الفنية؛ الأعطال الفنية لا تحتوي على حقل وردية.</p>
       </div>
       <button id="export-issues" class="text-body-sm font-bold text-primary hover:underline flex items-center gap-1">
         <span class="material-symbols-outlined text-base">download</span> تصدير Excel
       </button>
     </div>
-    <div id="issues-summary" class="grid grid-cols-2 md:grid-cols-4 gap-md mb-md"></div>
+    <div id="issues-summary" aria-live="polite" class="grid grid-cols-2 md:grid-cols-4 gap-md mb-md"></div>
     <div class="max-h-[52vh] overflow-auto rounded-lg border border-outline-variant">
       <table class="w-full text-body-sm min-w-[1080px]">
         <thead class="bg-surface-container text-on-surface-variant sticky top-0 z-10">

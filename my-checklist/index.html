@@ -56,7 +56,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   body.zam-page { font-family: var(--font-ui); background: var(--riwaq-bg) !important; color: var(--riwaq-ink); }
   body.zam-page header { background: rgba(255,255,255,.96); border-color: var(--riwaq-line); box-shadow: 0 2px 12px rgba(29,47,39,.035); }
   body.zam-page main { padding-block-end: 36px; }
-  body.zam-page main > div { max-width: 820px; padding: 28px 24px 40px; }
+  body.zam-page main > div { max-width: 1040px; padding: 28px 24px 40px; }
   body.zam-page main > div > .bg-surface-container-lowest:first-child,
   body.zam-page .checklist-category,
   body.zam-page .checklist-item { border-color: var(--riwaq-line) !important; border-radius: var(--riwaq-radius) !important; box-shadow: var(--riwaq-shadow); }
@@ -72,6 +72,14 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   body.zam-page #email-summary-card button { min-height: 44px; background: var(--riwaq-primary); }
   body.zam-page main > div > .mt-md:last-child { background: var(--riwaq-surface-soft); border-color: var(--riwaq-line); border-radius: var(--riwaq-radius-sm); }
   body.zam-page details > summary { cursor: pointer; }
+  body.zam-page #checklist-container { scroll-margin-top: 96px; }
+  body.zam-page #progress-label { max-width: 48%; text-align: end; line-height: 1.5; }
+  body.zam-page .checklist-category > summary { min-height: 64px; }
+  body.zam-page .checklist-item { min-width: 0; }
+  body.zam-page .task-actions { padding-inline-end: 0; }
+  body.zam-page .restroom-step, body.zam-page .task-checkbox { min-width: 24px; min-height: 24px; }
+  body.zam-page .restroom-photo, body.zam-page .evidence-input { accent-color: var(--riwaq-primary); }
+  body.zam-page .restroom-complete-btn { min-height: 44px; }
   body.zam-page button, body.zam-page label, body.zam-page input, body.zam-page textarea { transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease; }
   body.zam-page textarea { min-height: 76px; border-radius: var(--riwaq-radius-sm); }
   body.zam-page :focus-visible { outline-color: var(--riwaq-focus) !important; }
@@ -104,11 +112,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('my-checklist', currentUser.role);})();</script>
 
 <header class="fixed top-0 left-0 w-full md:pr-[312px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
-  <div class="flex items-center gap-md">
+  <div class="flex min-w-0 items-center gap-md">
     <img alt="ZAM Logo" class="h-10 w-auto object-contain" src="../assets/logo/zam-logo.png">
-    <div>
-      <h1 class="font-title-md text-title-md text-primary">مهامي اليومية</h1>
-      <p id="user-branch-label" class="text-body-sm text-on-surface-variant">—</p>
+    <div class="min-w-0">
+      <p class="text-[11px] font-bold tracking-wide text-on-surface-variant">ZAM Operations</p>
+      <h1 class="font-title-md text-title-md text-primary">قائمة مهامي</h1>
+      <p id="user-branch-label" class="truncate text-body-sm text-on-surface-variant" aria-label="الفرع">—</p>
     </div>
   </div>
   <div class="flex items-center gap-sm">
@@ -120,20 +129,31 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </header>
 
 <main class="md:pr-[280px] pt-20 min-h-screen"><div class="max-w-3xl mx-auto p-margin-desktop">
-  <div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden card-shadow">
-    <div class="bg-primary text-on-primary p-md flex justify-between items-center">
-      <div>
-        <h2 class="font-title-md text-title-md">قائمة مهامك اليوم</h2>
-        <p class="text-body-sm opacity-90" id="category-label">—</p>
+  <section class="mb-md rounded-xl border border-outline-variant bg-surface-container-lowest p-md sm:p-lg" aria-labelledby="checklist-heading">
+    <div class="flex flex-col gap-sm sm:flex-row sm:items-end sm:justify-between">
+      <div class="min-w-0">
+        <p class="text-[12px] font-bold text-primary">تنفيذ الوردية</p>
+        <h2 id="checklist-heading" class="mt-xs text-2xl font-bold text-on-surface">قائمة مهامك</h2>
+        <p class="mt-xs text-body-sm text-on-surface-variant">ابدأ بالمهام المستحقة الآن، ثم سجّل الإثبات أو الملاحظة عند طلبها.</p>
       </div>
-      <span class="text-xs opacity-90" id="progress-label">جارِ التحميل...</span>
+      <div class="flex flex-wrap items-center justify-between gap-sm rounded-lg bg-surface-container-low px-md py-sm sm:min-w-[220px] sm:justify-end">
+        <span class="text-[12px] font-bold text-on-surface-variant">التقدم</span>
+        <span class="text-body-sm font-bold text-primary" id="progress-label" aria-live="polite" aria-atomic="true">جارِ التحميل...</span>
+      </div>
     </div>
-    <div class="divide-y divide-outline-variant" id="checklist-container">
-      <p class="p-md text-on-surface-variant text-body-sm">جارِ تحميل المهام...</p>
-    </div>
-  </div>
+  </section>
 
-  <div id="email-summary-card" class="mt-md p-md bg-primary-container/20 rounded-xl border border-primary/20 flex flex-col sm:flex-row items-center justify-between gap-md hidden">
+  <section class="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest card-shadow" aria-labelledby="task-list-heading">
+    <div class="border-b border-outline-variant px-md py-sm sm:px-lg">
+      <h2 id="task-list-heading" class="font-bold text-body-lg text-on-surface">المهام المتاحة</h2>
+      <p class="mt-xs text-[12px] text-on-surface-variant" id="category-label">—</p>
+    </div>
+    <div class="divide-y divide-outline-variant" id="checklist-container" aria-live="polite" aria-busy="false" aria-relevant="additions text">
+      <p class="p-md text-on-surface-variant text-body-sm" role="status">جارِ تحميل المهام...</p>
+    </div>
+  </section>
+
+  <section id="email-summary-card" aria-label="إرسال ملخص الإنجاز" class="mt-md p-md bg-primary-container/20 rounded-xl border border-primary/20 flex flex-col sm:flex-row items-center justify-between gap-md hidden">
     <div>
       <h4 class="font-bold text-on-surface text-body-sm">📧 أرسل تقرير الإنجاز للإدارة</h4>
       <p class="text-[11px] text-on-surface-variant mt-xs">اضغط هنا لإرسال ملخص فوري بالبريد الإلكتروني للشركاء والإدارة عبر Resend.</p>
@@ -142,11 +162,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
       <span class="material-symbols-outlined text-sm">send</span>
       <span>إرسال الملخص الآن</span>
     </button>
-  </div>
+  </section>
 
-  <div class="mt-md p-md bg-secondary-container/40 rounded-xl border border-outline-variant text-body-sm text-on-surface-variant">
-    لو واجهتك أي مشكلة في التنفيذ، أبلغ مشرف الوردية مباشرة.
-  </div>
+  <aside class="mt-md flex items-start gap-sm rounded-xl border border-outline-variant bg-secondary-container/40 p-md text-body-sm text-on-surface-variant" aria-label="مساعدة أثناء الوردية">
+    <span class="material-symbols-outlined text-primary" aria-hidden="true">info</span>
+    <p>لو واجهتك أي مشكلة في التنفيذ، أبلغ مشرف الوردية مباشرة.</p>
+  </aside>
 </div></main>
 
 <script>
