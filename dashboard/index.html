@@ -15,8 +15,9 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261117194500"></script>
-<script src="../assets/checklist-schedule.js?v=20261117214500"></script>
+<script src="../assets/supabase-config.js?v=20261121164000"></script>
+<script src="../assets/checklist-schedule.js?v=20261121164000"></script>
+<script src="../assets/restroom-hourly.js?v=20261121170500"></script>
 <script src="../assets/checklist-dashboard.js?v=20261117203400"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script>
@@ -108,9 +109,13 @@ async function loadDashboard() {
     const today = ZamChecklistSchedule.riyadhDateString(now);
     const yesterday = ZamChecklistSchedule.riyadhDateString(new Date(now.getTime() - 24 * 60 * 60 * 1000));
 
-    const [allBranches, templates, todayLogsRes, todayReportsRes, openIssuesRes] = await Promise.all([
+    const [allBranches, templates, restroomConfig, todayLogsRes, todayReportsRes, openIssuesRes] = await Promise.all([
         ZamAPI.getBranches(),
         ZamAPI.getTemplates(),
+        ZamAPI.getRestroomHourlyTaskConfig().catch(error => {
+            console.warn('Restroom hourly task configuration is unavailable:', error);
+            return null;
+        }),
         zamClient.from('checklist_logs').select('branch_id, template_id, executed_by, shift_type, execution_date, status, photo_url, created_at').gte('execution_date', yesterday).lte('execution_date', today),
         zamClient.from('daily_reports').select('branch_id, total_sales').eq('report_date', today),
         zamClient.from('shift_issues').select('id, branch_id').gte('created_at', today)
@@ -140,8 +145,14 @@ async function loadDashboard() {
     cardsEl.innerHTML = branches.map(branch => {
         const logsForBranch = todayLogs.filter(l => l.branch_id === branch.id);
         const progressAvailable = !todayLogsRes.error;
+        const isRestroomEligibleBranch = ZamBranchLifecycle.isOperational(branch, now) &&
+            !/(?:الحي|البرج)/.test(String(branch.name || ''));
+        const templatesForBranch = templates.filter(template => {
+            if (!ZamRestroomHourly.isRestroomHourlyTask(template)) return true;
+            return !!restroomConfig?.is_active && restroomConfig.template_id === template.id && isRestroomEligibleBranch;
+        });
         const progress = progressAvailable ? ZamChecklistDashboard.branchProgress({
-            templates, branchId: branch.id, branchName: branch.name, branchHours: branch,
+            templates: templatesForBranch, branchId: branch.id, branchName: branch.name, branchHours: branch,
             logs: logsForBranch, now
         }) : { total: 0, done: 0, pct: null, hourlyTemplateCount: 0, incompleteHourly: false };
         const pct = progress.pct;

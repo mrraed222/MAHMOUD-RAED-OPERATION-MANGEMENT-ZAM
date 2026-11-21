@@ -174,7 +174,6 @@
     if (String(branchId || '') === BAR_ONLY_BRANCH_ID && task.category === 'الصالة') return false;
     if (role === 'Waiter' && branchName === 'زام المنح' && shiftType === 'Morning') return false;
     if (branchName === 'زام الحي' && task.task_type === 'restroom_check') return false;
-    if (task.frequency === 'hourly' && branchName && branchName !== 'زام الرئيسي') return false;
     const allowedCategories = Array.isArray(categories) && categories.length
       ? categories
       : (ROLE_CATEGORY[role] ? [ROLE_CATEGORY[role]] : null);
@@ -182,7 +181,7 @@
     if (shiftType && ![shiftType, 'Both'].includes(task.shift_type)) return false;
     if (shiftType ? !isTaskDueForShift(task, shiftType, date, branchHours) : !isTaskDueToday(task, date)) return false;
     if (!isTaskTimeVisible(task, date, shiftType)) return false;
-    if (task.frequency === 'hourly' && (task.task_type !== 'restroom_check' || !task.branch_id)) return false;
+    if (task.frequency === 'hourly' && task.task_type !== 'restroom_check') return false;
     return true;
   }
 
@@ -198,7 +197,7 @@
     if (String(branchId || '') === BAR_ONLY_BRANCH_ID && task.category === 'الصالة') return false;
     if (shiftType && ![shiftType, 'Both'].includes(task.shift_type)) return false;
     if (branchName === 'زام الحي' && task.task_type === 'restroom_check') return false;
-    if (task.frequency === 'hourly' && (branchName !== 'زام الرئيسي' || task.task_type !== 'restroom_check' || !task.branch_id)) return false;
+    if (task.frequency === 'hourly' && task.task_type !== 'restroom_check') return false;
     if (shiftType ? !isTaskDueForShift(task, shiftType, date, branchHours) : !isTaskDueToday(task, date)) return false;
     if (!isTaskTimeVisible(task, date, shiftType)) return false;
     return true;

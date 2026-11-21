@@ -15,9 +15,10 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/checklist-schedule.js?v=20261117214500"></script>
+<script src="../assets/checklist-schedule.js?v=20261121164000"></script>
+<script src="../assets/restroom-hourly.js?v=20261121170500"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
-<script src="../assets/supabase-config.js?v=20261118182000"></script>
+<script src="../assets/supabase-config.js?v=20261121165000"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: anyone without this permission is sent home
@@ -68,6 +69,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 <main class="md:pr-[280px] pt-20 min-h-screen"><div class="max-w-4xl mx-auto p-margin-desktop">
   <div id="perm-warning" class="hidden bg-error-container text-on-error-container p-md rounded-xl mb-md text-body-sm"></div>
+  <div id="restroom-setup-slot" class="mb-md"></div>
   <div id="templates-container">
     <p class="text-on-surface-variant text-body-sm">جارِ التحميل...</p>
   </div>
@@ -146,6 +148,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
           <input type="checkbox" id="f-requires-photo" class="w-5 h-5 text-primary"/>
           <span class="text-body-sm">تتطلب صورة إثبات</span>
         </label>
+        <p id="restroom-photo-required-hint" class="hidden text-[11px] text-on-surface-variant">صورة الإثبات إلزامية لهذه المهمة الساعية.</p>
         <div>
           <label class="text-[11px] text-on-surface-variant block font-bold">⏰ وقت التنفيذ الأقصى (اختياري)</label>
           <input type="time" id="f-target-time" class="border border-outline-variant rounded-lg p-xs w-full text-body-sm"/>
@@ -230,6 +233,7 @@ let allTemplates = [];
 let branchesCache = [];
 let branchOptionsPromise = null;
 let activeTemplateGroupById = new Map();
+let restroomTaskConfig = null;
 
 function loadBranchOptions() {
     if (!branchOptionsPromise) {
@@ -280,13 +284,17 @@ function openModal(template = null, group = null) {
     document.getElementById('f-category').value = template?.category || '';
     document.getElementById('f-shift').value = template?.shift_type || 'Morning';
     document.getElementById('f-instructions').value = template?.instructions || '';
+    const isConfiguredRestroomTask = !!template && !!restroomTaskConfig && String(template.id) === String(restroomTaskConfig.template_id);
     const selectedBranchIds = group?.groupBranchIds || (template ? zamTemplateBranchIds(template) : []);
     const isGlobalTemplate = group ? group.groupIsGlobal : (!template || (!template.branch_id && selectedBranchIds.length === 0));
     document.getElementById('f-scope-all').checked = isGlobalTemplate;
     document.getElementById('f-scope-selected').checked = !isGlobalTemplate;
     renderBranchChoices(selectedBranchIds);
     updateBranchScopePicker();
-    document.getElementById('f-requires-photo').checked = !!template?.requires_photo;
+    const requiresPhoto = document.getElementById('f-requires-photo');
+    requiresPhoto.checked = isConfiguredRestroomTask || !!template?.requires_photo;
+    requiresPhoto.disabled = isConfiguredRestroomTask;
+    document.getElementById('restroom-photo-required-hint').classList.toggle('hidden', !isConfiguredRestroomTask);
     document.getElementById('f-allows-notes').checked = template ? !!template.allows_notes : true;
     document.getElementById('f-task-type').value = template?.task_type || 'standard';
     document.getElementById('f-target-time').value = template?.target_time ? template.target_time.slice(0, 5) : '';
@@ -307,6 +315,8 @@ function closeModal() {
     modal.classList.add('hidden');
     modal.classList.remove('flex');
     editingTemplateIds = [];
+    document.getElementById('f-requires-photo').disabled = false;
+    document.getElementById('restroom-photo-required-hint').classList.add('hidden');
 }
 
 document.getElementById('add-template-btn').addEventListener('click', async () => {
@@ -351,12 +361,24 @@ document.getElementById('save-template').addEventListener('click', async () => {
         alert('التكرار الساعي مخصص لمهام فحص/تنظيف دورة المياه.');
         return;
     }
+    const isConfiguredRestroomTask = !!restroomTaskConfig && editingTemplateIds.length === 1 &&
+        String(editingId) === String(restroomTaskConfig.template_id);
+    if (payload.frequency === 'hourly' && payload.task_type === 'restroom_check' && !isConfiguredRestroomTask) {
+        alert('هذه المهمة تُدار من القالب الساعي المفعّل فقط؛ لا تنشئ نسخة مكررة.');
+        return;
+    }
+    if (isConfiguredRestroomTask && payload.frequency !== 'hourly') {
+        alert('تكرار هذه المهمة ثابت؛ أرشفها ثم راجع الإدارة قبل أي تغيير في الجدول.');
+        return;
+    }
     if (payload.frequency === 'weekly' && !payload.days_of_week.length) {
         alert('اختر يومًا واحدًا على الأقل للتكرار الأسبوعي.');
         return;
     }
     try {
-        if (editingTemplateIds.length > 1) {
+        if (isConfiguredRestroomTask) {
+            await ZamAPI.saveRestroomHourlyTaskWithBranches(editingId, payload);
+        } else if (editingTemplateIds.length > 1) {
             await ZamAPI.saveTemplateGroupWithBranches(editingTemplateIds, payload, selectedBranchIds, allBranches);
         } else {
             await ZamAPI.saveTemplateWithBranches(editingId, payload, selectedBranchIds, allBranches);
@@ -375,7 +397,10 @@ async function deleteTemplate(id, templateIds = [id]) {
         ? `أرشفة ${templateIds.length} نسخ متطابقة؟ ستظل جميع النسخ وسجلات التنفيذ محفوظة في الأرشيف.`
         : 'أرشفة هذه النسخة؟ ستظل محفوظة مع سجلاتها، ويمكن إنشاء إصدار نشط جديد منها لاحقاً.')) return;
     try {
-        if (isGroup) await ZamAPI.deleteTemplateGroup(templateIds);
+        if (restroomTaskConfig && String(id) === String(restroomTaskConfig.template_id)) {
+            if (isGroup) throw new Error('لا يمكن أرشفة جدول الحمامات كنسخ متعددة.');
+            await ZamAPI.archiveRestroomHourlyTask(id);
+        } else if (isGroup) await ZamAPI.deleteTemplateGroup(templateIds);
         else await ZamAPI.deleteTemplate(id);
         await loadTemplates();
     } catch (err) {
@@ -441,7 +466,36 @@ async function loadTemplates() {
     try {
         try { await loadBranchOptions(); }
         catch (branchError) { console.error('تعذّر تحميل قائمة الفروع:', branchError); }
-        allTemplates = await ZamAPI.getTemplates(null, null, null, { includeArchived: true });
+        const [templateRows, restroomConfig] = await Promise.all([
+            ZamAPI.getTemplates(null, null, null, { includeArchived: true }),
+            ZamAPI.getRestroomHourlyTaskConfig()
+        ]);
+        allTemplates = templateRows;
+        restroomTaskConfig = restroomConfig?.is_active ? restroomConfig : null;
+        const setupSlot = document.getElementById('restroom-setup-slot');
+        const setupCandidates = allTemplates.filter(task => task.is_active !== false && ZamRestroomHourly.isRestroomHourlyTask(task));
+        if (!restroomTaskConfig && setupCandidates.length === 1) {
+            const candidate = setupCandidates[0];
+            setupSlot.innerHTML = `<section class="rounded-xl border border-primary/30 bg-primary-fixed/10 p-md"><h2 class="font-bold text-primary">تهيئة مهمة النظافة الدورية لدورات المياه</h2><p class="mt-xs text-body-sm text-on-surface-variant">ستُرقّى النسخة الساعية الحالية إلى مهمة واحدة عامة، وتُؤرشف النسخة القديمة، ويبدأ الجدول من أول ساعة كاملة بعد التفعيل. الفروع المخططة والحي والبرج مستثناة.</p><button id="activate-restroom-hourly" type="button" class="mt-sm rounded-lg bg-primary px-md py-sm font-bold text-on-primary">تهيئة الجدول المعتمد</button></section>`;
+            document.getElementById('activate-restroom-hourly').addEventListener('click', async event => {
+                const button = event.currentTarget;
+                button.disabled = true;
+                button.textContent = 'جارٍ تهيئة الجدول...';
+                try {
+                    await ZamAPI.initializeRestroomHourlyTask(candidate.id);
+                    await loadTemplates();
+                } catch (error) {
+                    console.error('Restroom hourly task initialization failed:', error);
+                    alert('تعذّرت التهيئة أو إعادة تحميل الصفحة؛ تحقّق من حالة الجدول قبل إعادة المحاولة.');
+                    button.disabled = false;
+                    button.textContent = 'تهيئة الجدول المعتمد';
+                }
+            });
+        } else if (!restroomTaskConfig && setupCandidates.length > 1) {
+            setupSlot.innerHTML = '<p class="rounded-xl border border-error bg-error-container/40 p-md text-body-sm text-on-error-container">يوجد أكثر من قالب ساعي لدورات المياه؛ لم يتم تفعيل أي منها لتجنب تغيير قالب غير مقصود.</p>';
+        } else {
+            setupSlot.innerHTML = '';
+        }
         const activeTemplates = allTemplates.filter(t => t.is_active !== false);
         const groupedActiveTemplates = collapseActiveTemplateGroups(activeTemplates);
         activeTemplateGroupById = new Map(groupedActiveTemplates.map(task => [task.id, task]));
@@ -463,6 +517,20 @@ async function loadTemplates() {
                 ? ` · ${selectedDays.filter(day => day >= 0 && day <= 6).map(day => weekDays[day]).join('، ')}` : '';
             const monthlyDay = task.frequency === 'monthly' && task.day_of_month ? ` · يوم ${task.day_of_month}` : '';
             const shiftLabel = task.shift_type === 'Both' ? 'الورديتان' : (SHIFT_LABELS[task.shift_type] || task.shift_type || 'غير محددة');
+            const isConfiguredRestroomTask = !archived && String(task.id) === String(restroomTaskConfig?.template_id);
+            const activeFromLabel = restroomTaskConfig?.active_from
+                ? new Date(restroomTaskConfig.active_from).toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh', dateStyle: 'medium', timeStyle: 'short' })
+                : 'بانتظار التفعيل';
+            const scheduleMarkup = isConfiguredRestroomTask ? `
+                <details class="mt-sm rounded-xl border border-primary/20 bg-primary-fixed/10 p-sm">
+                  <summary class="cursor-pointer font-bold text-primary">الجدول المخصص: 20 موعدًا بسجل مستقل · التفعيل ${frEsc(activeFromLabel)}</summary>
+                  <div class="mt-sm grid gap-sm md:grid-cols-2">
+                    <section class="rounded-lg bg-surface-container-lowest p-sm"><h5 class="mb-xs font-bold text-primary">الصباح · 06:00–15:00</h5><div class="flex flex-wrap gap-xs">${ZamRestroomHourly.MORNING_HOURS.map(hour => `<span class="rounded-full bg-surface-container px-xs py-[2px] text-[11px]">${String(hour).padStart(2, '0')}:00</span>`).join('')}</div></section>
+                    <section class="rounded-lg bg-surface-container-lowest p-sm"><h5 class="mb-xs font-bold text-primary">المساء · 16:00–01:00</h5><div class="flex flex-wrap gap-xs">${ZamRestroomHourly.EVENING_HOURS.map(hour => `<span class="rounded-full bg-surface-container px-xs py-[2px] text-[11px]">${String(hour).padStart(2, '0')}:00</span>`).join('')}</div></section>
+                  </div>
+                  <ol class="mt-sm grid list-inside list-decimal gap-xs text-body-sm text-on-surface-variant sm:grid-cols-2">${ZamRestroomHourly.STEPS.map(step => `<li>${frEsc(step.label)}</li>`).join('')}</ol>
+                  <p class="mt-sm text-[11px] font-bold text-error">تُقفل كل مرة بعد 20 دقيقة، وتبقى حالتها ظاهرة في سجل الإدارة.</p>
+                </details>` : '';
             return `
                 <article class="p-md flex flex-col sm:flex-row sm:items-start sm:justify-between gap-md bg-surface-container-lowest">
                     <div class="min-w-0 flex-1">
@@ -476,6 +544,7 @@ async function loadTemplates() {
                           ${!archived && groupedCount > 1 ? `<span class="inline-flex items-center rounded-full bg-primary-container px-sm py-[3px] text-[11px] font-bold text-on-primary">${groupedCount} قوالب متطابقة معروضة كتعريف واحد</span>` : ''}
                         </div>
                         ${task.instructions ? `<p class="text-body-sm text-on-surface-variant mb-sm leading-6">${frEsc(task.instructions)}</p>` : ''}
+                        ${scheduleMarkup}
                         <div class="flex flex-wrap items-center gap-x-sm gap-y-xs text-[12px]">
                           <span class="${isGlobalScope ? 'text-outline' : 'text-primary font-bold'}">${isGlobalScope ? '' : '📍 '}${frEsc(branchName)}</span>
                           <span class="text-outline-variant" aria-hidden="true">•</span>
@@ -566,6 +635,11 @@ async function loadTemplates() {
         }));
         container.querySelectorAll('.copy-archived-btn').forEach(btn => btn.addEventListener('click', async () => {
             if (!confirm('إنشاء قالب نشط جديد من هذه النسخة المؤرشفة؟ ستبقى النسخة الأصلية وسجلاتها محفوظة.')) return;
+            const archived = allTemplates.find(item => String(item.id) === String(btn.dataset.id));
+            if (ZamRestroomHourly.isRestroomHourlyTask(archived)) {
+                alert('لا يمكن إنشاء نسخة ساعية مستقلة. اطلب من الإدارة إعادة تفعيل الجدول المخصص.');
+                return;
+            }
             try {
                 await ZamAPI.copyArchivedTemplateAsNewVersion(btn.dataset.id);
                 await loadTemplates();

@@ -13,7 +13,7 @@
                 }
             }
         }
-    }catch(_e){}</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/checklist-schedule.js?v=20261117214500"></script><script src="../assets/supabase-config.js?v=20261117194500"></script><script>
+    }catch(_e){}</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/checklist-schedule.js?v=20261121164000"></script><script src="../assets/restroom-hourly.js?v=20261121170500"></script><script src="../assets/supabase-config.js?v=20261121164000"></script><script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (!['Owner','Admin','Manager','Supervisor'].includes(currentUser.role)) {
       window.location.href = zamRoleHomePath(currentUser.role);
@@ -141,7 +141,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
     <section class="mt-lg bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
       <div class="p-md border-b border-outline-variant"><h2 class="font-title-md text-primary">تنفيذ المهام الساعية</h2><p class="text-[11px] text-on-surface-variant">كل سجل مرتبط بساعة الرياض، والفرع والمنفذ والوردية.</p></div>
-      <div class="overflow-x-auto"><table class="w-full text-body-sm text-right"><thead class="bg-surface-container text-on-surface-variant font-bold"><tr><th class="p-sm">التاريخ</th><th class="p-sm">الساعة</th><th class="p-sm">الفرع</th><th class="p-sm">المهمة</th><th class="p-sm">الوردية</th><th class="p-sm">المنفذ / الدور</th><th class="p-sm">ملاحظات</th></tr></thead><tbody id="hourly-logs-tbody"><tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody></table></div>
+      <div class="overflow-x-auto"><table class="w-full text-body-sm text-right"><thead class="bg-surface-container text-on-surface-variant font-bold"><tr><th class="p-sm">التاريخ</th><th class="p-sm">الساعة</th><th class="p-sm">الفرع</th><th class="p-sm">المهمة</th><th class="p-sm">الوردية</th><th class="p-sm">الحالة</th><th class="p-sm">الخطوات</th><th class="p-sm">المنفذ / الدور</th><th class="p-sm">ملاحظات</th></tr></thead><tbody id="hourly-logs-tbody"><tr><td colspan="9" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody></table></div>
     </section>
 
     <section class="mt-md bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
@@ -304,8 +304,17 @@ async function loadLogs() {
 
         const hourlyBody = document.getElementById('hourly-logs-tbody');
         hourlyBody.innerHTML = hourlyLogs.length ? hourlyLogs.map(l => `
-            <tr><td class="p-sm">${escHtml(l.execution_date)}</td><td class="p-sm font-bold">${String(l.occurrence_hour).padStart(2, '0')}:00–${String(l.occurrence_hour).padStart(2, '0')}:59</td><td class="p-sm">${escHtml(l.branches?.name || '—')}</td><td class="p-sm">${escHtml(l.checklist_templates?.task_title || l.template_title || 'مهمة ساعية')}</td><td class="p-sm">${escHtml(shiftLabel(l.shift_type))}</td><td class="p-sm">${escHtml(l.profiles?.full_name || '—')} <span class="text-[10px] text-outline">${escHtml(l.profiles?.role || '')}</span></td><td class="p-sm">${escHtml(l.notes || '—')}</td></tr>
-        `).join('') : '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">لا توجد إنجازات ساعية مطابقة.</td></tr>';
+            ${(() => {
+                const rawStatus = String(l.status || '').trim().toLowerCase();
+                const isMissed = ['notperformed', 'not_performed', 'غير منفذة'].includes(rawStatus);
+                const isCompleted = ['completed', 'done', 'مكتمل', 'منجز'].includes(rawStatus);
+                const statusText = isMissed ? 'غير منفذة' : isCompleted ? 'مكتملة' : (l.status || '—');
+                const stepText = ZamRestroomHourly.STEPS
+                    .filter(step => l.steps_completed?.[step.key] === true)
+                    .map(step => step.label).join('، ') || '—';
+                return `<tr class="${isMissed ? 'bg-error-container/30' : ''}"><td class="p-sm">${escHtml(l.execution_date)}</td><td class="p-sm font-bold">${String(l.occurrence_hour).padStart(2, '0')}:00–${String(l.occurrence_hour).padStart(2, '0')}:59</td><td class="p-sm">${escHtml(l.branches?.name || '—')}</td><td class="p-sm">${escHtml(l.checklist_templates?.task_title || l.template_title || 'مهمة ساعية')}</td><td class="p-sm">${escHtml(shiftLabel(l.shift_type))}</td><td class="p-sm font-bold ${isMissed ? 'text-error' : isCompleted ? 'text-tertiary' : ''}">${escHtml(statusText)}</td><td class="p-sm min-w-64">${escHtml(stepText)}</td><td class="p-sm">${escHtml(l.profiles?.full_name || '—')} <span class="text-[10px] text-outline">${escHtml(l.profiles?.role || '')}</span></td><td class="p-sm">${escHtml(l.notes || '—')}</td></tr>`;
+            })()}
+        `).join('') : '<tr><td colspan="9" class="p-md text-center text-on-surface-variant">لا توجد سجلات ساعية مطابقة.</td></tr>';
 
         const notesList = document.getElementById('team-notes-list');
         notesList.innerHTML = notes.length ? notes.map(n => `

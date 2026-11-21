@@ -105,12 +105,18 @@ test('الأيام الأسبوعية المتعددة تعمل مع أولوي�
 
 test('صفحات قوائم التحقق تحمل نسخ cache المحدثة للمجدول وAPI', () => {
   const schedulePages = ['checklist-logs', 'dashboard', 'manage-templates', 'my-checklist', 'supervisor-checklist', 'supervisor-dashboard'];
+  const restroomPages = ['checklist-logs', 'dashboard', 'manage-templates', 'my-checklist', 'supervisor-dashboard'];
   for (const page of schedulePages) {
     const html = fs.readFileSync(path.join(__dirname, '..', page, 'index.html'), 'utf8');
-    assert.match(html, /checklist-schedule\.js\?v=20261117214500/, `${page} must load the updated schedule helper`);
+    assert.match(html, /checklist-schedule\.js\?v=20261121164000/, `${page} must load the updated schedule helper`);
   }
-  assert.match(supervisorPage, /supabase-config\.js\?v=20261117194500/);
-  assert.match(templateAdminPage, /supabase-config\.js\?v=20261118182000/);
+  for (const page of restroomPages) {
+    const html = fs.readFileSync(path.join(__dirname, '..', page, 'index.html'), 'utf8');
+    assert.match(html, /restroom-hourly\.js\?v=20261121170500/, `${page} must load the current restroom task helper`);
+  }
+  assert.match(employeePage, /supabase-config\.js\?v=20261121170400/);
+  assert.match(supervisorPage, /supabase-config\.js\?v=20261121164000/);
+  assert.match(templateAdminPage, /supabase-config\.js\?v=20261121165000/);
   assert.match(templateAdminPage, /id="f-scope-all"/);
   assert.match(templateAdminPage, /class="f-branch-checkbox/);
   assert.match(templateAdminPage, /saveTemplateWithBranches/);

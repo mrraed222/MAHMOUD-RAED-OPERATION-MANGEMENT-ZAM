@@ -622,12 +622,45 @@ const ZamAPI = {
         return data;
     },
 
+    async saveRestroomHourlyTaskWithBranches(id, payload) {
+        const { data: newId, error } = await zamClient.rpc('save_restroom_hourly_task_with_branches', {
+            p_template_id: id,
+            p_payload: payload
+        });
+        if (error) throw error;
+        const { data, error: readError } = await zamClient.from('checklist_templates')
+            .select('*, checklist_template_branches(branch_id)').eq('id', newId).single();
+        if (readError) throw readError;
+        return data;
+    },
+
+    async initializeRestroomHourlyTask(templateId) {
+        const { data, error } = await zamClient.rpc('initialize_restroom_hourly_task', {
+            p_template_id: templateId
+        });
+        if (error) throw error;
+        return data;
+    },
+
+    async getRestroomHourlyTaskConfig() {
+        const { data, error } = await zamClient.from('restroom_hourly_task_config')
+            .select('template_id, active_from, is_active')
+            .eq('id', 1).eq('is_active', true).maybeSingle();
+        if (error) throw error;
+        return data;
+    },
+
     async deleteTemplate(id) {
         // "الحذف" من الواجهة أرشفة غير إتلافية حتى لا تنحذف السجلات التاريخية.
         const { data, error } = await zamClient.from('checklist_templates')
             .update({ is_active: false }).eq('id', id).eq('is_active', true).select().maybeSingle();
         if (error) throw error;
         return data;
+    },
+
+    async archiveRestroomHourlyTask(id) {
+        const { error } = await zamClient.rpc('archive_restroom_hourly_task', { p_template_id: id });
+        if (error) throw error;
     },
 
     async deleteTemplateGroup(templateIds) {
@@ -719,7 +752,7 @@ const ZamAPI = {
     async getHourlyChecklistLogs({ branchId = null, date = null, dateFrom = null, dateTo = null, shiftType = null } = {}) {
         return readAllRows(() => {
             let q = zamClient.from('hourly_checklist_logs')
-                .select('id,template_id,template_title,template_category,branch_id,executed_by,status,notes,photo_url,execution_date,occurrence_hour,shift_type,created_at,checklist_templates(task_title,category,shift_type),profiles(full_name,role),branches(name)')
+                .select('id,template_id,template_title,template_category,branch_id,executed_by,status,notes,photo_url,steps_completed,execution_date,occurrence_hour,shift_type,created_at,checklist_templates(task_title,category,shift_type),profiles(full_name,role),branches(name)')
                 .order('execution_date', { ascending: false }).order('occurrence_hour', { ascending: false });
             if (date) q = q.eq('execution_date', date);
             if (dateFrom) q = q.gte('execution_date', dateFrom);
@@ -734,6 +767,18 @@ const ZamAPI = {
         const { data, error } = await zamClient.rpc('create_hourly_checklist_log', {
             p_template_id: template_id,
             p_shift_type: shift_type,
+            p_notes: notes,
+            p_photo_url: photo_url
+        });
+        if (error) throw error;
+        return data;
+    },
+
+    async submitRestroomHourlyOccurrence({ template_id, shift_type, steps, notes = null, photo_url = null }) {
+        const { data, error } = await zamClient.rpc('complete_restroom_hourly_occurrence', {
+            p_template_id: template_id,
+            p_shift_type: shift_type,
+            p_steps: steps,
             p_notes: notes,
             p_photo_url: photo_url
         });

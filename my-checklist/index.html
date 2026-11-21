@@ -15,9 +15,10 @@
         }
 }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/checklist-schedule.js?v=20261117214500"></script>
+    <script src="../assets/checklist-schedule.js?v=20261121164000"></script>
+<script src="../assets/restroom-hourly.js?v=20261121170500"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
-<script src="../assets/supabase-config.js?v=20261117194500"></script>
+<script src="../assets/supabase-config.js?v=20261121170400"></script>
 <script>
   let currentUser = ZamSession.requireAuth('../index.html');
   // دور المالك متابعة وإدارة فقط؛ لا ينفذ قائمة مهام يومية.
@@ -123,6 +124,11 @@ const container = document.getElementById('checklist-container');
 const progressLabel = document.getElementById('progress-label');
 const categoryLabel = document.getElementById('category-label');
 let visibleTemplatesById = new Map();
+let restroomTaskConfig = null;
+let restroomBranchOperational = false;
+let restroomOccurrencesByKey = new Map();
+const restroomStepDrafts = new Map();
+const restroomPhotoDrafts = new Map();
 
 async function currentBranchIsOperational() {
     if (!currentUser.branch_id) return false;
@@ -130,7 +136,8 @@ async function currentBranchIsOperational() {
     const { data: branch, error } = await zamClient.from('branches')
         .select('id, lifecycle_status, planned_opening_date').eq('id', currentUser.branch_id).maybeSingle();
     if (error || !branch) throw error || new Error('تعذّر التحقق من حالة الفرع');
-    return ZamBranchLifecycle.isOperational(branch, new Date());
+    restroomBranchOperational = ZamBranchLifecycle.isOperational(branch, new Date());
+    return restroomBranchOperational;
 }
 
 // Refresh current user profile from database on load to ensure we have the absolute latest roles/categories
@@ -240,7 +247,15 @@ async function loadMyChecklist() {
             progressLabel.textContent = '';
             return;
         }
-        const allTemplates = await ZamAPI.getTemplates(null, currentShift, currentUser.branch_id);
+        const [allTemplatesRaw, config] = await Promise.all([
+            ZamAPI.getTemplates(null, currentShift, currentUser.branch_id),
+            ZamAPI.getRestroomHourlyTaskConfig()
+        ]);
+        restroomTaskConfig = config?.is_active ? config : null;
+        const allowRestroomForBranch = restroomBranchOperational &&
+            !['زام الحي', 'زام البرج'].includes(currentUser.branches?.name);
+        const allTemplates = allTemplatesRaw.filter(task => !ZamRestroomHourly.isRestroomHourlyTask(task) ||
+            (restroomTaskConfig && allowRestroomForBranch && String(task.id) === String(restroomTaskConfig.template_id)));
         const now = new Date();
         const shiftWindow = ZamChecklistSchedule.getShiftWindow(currentShift, currentBranchHours, now);
         const visibility = {
@@ -253,7 +268,8 @@ async function loadMyChecklist() {
         };
         const scheduledTemplates = allTemplates.filter(t => ZamChecklistSchedule.isTemplateScheduledForEmployee(t, visibility, now));
         const templates = scheduledTemplates.filter(t => ZamChecklistSchedule.isTemplateVisibleForEmployee(t, visibility, now));
-        const summaryTemplates = shiftWindow.valid && now.getTime() >= shiftWindow.startAt.getTime() ? scheduledTemplates : [];
+        const summaryTemplates = shiftWindow.valid && now.getTime() >= shiftWindow.startAt.getTime()
+            ? scheduledTemplates.filter(task => !ZamRestroomHourly.isRestroomHourlyTask(task)) : [];
         visibleTemplatesById = new Map(templates.map(task => [task.id, task]));
         const [logs, hourlyLogs] = await Promise.all([
             ZamAPI.getChecklistLogs({ branchId: currentUser.branch_id, dateFrom: shiftWindow.dateFrom, dateTo: shiftWindow.dateTo, shiftType: currentShift }),
@@ -275,8 +291,28 @@ async function loadMyChecklist() {
         });
         const currentHour = ZamChecklistSchedule.riyadhParts().hour;
         hourlyLogs.forEach(l => {
-            if (Number(l.occurrence_hour) === currentHour && l.shift_type === currentShift && logBelongsToShift(l)) logsByTemplate[l.template_id] = l;
+            const task = scheduledTemplates.find(item => String(item.id) === String(l.template_id));
+            if (!ZamRestroomHourly.isRestroomHourlyTask(task) && Number(l.occurrence_hour) === currentHour && l.shift_type === currentShift && logBelongsToShift(l)) {
+                logsByTemplate[l.template_id] = l;
+            }
         });
+
+        const restroomTask = templates.find(ZamRestroomHourly.isRestroomHourlyTask) || null;
+        const restroomLogs = restroomTask
+            ? hourlyLogs.filter(log => String(log.template_id) === String(restroomTask.id) && log.shift_type === currentShift)
+            : [];
+        const restroomOccurrences = restroomTask
+            ? ZamRestroomHourly.getShiftOccurrences({
+                shiftType: currentShift,
+                businessDate: shiftWindow.businessDate,
+                activeFrom: restroomTaskConfig?.active_from,
+                logs: restroomLogs,
+                templateId: restroomTask.id,
+                now
+            }) : [];
+        restroomOccurrencesByKey = new Map(restroomOccurrences.map(item => [
+            ZamRestroomHourly.occurrenceKey(restroomTask.id, item.executionDate, item.hour), item
+        ]));
 
         if (!templates.length) {
             const message = summaryTemplates.length
@@ -285,8 +321,10 @@ async function loadMyChecklist() {
             container.innerHTML = `<p class="p-md text-on-surface-variant text-body-sm">${message}</p>`;
             progressLabel.textContent = summaryTemplates.length ? 'انتهت مهلة العرض — تبقى المهام غير المكتملة في الملخص' : '';
         } else {
-            const done = templates.filter(t => logsByTemplate[t.id]).length;
-            progressLabel.textContent = `تم إنجاز ${done} من ${templates.length} مهام`;
+            const regularTemplates = templates.filter(task => !ZamRestroomHourly.isRestroomHourlyTask(task));
+            const done = regularTemplates.filter(t => logsByTemplate[t.id]).length;
+            const completedOccurrences = restroomOccurrences.filter(item => item.status === 'completed').length;
+            progressLabel.textContent = `${regularTemplates.length ? `المهام الأخرى ${done}/${regularTemplates.length}` : ''}${restroomTask ? `${regularTemplates.length ? ' · ' : ''}مواعيد الحمامات ${completedOccurrences}/10` : ''}`;
         }
 
         // تفعيل كارت إرسال الإيميل للإدارة
@@ -385,7 +423,72 @@ async function loadMyChecklist() {
             const day = Number(task.day_of_week);
             return Number.isInteger(day) && day >= 0 && day <= 6 ? [day] : [];
         };
+        function renderRestroomParent(task) {
+            const statusStyle = {
+                upcoming: 'bg-surface-container text-on-surface-variant',
+                open: 'bg-primary-fixed text-on-primary-fixed',
+                completed: 'bg-tertiary-fixed/40 text-tertiary',
+                missed: 'bg-error-container text-on-error-container',
+                beforeActivation: 'bg-surface-container text-on-surface-variant'
+            };
+            const rows = restroomOccurrences.map(occurrence => {
+                const key = ZamRestroomHourly.occurrenceKey(task.id, occurrence.executionDate, occurrence.hour);
+                const draft = new Set(restroomStepDrafts.get(key) || []);
+                const photoDraft = restroomPhotoDrafts.get(key);
+                const allChecked = ZamRestroomHourly.STEP_KEYS.every(step => draft.has(step));
+                const deadlineLabel = occurrence.deadlineAt.toLocaleTimeString('ar-SA', {
+                    timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit'
+                });
+                const statusText = occurrence.status === 'open'
+                    ? `متاحة حتى ${checklistEsc(deadlineLabel)} · مهلة 20 دقيقة`
+                    : occurrence.status === 'missed'
+                        ? 'تنبيه: فات الموعد وأُغلق بعد 20 دقيقة — أبلغ المشرف'
+                        : occurrence.status === 'beforeActivation'
+                            ? 'قبل بدء تفعيل الجدول'
+                            : occurrence.statusLabel;
+                const controls = occurrence.status === 'open' ? `
+                  <div class="mt-sm grid gap-xs sm:grid-cols-2">
+                    ${ZamRestroomHourly.STEPS.map(step => `
+                      <label class="flex items-center gap-sm rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-xs text-body-sm">
+                        <input type="checkbox" class="restroom-step h-5 w-5 rounded border-outline accent-primary" data-occurrence-key="${checklistEsc(key)}" data-step-key="${checklistEsc(step.key)}" ${draft.has(step.key) ? 'checked' : ''}/>
+                        <span>${checklistEsc(step.label)}</span>
+                      </label>`).join('')}
+                  </div>
+                  <label class="mt-sm flex cursor-pointer items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-xs text-body-sm">
+                    <span class="material-symbols-outlined text-primary">photo_camera</span>
+                    <span class="restroom-photo-name flex-1" data-occurrence-key="${checklistEsc(key)}">${checklistEsc(photoDraft?.name || 'أرفق صورة إثبات الموعد')}</span>
+                    <input type="file" accept="image/*" capture="environment" class="restroom-photo hidden" data-occurrence-key="${checklistEsc(key)}"/>
+                  </label>
+                  <textarea rows="2" class="restroom-note mt-sm w-full rounded-lg border border-outline-variant p-sm text-body-sm" data-occurrence-key="${checklistEsc(key)}" placeholder="ملاحظة أو نقص (اختياري)"></textarea>
+                  <div class="mt-sm flex flex-wrap items-center gap-sm">
+                    <button type="button" class="restroom-complete-btn rounded-lg bg-primary px-md py-xs font-bold text-on-primary disabled:cursor-not-allowed disabled:opacity-50" data-occurrence-key="${checklistEsc(key)}" ${allChecked && photoDraft ? '' : 'disabled'}>تسجيل إنجاز موعد ${String(occurrence.hour).padStart(2, '0')}:00</button>
+                    <span class="restroom-submit-status text-[11px] text-error" data-occurrence-key="${checklistEsc(key)}" aria-live="polite"></span>
+                  </div>` : occurrence.status === 'completed' ? `
+                  <ul class="mt-sm grid gap-xs sm:grid-cols-2 text-body-sm text-tertiary">
+                    ${ZamRestroomHourly.STEPS.map(step => `<li class="flex items-center gap-xs"><span class="material-symbols-outlined text-sm">check_circle</span>${checklistEsc(step.label)}</li>`).join('')}
+                  </ul>
+                  ${occurrence.log?.photo_url ? `<a class="mt-xs inline-flex items-center gap-xs text-body-sm text-primary underline" href="${checklistEsc(occurrence.log.photo_url)}" target="_blank" rel="noopener">عرض صورة الإثبات</a>` : ''}
+                  ${occurrence.log?.notes ? `<p class="mt-xs text-body-sm text-on-surface-variant">ملاحظة: ${checklistEsc(occurrence.log.notes)}</p>` : ''}` : '';
+                return `<details class="rounded-xl border ${occurrence.status === 'missed' ? 'border-error bg-error-container/30' : 'border-outline-variant bg-surface-container-lowest'} p-sm" ${occurrence.status === 'open' ? 'open' : ''}>
+                  <summary class="flex cursor-pointer list-none flex-wrap items-center justify-between gap-sm">
+                    <span class="font-bold text-on-surface">${String(occurrence.hour).padStart(2, '0')}:00</span>
+                    <span class="rounded-full px-sm py-[2px] text-[11px] font-bold ${statusStyle[occurrence.status] || statusStyle.upcoming}">${checklistEsc(statusText)}</span>
+                  </summary>
+                  ${controls ? `<div class="mt-sm border-t border-outline-variant pt-sm">${controls}</div>` : ''}
+                </details>`;
+            }).join('');
+            return `<article class="rounded-xl border border-primary/30 bg-primary-fixed/10 p-md">
+              <div class="mb-sm flex flex-wrap items-start justify-between gap-sm">
+                <div><h4 class="font-bold text-on-surface text-body-lg">${checklistEsc(task.task_title)}</h4>
+                <p class="mt-xs text-body-sm text-on-surface-variant">10 مواعيد للوردية · كل موعد بسجل مستقل ومهلة 20 دقيقة</p></div>
+                <span class="rounded-full bg-primary-container px-sm py-xs text-[11px] font-bold text-on-primary">${currentShift === 'Morning' ? '06:00–15:00' : '16:00–01:00'} الرياض</span>
+              </div>
+              <div class="space-y-xs">${rows}</div>
+            </article>`;
+        }
+
         function renderStaffTask(t) {
+            if (ZamRestroomHourly.isRestroomHourlyTask(t)) return renderRestroomParent(t);
             const log = logsByTemplate[t.id];
             const completed = !!log;
             const taskId = checklistEsc(t.id);
@@ -450,6 +553,80 @@ async function loadMyChecklist() {
         };
         container.innerHTML = templates.length ? categoryGroups.map(renderCategory).join('') : container.innerHTML;
 
+        container.querySelectorAll('.restroom-step').forEach(input => {
+            input.addEventListener('change', () => {
+                const key = input.dataset.occurrenceKey;
+                const selected = new Set(restroomStepDrafts.get(key) || []);
+                if (input.checked) selected.add(input.dataset.stepKey);
+                else selected.delete(input.dataset.stepKey);
+                restroomStepDrafts.set(key, [...selected]);
+                const button = [...container.querySelectorAll('.restroom-complete-btn')]
+                    .find(item => item.dataset.occurrenceKey === key);
+                if (button) button.disabled = !ZamRestroomHourly.STEP_KEYS.every(step => selected.has(step)) || !restroomPhotoDrafts.has(key);
+            });
+        });
+
+        container.querySelectorAll('.restroom-photo').forEach(input => {
+            input.addEventListener('change', () => {
+                const key = input.dataset.occurrenceKey;
+                const file = input.files?.[0] || null;
+                if (file) restroomPhotoDrafts.set(key, file);
+                else restroomPhotoDrafts.delete(key);
+                const name = [...container.querySelectorAll('.restroom-photo-name')]
+                    .find(item => item.dataset.occurrenceKey === key);
+                if (name) name.textContent = file?.name || 'أرفق صورة إثبات الموعد';
+                const button = [...container.querySelectorAll('.restroom-complete-btn')]
+                    .find(item => item.dataset.occurrenceKey === key);
+                const steps = new Set(restroomStepDrafts.get(key) || []);
+                if (button) button.disabled = !file || !ZamRestroomHourly.STEP_KEYS.every(step => steps.has(step));
+            });
+        });
+
+        container.querySelectorAll('.restroom-complete-btn').forEach(button => {
+            button.addEventListener('click', async () => {
+                const key = button.dataset.occurrenceKey;
+                const occurrence = restroomOccurrencesByKey.get(key);
+                const selected = new Set(restroomStepDrafts.get(key) || []);
+                const photoFile = restroomPhotoDrafts.get(key);
+                const status = [...container.querySelectorAll('.restroom-submit-status')]
+                    .find(item => item.dataset.occurrenceKey === key);
+                if (!occurrence || occurrence.status !== 'open' || Date.now() >= occurrence.deadlineAt.getTime()) {
+                    if (status) status.textContent = 'انتهت المهلة؛ سُجّل الموعد غير منفذ.';
+                    await loadMyChecklist();
+                    return;
+                }
+                if (!ZamRestroomHourly.STEP_KEYS.every(step => selected.has(step))) {
+                    if (status) status.textContent = 'أكمل الخطوات الأربع قبل التسجيل.';
+                    return;
+                }
+                if (!photoFile) {
+                    if (status) status.textContent = 'أرفق صورة إثبات الموعد قبل التسجيل.';
+                    return;
+                }
+                button.disabled = true;
+                button.textContent = 'جارٍ تسجيل الموعد…';
+                if (status) status.textContent = '';
+                try {
+                    const photo_url = await uploadEvidence(photoFile);
+                    await ZamAPI.submitRestroomHourlyOccurrence({
+                        template_id: [...visibleTemplatesById.values()].find(ZamRestroomHourly.isRestroomHourlyTask)?.id,
+                        shift_type: currentShift,
+                        steps: ZamRestroomHourly.stepsObjectFromKeys([...selected]),
+                        photo_url,
+                        notes: [...container.querySelectorAll('.restroom-note')]
+                            .find(item => item.dataset.occurrenceKey === key)?.value.trim() || null
+                    });
+                    restroomStepDrafts.delete(key);
+                    restroomPhotoDrafts.delete(key);
+                    await loadMyChecklist();
+                } catch (err) {
+                    console.error(err);
+                    if (status) status.textContent = err?.message || 'تعذّر تسجيل الموعد. أعد المحاولة قبل انتهاء المهلة.';
+                    button.disabled = Date.now() >= occurrence.deadlineAt.getTime() || !photoFile || !ZamRestroomHourly.STEP_KEYS.every(step => selected.has(step));
+                    button.textContent = 'إعادة المحاولة';
+                }
+            });
+        });
 
         container.querySelectorAll('.evidence-input').forEach(input => {
             input.addEventListener('change', async () => {
@@ -520,10 +697,18 @@ let checklistRefreshTimeout = null;
 function scheduleChecklistRefresh() {
     clearTimeout(checklistRefreshTimeout);
     const now = new Date();
-    const delay = Math.min(
+    const baseDelay = Math.min(
         ZamChecklistSchedule.millisecondsUntilNextRiyadhHour(now),
         ZamChecklistSchedule.millisecondsUntilNextVisibilityChange(currentShift, currentBranchHours, now)
     );
+    const shiftWindow = ZamChecklistSchedule.getShiftWindow(currentShift, currentBranchHours, now);
+    const restroomDelay = restroomTaskConfig && shiftWindow.valid
+        ? ZamRestroomHourly.millisecondsUntilNextChange(currentShift, {
+            businessDate: shiftWindow.businessDate,
+            activeFrom: restroomTaskConfig.active_from,
+            now
+        }) : null;
+    const delay = restroomDelay === null ? baseDelay : Math.min(baseDelay, restroomDelay);
     checklistRefreshTimeout = setTimeout(() => {
         loadMyChecklist().finally(scheduleChecklistRefresh);
     }, delay);
