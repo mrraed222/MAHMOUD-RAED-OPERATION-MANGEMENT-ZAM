@@ -24,6 +24,7 @@
   // real permission gate: anyone without this permission is sent home
   (async () => { if (!(await ZamAPI.requireAdminPerm('can_manage_templates'))) window.location.href = zamRoleHomePath(currentUser.role); })();
 </script>
+<link rel="stylesheet" href="../assets/riwaq-theme.css">
 <style id="zam-design-system">
 :root {
   --zam-coffee: #33210d;
@@ -48,6 +49,51 @@ body.zam-page main { animation: zamFadeInUp .28s cubic-bezier(.2,.7,.3,1) both; 
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .42); outline-offset: 2px; }
 .zam-loading { opacity: .82; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+</style>
+<style id="riwaq-manage-templates">
+:root { --zam-coffee:#217a5e; --zam-coffee-light:#16392f; --zam-focus:#bd8150; --zam-surface:#fff; }
+body.zam-page { background:#f4f6f2 !important; color:#20312b; font-family:var(--font-ui); }
+body.zam-page header.fixed { min-height:84px; height:auto; padding-block:14px; background:#fff; border-color:#e3e9e3; box-shadow:0 3px 14px rgba(29,47,39,.045); }
+body.zam-page header.fixed h1 { color:#20312b !important; font-size:21px; }
+body.zam-page header.fixed p { color:#697871 !important; }
+body.zam-page main > div { max-width:1120px; padding:30px 32px 48px; }
+#templates-container > section > div:first-child { padding-bottom:16px; }
+#templates-container details { border-color:#e3e9e3; border-radius:14px; background:#fff; box-shadow:0 5px 18px rgba(29,47,39,.045); }
+#templates-container details > summary { min-height:60px; background:#f8faf7; transition:background-color .15s ease; }
+#templates-container details > summary:hover { background:#f0f4ef; }
+#templates-container details > div > section > div:last-child { border-radius:12px; }
+#templates-container details article { padding:18px; background:#fff; }
+#templates-container details article + article { border-top-color:#e3e9e3; }
+#templates-container details article h4 { color:#20312b !important; }
+#templates-container details article button { min-height:38px; padding-inline:11px; border:1px solid #e3e9e3; border-radius:9px; }
+#templates-container details article button.delete-btn { color:#a73b35 !important; border-color:#efd4d1; background:#fffafa; }
+#templates-container details article button:hover { background:#f8faf7; }
+#template-modal, #fridge-modal { padding:16px; }
+#template-modal > div, #fridge-modal > div { border:1px solid #e3e9e3; border-radius:16px; box-shadow:0 18px 55px rgba(22,57,47,.18); }
+#template-modal label, #fridge-modal label { line-height:1.6; }
+#template-modal input:not([type=checkbox]):not([type=radio]), #template-modal select, #template-modal textarea,
+#fridge-modal input, #fridge-modal select { min-height:42px; border-radius:9px; background:#fff; }
+#template-modal textarea { min-height:82px; }
+#template-modal fieldset, #template-modal #f-weekdays-grid label, #template-modal #f-branch-list label { border-radius:10px; }
+body.zam-page button.bg-primary { background:#217a5e !important; }
+@media (max-width:760px) {
+ body.zam-page header.fixed { position:relative; inset:auto; min-height:0; padding:14px 16px; flex-wrap:wrap; gap:12px; }
+ body.zam-page header.fixed > div:first-child { width:100%; gap:10px; }
+ body.zam-page header.fixed h1 { font-size:18px; }
+ body.zam-page header.fixed p { max-width:58ch; line-height:1.55; }
+ body.zam-page header.fixed > button { min-height:42px; margin:0; padding-inline:11px; font-size:12px; }
+ body.zam-page main { padding-top:0; }
+ body.zam-page main > div { padding:20px 14px 32px; }
+ #templates-container > section > div:first-child { align-items:flex-start; flex-direction:column; gap:10px; }
+ #templates-container details > summary { min-height:56px; padding:13px; }
+ #templates-container details > div { padding:12px; }
+ #templates-container details article { padding:14px 12px; }
+ #templates-container details article > div:last-child { flex-wrap:wrap; }
+ #template-modal, #fridge-modal { align-items:flex-start; overflow-y:auto; }
+ #template-modal > div, #fridge-modal > div { max-height:none; margin-block:auto; }
+ #template-modal .grid.grid-cols-2, #fridge-modal .grid.grid-cols-2 { grid-template-columns:minmax(0,1fr); }
+ #template-modal .col-span-2, #fridge-modal .col-span-2 { grid-column:1; }
+}
 </style>
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">

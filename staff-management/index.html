@@ -130,6 +130,33 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .zam-loading { opacity: .82; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 </style>
+<link rel="stylesheet" href="../assets/riwaq-theme.css">
+<style>
+  body.zam-page { background: var(--riwaq-bg) !important; color: var(--riwaq-ink); font-family: var(--font-ui); }
+  header.fixed { background: var(--riwaq-surface) !important; border-color: var(--riwaq-line) !important; box-shadow: 0 2px 12px rgba(29,47,39,.035); }
+  main { padding-inline: clamp(16px, 3vw, 32px); }
+  main section.bg-surface-container-lowest, main > div > section.bg-surface-container-lowest,
+  main .bg-surface, main .bg-surface-container-lowest { border-color: var(--riwaq-line) !important; border-radius: var(--riwaq-radius); box-shadow: var(--riwaq-shadow); }
+  .header-accent { border-bottom: 2px solid var(--riwaq-accent) !important; }
+  input, select { border-radius: var(--riwaq-radius-sm) !important; }
+  table thead tr { background: var(--riwaq-surface-muted) !important; }
+  @media (max-width: 767px) {
+    header.fixed { height: auto; min-height: 64px; padding: 10px 14px; gap: 10px; }
+    header.fixed > div:first-child { gap: 8px; }
+    header.fixed > div:last-child { gap: 8px; }
+    header.fixed .rounded-full { font-size: 12px; }
+    main { padding: 76px 14px 20px; }
+    main section.flex.justify-between.items-end { align-items: flex-start; flex-direction: column; gap: 12px; }
+    main section.flex.justify-between.items-end > div:last-child { width: 100%; flex-wrap: wrap; }
+    main section.flex.justify-between.items-end > div:last-child > * { flex: 1; justify-content: center; }
+    main .grid.grid-cols-12 { gap: 16px; }
+    main .relative.w-72 { width: 100%; }
+    main .p-md.bg-surface-container-low { flex-wrap: wrap; gap: 10px; }
+    main .p-md.bg-surface-container-low > div { width: 100%; }
+    table { min-width: 680px; }
+    main section.grid.grid-cols-1.md\:grid-cols-3 { gap: 12px; }
+  }
+</style>
 </head>
 <body class="zam-page bg-surface selection:bg-primary-fixed">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('staff-management', currentUser.role);})();</script>

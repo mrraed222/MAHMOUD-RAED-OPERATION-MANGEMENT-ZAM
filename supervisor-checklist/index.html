@@ -107,6 +107,54 @@
     .checklist-item:has(input:checked) { background-color: rgba(0, 44, 6, 0.05); text-decoration: line-through; opacity: 0.7; }
     .scrollbar-hide::-webkit-scrollbar { display: none; }
 </style>
+<link rel="stylesheet" href="../assets/riwaq-theme.css"/>
+<style>
+  body.zam-page { font-family: var(--font-ui); }
+  body.zam-page > header {
+    background: var(--riwaq-surface) !important;
+    border-color: var(--riwaq-line) !important;
+    box-shadow: 0 2px 12px rgba(29, 47, 39, .045);
+  }
+  body.zam-page > header h2 { color: var(--riwaq-sidebar) !important; }
+  body.zam-page main > div { max-width: 1120px; padding: 28px 32px 40px; }
+  body.zam-page main section { border-color: var(--riwaq-line); }
+  body.zam-page main section.bg-surface-container-lowest,
+  body.zam-page #inventory-receiving-tasks-section,
+  body.zam-page #recent-notes-list {
+    border-color: var(--riwaq-line) !important;
+    border-radius: var(--riwaq-radius) !important;
+    box-shadow: var(--riwaq-shadow);
+  }
+  body.zam-page #checklist-container { padding: 12px; }
+  body.zam-page .checklist-item {
+    border-color: var(--riwaq-line) !important;
+    border-radius: var(--riwaq-radius-sm) !important;
+    box-shadow: 0 2px 9px rgba(29, 47, 39, .035);
+  }
+  body.zam-page .checklist-item:has(input:checked) { background-color: var(--riwaq-success-bg); }
+  body.zam-page main textarea,
+  body.zam-page main input:not([type="checkbox"]),
+  body.zam-page main select { border-radius: var(--riwaq-radius-sm); }
+  body.zam-page nav.md\:hidden {
+    background: var(--riwaq-surface) !important;
+    border-color: var(--riwaq-line) !important;
+  }
+  @media (max-width: 767px) {
+    body.zam-page > header { height: 64px; padding-inline: 14px; }
+    body.zam-page > header h2 { font-size: 18px; }
+    body.zam-page > header #shift-toggle { gap: 2px; }
+    body.zam-page > header .shift-btn { padding-inline: 8px; font-size: 11px; }
+    body.zam-page main { padding-top: 64px; padding-bottom: 92px; }
+    body.zam-page main > div { padding: 20px 14px 28px; }
+    body.zam-page main h1 { font-size: 25px; line-height: 1.35; }
+    body.zam-page main section:first-child { align-items: flex-start; }
+    body.zam-page main section:first-child > div:last-child { align-items: flex-start; text-align: start; }
+    body.zam-page #checklist-container { padding: 9px; }
+    body.zam-page .checklist-item { padding: 13px; }
+    body.zam-page #inventory-receiving-tasks-section > div:first-child { padding: 12px; }
+    body.zam-page nav.md\:hidden { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+  }
+</style>
 <style id="zam-design-system">
 :root {
   --zam-coffee: #33210d;

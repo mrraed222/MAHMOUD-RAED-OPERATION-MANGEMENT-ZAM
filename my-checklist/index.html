@@ -51,6 +51,54 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .zam-loading { opacity: .82; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 </style>
+<link rel="stylesheet" href="../assets/riwaq-theme.css">
+<style>
+  body.zam-page { font-family: var(--font-ui); background: var(--riwaq-bg) !important; color: var(--riwaq-ink); }
+  body.zam-page header { background: rgba(255,255,255,.96); border-color: var(--riwaq-line); box-shadow: 0 2px 12px rgba(29,47,39,.035); }
+  body.zam-page main { padding-block-end: 36px; }
+  body.zam-page main > div { max-width: 820px; padding: 28px 24px 40px; }
+  body.zam-page main > div > .bg-surface-container-lowest:first-child,
+  body.zam-page .checklist-category,
+  body.zam-page .checklist-item { border-color: var(--riwaq-line) !important; border-radius: var(--riwaq-radius) !important; box-shadow: var(--riwaq-shadow); }
+  body.zam-page main > div > .bg-surface-container-lowest:first-child { overflow: hidden; }
+  body.zam-page main > div > .bg-surface-container-lowest:first-child > div:first-child { background: var(--riwaq-sidebar) !important; color: #fff; padding: 22px 24px; }
+  body.zam-page .checklist-category > summary { background: var(--riwaq-surface-soft); min-height: 58px; }
+  body.zam-page .checklist-category > summary:hover { background: var(--riwaq-surface-muted); }
+  body.zam-page .checklist-item { padding: 18px; box-shadow: none; }
+  body.zam-page .checklist-item h4 { font-size: 16px; line-height: 1.65; }
+  body.zam-page .checklist-item input[type="checkbox"], body.zam-page .restroom-step { accent-color: var(--riwaq-primary); }
+  body.zam-page .task-actions { padding-inline-start: 0; }
+  body.zam-page #email-summary-card { background: var(--riwaq-primary-soft); border-color: #cfe3d7; }
+  body.zam-page #email-summary-card button { min-height: 44px; background: var(--riwaq-primary); }
+  body.zam-page main > div > .mt-md:last-child { background: var(--riwaq-surface-soft); border-color: var(--riwaq-line); border-radius: var(--riwaq-radius-sm); }
+  body.zam-page details > summary { cursor: pointer; }
+  body.zam-page button, body.zam-page label, body.zam-page input, body.zam-page textarea { transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease; }
+  body.zam-page textarea { min-height: 76px; border-radius: var(--riwaq-radius-sm); }
+  body.zam-page :focus-visible { outline-color: var(--riwaq-focus) !important; }
+  @media (max-width: 767px) {
+    body.zam-page header { min-height: 72px; height: auto; padding-inline: 14px; }
+    body.zam-page header > div:first-child { gap: 10px; }
+    body.zam-page header img { height: 34px; }
+    body.zam-page header h1 { font-size: 16px; line-height: 1.4; }
+    body.zam-page header #user-branch-label { max-width: 42vw; font-size: 13px; overflow-wrap: anywhere; }
+    body.zam-page header .shift-btn { padding-inline: 8px; font-size: 12px; white-space: nowrap; }
+    body.zam-page main { padding-top: 72px; }
+    body.zam-page main > div { padding: 18px 14px 30px; }
+    body.zam-page main > div > .bg-surface-container-lowest:first-child > div:first-child { align-items: flex-start; gap: 10px; padding: 17px 16px; }
+    body.zam-page #progress-label { max-width: 42%; text-align: end; line-height: 1.5; }
+    body.zam-page .checklist-item { padding: 15px; }
+    body.zam-page .checklist-item > div:first-child { align-items: flex-start; }
+    body.zam-page .checklist-item > div:first-child > div:first-child { gap: 12px; }
+    body.zam-page .checklist-item input[type="checkbox"] { flex: 0 0 auto; width: 24px; height: 24px; margin-top: 2px; }
+    body.zam-page .restroom-complete-btn { min-height: 44px; }
+    body.zam-page #email-summary-card { align-items: stretch; }
+    body.zam-page #email-summary-card > button { justify-content: center; width: 100%; }
+  }
+  @media (max-width: 380px) {
+    body.zam-page header .shift-btn { padding-inline: 5px; font-size: 11px; }
+    body.zam-page header img { display: none; }
+  }
+</style>
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('my-checklist', currentUser.role);})();</script>

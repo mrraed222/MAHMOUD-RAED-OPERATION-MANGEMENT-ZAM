@@ -1,0 +1,118 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+
+/* ZAM Operation — Riwaq design tokens and shared visual primitives. */
+:root {
+  color-scheme: light;
+  --riwaq-bg: #f4f6f2;
+  --riwaq-surface: #ffffff;
+  --riwaq-surface-soft: #f8faf7;
+  --riwaq-surface-muted: #f0f4ef;
+  --riwaq-ink: #20312b;
+  --riwaq-muted: #697871;
+  --riwaq-line: #e3e9e3;
+  --riwaq-primary: #217a5e;
+  --riwaq-primary-deep: #155c48;
+  --riwaq-primary-soft: #e7f3ed;
+  --riwaq-sidebar: #16392f;
+  --riwaq-sidebar-active: #285849;
+  --riwaq-sidebar-muted: #a8beb4;
+  --riwaq-accent: #bd8150;
+  --riwaq-success: #287752;
+  --riwaq-success-bg: #e9f5ed;
+  --riwaq-warning: #945109;
+  --riwaq-warning-bg: #fff4de;
+  --riwaq-danger: #a73b35;
+  --riwaq-danger-bg: #fff0ed;
+  --riwaq-focus: #2069d5;
+  --riwaq-shadow: 0 6px 22px rgba(29, 47, 39, .055);
+  --riwaq-radius: 14px;
+  --riwaq-radius-sm: 10px;
+  --font-ui: 'IBM Plex Sans Arabic', 'Tajawal', Tahoma, Arial, sans-serif;
+  --font-latin: Manrope, Arial, sans-serif;
+  /* Compatibility aliases for the older ZAM design system. */
+  --zam-coffee: var(--riwaq-primary);
+  --zam-coffee-light: var(--riwaq-sidebar);
+  --zam-focus: var(--riwaq-accent);
+  --zam-surface: var(--riwaq-surface);
+}
+
+html { min-width: 320px; scroll-behavior: smooth; }
+body {
+  min-width: 320px;
+  background: var(--riwaq-bg) !important;
+  color: var(--riwaq-ink);
+  font-family: var(--font-ui);
+  text-align: start;
+  text-rendering: optimizeLegibility;
+}
+button, input, select, textarea { font: inherit; }
+button { color: inherit; }
+button:disabled { cursor: not-allowed; opacity: .58; }
+:focus-visible { outline: 3px solid var(--riwaq-focus) !important; outline-offset: 2px; }
+::selection { background: #d7efe0; color: var(--riwaq-ink); }
+
+/* Translate the semantic Tailwind tokens used by the existing screens. */
+.bg-background { background-color: var(--riwaq-bg) !important; }
+.bg-surface, .bg-surface-container-lowest { background-color: var(--riwaq-surface) !important; }
+.bg-surface-container-low { background-color: var(--riwaq-surface-soft) !important; }
+.bg-surface-container { background-color: var(--riwaq-surface-muted) !important; }
+.bg-surface-container-high { background-color: #eaf0ea !important; }
+.bg-surface-container-highest, .bg-surface-variant { background-color: #e3e9e3 !important; }
+.bg-primary { background-color: var(--riwaq-primary) !important; }
+.bg-primary-container { background-color: var(--riwaq-primary-soft) !important; }
+.bg-secondary { background-color: var(--riwaq-accent) !important; }
+.bg-secondary-container { background-color: #f5eee6 !important; }
+.bg-error { background-color: var(--riwaq-danger) !important; }
+.bg-error-container { background-color: var(--riwaq-danger-bg) !important; }
+.text-on-background, .text-on-surface { color: var(--riwaq-ink) !important; }
+.text-on-surface-variant { color: var(--riwaq-muted) !important; }
+.text-primary { color: var(--riwaq-primary) !important; }
+.text-on-primary { color: #fff !important; }
+.text-on-primary-container { color: var(--riwaq-primary-deep) !important; }
+.text-secondary { color: #875a36 !important; }
+.text-on-secondary { color: #fff !important; }
+.text-error, .text-on-error-container { color: var(--riwaq-danger) !important; }
+.text-on-error { color: #fff !important; }
+.text-tertiary { color: var(--riwaq-success) !important; }
+.border-outline-variant { border-color: var(--riwaq-line) !important; }
+.border-outline { border-color: #a8b6ad !important; }
+.border-primary { border-color: var(--riwaq-primary) !important; }
+.border-error { border-color: #e9c3bf !important; }
+.divide-outline-variant > :not([hidden]) ~ :not([hidden]) { border-color: var(--riwaq-line) !important; }
+
+/* Shared controls retain their existing behavior and dimensions unless page CSS defines them. */
+body input:not([type='checkbox']):not([type='radio']),
+body select,
+body textarea {
+  border-color: var(--riwaq-line);
+  color: var(--riwaq-ink);
+  font-family: var(--font-ui);
+}
+body input[type='checkbox'], body input[type='radio'], body input[type='range'] { accent-color: var(--riwaq-primary); }
+body input::placeholder, body textarea::placeholder { color: #7d8a82; opacity: 1; }
+
+body.zam-page .zam-card,
+body.zam-page .card,
+body.zam-page .surface-card {
+  border-color: var(--riwaq-line);
+  border-radius: var(--riwaq-radius);
+  box-shadow: var(--riwaq-shadow);
+}
+body.zam-page .zam-btn,
+body.zam-page .primary-button,
+body.zam-page button.bg-primary,
+body.zam-page a.bg-primary,
+body.zam-page [role='button'].bg-primary {
+  border-color: var(--riwaq-primary);
+  background-color: var(--riwaq-primary);
+  color: #fff;
+}
+body.zam-page .zam-btn:focus-visible,
+body.zam-page .primary-button:focus-visible,
+body.zam-page button:focus-visible,
+body.zam-page a:focus-visible { outline-color: var(--riwaq-focus) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

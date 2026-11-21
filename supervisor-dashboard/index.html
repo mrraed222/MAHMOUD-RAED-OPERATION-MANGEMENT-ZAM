@@ -133,6 +133,28 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .zam-loading { opacity: .82; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 </style>
+
+<link rel="stylesheet" href="../assets/riwaq-theme.css">
+<style>
+body.zam-page { font-family: var(--font-ui); }
+body.zam-page header { background: var(--riwaq-surface); border-color: var(--riwaq-line); box-shadow: 0 3px 16px rgba(29,47,39,.045); }
+body.zam-page header h1 { color: var(--riwaq-sidebar); }
+body.zam-page main > div { padding-block: 28px; }
+body.zam-page main section { scroll-margin-top: 92px; }
+body.zam-page #team-grid > div, body.zam-page #category-grid > div { border-radius: var(--riwaq-radius); border-color: var(--riwaq-line); box-shadow: var(--riwaq-shadow); }
+body.zam-page main h2 { color: var(--riwaq-sidebar); }
+body.zam-page #shift-toggle-wrap { background: var(--riwaq-surface-soft); border-color: var(--riwaq-line); }
+body.zam-page #visit-action-modal > div { border-radius: var(--riwaq-radius); }
+body.zam-page #team-grid img { border-color: var(--riwaq-primary); }
+@media (max-width: 767px) {
+ body.zam-page header { position: relative; height: auto; min-height: 80px; padding: 14px 16px; align-items: flex-start; gap: 10px; }
+ body.zam-page main { padding-top: 0; }
+ body.zam-page main > div { padding: 16px; }
+ body.zam-page main section { margin-bottom: 22px; }
+ body.zam-page #visit-action-modal { overflow-y: auto; align-items: flex-start; }
+ body.zam-page #visit-action-modal > div { margin-block: auto; }
+}
+</style>
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('supervisor-dashboard', currentUser.role);})();</script>
