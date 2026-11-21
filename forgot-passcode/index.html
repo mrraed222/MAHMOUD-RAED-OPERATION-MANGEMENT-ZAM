@@ -1,4 +1,13 @@
-<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>ZAM Operations - نسيت رمز المرور</title><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZAM Operations - نسيت رمز المرور</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">try{
         tailwind.config = {
             darkMode: "class",
             theme: {
@@ -14,70 +23,72 @@
             }
         }
     }catch(_e){}</script>
-<style id="zam-design-system">
-:root {
-  --zam-coffee: #33210d;
-  --zam-coffee-light: #4b3621;
-  --zam-focus: #c0583a;
-  --zam-surface: #fcf9f8;
-}
-body.zam-page {
-  font-family: "Tajawal", sans-serif;
-  text-rendering: optimizeLegibility;
-}
-@keyframes zamFadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes zamLogoGlow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(192, 88, 58, .20)); } 50% { filter: drop-shadow(0 0 12px rgba(192, 88, 58, .48)); } }
-@keyframes zamSoftPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(192, 88, 58, .22); } 50% { box-shadow: 0 0 0 7px rgba(192, 88, 58, 0); } }
-.zam-logo { animation: zamFadeInUp .32s cubic-bezier(.2,.7,.3,1) both; }
-body.zam-page main { animation: zamFadeInUp .28s cubic-bezier(.2,.7,.3,1) both; }
-.zam-card { transition: transform .16s ease, border-color .16s ease, background-color .16s ease; }
-.zam-card:hover { transform: translateY(-1px); border-color: var(--zam-focus) !important; }
-.zam-btn, button, [role="button"] { transition: background-color .14s ease, border-color .14s ease; }
-.zam-btn:hover, button:hover, [role="button"]:hover { filter: brightness(.98); }
-.zam-btn:active, button:active, [role="button"]:active { filter: brightness(.95); }
-input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .42); outline-offset: 2px; }
-.zam-loading { opacity: .82; }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
-</style>
-<link rel="stylesheet" href="../assets/riwaq-theme.css">
-<style>
-body.zam-page { min-height:100vh; padding:24px 16px; background:var(--riwaq-bg) !important; color:var(--riwaq-ink); }
-body.zam-page main { width:min(100%, 480px); padding-inline:20px; }
-body.zam-page main > div:first-child { margin-bottom:24px; }
-body.zam-page main > div:first-child > div { background:var(--riwaq-primary-soft); color:var(--riwaq-primary); }
-body.zam-page main > div:first-child h1 { color:var(--riwaq-sidebar); }
-body.zam-page main > div:first-child p { color:var(--riwaq-muted); line-height:1.75; }
-body.zam-page .login-card { padding:28px; border:1px solid var(--riwaq-line); border-radius:var(--riwaq-radius); box-shadow:var(--riwaq-shadow); }
-body.zam-page .login-card input { min-height:50px; border-radius:var(--riwaq-radius-sm); border-color:var(--riwaq-line); color:var(--riwaq-ink); }
-body.zam-page .login-card button { min-height:50px; border-radius:var(--riwaq-radius-sm); background:var(--riwaq-primary); }
-body.zam-page .login-card a { min-height:40px; display:inline-flex; align-items:center; justify-content:center; color:var(--riwaq-primary); }
-@media(max-width:480px) { body.zam-page { align-items:flex-start; padding:clamp(28px,10vh,72px) 12px 24px; } body.zam-page main { padding-inline:8px; } body.zam-page .login-card { padding:20px 16px; } }
-</style>
-</head><body class="zam-page flex items-center justify-center min-h-screen bg-background">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261117194500"></script>
-<main class="w-full max-w-md px-margin-mobile flex flex-col items-center">
-<div class="mb-lg flex flex-col items-center text-center">
-<div class="w-20 h-20 mb-md rounded-full bg-secondary-container flex items-center justify-center">
-<span class="material-symbols-outlined text-[36px] text-primary">lock_reset</span>
-</div>
-<h1 class="font-headline-lg text-headline-lg text-primary mb-xs">نسيت رمز المرور؟</h1>
-<p class="font-body-lg text-body-lg text-on-surface-variant text-center">أدخل بريدك الإلكتروني المسجل، وهيتم إبلاغ الإدارة فورًا لإعادة تعيين رمزك.</p>
-</div>
-<div class="login-card p-md rounded-xl w-full flex flex-col items-center bg-surface-container-lowest">
-<div class="w-full mb-md">
-<input id="email-input" type="email" placeholder="بريدك الإلكتروني" class="w-full p-md rounded-xl border border-outline-variant bg-surface-container-lowest text-primary focus:outline-none focus:border-primary transition-colors"/>
-</div>
-<p id="status-msg" class="text-body-sm mb-sm hidden"></p>
-<button id="submit-btn" class="w-full mb-md p-md bg-primary text-on-primary rounded-xl font-title-md hover:bg-primary-container transition-colors">
-            إرسال الطلب
-        </button>
-<a href="../index.html" class="font-label-bold text-label-bold text-outline hover:text-primary transition-colors underline-offset-4 underline">
-            الرجوع لتسجيل الدخول
-        </a>
-</div>
-</main>
-<script>
+  <link rel="stylesheet" href="../assets/riwaq-theme.css">
+  <style id="zam-design-system">
+    :root { --zam-focus: #c0583a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; font-family: "Tajawal", sans-serif; color: var(--riwaq-ink, #24211f); background: var(--riwaq-bg, #f7f5f2); }
+    .page-shell { min-height: 100vh; display: grid; place-items: center; padding: 32px 20px; }
+    main { width: min(100%, 920px); display: grid; grid-template-columns: minmax(0, .9fr) minmax(340px, 1fr); overflow: hidden; background: #fff; border: 1px solid var(--riwaq-line, #e7e1db); border-radius: 22px; box-shadow: 0 16px 48px rgba(44, 31, 18, .08); }
+    .intro { display: flex; flex-direction: column; justify-content: space-between; gap: 36px; padding: clamp(28px, 5vw, 52px); background: var(--riwaq-primary-soft, #f5eee7); }
+    .brand { display: flex; align-items: center; gap: 12px; color: var(--riwaq-sidebar, #33210d); font-size: 18px; font-weight: 800; }
+    .brand img { width: 48px; height: 48px; object-fit: contain; }
+    .intro-copy { max-width: 360px; }
+    .eyebrow { margin: 0 0 10px; color: var(--riwaq-primary, #6b4424); font-size: 14px; font-weight: 700; }
+    h1 { margin: 0 0 14px; color: var(--riwaq-sidebar, #33210d); font-size: clamp(28px, 4vw, 38px); line-height: 1.2; }
+    .intro-copy > p:last-child { margin: 0; color: var(--riwaq-muted, #6b625b); font-size: 17px; line-height: 1.8; }
+    .steps { display: grid; gap: 12px; margin: 28px 0 0; padding: 0; list-style: none; }
+    .steps li { display: flex; align-items: flex-start; gap: 10px; color: var(--riwaq-muted, #6b625b); font-size: 14px; line-height: 1.55; }
+    .step-number { flex: 0 0 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: #fff; color: var(--riwaq-primary, #6b4424); font-weight: 800; }
+    .form-panel { display: flex; flex-direction: column; justify-content: center; padding: clamp(26px, 5vw, 56px); }
+    .form-panel h2 { margin: 0 0 8px; font-size: 22px; color: var(--riwaq-ink, #24211f); }
+    .form-hint { margin: 0 0 24px; color: var(--riwaq-muted, #6b625b); line-height: 1.65; }
+    label { display: block; margin-bottom: 8px; font-weight: 700; }
+    input { width: 100%; min-height: 52px; padding: 12px 14px; border: 1px solid var(--riwaq-line, #d8d0c8); border-radius: 10px; background: #fff; color: var(--riwaq-ink, #24211f); font: inherit; font-size: 16px; }
+    input:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .5); outline-offset: 3px; }
+    .privacy-note { display: flex; gap: 9px; margin: 16px 0 20px; padding: 12px; border-radius: 10px; background: #f7f5f2; color: var(--riwaq-muted, #625951); font-size: 14px; line-height: 1.6; }
+    .privacy-note .material-symbols-outlined { flex: 0 0 auto; font-size: 20px; color: var(--riwaq-primary, #6b4424); }
+    #status-msg { margin: 0 0 14px; padding: 10px 12px; border-radius: 8px; line-height: 1.6; }
+    #status-msg.hidden { display: none; }
+    #submit-btn { width: 100%; min-height: 52px; margin: 0 0 16px; padding: 12px 18px; border: 0; border-radius: 10px; background: var(--riwaq-primary, #51351d); color: #fff; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; }
+    #submit-btn:disabled { cursor: wait; opacity: .75; }
+    .back-link { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; color: var(--riwaq-primary, #51351d); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+    @media (max-width: 680px) { .page-shell { display: block; padding: 16px 12px; } main { grid-template-columns: 1fr; border-radius: 16px; } .intro { gap: 26px; padding: 24px 20px; } .brand img { width: 42px; height: 42px; } .intro-copy > p:last-child { font-size: 16px; } .steps { margin-top: 20px; } .form-panel { padding: 24px 20px 26px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../assets/supabase-config.js?v=20261117194500"></script>
+  <div class="page-shell">
+    <main aria-labelledby="page-title">
+      <section class="intro" aria-label="معلومات استعادة رمز المرور">
+        <div class="brand"><img src="../assets/logo/zam-logo.png" alt=""><span>ZAM Operations</span></div>
+        <div class="intro-copy">
+          <p class="eyebrow">استعادة رمز المرور</p>
+          <h1 id="page-title">نسيت رمز المرور؟</h1>
+          <p>أرسل طلبًا إلى الإدارة باستخدام بريدك الإلكتروني المسجل. ستتواصل معك الإدارة لإعادة تعيين رمز المرور.</p>
+          <ol class="steps" aria-label="خطوات الاستعادة">
+            <li><span class="step-number">١</span><span>أدخل البريد الإلكتروني المرتبط بحسابك.</span></li>
+            <li><span class="step-number">٢</span><span>أرسل الطلب وانتظر تواصل الإدارة معك.</span></li>
+          </ol>
+        </div>
+      </section>
+      <section class="form-panel" aria-labelledby="form-title">
+        <h2 id="form-title">طلب إعادة التعيين</h2>
+        <p class="form-hint">استخدم البريد الذي سجلت به في النظام.</p>
+        <form id="reset-form" novalidate>
+          <label for="email-input">البريد الإلكتروني</label>
+          <input id="email-input" name="email" type="email" autocomplete="email" inputmode="email" dir="ltr" placeholder="name@example.com" aria-describedby="privacy-note status-msg">
+          <p class="privacy-note" id="privacy-note"><span class="material-symbols-outlined" aria-hidden="true">info</span><span>للحفاظ على خصوصية الحسابات، ستظهر الرسالة نفسها سواء كان البريد مسجلًا أم لا.</span></p>
+          <p id="status-msg" class="hidden" role="status" aria-live="polite" aria-atomic="true"></p>
+          <button id="submit-btn" type="button">إرسال الطلب</button>
+        </form>
+        <a href="../index.html" class="back-link">الرجوع لتسجيل الدخول</a>
+      </section>
+    </main>
+  </div>
+  <script>
 const input = document.getElementById('email-input');
 const btn = document.getElementById('submit-btn');
 const msg = document.getElementById('status-msg');
@@ -104,5 +115,6 @@ async function handleSubmit() {
 
 btn.addEventListener('click', handleSubmit);
 input.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSubmit(); });
-</script>
-</body></html>
+  </script>
+</body>
+</html>

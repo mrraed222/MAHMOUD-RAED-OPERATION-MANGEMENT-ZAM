@@ -146,11 +146,20 @@ body.zam-page main h2 { color: var(--riwaq-sidebar); }
 body.zam-page #shift-toggle-wrap { background: var(--riwaq-surface-soft); border-color: var(--riwaq-line); }
 body.zam-page #visit-action-modal > div { border-radius: var(--riwaq-radius); }
 body.zam-page #team-grid img { border-color: var(--riwaq-primary); }
+body.zam-page header { min-height: 84px; height: auto; }
+body.zam-page header a, body.zam-page header button { min-height: 44px; }
+body.zam-page main section { scroll-margin-top: 104px; }
+body.zam-page [role="progressbar"] { min-width: 0; }
 @media (max-width: 767px) {
- body.zam-page header { position: relative; height: auto; min-height: 80px; padding: 14px 16px; align-items: flex-start; gap: 10px; }
+ body.zam-page header { position: relative; height: auto; min-height: 0; padding: 14px 16px; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+ body.zam-page header > div:last-child { width: 100%; justify-content: space-between; flex-wrap: wrap; }
  body.zam-page main { padding-top: 0; }
  body.zam-page main > div { padding: 16px; }
  body.zam-page main section { margin-bottom: 22px; }
+ body.zam-page #shift-toggle-wrap { max-width: 100%; }
+ body.zam-page #shift-toggle-wrap button { min-height: 44px; padding-inline: 12px; }
+ body.zam-page #visit-actions-list article { align-items: stretch; }
+ body.zam-page #visit-actions-list button { width: 100%; min-height: 44px; }
  body.zam-page #visit-action-modal { overflow-y: auto; align-items: flex-start; }
  body.zam-page #visit-action-modal > div { margin-block: auto; }
 }
@@ -159,18 +168,24 @@ body.zam-page #team-grid img { border-color: var(--riwaq-primary); }
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('supervisor-dashboard', currentUser.role);})();</script>
 
-<header class="fixed top-0 left-0 w-full md:pr-[312px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
-  <div class="flex items-center gap-md">
-    <div>
-      <h1 class="font-title-md text-title-md text-primary">داشبورد الفرع</h1>
+<header class="fixed top-0 left-0 w-full md:pr-[312px] bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
+  <div class="flex items-center gap-sm min-w-0">
+    <img src="../assets/logo/zam-logo.png" alt="ZAM" class="zam-logo w-11 h-11 object-contain shrink-0" />
+    <div class="min-w-0">
+      <p class="text-[11px] font-bold text-on-surface-variant">ZAM Operations</p>
+      <h1 class="font-title-md text-title-md text-primary">متابعة الفرع</h1>
       <p class="text-body-sm text-on-surface-variant"><span id="branch-name">—</span> · متابعة فريقك ومهام الوردية</p>
     </div>
   </div>
   <div class="flex items-center gap-md">
+    <div class="text-start text-body-sm text-on-surface-variant" aria-label="هوية المستخدم">
+      <p id="header-user-name" class="font-bold text-on-surface"></p>
+      <p><span id="header-user-role"></span> · <span id="team-shift-label">الوردية</span></p>
+    </div>
     <!-- مبدّل الورديتين يظهر فقط لمن يغطي الورديتين: مشرف "كلا الورديتين" أو مدير -->
-    <div id="shift-toggle-wrap" class="hidden bg-surface-container rounded-full p-xs border border-outline-variant">
-      <button class="shift-toggle px-md py-xs rounded-full text-body-sm font-bold" data-shift="Morning">الصباحية</button>
-      <button class="shift-toggle px-md py-xs rounded-full text-body-sm font-bold" data-shift="Evening">المسائية</button>
+    <div id="shift-toggle-wrap" class="hidden bg-surface-container rounded-full p-xs border border-outline-variant" role="group" aria-label="اختيار الوردية">
+      <button type="button" class="shift-toggle px-md py-xs rounded-full text-body-sm font-bold" data-shift="Morning" aria-pressed="false">الصباحية</button>
+      <button type="button" class="shift-toggle px-md py-xs rounded-full text-body-sm font-bold" data-shift="Evening" aria-pressed="false">المسائية</button>
     </div>
     <div id="notif-bell-slot"></div>
   </div>
@@ -178,6 +193,20 @@ body.zam-page #team-grid img { border-color: var(--riwaq-primary); }
 
 <main class="md:pr-[280px] pt-20 min-h-screen">
 <div class="max-w-6xl mx-auto p-margin-desktop">
+
+  <!-- حالة تقرير الشفت -->
+  <section id="report-status" class="rounded-xl p-md mb-lg flex items-center justify-between gap-md border" role="status" aria-live="polite">
+    <p class="text-body-sm"><span id="report-text">جارِ فحص تقرير الشفت...</span></p>
+    <a href="../daily-report/index.html" class="shrink-0 min-h-[44px] inline-flex items-center bg-primary text-on-primary px-md py-xs rounded-lg font-label-bold hover:bg-primary-container transition-colors">تقرير مشرف الشفت</a>
+  </section>
+
+  <section class="mb-lg" aria-labelledby="visit-actions-heading">
+    <h2 id="visit-actions-heading" class="font-title-md text-title-md text-primary mb-sm flex items-center gap-xs"><span class="material-symbols-outlined" aria-hidden="true">report</span> ما يتطلب إجراءً</h2>
+    <p class="mb-sm text-body-sm text-on-surface-variant">تكليفات الزيارات المفتوحة المسندة لهذا الفرع؛ أرسل الإفادة والإثبات من هنا عند توفر الإجراء.</p>
+    <div id="visit-actions-list" class="space-y-sm" aria-live="polite">
+      <p class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl text-body-sm text-on-surface-variant">جارِ تحميل التكليفات...</p>
+    </div>
+  </section>
 
   <!-- الإحصائيات -->
   <section class="grid grid-cols-2 md:grid-cols-4 gap-md mb-lg">
@@ -203,23 +232,10 @@ body.zam-page #team-grid img { border-color: var(--riwaq-primary); }
     </div>
   </section>
 
-  <!-- حالة تقرير الشفت -->
-  <section id="report-status" class="rounded-xl p-md mb-lg flex items-center justify-between gap-md border">
-    <p class="text-body-sm"><span id="report-text">جارِ فحص تقرير الشفت...</span></p>
-    <a href="../daily-report/index.html" class="shrink-0 bg-primary text-on-primary px-md py-xs rounded-lg font-label-bold hover:bg-primary-container transition-colors">تقرير مشرف الشفت</a>
-  </section>
-
-  <section class="mb-lg">
-    <h2 class="font-title-md text-title-md text-primary mb-sm flex items-center gap-xs"><span class="material-symbols-outlined">report</span> مخالفات وتكليفات الزيارات</h2>
-    <div id="visit-actions-list" class="space-y-sm">
-      <p class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl text-body-sm text-on-surface-variant">جارِ تحميل التكليفات...</p>
-    </div>
-  </section>
-
   <!-- فريق الوردية -->
   <section class="mb-lg">
     <div class="flex items-center justify-between mb-sm">
-      <h2 class="font-title-md text-title-md text-primary flex items-center gap-xs"><span class="material-symbols-outlined">groups</span> فريق <span id="team-shift-label">الوردية</span></h2>
+      <h2 class="font-title-md text-title-md text-primary flex items-center gap-xs"><span class="material-symbols-outlined" aria-hidden="true">groups</span> فريق الوردية</h2>
       <p class="text-[11px] text-on-surface-variant">الفئات ذات اللون المميز = إسناد إضافي خارج دور الموظف الأساسي</p>
     </div>
     <div id="team-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md">
@@ -312,6 +328,7 @@ function setActiveShiftButtons() {
         b.classList.toggle('bg-primary', active);
         b.classList.toggle('text-on-primary', active);
         b.classList.toggle('text-on-surface-variant', !active);
+        b.setAttribute('aria-pressed', String(active));
     });
 }
 
@@ -481,7 +498,7 @@ function render() {
                         return `<span class="px-xs py-[2px] rounded-full text-[10px] font-bold ${isExtra ? 'bg-primary-fixed text-on-primary-fixed' : 'bg-secondary-container text-on-secondary-container'}">${escapeHtml(c)}${isExtra ? ' +إسناد' : ''}</span>`;
                     }).join('')}
                 </div>
-                <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden">
+                <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden" role="progressbar" aria-label="إنجاز مهام الموظف" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}">
                     <div class="h-full ${p === 100 ? 'bg-tertiary' : 'bg-primary'} transition-all" style="width:${p}%"></div>
                 </div>
             </div>`;
@@ -514,7 +531,7 @@ function render() {
                 <p class="font-bold text-on-surface">${escapeHtml(c)}</p>
                 <span class="text-[11px] text-on-surface-variant">${v.done} من ${v.total} منجزة</span>
             </div>
-            <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden mb-sm">
+            <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden mb-sm" role="progressbar" aria-label="إنجاز فئة ${escapeHtml(c)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}">
                 <div class="h-full ${p === 100 ? 'bg-tertiary' : 'bg-primary'}" style="width:${p}%"></div>
             </div>
             <p class="text-[11px] text-on-surface-variant leading-relaxed">
@@ -734,7 +751,11 @@ function noteCardHTML(n) {
 }
 
 (async function init() {
-    const headerAvatar = document.getElementById('header-avatar');
+    const headerName = document.getElementById('header-user-name');
+    if (headerName) headerName.textContent = currentUser.full_name || currentUser.name || '';
+    const headerRole = document.getElementById('header-user-role');
+    const headerRoleLabels = { Supervisor: 'مشرف وردية', Manager: 'مدير', Owner: 'مالك', Admin: 'مدير نظام' };
+    if (headerRole) headerRole.textContent = headerRoleLabels[currentUser.role] || currentUser.role || '';
     setActiveShiftButtons();
     try {
         await loadAll();

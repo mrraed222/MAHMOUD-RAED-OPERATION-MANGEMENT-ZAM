@@ -53,7 +53,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <style id="riwaq-manage-templates">
 :root { --zam-coffee:#217a5e; --zam-coffee-light:#16392f; --zam-focus:#bd8150; --zam-surface:#fff; }
 body.zam-page { background:#f4f6f2 !important; color:#20312b; font-family:var(--font-ui); }
-body.zam-page header.fixed { min-height:84px; height:auto; padding-block:14px; background:#fff; border-color:#e3e9e3; box-shadow:0 3px 14px rgba(29,47,39,.045); }
+body.zam-page header.fixed { min-height:92px; height:auto; padding-block:12px; background:#fff; border-color:#e3e9e3; box-shadow:0 3px 14px rgba(29,47,39,.045); }
+.zam-page .page-brand { display:flex; align-items:center; gap:12px; min-width:0; }
+.zam-page .page-brand img { width:48px; height:48px; object-fit:contain; flex:none; }
+.zam-page .page-actions { display:flex; align-items:center; gap:10px; flex:none; }
+.zam-page #templates-container > section, .zam-page #restroom-setup-slot > section { scroll-margin-top:110px; }
+.zam-page #templates-container details > summary:focus-visible { outline:3px solid rgba(192,88,58,.55); outline-offset:-3px; }
+.zam-page .page-intro { border-inline-start:4px solid #217a5e; }
 body.zam-page header.fixed h1 { color:#20312b !important; font-size:21px; }
 body.zam-page header.fixed p { color:#697871 !important; }
 body.zam-page main > div { max-width:1120px; padding:30px 32px 48px; }
@@ -79,9 +85,11 @@ body.zam-page button.bg-primary { background:#217a5e !important; }
 @media (max-width:760px) {
  body.zam-page header.fixed { position:relative; inset:auto; min-height:0; padding:14px 16px; flex-wrap:wrap; gap:12px; }
  body.zam-page header.fixed > div:first-child { width:100%; gap:10px; }
+ .zam-page .page-brand img { width:40px; height:40px; }
+ .zam-page .page-actions { width:100%; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
  body.zam-page header.fixed h1 { font-size:18px; }
  body.zam-page header.fixed p { max-width:58ch; line-height:1.55; }
- body.zam-page header.fixed > button { min-height:42px; margin:0; padding-inline:11px; font-size:12px; }
+ .zam-page .page-actions button { min-height:44px; margin:0; padding-inline:10px; font-size:12px; justify-content:center; }
  body.zam-page main { padding-top:0; }
  body.zam-page main > div { padding:20px 14px 32px; }
  #templates-container > section > div:first-child { align-items:flex-start; flex-direction:column; gap:10px; }
@@ -99,25 +107,30 @@ body.zam-page button.bg-primary { background:#217a5e !important; }
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('manage-templates', currentUser.role);})();</script>
 
-<header class="fixed top-0 left-0 w-full md:pr-[312px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
-  <div class="flex items-center gap-md">
-    <a href="../dashboard/index.html" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">arrow_forward</span></a>
-    <div>
-      <h1 class="font-title-md text-title-md text-primary">إدارة قوائم التحقق</h1>
-      <p class="text-body-sm text-on-surface-variant">إدارة القوالب النشطة وأرشفتها مع حفظ النسخ والسجلات التاريخية</p>
+<header class="fixed top-0 left-0 w-full md:pr-[312px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop" aria-label="رأس إدارة القوالب">
+  <div class="page-brand">
+    <a href="../dashboard/index.html" class="text-on-surface-variant hover:text-primary rounded-lg p-xs" aria-label="العودة إلى لوحة التحكم"><span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
+    <img src="../assets/logo/zam-logo.png" alt="ZAM" width="48" height="48">
+    <div class="min-w-0">
+      <h1 class="font-title-md text-title-md text-primary">إدارة قوالب التحقق</h1>
+      <p class="text-body-sm text-on-surface-variant">إدارة القوالب النشطة والإصدارات والأرشيف؛ لا تُحذف النسخ القديمة وسجلاتها.</p>
     </div>
   </div>
-  <button id="open-fridges-btn" class="border border-primary text-primary rounded-lg px-md py-sm font-bold flex items-center gap-1 ml-sm">🧊 إدارة الثلاجات</button>
-  <button id="add-template-btn" class="bg-primary text-on-primary rounded-lg px-md py-sm font-bold flex items-center gap-1">
-    <span class="material-symbols-outlined text-base">add</span> مهمة جديدة
-  </button>
+  <div class="page-actions">
+    <button id="open-fridges-btn" type="button" class="border border-primary text-primary rounded-lg px-md py-sm font-bold flex items-center gap-1"><span aria-hidden="true">🧊</span> إدارة الثلاجات والفريزرات</button>
+    <button id="add-template-btn" type="button" class="bg-primary text-on-primary rounded-lg px-md py-sm font-bold flex items-center gap-1"><span class="material-symbols-outlined text-base" aria-hidden="true">add</span> مهمة جديدة</button>
+  </div>
 </header>
 
-<main class="md:pr-[280px] pt-20 min-h-screen"><div class="max-w-4xl mx-auto p-margin-desktop">
-  <div id="perm-warning" class="hidden bg-error-container text-on-error-container p-md rounded-xl mb-md text-body-sm"></div>
-  <div id="restroom-setup-slot" class="mb-md"></div>
-  <div id="templates-container">
-    <p class="text-on-surface-variant text-body-sm">جارِ التحميل...</p>
+<main class="md:pr-[280px] pt-20 min-h-screen"><div class="max-w-5xl mx-auto p-margin-desktop">
+  <div id="perm-warning" class="hidden bg-error-container text-on-error-container p-md rounded-xl mb-md text-body-sm" role="alert"></div>
+  <section class="page-intro mb-md rounded-xl bg-white p-md" aria-label="معلومات إدارة القوالب">
+    <h2 class="font-bold text-primary">تهيئة القوالب ثم مراجعة النسخ</h2>
+    <p class="mt-xs text-body-sm text-on-surface-variant leading-6">ابدأ بتهيئة جدول الحمامات إذا ظهر تنبيه التهيئة، ثم راجع القوالب النشطة والأسبوعية. التعديلات تُنشئ إصدارًا جديدًا، والأرشفة تحفظ النسخة وسجلات التنفيذ.</p>
+  </section>
+  <div id="restroom-setup-slot" class="mb-md" aria-live="polite"></div>
+  <div id="templates-container" aria-live="polite" aria-busy="true">
+    <p class="rounded-xl border border-outline-variant bg-white p-md text-on-surface-variant text-body-sm" role="status">جارِ تحميل القوالب والإصدارات المحفوظة…</p>
   </div>
 </div></main>
 
@@ -127,24 +140,24 @@ body.zam-page button.bg-primary { background:#217a5e !important; }
     <h3 class="font-title-md text-title-md text-primary mb-md" id="modal-title">مهمة جديدة</h3>
     <div class="flex flex-col gap-sm">
       <div>
-        <label class="text-body-sm text-on-surface-variant">اسم المهمة</label>
+        <label for="f-task-title" class="text-body-sm text-on-surface-variant">اسم المهمة</label>
         <input id="f-task-title" class="w-full border border-outline-variant rounded-lg p-sm mt-xs" placeholder="مثال: مراجعة نظافة منطقة التحضير"/>
       </div>
       <div class="grid grid-cols-2 gap-sm">
         <div>
-          <label class="text-body-sm text-on-surface-variant">القائمة الرئيسية (الفئة)</label>
+          <label for="f-category" class="text-body-sm text-on-surface-variant">القائمة الرئيسية (الفئة)</label>
           <input id="f-category" list="category-options" class="w-full border border-outline-variant rounded-lg p-sm mt-xs" placeholder="البار / المطبخ / الصالة..."/>
           <datalist id="category-options"></datalist>
         </div>
       <div>
-        <label class="text-body-sm text-on-surface-variant">الوردية</label>
+        <label for="f-shift" class="text-body-sm text-on-surface-variant">الوردية</label>
         <select id="f-shift" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
           <option value="Morning">صباحية</option>
           <option value="Evening">مسائية</option>
         </select>
       </div>
       <div>
-        <label class="text-body-sm text-on-surface-variant">التكرار</label>
+        <label for="f-frequency" class="text-body-sm text-on-surface-variant">التكرار</label>
         <select id="f-frequency" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
           <option value="daily">يومي</option>
           <option value="weekly">أسبوعي (اختيار عدة أيام)</option>
@@ -542,6 +555,7 @@ async function loadTemplates() {
         } else {
             setupSlot.innerHTML = '';
         }
+        container.setAttribute('aria-busy', 'false');
         const activeTemplates = allTemplates.filter(t => t.is_active !== false);
         const groupedActiveTemplates = collapseActiveTemplateGroups(activeTemplates);
         activeTemplateGroupById = new Map(groupedActiveTemplates.map(task => [task.id, task]));
@@ -696,7 +710,8 @@ async function loadTemplates() {
         }));
     } catch (err) {
         console.error(err);
-        container.innerHTML = '<p class="text-error text-body-sm">تعذّر تحميل قوائم التحقق.</p>';
+        container.setAttribute('aria-busy', 'false');
+        container.innerHTML = '<p class="rounded-xl border border-error bg-error-container/40 p-md text-error text-body-sm" role="alert">تعذّر تحميل قوائم التحقق. تحقّق من الاتصال والصلاحية ثم أعد تحميل الصفحة.</p>';
     }
 }
 

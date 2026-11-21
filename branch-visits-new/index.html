@@ -20,6 +20,11 @@
   <link rel="stylesheet" href="../assets/riwaq-theme.css">
   <style>
     body { background: var(--riwaq-bg) !important; color: var(--riwaq-ink); }
+    :focus-visible { outline: 3px solid var(--riwaq-accent, #8b5e3c); outline-offset: 3px; }
+    button, select, input, textarea, a { min-height: 44px; }
+    textarea { min-height: 88px; }
+    .flow-label { color: var(--riwaq-primary); letter-spacing: .02em; }
+    .score { min-height: 44px; }
     .card { background: var(--riwaq-surface); border-color: var(--riwaq-line); border-radius: var(--riwaq-radius); box-shadow: var(--riwaq-shadow); }
     .brand { background: var(--riwaq-sidebar); color: #fff; }
     .muted { color: var(--riwaq-muted); }
@@ -35,74 +40,48 @@
       header.brand .h-20 { height: 3.5rem; }
       main { padding: 16px !important; }
       .card { padding: 16px !important; }
-      .score { padding-inline: 10px; }
+      .score { padding-inline: 10px; min-width: 48px; }
       .item .flex.justify-between { align-items: flex-start; }
       #assignmentForm { grid-template-columns: minmax(0,1fr); }
+      header.brand h1 { font-size: 1.65rem; line-height: 1.3; }
     }
     @media print { .card { box-shadow: none; } }
   </style>
 </head>
 <body>
   <header class="brand p-6">
-    <div class="max-w-5xl mx-auto mb-3 flex items-center justify-between gap-3">
-      <img src="../assets/logo/zam-logo.png" alt="شعار زام" class="h-20 w-auto object-contain bg-white rounded-xl p-1 shadow-sm">
-      <a href="../dashboard/index.html" title="الصفحة الأساسية" aria-label="الصفحة الأساسية" class="no-print w-9 h-9 rounded-full bg-white/20 border border-white/40 text-white inline-flex items-center justify-center hover:bg-white/30 transition"><svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></a>
-    </div>
-    <div class="max-w-5xl mx-auto flex justify-between items-center gap-3 flex-wrap">
-      <div><p class="opacity-75">Operations Expert</p><h1 class="text-3xl font-black">تقرير زيارة فرع</h1><p class="opacity-85">تكليف مشرف بزيارة فرعه وفحصه، مع صلاحيات مضبوطة من صفحة الصلاحيات.</p></div>
-      <a href="../branch-visits-history/index.html" class="no-print bg-white text-[#33210d] rounded-full px-4 py-2 font-bold">السجل والتقارير</a>
+    <div class="max-w-5xl mx-auto flex items-center justify-between gap-4">
+      <div class="flex items-center gap-4"><img src="../assets/logo/zam-logo.png" alt="شعار زام" class="h-20 w-auto object-contain bg-white rounded-xl p-1 shadow-sm"><div><p class="opacity-75">Operations Expert</p><h1 class="text-3xl font-black">تسجيل زيارة فرع</h1><p class="opacity-85 mt-1">إسناد الزيارة، استكمال التقييم، ثم حفظ الاعتماد والإثباتات.</p></div></div>
+      <nav class="no-print flex items-center gap-2" aria-label="التنقل والإجراءات"><a href="../dashboard/index.html" title="الصفحة الأساسية" aria-label="الصفحة الأساسية" class="w-11 h-11 rounded-full bg-white/20 border border-white/40 text-white inline-flex items-center justify-center hover:bg-white/30 transition"><svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></a><a href="../branch-visits-history/index.html" class="bg-white text-[#33210d] rounded-full px-4 py-2 font-bold inline-flex items-center">السجل والتقارير</a></nav>
     </div>
   </header>
   <main class="max-w-5xl mx-auto p-5 md:p-8 space-y-5">
-    <div id="message" class="hidden"></div>
-
-    <section id="assignmentAdmin" class="card p-5 hidden">
-      <h2 class="text-xl font-bold">تكليف مشرف بزيارة وفحص فرعه</h2>
-      <p class="muted text-sm mt-1">اختر الفرع والمشرف النشط التابع له، وحدد موعد الزيارة والشفت ونوعها. سيظهر التكليف للمشرف في صفحة الزيارة؛ ولا يتيح له ذلك صلاحية مراجعة الإثباتات أو إغلاق المخالفات.</p>
-      <form id="assignmentForm" class="grid md:grid-cols-3 gap-3 mt-4">
-        <label>الفرع<select id="scheduleBranch" required class="w-full border rounded-lg p-2 mt-1"></select></label>
-        <label>المشرف المكلف بالزيارة<select id="scheduleAssignee" required class="w-full border rounded-lg p-2 mt-1"><option value="">اختر الفرع أولاً</option></select></label>
-        <label>موعد الزيارة<input id="scheduleDate" type="date" required class="w-full border rounded-lg p-2 mt-1"></label>
-        <label>الشفت<select id="scheduleShift" class="w-full border rounded-lg p-2 mt-1"><option value="Morning">صباحي</option><option value="Evening">مسائي</option></select></label>
-        <label>نوع الزيارة<select id="scheduleType" class="w-full border rounded-lg p-2 mt-1"><option>زيارة دورية</option><option>زيارة مفاجئة</option><option>زيارة متابعة</option><option>بسبب شكوى أو مشكلة</option></select></label>
-        <label>ملاحظات للمكلف<textarea id="scheduleNotes" rows="1" class="w-full border rounded-lg p-2 mt-1"></textarea></label>
-        <div class="md:col-span-3"><button id="assignButton" type="submit" class="bg-[#33210d] text-white rounded-full px-5 py-2 font-bold">إسناد المهمة</button></div>
-      </form>
-    </section>
-
-    <section id="assignedTasksCard" class="card p-5 hidden">
-      <h2 class="text-xl font-bold">الزيارات المسندة إليك</h2>
-      <p class="muted text-sm mt-1">لا يمكن إنشاء تقرير مكلّف به إلا من هذا الاختيار. تُطابق قاعدة البيانات الشخص والفرع والتاريخ والشفت عند الحفظ.</p>
-      <div class="mt-3 flex flex-col md:flex-row gap-3">
-        <select id="assignmentSelect" class="w-full md:max-w-xl border rounded-lg p-2"><option value="">اختر تكليف زيارة</option></select>
-        <button id="useAssignment" type="button" class="bg-[#76583d] text-white rounded-full px-5 py-2 font-bold">بدء الزيارة</button>
-      </div>
-      <p id="assignmentNote" class="muted text-sm mt-2"></p>
-    </section>
-
-    <section class="card p-5">
-      <div class="grid md:grid-cols-4 gap-3">
+    <div id="message" class="hidden" role="status" aria-live="polite"></div>
+    <section class="card p-4 md:p-5" aria-label="سياق الزيارة"><p class="flow-label text-xs font-bold">سياق الزيارة</p><p class="muted text-sm mt-1">تُحدد بيانات الفرع والموعد والشفت ونوع الزيارة قبل التقييم. عند بدء تكليف، تُطابق هذه البيانات مع التكليف المسند.</p>
+      <div class="grid md:grid-cols-4 gap-3 mt-4">
         <label>الفرع<select id="branch" class="w-full border rounded-lg p-2 mt-1"><option value="">اختر الفرع</option></select></label>
         <label>التاريخ<input id="date" type="date" class="w-full border rounded-lg p-2 mt-1"></label>
         <label>الشفت<select id="shift" class="w-full border rounded-lg p-2 mt-1"><option value="Morning">صباحي</option><option value="Evening">مسائي</option></select></label>
         <label>نوع الزيارة<select id="visitType" class="w-full border rounded-lg p-2 mt-1"><option>زيارة دورية</option><option>زيارة مفاجئة</option><option>زيارة متابعة</option><option>بسبب شكوى أو مشكلة</option></select></label>
-      </div>
-      <div id="openActions" class="mt-4"></div>
+      </div><div id="openActions" class="mt-4" aria-live="polite"></div>
     </section>
-
+    <section id="assignedTasksCard" class="card p-5 hidden" aria-labelledby="assignedHeading">
+      <p class="flow-label text-xs font-bold">ابدأ من التكليف</p><h2 id="assignedHeading" class="text-xl font-bold mt-1">الزيارات المسندة إليك</h2>
+      <p class="muted text-sm mt-1">لا يمكن إنشاء تقرير مكلّف به إلا من هذا الاختيار. تُطابق قاعدة البيانات الشخص والفرع والتاريخ والشفت عند الحفظ.</p>
+      <div class="mt-3 flex flex-col md:flex-row gap-3"><label class="sr-only" for="assignmentSelect">اختر تكليف زيارة</label><select id="assignmentSelect" class="w-full md:max-w-xl border rounded-lg p-2"><option value="">اختر تكليف زيارة</option></select><button id="useAssignment" type="button" class="bg-[#76583d] text-white rounded-full px-5 py-2 font-bold">بدء الزيارة</button></div><p id="assignmentNote" class="muted text-sm mt-2" aria-live="polite"></p>
+    </section>
+    <section id="assignmentAdmin" class="card p-5 hidden" aria-labelledby="assignmentAdminHeading">
+      <p class="flow-label text-xs font-bold">إسناد زيارة</p><h2 id="assignmentAdminHeading" class="text-xl font-bold mt-1">تكليف مشرف بزيارة وفحص فرعه</h2>
+      <p class="muted text-sm mt-1">اختر الفرع والمشرف النشط التابع له، وحدد موعد الزيارة والشفت ونوعها. سيظهر التكليف للمشرف في صفحة الزيارة؛ ولا يتيح له ذلك صلاحية مراجعة الإثباتات أو إغلاق المخالفات.</p>
+      <form id="assignmentForm" class="grid md:grid-cols-3 gap-3 mt-4">
+        <label>الفرع<select id="scheduleBranch" required class="w-full border rounded-lg p-2 mt-1"></select></label><label>المشرف المكلف بالزيارة<select id="scheduleAssignee" required class="w-full border rounded-lg p-2 mt-1"><option value="">اختر الفرع أولاً</option></select></label><label>موعد الزيارة<input id="scheduleDate" type="date" required class="w-full border rounded-lg p-2 mt-1"></label>
+        <label>الشفت<select id="scheduleShift" class="w-full border rounded-lg p-2 mt-1"><option value="Morning">صباحي</option><option value="Evening">مسائي</option></select></label><label>نوع الزيارة<select id="scheduleType" class="w-full border rounded-lg p-2 mt-1"><option>زيارة دورية</option><option>زيارة مفاجئة</option><option>زيارة متابعة</option><option>بسبب شكوى أو مشكلة</option></select></label><label>ملاحظات للمكلف<textarea id="scheduleNotes" rows="1" class="w-full border rounded-lg p-2 mt-1"></textarea></label>
+        <div class="md:col-span-3"><button id="assignButton" type="submit" class="bg-[#33210d] text-white rounded-full px-5 py-2 font-bold">إسناد المهمة</button></div>
+      </form>
+    </section>
     <form id="form" class="space-y-5">
-      <section class="card p-5">
-        <div class="flex justify-between items-center gap-3 flex-wrap"><div><h2 class="text-xl font-bold">نموذج التقييم</h2></div><strong id="progress">لم يبدأ التقييم</strong></div>
-        <div id="items" class="mt-5 space-y-3"><div class="muted">جارٍ تحميل المعايير…</div></div>
-      </section>
-      <section class="card p-5">
-        <h2 class="text-xl font-bold">بيانات الاعتماد</h2>
-        <div class="grid md:grid-cols-2 gap-3 mt-3">
-          <label>ملاحظات عامة<textarea id="generalNote" class="w-full border rounded-lg p-2 mt-1" rows="4"></textarea></label>
-          <div class="bg-[#f7f3ef] rounded-xl p-4"><p class="muted">منفّذ الزيارة:</p><p id="signer" class="font-bold mt-2"></p><p class="text-sm font-bold mt-2">اعتماد إلكتروني — محمود شريف — إدارة التشغيل</p><p class="text-sm muted mt-2">يحفظ النظام هوية منفّذ الزيارة وتاريخ الاعتماد إلكترونياً.</p><label class="flex gap-2 items-center mt-4"><input id="confirmEval" type="checkbox"> أؤكد صحة التقييم والبيانات</label></div>
-        </div>
-        <button id="save" class="mt-5 bg-[#33210d] text-white rounded-full px-6 py-3 font-bold" type="submit">اعتماد وتوقيع الزيارة</button>
-      </section>
+      <section class="card p-5" aria-labelledby="assessmentHeading"><div class="flex justify-between items-center gap-3 flex-wrap"><div><p class="flow-label text-xs font-bold">الخطوة التالية · التقييم</p><h2 id="assessmentHeading" class="text-xl font-bold mt-1">تقييم معايير الزيارة</h2><p class="muted text-sm mt-1">قيّم كل معيار، ثم أضف إجراءً وإثباتًا عند الحاجة.</p></div><strong id="progress" aria-live="polite">لم يبدأ التقييم</strong></div><div id="items" class="mt-5 space-y-3" aria-live="polite"><div class="muted" role="status">جارٍ تحميل المعايير…</div></div></section>
+      <section class="card p-5" aria-labelledby="signoffHeading"><p class="flow-label text-xs font-bold">الخطوة الأخيرة · المراجعة والاعتماد</p><h2 id="signoffHeading" class="text-xl font-bold mt-1">مراجعة بيانات الاعتماد</h2><div class="grid md:grid-cols-2 gap-3 mt-3"><label>ملاحظات عامة<textarea id="generalNote" class="w-full border rounded-lg p-2 mt-1" rows="4"></textarea></label><div class="bg-[#f7f3ef] rounded-xl p-4"><p class="muted">منفّذ الزيارة:</p><p id="signer" class="font-bold mt-2"></p><p class="text-sm font-bold mt-2">اعتماد إلكتروني — محمود شريف — إدارة التشغيل</p><p class="text-sm muted mt-2">يحفظ النظام هوية منفّذ الزيارة وتاريخ الاعتماد إلكترونياً.</p><label class="flex gap-2 items-center mt-4"><input id="confirmEval" type="checkbox"> أؤكد صحة التقييم والبيانات</label></div></div><button id="save" class="mt-5 bg-[#33210d] text-white rounded-full px-6 py-3 font-bold" type="submit">اعتماد وتوقيع الزيارة</button></section>
     </form>
   </main>
 

@@ -212,14 +212,14 @@ async function openDetail(id) {
 
     try {
         const [wasteRes, issuesRes, reviewsRes] = await Promise.all([
-            zamClient.from('waste_logs').select('*').eq('report_id', id),
+            zamClient.from('waste_logs').select('id', { count: 'exact', head: true }).eq('report_id', id),
             zamClient.from('shift_issues').select('*').eq('report_id', id),
             zamClient.from('negative_reviews').select('*').eq('report_id', id),
         ]);
-        if (wasteRes.error) throw new Error(`تعذّرت قراءة الهدر: ${wasteRes.error.message}`);
+        if (wasteRes.error) console.warn('تعذّر قراءة ملخص الهدر:', wasteRes.error);
         if (issuesRes.error) console.warn('تعذّرت قراءة مشاكل الشفت:', issuesRes.error);
         if (reviewsRes.error) console.warn('تعذّرت قراءة التقييمات:', reviewsRes.error);
-        const waste = wasteRes.data || [], issues = issuesRes.data || [], reviews = reviewsRes.data || [];
+        const wasteCount = Number(wasteRes.count || 0), issues = issuesRes.data || [], reviews = reviewsRes.data || [];
 
         body.innerHTML = `
             <div class="grid grid-cols-3 gap-sm mb-md text-center">
@@ -227,10 +227,10 @@ async function openDetail(id) {
                 <div class="bg-surface-container rounded-lg p-sm"><p class="text-[11px] text-on-surface-variant">الطلبات</p><p class="font-bold">${escapeHtml(report.orders_count)}</p></div>
                 <div class="bg-surface-container rounded-lg p-sm"><p class="text-[11px] text-on-surface-variant">متوسط الفاتورة</p><p class="font-bold">${Number(report.avg_ticket || 0).toFixed(2)}</p></div>
             </div>
-            ${waste.length ? `<h4 class="font-bold text-primary mb-xs">الهدر</h4><ul class="text-body-sm mb-md list-disc pr-md">${waste.map(w => `<li>${escapeHtml(w.item_name)}: ${escapeHtml(w.quantity)} ${escapeHtml(w.unit)} — ${escapeHtml(w.reason || '')}</li>`).join('')}</ul>` : ''}
+            <div class="bg-surface-container rounded-lg p-sm mb-md"><p class="text-body-sm text-on-surface-variant">ملخص الهدر</p><p class="${wasteRes.error ? 'text-error' : 'font-bold'}">${wasteRes.error ? 'تعذّر تحميل الملخص' : wasteCount.toLocaleString('ar-SA') + ' سجل'}</p></div>
             ${issues.length ? `<h4 class="font-bold text-primary mb-xs">مشاكل الشفت</h4><ul class="text-body-sm mb-md list-disc pr-md">${issues.map(i => `<li>[${escapeHtml(i.priority)}] ${escapeHtml(i.description)}</li>`).join('')}</ul>` : ''}
             ${reviews.length ? `<h4 class="font-bold text-primary mb-xs">التقييمات</h4><ul class="text-body-sm list-disc pr-md">${reviews.map(r => `<li>${r.review_type === 'positive' ? '👍' : '👎'} ${escapeHtml(r.comment_text)}</li>`).join('')}</ul>` : ''}
-            ${!waste.length && !issues.length && !reviews.length ? '<p class="text-body-sm text-on-surface-variant">لا توجد تفاصيل إضافية.</p>' : ''}
+            ${!wasteRes.error && !issuesRes.error && !reviewsRes.error && !wasteCount && !issues.length && !reviews.length ? '<p class="text-body-sm text-on-surface-variant">لا توجد تفاصيل إضافية.</p>' : ''}
         `;
     } catch (err) {
         console.error(err);

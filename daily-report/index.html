@@ -144,6 +144,17 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 :root { --zam-coffee:#217a5e; --zam-coffee-light:#16392f; --zam-focus:#bd8150; --zam-surface:#fff; }
 body.zam-page { background:#f4f6f2 !important; color:#20312b !important; font-family:'IBM Plex Sans Arabic','Manrope','Tajawal',sans-serif; }
 body.zam-page header { border-color:#e3e9e3 !important; }
+body.zam-page .report-header { right:280px; min-height:80px; height:auto; gap:16px; }
+body.zam-page .report-header .identity { color:#697871; font-size:13px; display:flex; gap:8px; flex-wrap:wrap; }
+body.zam-page main { padding-top:112px !important; }
+body.zam-page main .report-context { border-radius:18px; }
+body.zam-page main .report-card { border-radius:18px; }
+body.zam-page main .report-card h3 { line-height:1.45; }
+body.zam-page main .report-context label { font-weight:700; }
+body.zam-page main .report-section-note { border-right:3px solid #bd8150; padding:8px 12px; background:#f7f8f5; border-radius:8px; }
+body.zam-page :focus-visible { outline:3px solid #bd8150; outline-offset:3px; }
+body.zam-page button, body.zam-page a, body.zam-page input, body.zam-page select { min-height:44px; }
+body.zam-page input[type=checkbox] { min-height:24px; min-width:24px; }
 body.zam-page main { color:#20312b; }
 body.zam-page main > div, body.zam-page main section, body.zam-page main article { scroll-margin-top:88px; }
 body.zam-page main .rounded-xl, body.zam-page main .rounded-lg, body.zam-page main .rounded-full { border-color:#e3e9e3; }
@@ -157,8 +168,9 @@ body.zam-page main .text-primary { color:#217a5e !important; }
 body.zam-page main .text-on-surface-variant { color:#697871 !important; }
 body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 @media (max-width:767px) {
-  body.zam-page header { padding-inline:16px !important; gap:12px; }
-  body.zam-page main { padding-inline:16px !important; }
+  body.zam-page .report-header { right:0; margin-right:0 !important; min-height:76px; padding:10px 16px !important; flex-wrap:wrap; }
+  body.zam-page .report-header .brand-mark { width:38px; height:38px; }
+  body.zam-page main { margin-right:0 !important; padding:104px 16px 24px !important; }
   body.zam-page main .flex.gap-sm { flex-wrap:wrap; }
   body.zam-page main input:not([type=checkbox]), body.zam-page main select { max-width:100%; }
   body.zam-page main table { font-size:13px; }
@@ -169,45 +181,49 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 <!-- Sidebar Navigation (Predicted Component) -->
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('daily-report', currentUser.role);})();</script>
 <!-- Top AppBar (Predicted Component) -->
-<header class="fixed top-0 left-0 right-0 mr-[280px] h-20 bg-surface shadow-sm z-40 flex justify-between items-center px-margin-desktop border-b border-outline-variant">
+<header class="report-header fixed top-0 left-0 mr-[280px] bg-surface shadow-sm z-40 flex justify-between items-center px-margin-desktop border-b border-outline-variant" aria-label="رأس تقرير الشفت">
 <div class="flex items-center gap-md">
-<h2 class="font-headline-lg text-headline-lg font-black text-primary" id="page-title">التقارير اليومية</h2>
+<img class="brand-mark zam-logo w-12 h-12 object-contain" src="../assets/logo/zam-logo.png" alt="شعار ZAM"/>
+<div><p class="text-xs font-bold text-on-surface-variant">ZAM Coffee Operations</p>
+<h2 class="font-headline-lg text-headline-lg font-black text-primary" id="page-title">تقرير الشفت اليومي</h2>
+<p class="identity"><span id="report-employee-name"></span><span id="report-employee-role"></span></p></div>
 </div>
 <div class="flex items-center gap-md">
-<div class="flex gap-xs">
-<span class="px-sm py-xs bg-secondary-container text-on-secondary-container rounded-full text-label-bold font-label-bold">الوردية الصباحية</span>
-<span class="px-sm py-xs bg-surface-container-highest text-on-surface-variant rounded-full text-label-bold font-label-bold">الوردية المسائية</span>
+<div class="hidden md:flex gap-xs">
+<span class="px-sm py-xs bg-secondary-container text-on-secondary-container rounded-full text-label-bold font-label-bold">تقرير يومي</span>
 </div>
 <div class="flex gap-sm border-r border-outline-variant pr-md mr-md">
 <div id="notif-bell-slot"></div>
-<button class="w-10 h-10 rounded-full hover:bg-surface-container-high flex items-center justify-center transition-all">
-<span class="material-symbols-outlined text-on-surface-variant">help</span>
-</button>
+<button type="button" aria-label="مساعدة" class="w-11 h-11 rounded-full hover:bg-surface-container-high flex items-center justify-center transition-all"><span class="material-symbols-outlined text-on-surface-variant" aria-hidden="true">help</span></button>
 </div>
 </div>
 </header>
 <!-- Main Content Canvas -->
-<main class="mr-[280px] pt-24 min-h-screen p-margin-desktop">
+<main class="mr-[280px] min-h-screen p-margin-desktop" aria-labelledby="page-title">
 <!-- Tab 1: Daily Report Form -->
-<section class="tab-content active space-y-gutter animate-fade-in" id="content-report">
-<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
-<div class="bg-surface rounded-full p-md card-shadow border border-outline-variant">
+<section class="tab-content active space-y-gutter animate-fade-in" id="content-report" aria-label="نموذج تقرير الشفت">
+<div class="report-context bg-white border border-outline-variant p-lg card-shadow">
+<h1 class="text-xl font-bold text-primary">بيانات التقرير</h1>
+<p class="text-sm text-on-surface-variant mt-xs">ابدأ بتحديد تاريخ التقرير والوردية واسم المشرف، ثم أدخل المبيعات وبقية تفاصيل الشفت. تُراجع أهلية الفرع والتقرير السابق قبل الإرسال.</p>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter mt-md">
+<div class="bg-surface rounded-xl p-md card-shadow border border-outline-variant report-card">
 <label class="block text-label-bold font-label-bold text-primary mb-xs">التاريخ</label>
 <input class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm" id="reportDate" type="date"/>
 </div>
-<div class="bg-surface rounded-full p-md card-shadow border border-outline-variant">
+<div class="bg-surface rounded-xl p-md card-shadow border border-outline-variant report-card">
 <label class="block text-label-bold font-label-bold text-primary mb-xs">الوردية</label>
 <select class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm" id="shiftType">
 <option value="Morning">الوردية الصباحية</option>
 <option value="Evening">الوردية المسائية</option>
 </select>
 </div>
-<div class="bg-surface rounded-full p-md card-shadow border border-outline-variant">
+<div class="bg-surface rounded-xl p-md card-shadow border border-outline-variant report-card">
 <label class="block text-label-bold font-label-bold text-primary mb-xs">اسم المشرف</label>
 <input class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm" id="supervisorName" placeholder="أدخل الاسم" type="text"/>
 </div>
 </div>
-<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant">
+</div>
+<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card">
 <h3 class="font-title-md text-title-md text-primary border-b border-outline-variant pb-base mb-md flex items-center gap-sm">
 <span class="material-symbols-outlined">payments</span> البيانات المالية
                 </h3>
@@ -230,7 +246,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </div>
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
 <!-- حالة الفريق -->
-<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant">
+<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card">
 <h3 class="font-title-md text-title-md text-primary border-b border-outline-variant pb-base mb-md flex items-center gap-sm">
 <span class="material-symbols-outlined">groups</span> أداء الفريق
                     </h3>
@@ -246,7 +262,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </a>
 </div>
 <!-- Waste Section -->
-<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant">
+<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card">
 <div class="flex justify-between items-center border-b border-outline-variant pb-base mb-md">
 <h3 class="font-title-md text-title-md text-primary flex items-center gap-sm">
 <span class="material-symbols-outlined text-error">delete_sweep</span> الهدر
@@ -271,7 +287,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </div>
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
 <!-- Google Reviews -->
-<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant">
+<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card">
 <div class="flex justify-between items-center border-b border-outline-variant pb-base mb-md">
 <h3 class="font-title-md text-title-md text-primary flex items-center gap-sm">
 <span class="material-symbols-outlined text-tertiary-container">star</span> تقييمات Google Maps وشكاوى العملاء
@@ -296,7 +312,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </table></div>
 </div>
 <!-- Shift Issues -->
-<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant">
+<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card">
 <div class="flex justify-between items-center border-b border-outline-variant pb-base mb-md">
 <h3 class="font-title-md text-title-md text-primary flex items-center gap-sm">
 <span class="material-symbols-outlined text-error">report_problem</span> مشاكل الشفت
@@ -319,7 +335,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </table></div>
 </div>
 <!-- Technical Issues -->
-<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant" id="tech-issues-card">
+<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card" id="tech-issues-card">
 <div class="flex justify-between items-center border-b border-outline-variant pb-base mb-md">
 <h3 class="font-title-md text-title-md text-primary flex items-center gap-sm">
 <span class="material-symbols-outlined text-error">build</span> المشاكل التقنية
@@ -347,13 +363,13 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </div>
 <div id="tech-list"><p class="text-body-sm text-on-surface-variant">جارِ التحميل...</p></div>
 </div>
-<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant" id="complaint-management-card">
+<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card" id="complaint-management-card">
     <h3 class="font-title-md text-title-md text-primary border-b border-outline-variant pb-base mb-md">متابعة شكاوى العملاء وحالة المعالجة</h3>
     <p class="text-[12px] text-on-surface-variant mb-sm">تظهر هنا التقييمات السلبية والشكاوى المُدخلة في تقرير الشفت. يمكن للمشرف تحديث شكاوى فرعه، مع حفظ الحالة والمسؤول والإجراء/آخر ملاحظة وفق صلاحيات النظام الحالية.</p>
     <div id="complaint-list"><p class="text-body-sm text-on-surface-variant">جارِ تحميل الشكاوى...</p></div>
 </div>
 </div>
-<div class="bg-surface rounded-full p-lg card-shadow border border-outline-variant flex flex-col md:flex-row items-center justify-between gap-md">
+<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card flex flex-col md:flex-row items-center justify-between gap-md">
 <label class="flex items-center gap-md cursor-pointer">
 <input class="w-6 h-6 rounded border-outline-variant text-primary focus:ring-primary" id="confirmCheck" type="checkbox"/>
 <span class="text-body-lg font-bold text-primary">أقر بصحة جميع البيانات المدخلة في هذا التقرير تحت مسؤوليتي.</span>
@@ -454,6 +470,9 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
         // تعبئة القيم الافتراضية عند فتح الصفحة
         document.getElementById('reportDate').value = new Date().toISOString().split('T')[0];
         document.getElementById('supervisorName').value = currentUser.full_name || '';
+        document.getElementById('report-employee-name').textContent = currentUser.full_name || '';
+        const reportRoleLabels = { Owner: 'مالك', Admin: 'مدير النظام', Manager: 'مدير', Supervisor: 'مشرف وردية' };
+        document.getElementById('report-employee-role').textContent = reportRoleLabels[currentUser.role] || currentUser.role || '';
         if (currentUser.role === 'Supervisor' && ['Morning', 'Evening'].includes(currentUser.shift_type)) {
             document.getElementById('shiftType').value = currentUser.shift_type;
         }

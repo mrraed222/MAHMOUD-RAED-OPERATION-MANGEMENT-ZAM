@@ -162,154 +162,113 @@ body.zam-page #successOverlay > div { border-color:var(--riwaq-primary); border-
 body.zam-page #successOverlay a { min-height:46px; display:flex; align-items:center; justify-content:center; background:var(--riwaq-primary-soft); color:var(--riwaq-primary-deep); }
 body.zam-page main > p { color:var(--riwaq-muted); }
 @media(max-width:640px) { body.zam-page > header { min-height:60px; padding-inline:16px; } body.zam-page main { padding:24px 14px 32px; } body.zam-page .glass-panel { padding:20px 16px; } body.zam-page form .grid { gap:16px; } body.zam-page form input, body.zam-page form select, body.zam-page form button { font-size:16px; } }
+
+/* Registration-specific information hierarchy */
+body.zam-page > header { gap:16px; }
+body.zam-page > header .register-brand { display:flex; align-items:center; gap:12px; }
+body.zam-page > header .register-brand-copy { display:flex; flex-direction:column; line-height:1.25; }
+body.zam-page > header .register-brand-copy strong { color:var(--riwaq-ink); font-size:15px; }
+body.zam-page > header .register-brand-copy span { color:var(--riwaq-muted); font-size:12px; }
+body.zam-page > header a { min-height:44px; display:inline-flex; align-items:center; justify-content:center; padding:8px 14px; border-radius:var(--riwaq-radius-sm); color:var(--riwaq-primary-deep); font-weight:700; }
+body.zam-page > header a:focus-visible, body.zam-page label[for="avatar-input"]:focus-within { outline:3px solid rgba(192,88,58,.45); outline-offset:3px; }
+body.zam-page main { align-items:stretch; max-width:900px; }
+body.zam-page .register-intro { text-align:right; margin:0 0 22px; }
+body.zam-page .register-intro h1 { margin:0 0 8px; }
+body.zam-page .register-intro p { margin:0; max-width:680px; }
+body.zam-page .register-context { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; color:var(--riwaq-muted); font-size:14px; }
+body.zam-page .register-context span { padding:6px 10px; border:1px solid var(--riwaq-line); border-radius:999px; background:var(--riwaq-surface); }
+body.zam-page .register-card { max-width:none; }
+body.zam-page #registrationForm { display:flex; flex-direction:column; gap:24px; }
+body.zam-page .register-section { padding-bottom:22px; border-bottom:1px solid var(--riwaq-line); }
+body.zam-page .register-section:last-of-type { border-bottom:0; padding-bottom:0; }
+body.zam-page .register-section-heading { margin:0 0 4px; color:var(--riwaq-sidebar); font-size:18px; font-weight:800; }
+body.zam-page .register-section-note { margin:0 0 18px; color:var(--riwaq-muted); font-size:14px; }
+body.zam-page .register-section label { display:block; font-size:15px; }
+body.zam-page .register-section .grid { row-gap:18px; }
+body.zam-page .register-section input, body.zam-page .register-section select { padding-inline-start:42px; }
+body.zam-page .register-avatar { display:flex; align-items:center; gap:18px; }
+body.zam-page #avatar-input { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+body.zam-page #avatar-input:focus-visible + label { outline:3px solid rgba(192,88,58,.45); outline-offset:3px; }
+body.zam-page .register-avatar label { cursor:pointer; }
+body.zam-page #registerError:not(.hidden) { padding:12px 14px; border:1px solid #e7b6b2; border-radius:var(--riwaq-radius-sm); background:#fff4f3; }
+body.zam-page #submitBtn { letter-spacing:0; }
+body.zam-page .register-footnote { margin:18px 0 0; text-align:right; }
+@media(max-width:640px) {
+ body.zam-page > header .register-brand-copy span { display:none; }
+ body.zam-page > header a { padding-inline:8px; }
+ body.zam-page main { padding-top:22px; }
+ body.zam-page .register-avatar { align-items:flex-start; }
+}
 </style>
 </head>
 <body class="zam-page min-h-screen relative overflow-x-hidden">
-<!-- Background Elements -->
-<div class="fixed inset-0 travertine-texture z-0"></div>
-<div class="fixed top-[-10%] right-[-5%] w-96 h-96 bg-primary-fixed opacity-20 blur-3xl rounded-full z-0"></div>
-<!-- Top Bar Navigation (Based on Shared Components - Transactional Context) -->
+<div class="fixed inset-0 travertine-texture z-0" aria-hidden="true"></div>
+<div class="fixed top-[-10%] right-[-5%] w-96 h-96 bg-primary-fixed opacity-20 blur-3xl rounded-full z-0" aria-hidden="true"></div>
 <header class="sticky top-0 z-40 bg-surface/80 backdrop-blur-xl border-b border-outline-variant flex items-center justify-between px-margin-desktop h-20 w-full">
-<div class="flex items-center gap-4">
-<img alt="ZAM Specialty Coffee Logo" class="h-10 object-contain" src="../assets/logo/zam-logo.png">
-</div>
-<div class="flex items-center gap-6">
-<button class="text-on-surface-variant hover:text-primary transition-all">
-<span class="material-symbols-outlined">help</span>
-</button>
-</div>
+  <div class="register-brand">
+    <img alt="شعار ZAM" class="h-10 object-contain" src="../assets/logo/zam-logo.png">
+    <div class="register-brand-copy"><strong>ZAM Specialty Coffee</strong><span>نظام إدارة العمليات</span></div>
+  </div>
+  <a href="../index.html" aria-label="العودة إلى تسجيل الدخول"><span class="material-symbols-outlined" aria-hidden="true">login</span><span>تسجيل الدخول</span></a>
 </header>
-<main class="relative z-10 max-w-screen-xl mx-auto px-margin-mobile md:px-margin-desktop py-lg flex flex-col items-center">
-<!-- الصورة الشخصية -->
-<div class="flex flex-col items-center mb-md">
-<div class="relative">
-<img id="avatar-preview" alt="صورة شخصية" class="w-24 h-24 rounded-full object-cover border-4 border-surface-container-lowest shadow-md bg-surface-container" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>"/>
-<label for="avatar-input" class="absolute bottom-0 left-0 bg-primary text-on-primary rounded-full w-8 h-8 flex items-center justify-center cursor-pointer shadow-md hover:bg-primary-container transition-colors">
-<span class="material-symbols-outlined text-[18px]">photo_camera</span>
-</label>
-<input id="avatar-input" type="file" accept="image/*" class="hidden"/>
-</div>
-<p class="font-label-bold text-label-bold text-on-surface-variant mt-xs">أضف صورتك الشخصية (اختياري)</p>
-</div>
-<!-- Page Title -->
-<div class="text-center mb-lg">
-<h1 class="font-display-lg text-display-lg text-primary mb-xs">⭐ Join Our Team</h1>
-<p class="font-body-lg text-body-lg text-on-surface-variant">Register your professional details to join the ZAM Specialty Coffee family.</p>
-</div>
-<!-- Registration Form Card -->
-<div class="w-full max-w-3xl glass-panel rounded-xl p-md md:p-lg shadow-sm border border-outline-variant transition-all hover:shadow-lg">
-<form class="space-y-md" id="registrationForm" onsubmit="handleRegistration(event)">
-<!-- Profile Image Upload Cluster -->
-<div class="flex flex-col items-center gap-4 mb-md">
-<div class="relative group cursor-pointer w-32 h-32 rounded-full overflow-hidden border-2 border-dashed border-outline hover:border-primary transition-colors flex items-center justify-center bg-surface-container">
-<input accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer z-10" id="profile_pic" onchange="previewImage(this)" type="file">
-<div class="flex flex-col items-center text-center p-2" id="previewContainer">
-<span class="material-symbols-outlined text-4xl text-on-surface-variant mb-1">account_circle</span>
-<span class="font-label-bold text-label-bold text-on-surface-variant uppercase">Upload Photo</span>
-</div>
-<img alt="Preview" class="hidden absolute inset-0 w-full h-full object-cover" id="imagePreview" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSiWKCcT8BzGBHv8dT9CT95fdOoIc6EP3MgqltRHa5pOzYiYixo3r7-bubwGwatPq2Zw7CJN0A9WwFGLp2PspHNm31BKGljaUbej87sgT9TKpCw7XVcGp2ZwlGlFOzJWa6U8HUmnG7dYLYUFugA_gjkTtnDEqdGPLjjqDe2z34ZE8mdV2O0FZt_zbgOhyl0Emn542NE7OWA1fcLqNB_VOiC61T9Jpn6Z4sv8uzz4RrZouNJf2klDMo">
-</div>
-<p class="font-label-bold text-label-bold text-on-surface-variant">Profile Picture Upload</p>
-</div>
-<!-- Bento Grid Layout for Form Fields -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
-<!-- Full Name -->
-<div class="space-y-xs">
-<label class="font-label-bold text-label-bold text-primary" for="full_name">Full Name</label>
-<div class="relative">
-<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">person</span>
-<input class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg focus:ring-1 focus:ring-primary transition-all" id="full_name" placeholder="Enter your full name" required="" type="text">
-</div>
-</div>
-<!-- Employee Number -->
-<div class="md:col-span-2 space-y-xs">
-<label class="font-label-bold text-label-bold text-primary" for="employee_number">الرقم الوظيفي</label>
-<div class="relative">
-<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">badge</span>
-<input class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg focus:ring-1 focus:ring-primary transition-all" id="employee_number" placeholder="مثال: 1042" required="" type="text">
-</div>
-</div>
-<!-- Email Address -->
-<div class="space-y-xs">
-<label class="font-label-bold text-label-bold text-primary" for="email">Email Address</label>
-<div class="relative">
-<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">mail</span>
-<input class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg" id="email" placeholder="name@company.com" required="" type="email">
-</div>
-</div>
-<!-- WhatsApp Number -->
-<div class="space-y-xs">
-<label class="font-label-bold text-label-bold text-primary" for="whatsapp">WhatsApp Number</label>
-<div class="relative">
-<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">chat</span>
-<input class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg" id="whatsapp" placeholder="+966 50 000 0000" required="" type="tel">
-</div>
-</div>
-<!-- Branch Selection -->
-<div class="space-y-xs">
-<label class="font-label-bold text-label-bold text-primary" for="passcode">رمز المرور (4-6 أرقام)</label>
-<div class="relative">
-<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">password</span>
-<input class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg" id="passcode" inputmode="numeric" maxlength="6" minlength="4" pattern="[0-9]{4,6}" placeholder="مثال: 4821" required="" type="password"/>
-</div>
-</div>
-<div class="md:col-span-2 space-y-xs">
-<label class="font-label-bold text-label-bold text-primary" for="branch">Branch Selection</label>
-<div class="relative">
-<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">storefront</span>
-<select class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg appearance-none cursor-pointer" id="branch" required="">
-<option disabled="" selected="" value="">Select Branch</option>
-
-</select>
-<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline">expand_more</span>
-</div>
-</div>
-<!-- Job Title -->
-<div class="md:col-span-2 space-y-xs">
-<label class="font-label-bold text-label-bold text-primary" for="job_title">Job Title</label>
-<div class="relative">
-<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">badge</span>
-<select class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg appearance-none cursor-pointer" id="job_title" required="">
-<option disabled="" selected="" value="">Select Your Role</option>
-<option>Barista</option>
-<option>Shift Supervisor</option>
-<option>Kitchen</option>
-<option>Waiter</option>
-</select>
-<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline">expand_more</span>
-</div>
-</div>
-</div>
-<!-- Action Button -->
-<div class="pt-base">
-<p class="text-error text-body-sm hidden" id="registerError"></p>
-<button class="w-full bg-primary text-on-primary py-4 rounded-xl font-label-bold text-body-lg uppercase tracking-widest hover:bg-primary-container active:scale-[0.98] transition-all shadow-md flex items-center justify-center gap-2" id="submitBtn" type="submit"><span class="">تسجيل</span>
-<span class="material-symbols-outlined">how_to_reg</span></button>
-</div>
-</form>
-</div>
-<!-- Footnote -->
-<p class="mt-lg font-body-sm text-body-sm text-on-surface-variant max-w-md text-center">
-            By registering, you agree to our internal operational protocols and data privacy guidelines.
-        </p>
+<main class="relative z-10 max-w-screen-xl mx-auto px-margin-mobile md:px-margin-desktop py-lg flex flex-col">
+  <div class="register-intro">
+    <h1 class="font-display-lg text-display-lg text-primary">تسجيل موظف جديد</h1>
+    <p class="font-body-lg text-body-lg text-on-surface-variant">أدخل بياناتك الوظيفية واختر الفرع والدور لإرسال طلب الانضمام إلى الإدارة.</p>
+    <div class="register-context" aria-label="معلومات التسجيل"><span>طلب انضمام جديد</span><span>مراجعة الإدارة مطلوبة</span></div>
+  </div>
+  <div class="w-full glass-panel rounded-xl p-md md:p-lg shadow-sm border border-outline-variant transition-all register-card">
+    <form class="space-y-md" id="registrationForm" onsubmit="handleRegistration(event)">
+      <section class="register-section" aria-labelledby="identity-heading">
+        <h2 class="register-section-heading" id="identity-heading">الصورة والبيانات الشخصية</h2>
+        <p class="register-section-note">الصورة اختيارية؛ بقية الحقول في هذا القسم مطلوبة.</p>
+        <div class="register-avatar">
+          <div class="relative">
+            <img id="avatar-preview" alt="معاينة الصورة الشخصية" class="w-20 h-20 rounded-full object-cover border-4 border-surface-container-lowest shadow-md bg-surface-container" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>">
+            <label for="avatar-input" class="absolute bottom-0 left-0 bg-primary text-on-primary rounded-full w-11 h-11 flex items-center justify-center cursor-pointer shadow-md" aria-label="اختيار صورة شخصية"><span class="material-symbols-outlined" aria-hidden="true">photo_camera</span></label>
+            <input id="avatar-input" type="file" accept="image/*" aria-label="اختيار صورة شخصية">
+          </div>
+          <div><strong>الصورة الشخصية <span class="font-normal">(اختياري)</span></strong><p class="text-on-surface-variant text-sm">اختر صورة واضحة؛ ستُرفق بطلب التسجيل.</p></div>
+        </div>
+        <!-- Retained for the existing previewImage handler; the active uploader above is the one included in registration. -->
+        <div class="hidden" aria-hidden="true"><input accept="image/*" id="profile_pic" onchange="previewImage(this)" type="file"><div id="previewContainer"></div><img alt="" id="imagePreview" class="hidden" src=""></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-gutter mt-6">
+          <div class="space-y-xs"><label class="font-label-bold text-label-bold text-primary" for="full_name">الاسم الكامل <span aria-hidden="true">*</span></label><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" aria-hidden="true">person</span><input class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg" id="full_name" placeholder="أدخل الاسم الكامل" required type="text" autocomplete="name"></div></div>
+          <div class="space-y-xs"><label class="font-label-bold text-label-bold text-primary" for="employee_number">الرقم الوظيفي <span aria-hidden="true">*</span></label><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" aria-hidden="true">badge</span><input class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg" id="employee_number" placeholder="مثال: 1042" required type="text"></div></div>
+          <div class="space-y-xs"><label class="font-label-bold text-label-bold text-primary" for="email">البريد الإلكتروني <span aria-hidden="true">*</span></label><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" aria-hidden="true">mail</span><input class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg" id="email" placeholder="name@company.com" required type="email" autocomplete="email"></div></div>
+          <div class="space-y-xs"><label class="font-label-bold text-label-bold text-primary" for="whatsapp">رقم واتساب <span aria-hidden="true">*</span></label><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" aria-hidden="true">chat</span><input class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg" id="whatsapp" placeholder="+966 50 000 0000" required type="tel" autocomplete="tel"></div></div>
+        </div>
+      </section>
+      <section class="register-section" aria-labelledby="work-heading">
+        <h2 class="register-section-heading" id="work-heading">الفرع والدور الوظيفي</h2>
+        <p class="register-section-note">اختر الفرع والدور اللذين تعمل بهما؛ الخيارات المتاحة تظهر في القوائم.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+          <div class="space-y-xs"><label class="font-label-bold text-label-bold text-primary" for="branch">الفرع <span aria-hidden="true">*</span></label><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" aria-hidden="true">storefront</span><select class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg appearance-none cursor-pointer" id="branch" required><option disabled selected value="">اختر الفرع</option></select><span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline" aria-hidden="true">expand_more</span></div></div>
+          <div class="space-y-xs"><label class="font-label-bold text-label-bold text-primary" for="job_title">الدور الوظيفي <span aria-hidden="true">*</span></label><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" aria-hidden="true">badge</span><select class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg appearance-none cursor-pointer" id="job_title" required><option disabled selected value="">اختر الدور الوظيفي</option><option>Barista</option><option>Shift Supervisor</option><option>Kitchen</option><option>Waiter</option></select><span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline" aria-hidden="true">expand_more</span></div></div>
+        </div>
+      </section>
+      <section class="register-section" aria-labelledby="security-heading">
+        <h2 class="register-section-heading" id="security-heading">رمز الدخول</h2>
+        <p class="register-section-note">أنشئ رمزًا من 4 إلى 6 أرقام لاستخدامه عند تسجيل الدخول.</p>
+        <div class="space-y-xs"><label class="font-label-bold text-label-bold text-primary" for="passcode">رمز المرور (4–6 أرقام) <span aria-hidden="true">*</span></label><div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" aria-hidden="true">password</span><input class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-lg text-body-lg" id="passcode" inputmode="numeric" maxlength="6" minlength="4" pattern="[0-9]{4,6}" placeholder="مثال: 4821" required type="password" autocomplete="new-password"></div></div>
+      </section>
+      <div class="pt-base">
+        <p class="text-error text-body-sm hidden" id="registerError" role="alert" aria-live="assertive"></p>
+        <button class="w-full bg-primary text-on-primary py-4 rounded-xl font-label-bold text-body-lg hover:bg-primary-container transition-all shadow-md flex items-center justify-center gap-2" id="submitBtn" type="submit"><span>إرسال طلب التسجيل</span><span class="material-symbols-outlined" aria-hidden="true">how_to_reg</span></button>
+      </div>
+    </form>
+  </div>
+  <p class="register-footnote font-body-sm text-body-sm text-on-surface-variant">بعد إرسال الطلب، يرجى انتظار مراجعة الإدارة وقبول الانضمام.</p>
 </main>
-<!-- Success Modal Overlay -->
-<div class="success-overlay fixed inset-0 z-50 items-center justify-center bg-inverse-surface/40 p-margin-mobile p-lg" id="successOverlay">
-<div class="bg-surface-container-lowest p-lg rounded-xl shadow-xl max-w-md w-full flex flex-col items-center text-center transform scale-95 transition-transform duration-300 border-t-4 border-tertiary">
-<div class="w-20 h-20 bg-tertiary-fixed-dim rounded-full flex items-center justify-center mb-md shadow-sm">
-<span class="material-symbols-outlined text-tertiary text-4xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<div class="success-overlay fixed inset-0 z-50 items-center justify-center bg-inverse-surface/40 p-margin-mobile p-lg" id="successOverlay" role="dialog" aria-modal="true" aria-labelledby="success-title" aria-describedby="success-message">
+  <div class="bg-surface-container-lowest p-lg rounded-xl shadow-xl max-w-md w-full flex flex-col items-center text-center transform scale-95 transition-transform duration-300 border-t-4 border-tertiary">
+    <div class="w-20 h-20 bg-tertiary-fixed-dim rounded-full flex items-center justify-center mb-md shadow-sm"><span class="material-symbols-outlined text-tertiary text-4xl" aria-hidden="true">check_circle</span></div>
+    <h2 id="success-title" class="font-title-md text-title-md text-primary mb-base">تم استلام طلب التسجيل</h2>
+    <p id="success-message" class="font-body-lg text-body-lg text-on-surface mb-lg leading-relaxed" dir="rtl">تم تسجيل بياناتك بنجاح. يرجى انتظار قبول انضمامك من الإدارة.</p>
+    <a class="w-full bg-secondary-container text-on-secondary-container py-3 rounded-lg font-label-bold text-label-bold text-center block" href="../index.html">الانتقال إلى تسجيل الدخول</a>
+  </div>
 </div>
-<h2 class="font-title-md text-title-md text-primary mb-base">Success / تم بنجاح</h2>
-<p class="font-body-lg text-body-lg text-on-surface mb-lg leading-relaxed" dir="rtl">
-                تم تسجيل بياناتك بنجاح. يرجى انتظار قبول انضمامك من الإدارة.
-            </p>
-<a class="w-full bg-secondary-container text-on-secondary-container py-3 rounded-lg font-label-bold text-label-bold hover:bg-secondary-fixed-dim transition-colors uppercase text-center block" href="../index.html">تسجيل الدخول</a>
-</div>
-</div>
-<!-- Decorative Image Column (Hidden on mobile) -->
-<div class="fixed left-0 bottom-0 w-64 opacity-10 pointer-events-none hidden xl:block">
-<img alt="Atmospheric Coffee Shop" class="w-full grayscale" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzn4ZJWX8EDBdb1GXvozoFzEsgw6z5zhThCdev0pkcrU2BH0_CPPk1Poc5YQ-ugYPuwj99eltbUlDR3l4iEWJ22n9w_-hplBF-_ozBtS3bE6ya-TyR4Yjzt1oLu4TLrzq4v7wKYLDgm2dJEouLtzaPDgIwPTUjyaRGBGiutX5l2rOCv2ac-6Qf-35CwFUCuQID0RF04NN-JFfUbo9XJWK0S46VWWV5WDXCVUGSRKy9_0R1Wibg8YnPT9zFZYWBJkymBA">
-</div>
+<div class="fixed left-0 bottom-0 w-64 opacity-10 pointer-events-none hidden xl:block" aria-hidden="true"><img alt="" class="w-full grayscale" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzn4ZJWX8EDBdb1GXvozoFzEsgw6z5zhThCdev0pkcrU2BH0_CPPk1Poc5YQ-ugYPuwj99eltbUlDR3l4iEWJ22n9w_-hplBF-_ozBtS3bE6ya-TyR4Yjzt1oLu4TLrzq4v7wKYLDgm2dJEouLtzaPDgIwPTUjyaRGBGiutX5l2rOCv2ac-6Qf-35CwFUCuQID0RF04NN-JFfUbo9XJWK0S46VWWV5WDXCVUGSRKy9_0R1Wibg8YnPT9zFZYWBJkymBA"></div>
 <script>
         function previewImage(input) {
             const preview = document.getElementById('imagePreview');

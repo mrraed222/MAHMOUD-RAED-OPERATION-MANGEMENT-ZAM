@@ -365,6 +365,42 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
   body.zam-page main input:not([type=checkbox]), body.zam-page main select { max-width:100%; }
   body.zam-page main table { font-size:13px; }
 }
+  /* Page-specific structure, keyboard affordance, and responsive action grouping. */
+  .report-header button, .slicer, #rangeChips button, #branchChips button, #shiftChips button { min-height:44px; }
+  .report-header :focus-visible, .slicer:focus-visible, #rangeChips :focus-visible,
+  #branchChips :focus-visible, #shiftChips :focus-visible, input:focus-visible {
+    outline:3px solid #bd8150; outline-offset:3px;
+  }
+  #rangeChips, #branchChips, #shiftChips { min-width:0; }
+  @media (max-width:767px) {
+    .report-header { position:relative; }
+    .report-header .header-inner { align-items:flex-start; }
+    .report-header .header-inner > div:first-child { width:100%; align-items:flex-start; }
+    .report-header h2 { font-size:1.35rem; line-height:1.45; }
+    .report-header .header-inner > div:last-child { width:100%; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .report-header .header-inner > div:last-child > * { justify-content:center; text-align:center; min-width:0; }
+    .report-header .header-inner > div:last-child #srcChip { grid-column:1 / -1; }
+    .report-header .report-logo { width:44px; height:44px; }
+    #overviewKpis { scroll-margin-top:16px; }
+    .px-margin-desktop { padding-inline:16px; }
+    #chartTrend, #chartBranch { min-width:0; }
+  }
+  @media (prefers-reduced-motion:reduce) {
+    *, *::before, *::after { scroll-behavior:auto !important; animation-duration:.01ms !important; transition-duration:.01ms !important; }
+  }
+  /* Print acceptance: complete trend and branch tables/visuals may paginate; never crop. */
+  @media print {
+    #chartTrend, #chartBranch, #chartTrend *, #chartBranch * { max-height:none !important; overflow:visible !important; }
+    #chartTrend .chart-list, #chartBranch .chart-list { display:block !important; height:auto !important; }
+    #chartTrend .trend-row, #chartBranch .branch-row { display:grid !important; break-inside:avoid !important; page-break-inside:avoid !important; }
+    #chartTrend svg, #chartBranch svg { max-height:none !important; overflow:visible !important; }
+    #panes .sales-table, #panes .sales-table-wrap { width:100% !important; min-width:0 !important; max-width:none !important; table-layout:auto !important; }
+    #panes .sales-table th, #panes .sales-table td { overflow:visible !important; text-overflow:clip !important; white-space:normal !important; overflow-wrap:anywhere !important; }
+    #panes .sales-table tr { break-inside:avoid !important; page-break-inside:avoid !important; }
+    #panes .overflow-x-auto { overflow:visible !important; max-height:none !important; }
+    #overviewCharts > div:first-child, #overviewBranchCharts > div:first-child,
+    #chartTrend .chart-list, #chartBranch .chart-list { break-inside:auto !important; page-break-inside:auto !important; }
+  }
 </style>
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
@@ -374,8 +410,8 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 <main class="mr-[280px] min-h-screen">
 
   <!-- ================= HEADER ================= -->
-  <div class="print-brand"><img src="../assets/logo/zam-logo.png" alt="شعار زام"><div><h1>التقرير الأسبوعي لإدارة التشغيل</h1><p>نظام زام للعمليات · تقرير إداري معتمد للطباعة</p><p>فترة التقرير: <span id="printPeriod">—</span></p><p>مدير التشغيل: <span id="printManagerName">مدير التشغيل</span> · البريد: <span id="printManagerEmail">—</span> · الهاتف: <span id="printManagerPhone">0563505653</span></p></div></div>
-  <header class="no-print sticky top-0 z-40 report-header shadow-sm">
+  <div class="print-brand"><img src="../assets/logo/zam-logo.png" alt="شعار زام"><div><h1>التقرير الأسبوعي لإدارة التشغيل</h1><p>نظام زام للعمليات · نسخة للطباعة</p><p>فترة التقرير: <span id="printPeriod">—</span></p><p>مدير التشغيل: <span id="printManagerName">مدير التشغيل</span> · البريد: <span id="printManagerEmail">—</span> · الهاتف: <span id="printManagerPhone">0563505653</span></p></div></div>
+  <header class="no-print sticky top-0 z-40 report-header shadow-sm" aria-label="رأس التقرير الأسبوعي">
     <div class="header-inner px-margin-desktop py-3 flex items-center justify-between gap-4 flex-wrap">
       <div class="flex items-center gap-md">
         <img class="report-logo" src="../assets/logo/zam-logo.png" alt="شعار زام">
@@ -404,15 +440,15 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
   </header>
 
   <!-- ================= SLICERS ================= -->
-  <section class="no-print bg-surface-container-lowest border-b border-outline-variant">
+  <section class="no-print bg-surface-container-lowest border-b border-outline-variant" aria-label="تصفية التقرير حسب الفترة والفرع والوردية">
     <div class="px-margin-desktop py-3 space-y-3">
       <div class="flex items-center gap-md flex-wrap">
         <span class="font-label-bold text-on-surface-variant w-20">الفترة</span>
         <div id="rangeChips" class="flex gap-xs flex-wrap"></div>
         <div class="flex items-center gap-xs">
-          <input id="dFrom" type="date" class="bg-surface-container-low border border-outline-variant rounded-full px-md py-xs text-body-sm">
+          <label class="sr-only" for="dFrom">من تاريخ</label><input id="dFrom" aria-label="من تاريخ" type="date" class="bg-surface-container-low border border-outline-variant rounded-full px-md py-xs text-body-sm">
           <span class="text-on-surface-variant">←</span>
-          <input id="dTo" type="date" class="bg-surface-container-low border border-outline-variant rounded-full px-md py-xs text-body-sm">
+          <label class="sr-only" for="dTo">إلى تاريخ</label><input id="dTo" aria-label="إلى تاريخ" type="date" class="bg-surface-container-low border border-outline-variant rounded-full px-md py-xs text-body-sm">
         </div>
       </div>
       <div class="flex items-center gap-md flex-wrap">
@@ -436,9 +472,9 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
   <section class="px-margin-desktop py-lg space-y-lg">
 
     <!-- ============ KPI ============ -->
-    <section id="overviewKpis">
+    <section id="overviewKpis" aria-labelledby="overviewKpisTitle">
       <div class="flex items-center justify-between mb-sm flex-wrap gap-2">
-        <h3 class="font-title-md text-primary flex items-center gap-xs">
+        <h3 id="overviewKpisTitle" class="font-title-md text-primary flex items-center gap-xs">
           <span class="material-symbols-outlined">monitoring</span> المؤشرات الرئيسية
         </h3>
         <span id="rangeLabel" class="text-body-sm text-on-surface-variant"></span>
@@ -458,7 +494,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
     </section>
 
     <!-- ============ CHARTS ============ -->
-    <section id="overviewCharts" class="grid lg:grid-cols-3 gap-md">
+    <section id="overviewCharts" class="grid lg:grid-cols-3 gap-md" aria-label="اتجاهات الأداء وأسباب الهدر">
       <div class="card p-md lg:col-span-2">
         <div class="flex items-center justify-between mb-sm flex-wrap gap-2">
           <h3 class="font-title-md text-primary flex items-center gap-xs">
@@ -479,7 +515,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
       </div>
     </section>
 
-    <section id="overviewBranchCharts" class="grid lg:grid-cols-2 gap-md">
+    <section id="overviewBranchCharts" class="grid lg:grid-cols-2 gap-md" aria-label="مقارنة المبيعات والتزام الفروع">
       <div class="card p-md">
         <h3 class="font-title-md text-primary flex items-center gap-xs mb-sm">
           <span class="material-symbols-outlined">bar_chart</span> المبيعات حسب الفرع — مقارنة بالفترة السابقة

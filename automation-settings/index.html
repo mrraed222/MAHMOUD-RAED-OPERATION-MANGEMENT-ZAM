@@ -175,47 +175,43 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 <main class="mr-[280px] min-h-screen">
 <header class="flex justify-between items-center w-full h-20 px-margin-desktop sticky top-0 bg-surface dark:bg-surface-dim z-40 border-b border-outline-variant shadow-sm">
 <div class="flex items-center gap-lg">
-<h2 class="font-headline-lg text-primary">أتمتة التقارير</h2>
-<div class="flex items-center gap-md bg-surface-container-low px-md py-xs rounded-full border border-outline-variant">
-<span class="material-symbols-outlined text-outline">search</span>
-<input class="bg-transparent border-none focus:ring-0 text-body-sm w-64" placeholder="بحث في الإعدادات..." type="text"/>
-</div>
+<h2 class="font-headline-lg text-primary">إدارة أتمتة التقارير</h2>
 </div>
 <div class="flex items-center gap-md">
-<div class="flex items-center gap-xs">
-<button data-shift-btn="Morning" class="px-md py-xs rounded-full border border-outline-variant font-label-bold text-on-surface-variant hover:bg-surface-container transition-all">الوردية الصباحية</button>
-<button data-shift-btn="Evening" class="px-md py-xs rounded-full border border-outline-variant font-label-bold text-on-surface-variant hover:bg-surface-container transition-all">الوردية المسائية</button>
-</div>
-<!-- جرس الإشعارات الموحد (يحل محل الزر الوهمي السابق) -->
 <div id="notif-bell-slot"></div>
-<div class="flex items-center gap-sm">
-<a href="../employee-profile/index.html" class="block">
-<img class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary object-cover" id="header-avatar"
+<a href="../employee-profile/index.html" class="block rounded-full focus-visible:outline focus-visible:outline-3" aria-label="الملف الشخصي">
+<img class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary object-cover" id="header-avatar" alt="الصورة الشخصية"
      src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>"/>
 </a>
 </div>
-</div>
 </header>
-<section class="p-lg max-w-5xl mx-auto">
+<section class="p-lg max-w-5xl mx-auto" aria-labelledby="page-title">
 <div class="mb-lg">
-<h3 class="font-display-lg text-primary mb-xs">⭐ إعدادات الأتمتة</h3>
-<p class="font-body-lg text-on-surface-variant">تحكم في مواعيد إرسال التقارير والملخصات تلقائيًا بالإيميل — من هنا فقط، بدون أي تدخل خارجي.</p>
+<p class="text-body-sm text-on-surface-variant mb-xs">إدارة الإرسال الفوري ومواعيد التقارير</p>
+<h1 id="page-title" class="font-display-lg text-primary mb-xs">أتمتة التقارير</h1>
+<p class="font-body-lg text-on-surface-variant">اضبط ما إذا كانت التقارير تُرسل فور وصولها، وأنشئ مواعيد الإرسال حسب النوع والوردية والفرع.</p>
 </div>
-<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant mb-lg flex items-center justify-between">
+<section class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant mb-lg" aria-labelledby="instant-title">
+<div class="flex items-center justify-between gap-md">
 <div>
-<h4 class="font-title-md text-title-md text-primary mb-xs">إرسال فوري عند استلام تقرير جديد</h4>
-<p class="text-body-sm text-on-surface-variant">أول ما مشرف يرسل تقريره، تتبعت نسخة PDF فورية لإيميلات الإدارة.</p>
+<h2 id="instant-title" class="font-title-md text-title-md text-primary mb-xs">الإرسال الفوري</h2>
+<p class="text-body-sm text-on-surface-variant">إرسال نسخة PDF إلى إيميلات الإدارة عند استلام تقرير جديد.</p>
 </div>
-<label class="relative inline-flex items-center cursor-pointer">
-<input type="checkbox" id="instant-forward-toggle" class="sr-only peer">
-<div class="toggle-bg w-14 h-7 bg-outline-variant rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-1 after:right-1 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+<label class="relative inline-flex items-center cursor-pointer gap-sm min-h-11" for="instant-forward-toggle">
+<span class="text-body-sm text-on-surface-variant">تفعيل</span>
+<input type="checkbox" id="instant-forward-toggle" class="sr-only peer" aria-label="تفعيل الإرسال الفوري">
+<span aria-hidden="true" class="toggle-bg w-14 h-7 bg-outline-variant rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-1 after:right-1 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></span>
 </label>
 </div>
-<div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant mb-lg">
-<h4 class="font-title-md text-title-md text-primary mb-md">➕ إضافة موعد إرسال جديد</h4>
-<div class="grid grid-cols-1 md:grid-cols-5 gap-sm items-end">
+</section>
+<section class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant mb-lg" aria-labelledby="create-title">
+<div class="mb-md">
+<h2 id="create-title" class="font-title-md text-title-md text-primary">إضافة موعد إرسال</h2>
+<p class="text-body-sm text-on-surface-variant mt-xs">اختر نوع التقرير ونطاقه ووقت الإرسال اليومي.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-sm items-end">
 <div>
-<label class="text-body-sm text-on-surface-variant">نوع التقرير</label>
+<label for="new-report-type" class="text-body-sm text-on-surface-variant">نوع التقرير</label>
 <select id="new-report-type" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
 <option value="checklist_summary">ملخص تشيك ليست بالفئات</option>
 <option value="manager_reports_summary">ملخص أداء التقارير</option>
@@ -225,7 +221,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </select>
 </div>
 <div>
-<label class="text-body-sm text-on-surface-variant">الوردية</label>
+<label for="new-shift-type" class="text-body-sm text-on-surface-variant">الوردية</label>
 <select id="new-shift-type" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
 <option value="">كل الورديات</option>
 <option value="Morning">الوردية الصباحية</option>
@@ -233,25 +229,34 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </select>
 </div>
 <div>
-<label class="text-body-sm text-on-surface-variant">الفرع</label>
+<label for="new-branch" class="text-body-sm text-on-surface-variant">الفرع</label>
 <select id="new-branch" class="w-full border border-outline-variant rounded-lg p-sm mt-xs">
 <option value="">كل الفروع (تقرير واحد مجمّع)</option>
 </select>
 </div>
 <div>
-<label class="text-body-sm text-on-surface-variant">موعد الإرسال اليومي</label>
+<label for="new-send-time" class="text-body-sm text-on-surface-variant">موعد الإرسال اليومي</label>
 <input type="time" id="new-send-time" value="21:00" class="w-full border border-outline-variant rounded-lg p-sm mt-xs"/>
 </div>
-<button id="add-schedule-btn" class="bg-primary text-on-primary rounded-lg p-sm font-bold">إضافة الموعد</button>
+<button id="add-schedule-btn" class="bg-primary text-on-primary rounded-lg p-sm font-bold min-h-11">إضافة الموعد</button>
 </div>
-<p class="text-[12px] text-on-surface-variant mt-sm">ملحوظة: النظام بيتحقق من المواعيد كل 10 دقائق، فممكن يوصل الإيميل بفارق بسيط عن الموعد المحدد بالظبط.</p>
+<p class="text-body-sm text-on-surface-variant mt-md p-sm rounded-lg bg-surface-container-low" role="note">قد يختلف وقت وصول البريد عن الوقت المحدد. لا تعرض هذه الشاشة تأكيدًا على توقيت تنفيذ الإرسال.</p>
+</section>
+<section class="bg-surface rounded-xl card-shadow border border-outline-variant overflow-hidden" aria-labelledby="schedules-title">
+<div class="p-lg border-b border-outline-variant flex flex-wrap items-center justify-between gap-md">
+<div>
+<h2 id="schedules-title" class="font-title-md text-title-md text-primary">مواعيد الإرسال</h2>
+<p class="text-body-sm text-on-surface-variant mt-xs">المواعيد النشطة والمتوقفة؛ استخدم مرشّح الوردية لتضييق القائمة.</p>
 </div>
-<div class="bg-surface rounded-xl card-shadow border border-outline-variant">
-<h4 class="font-title-md text-title-md text-primary p-lg pb-0">المواعيد المفعّلة حاليًا</h4>
-<div id="schedules-list" class="p-lg">
-<p class="text-on-surface-variant text-body-sm">جارِ التحميل...</p>
+<div class="flex flex-wrap gap-sm" role="group" aria-label="تصفية المواعيد حسب الوردية">
+<button type="button" data-shift-btn="Morning" aria-pressed="false" class="px-md py-xs min-h-11 rounded-full border border-outline-variant font-label-bold text-on-surface-variant hover:bg-surface-container transition-all">الوردية الصباحية</button>
+<button type="button" data-shift-btn="Evening" aria-pressed="false" class="px-md py-xs min-h-11 rounded-full border border-outline-variant font-label-bold text-on-surface-variant hover:bg-surface-container transition-all">الوردية المسائية</button>
 </div>
 </div>
+<div id="schedules-list" class="p-lg" aria-live="polite" aria-busy="true">
+<p class="text-on-surface-variant text-body-sm" role="status">جارٍ تحميل المواعيد…</p>
+</div>
+</section>
 </section>
 </main>
 <script>

@@ -121,15 +121,22 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     body.zam-page main { color: var(--riwaq-ink); }
     body.zam-page main > div { padding: 28px; }
     body.zam-page main section > div, body.zam-page #log-list { border-color: var(--riwaq-line) !important; border-radius: var(--riwaq-radius); box-shadow: var(--riwaq-shadow); }
-    body.zam-page #log-list > div { padding-block: 18px; }
+    body.zam-page header { min-height: 88px; height: auto; padding-block: 12px; }
+    body.zam-page #log-list > div { padding: 20px; }
+    body.zam-page #date-filter { min-height: 44px; }
+    body.zam-page .branch-stat { min-height: 124px; display: flex; flex-direction: column; justify-content: center; text-align: start; }
+    body.zam-page .branch-stat p:last-child { margin-top: 8px; }
+    body.zam-page .log-intro { border-inline-start: 4px solid var(--riwaq-accent, #a64b35); }
     body.zam-page #image-modal { backdrop-filter: blur(3px); }
     @media (max-width: 767px) {
       body.zam-page header { height: auto; min-height: 5rem; padding: 12px 16px; gap: 10px; flex-wrap: wrap; }
       body.zam-page header > div { gap: 10px; }
       body.zam-page header > div:last-child { width: 100%; justify-content: space-between; }
-      body.zam-page main { padding-top: 8rem; }
+      body.zam-page main { padding-top: 9rem; }
       body.zam-page main > div { padding: 16px; }
       body.zam-page main section.grid { grid-template-columns: 1fr; gap: 10px; }
+      body.zam-page header > div:first-child { align-items: flex-start; }
+      body.zam-page .branch-stat { min-height: 92px; }
       body.zam-page #log-list > div { align-items: flex-start; gap: 10px; flex-wrap: wrap; }
       body.zam-page #log-list > div > div { align-items: flex-start; min-width: 0; }
       body.zam-page #log-list p { overflow-wrap: anywhere; }
@@ -152,46 +159,56 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   }
 </script>
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('branches', currentUser.role);})();</script>
-<header class="fixed top-0 left-0 w-full md:pr-[312px] h-20 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop">
-  <div class="flex items-center gap-md">
-    <a href="../dashboard/index.html" class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">arrow_forward</span></a>
-    <div>
+<header class="fixed top-0 left-0 w-full md:pr-[312px] bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40 flex justify-between items-center px-margin-desktop" aria-label="رأس الصفحة">
+  <div class="flex items-center gap-md min-w-0">
+    <a href="../dashboard/index.html" class="text-on-surface-variant hover:text-primary inline-flex min-w-[44px] min-h-[44px] items-center justify-center" aria-label="العودة إلى لوحة أداء الفروع"><span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
+    <img src="../assets/logo/zam-logo.png" alt="ZAM" class="w-10 h-10 object-contain shrink-0"/>
+    <div class="min-w-0">
+      <p class="text-xs font-bold text-on-surface-variant">ZAM Operations</p>
+      <p class="text-xs text-on-surface-variant"><span id="viewer-identity"></span></p>
       <h1 class="font-title-md text-title-md text-primary" id="branch-title">تفاصيل الفرع</h1>
-      <p class="text-body-sm text-on-surface-variant">سجل تدقيق التنفيذ اليومي بالصور</p>
+      <p class="text-body-sm text-on-surface-variant">سجل تنفيذ اليوم بالصور والملاحظات</p>
     </div>
   </div>
   <div class="flex items-center gap-md">
-    <input type="date" id="date-filter" class="border border-outline-variant rounded-lg px-sm py-xs text-body-sm"/>
+    <label for="date-filter" class="text-body-sm font-bold text-on-surface-variant">تاريخ التنفيذ</label>
+    <input type="date" id="date-filter" class="border border-outline-variant rounded-lg px-sm py-xs text-body-sm" aria-describedby="date-hint"/>
     <div id="notif-bell-slot"></div>
   </div>
 </header>
-<main class="md:pr-[280px] pt-20 min-h-screen"><div class="max-w-4xl mx-auto p-margin-desktop">
-  <section class="grid grid-cols-3 gap-md mb-lg">
-    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
-      <p class="text-body-sm text-on-surface-variant">نسبة الإنجاز</p>
+<main class="md:pr-[280px] pt-20 min-h-screen"><div class="max-w-5xl mx-auto p-margin-desktop">
+  <p id="date-hint" class="text-body-sm text-on-surface-variant mb-md">اختر تاريخًا لمراجعة سجلات التنفيذ المسجلة لذلك اليوم. لا تعرض هذه الصفحة إلا البيانات المتاحة في السجل.</p>
+  <section class="grid grid-cols-3 gap-md mb-lg" aria-label="ملخص تنفيذ الفرع">
+    <div class="branch-stat bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
+      <p class="text-body-sm text-on-surface-variant">نسبة المهام المنفذة</p>
       <p class="text-2xl font-bold text-primary" id="branch-pct">—</p>
     </div>
-    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
+    <div class="branch-stat bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
       <p class="text-body-sm text-on-surface-variant">مبيعات اليوم</p>
       <p class="text-2xl font-bold text-primary" id="branch-sales">—</p>
     </div>
-    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md text-center">
+    <div class="branch-stat bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
       <p class="text-body-sm text-on-surface-variant">مهام بصور إثبات</p>
       <p class="text-2xl font-bold text-primary" id="branch-photos">—</p>
     </div>
   </section>
-  <h2 class="font-title-md text-title-md text-primary mb-sm">سجل التنفيذ</h2>
+  <div class="log-intro bg-surface-container-lowest rounded-xl p-md mb-sm">
+    <h2 class="font-title-md text-title-md text-primary">سجل التنفيذ</h2>
+    <p class="text-body-sm text-on-surface-variant mt-xs">تُعرض المهمة والمنفذ والوقت والملاحظة والصورة عند توفرها. قد لا تتضمن السجلات بيانات حرارة أو جهاز.</p>
+  </div>
   <div class="bg-surface-container-lowest rounded-xl border border-outline-variant divide-y divide-outline-variant" id="log-list">
-    <p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>
+    <p class="p-md text-on-surface-variant text-body-sm" role="status" aria-live="polite">جارِ تحميل سجل التنفيذ…</p>
   </div>
 </div></main>
-<div id="image-modal" class="fixed inset-0 bg-inverse-surface/90 hidden items-center justify-center z-50 p-margin-mobile">
-  <button id="close-image" class="absolute top-4 right-4 text-white hover:text-primary transition-colors"><span class="material-symbols-outlined text-4xl">close</span></button>
-  <img id="modal-img" src="" class="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"/>
+<div id="image-modal" class="fixed inset-0 bg-inverse-surface/90 hidden items-center justify-center z-50 p-margin-mobile" role="dialog" aria-modal="true" aria-label="عرض صورة إثبات">
+  <button id="close-image" class="absolute top-4 right-4 text-white hover:text-primary transition-colors min-w-[48px] min-h-[48px]" aria-label="إغلاق الصورة"><span class="material-symbols-outlined text-4xl" aria-hidden="true">close</span></button>
+  <img id="modal-img" src="" alt="صورة إثبات التنفيذ" class="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"/>
 </div>
 <script>
 const branchName = params.get('name') || 'الفرع';
 document.getElementById('branch-title').textContent = decodeURIComponent(branchName);
+const viewerRoleLabels = { Owner: 'مالك', Admin: 'مدير النظام', Manager: 'مدير', Supervisor: 'مشرف وردية' };
+document.getElementById('viewer-identity').textContent = [currentUser.full_name || currentUser.name || '', viewerRoleLabels[currentUser.role] || currentUser.role || ''].filter(Boolean).join(' · ');
 
 const dateFilter = document.getElementById('date-filter');
 dateFilter.value = ZamBranchLifecycle.riyadhDateString(new Date());

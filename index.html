@@ -1,4 +1,14 @@
-<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport"><title>ZAM Operations System</title><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#fcf9f8">
+  <title>ZAM Operations System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">try{
         tailwind.config = {
             darkMode: "class",
             theme: {
@@ -14,91 +24,75 @@
             }
         }
     }catch(_e){}</script>
-<style>
+  <style id="zam-design-system">
     @keyframes shake { 10%,90%{transform:translateX(-1px)} 20%,80%{transform:translateX(2px)} 30%,50%,70%{transform:translateX(-4px)} 40%,60%{transform:translateX(4px)} }
     .shake { animation: shake 0.4s; }
-</style>
-<style id="zam-design-system">
-:root {
-  --zam-coffee: #33210d;
-  --zam-coffee-light: #4b3621;
-  --zam-focus: #c0583a;
-  --zam-surface: #fcf9f8;
-}
-body.zam-page {
-  font-family: "Tajawal", sans-serif;
-  text-rendering: optimizeLegibility;
-}
-@keyframes zamFadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes zamLogoGlow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(192, 88, 58, .20)); } 50% { filter: drop-shadow(0 0 12px rgba(192, 88, 58, .48)); } }
-@keyframes zamSoftPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(192, 88, 58, .22); } 50% { box-shadow: 0 0 0 7px rgba(192, 88, 58, 0); } }
-.zam-logo { animation: zamFadeInUp .32s cubic-bezier(.2,.7,.3,1) both; }
-body.zam-page main { animation: zamFadeInUp .28s cubic-bezier(.2,.7,.3,1) both; }
-.zam-card { transition: transform .16s ease, border-color .16s ease, background-color .16s ease; }
-.zam-card:hover { transform: translateY(-1px); border-color: var(--zam-focus) !important; }
-.zam-btn, button, [role="button"] { transition: background-color .14s ease, border-color .14s ease; }
-.zam-btn:hover, button:hover, [role="button"]:hover { filter: brightness(.98); }
-.zam-btn:active, button:active, [role="button"]:active { filter: brightness(.95); }
-input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .42); outline-offset: 2px; }
-.zam-loading { opacity: .82; }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
-</style>
-<link rel="stylesheet" href="assets/riwaq-theme.css">
-<style>
-body.zam-page { min-height:100vh; padding:24px 16px; background:var(--riwaq-bg) !important; color:var(--riwaq-ink); }
-body.zam-page main { width:min(100%, 440px); padding-inline:20px; }
-body.zam-page main > div:first-child { margin-bottom:24px; }
-body.zam-page main > div:first-child h1 { color:var(--riwaq-sidebar); font-family:var(--font-latin),var(--font-ui); font-size:clamp(24px,5vw,30px); line-height:1.3; }
-body.zam-page main > div:first-child p { color:var(--riwaq-muted); }
-body.zam-page .login-card { padding:28px; border:1px solid var(--riwaq-line); border-radius:var(--riwaq-radius); box-shadow:var(--riwaq-shadow); }
-body.zam-page .login-card input { min-height:58px; border-radius:var(--riwaq-radius-sm); border-color:var(--riwaq-line); color:var(--riwaq-ink); }
-body.zam-page .login-card button { min-height:50px; border-radius:var(--riwaq-radius-sm); background:var(--riwaq-primary); }
-body.zam-page .login-card a { min-height:32px; display:inline-flex; align-items:center; justify-content:center; color:var(--riwaq-primary); }
-body.zam-page main > div:last-child { margin-top:34px; color:var(--riwaq-muted); }
-@media(max-width:480px) { body.zam-page { align-items:flex-start; padding:clamp(24px,9vh,64px) 12px 24px; } body.zam-page main { padding-inline:8px; } body.zam-page .login-card { padding:20px 16px; } }
-</style>
-</head><body class="zam-page flex items-center justify-center min-h-screen bg-background">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="assets/supabase-config.js?v=20261117194500"></script>
-<main class="w-full max-w-md px-margin-mobile flex flex-col items-center">
-<div class="mb-lg flex flex-col items-center text-center">
-<div class="w-32 h-40 mb-md relative">
-<img alt="ZAM Operations System Logo" class="w-full h-full object-contain" src="assets/logo/zam-logo.png">
-</div>
-<h1 class="font-headline-lg text-headline-lg text-primary mb-xs">ZAM Operations System</h1>
-<p class="font-body-lg text-body-lg text-on-surface-variant">أدخل رمز المرور للمتابعة</p>
-</div>
-<div class="login-card p-md rounded-xl w-full flex flex-col items-center bg-surface-container-lowest">
-<div class="w-full mb-md">
-<input autofocus class="w-full p-md text-center text-headline-lg tracking-widest rounded-xl border border-outline-variant bg-surface-container-lowest text-primary focus:outline-none focus:border-primary transition-colors" id="passcode-input" maxlength="6" placeholder="" type="password" inputmode="numeric">
-</div>
-<p id="error-msg" class="text-error text-body-sm mb-sm hidden">رمز المرور غير صحيح، أو حسابك لسه قيد المراجعة من الإدارة.</p>
-<button class="w-full mb-md p-md bg-primary text-on-primary rounded-xl font-title-md hover:bg-primary-container transition-colors" id="login-submit">
-            دخول
-        </button>
-<div class="flex flex-col items-center gap-sm">
-<a class="font-label-bold text-label-bold text-outline hover:text-primary transition-colors underline-offset-4 underline" href="forgot-passcode/index.html">
-                نسيت رمز المرور؟
-            </a>
-<a class="font-label-bold text-label-bold text-on-secondary-container hover:text-primary transition-colors underline-offset-4 underline" href="register/index.html">
-                تسجيل البيانات لأول مرة
-            </a>
-</div>
-</div>
-<div class="mt-xl flex flex-col items-center text-center opacity-70">
-<p class="font-label-bold text-label-bold text-on-surface-variant uppercase tracking-widest">
-            Operations Management System
-        </p>
-<div class="flex gap-sm mt-base items-center justify-center">
-<span class="material-symbols-outlined text-[18px]">verified_user</span>
-<span class="font-body-sm text-body-sm">نظام آمن</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant opacity-90 font-semibold mt-md">
-        إنشاء وتطوير محمود رائد - مدير التشغيل والجودة
-    </p>
-</div>
-</main>
-<script>
+    :root { --zam-coffee:#33210d; --zam-focus:#c0583a; --zam-surface:#fcf9f8; }
+    body.zam-page { min-height:100vh; margin:0; padding:clamp(24px,7vh,72px) 20px; display:grid; place-items:center; background:var(--riwaq-bg,#f6f3f2); color:var(--riwaq-ink,#1b1c1c); font-family:"Tajawal",sans-serif; text-rendering:optimizeLegibility; }
+    .login-shell { width:min(100%,470px); }
+    .brand-block { text-align:center; margin:0 auto 26px; }
+    .brand-mark { width:112px; height:112px; margin:0 auto 14px; }
+    .brand-mark img { width:100%; height:100%; object-fit:contain; }
+    .brand-block h1 { margin:0 0 6px; color:var(--riwaq-sidebar,#33210d); font-family:var(--font-latin,"Tajawal",sans-serif); font-size:clamp(23px,5vw,30px); line-height:1.3; font-weight:700; }
+    .brand-block p { margin:0; color:var(--riwaq-muted,#625b55); font-size:16px; }
+    .login-card { padding:clamp(22px,6vw,34px); border:1px solid var(--riwaq-line,#d2c4ba); border-radius:var(--riwaq-radius,16px); background:#fff; box-shadow:var(--riwaq-shadow,0 14px 40px rgba(51,33,13,.08)); }
+    .login-intro { margin:0 0 20px; }
+    .login-intro h2 { margin:0 0 5px; font-size:20px; line-height:1.4; font-weight:700; }
+    .login-intro p { margin:0; color:var(--riwaq-muted,#625b55); font-size:14px; line-height:1.7; }
+    .passcode-label { display:block; margin:0 0 8px; font-size:15px; font-weight:700; }
+    .passcode-wrap { margin-bottom:8px; }
+    .login-card input { display:block; width:100%; min-height:58px; border:1px solid var(--riwaq-line,#d2c4ba); border-radius:var(--riwaq-radius-sm,10px); background:#fff; color:var(--riwaq-ink,#1b1c1c); font-size:25px; letter-spacing:.4em; text-align:center; }
+    .field-hint { margin:8px 0 16px; color:var(--riwaq-muted,#625b55); font-size:13px; line-height:1.6; }
+    .login-card button { width:100%; min-height:52px; margin:0 0 18px; border:0; border-radius:var(--riwaq-radius-sm,10px); background:var(--riwaq-primary,#33210d); color:#fff; font:700 17px "Tajawal",sans-serif; cursor:pointer; }
+    .login-card button:disabled { cursor:wait; opacity:.72; }
+    .error-message { margin:0 0 14px; padding:10px 12px; border-radius:8px; background:#fff0ee; color:#93000a; font-size:14px; line-height:1.6; }
+    .help-links { display:flex; flex-wrap:wrap; justify-content:center; gap:8px 22px; padding-top:16px; border-top:1px solid #eee8e4; }
+    .help-links a { min-height:40px; display:inline-flex; align-items:center; justify-content:center; color:var(--riwaq-primary,#33210d); font-size:14px; font-weight:700; text-underline-offset:4px; }
+    .trust-note { margin:22px 0 0; display:flex; align-items:center; justify-content:center; gap:8px; color:var(--riwaq-muted,#625b55); font-size:13px; }
+    .credit { margin:24px 0 0; text-align:center; color:var(--riwaq-muted,#625b55); font-size:12px; }
+    input:focus-visible, button:focus-visible, a:focus-visible { outline:3px solid rgba(192,88,58,.5); outline-offset:3px; }
+    @media(min-width:760px) { body.zam-page { padding-inline:32px; } .login-card { padding:36px 40px; } }
+    @media(max-width:420px) { body.zam-page { padding:24px 14px; } .brand-mark { width:94px; height:94px; } .help-links { flex-direction:column; gap:2px; } }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; animation-iteration-count:1!important; scroll-behavior:auto!important; transition-duration:.01ms!important; } }
+  </style>
+  <link rel="stylesheet" href="assets/riwaq-theme.css">
+</head>
+<body class="zam-page">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/supabase-config.js?v=20261117194500"></script>
+  <main class="login-shell" aria-labelledby="page-title">
+    <header class="brand-block">
+      <div class="brand-mark"><img alt="شعار ZAM Operations System" src="assets/logo/zam-logo.png"></div>
+      <h1 id="page-title">ZAM Operations System</h1>
+      <p>بوابة الدخول إلى نظام إدارة العمليات</p>
+    </header>
+
+    <section class="login-card" aria-labelledby="login-heading">
+      <div class="login-intro">
+        <h2 id="login-heading">تسجيل الدخول</h2>
+        <p>أدخل رمز المرور المرتبط بحسابك للمتابعة.</p>
+      </div>
+      <div class="login-fields">
+        <label class="passcode-label" for="passcode-input">رمز المرور</label>
+        <div class="passcode-wrap">
+          <input autocomplete="current-password" autofocus class="w-full p-md text-center text-headline-lg tracking-widest rounded-xl border border-outline-variant bg-surface-container-lowest text-primary focus:outline-none focus:border-primary transition-colors" id="passcode-input" maxlength="6" placeholder="••••••" type="password" inputmode="numeric" aria-describedby="passcode-hint error-msg">
+        </div>
+        <p class="field-hint" id="passcode-hint">أدخل من 4 إلى 6 أرقام. إذا تعذر الدخول، استخدم خيارات المساعدة أدناه.</p>
+        <p id="error-msg" class="error-message text-error text-body-sm mb-sm hidden" role="alert" aria-live="assertive">رمز المرور غير صحيح، أو حسابك لسه قيد المراجعة من الإدارة.</p>
+        <button class="w-full mb-md p-md bg-primary text-on-primary rounded-xl font-title-md hover:bg-primary-container transition-colors" id="login-submit" type="button">دخول</button>
+      </div>
+      <nav class="help-links" aria-label="خيارات المساعدة والتسجيل">
+        <a href="forgot-passcode/index.html">نسيت رمز المرور؟</a>
+        <a href="register/index.html">تسجيل البيانات لأول مرة</a>
+      </nav>
+    </section>
+
+    <footer>
+      <p class="trust-note"><span class="material-symbols-outlined" aria-hidden="true">verified_user</span><span>نظام آمن</span></p>
+      <p class="credit">إنشاء وتطوير محمود رائد - مدير التشغيل والجودة</p>
+    </footer>
+  </main>
+  <script>
     const input = document.getElementById('passcode-input');
     const submitBtn = document.getElementById('login-submit');
     const errorMsg = document.getElementById('error-msg');
@@ -143,5 +137,6 @@ body.zam-page main > div:last-child { margin-top:34px; color:var(--riwaq-muted);
     input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleLogin();
     });
-</script>
-</body></html>
+  </script>
+</body>
+</html>
