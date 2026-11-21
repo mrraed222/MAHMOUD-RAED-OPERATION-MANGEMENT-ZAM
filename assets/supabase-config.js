@@ -167,7 +167,7 @@ async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
         </a>`;
     }).join('');
 
-    return `<aside class="fixed right-0 top-0 h-full w-[280px] bg-surface border-l border-outline-variant flex flex-col py-lg px-md gap-base z-50 hidden md:flex">
+    return `<aside id="zam-main-sidebar" class="zam-sidebar fixed right-0 top-0 h-full w-[280px] bg-surface border-l border-outline-variant flex flex-col py-lg px-md gap-base z-50" aria-label="التنقل الرئيسي" aria-hidden="true" inert>
         <div class="flex items-center justify-between gap-sm mb-lg px-xs">
           <div class="flex items-center gap-sm">
             <img alt="ZAM Operations System" class="w-14 h-14 rounded-xl object-contain bg-white p-1 zam-logo" src="${pathPrefix}assets/logo/zam-logo.png"/>
@@ -185,6 +185,222 @@ async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
         </button>
     </aside>`;
 }
+
+// ============================================
+// سلوك الشريط الجانبي والهوية العلوية المشترك
+// ============================================
+function installZamSidebarExperience() {
+    if (typeof document === 'undefined' || document.getElementById('zam-sidebar-experience-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'zam-sidebar-experience-styles';
+    style.textContent = `
+        .zam-sidebar, aside.fixed.right-0[class~="w-[280px]"] {
+            position: fixed !important; inset-block: 0 !important; inset-inline-end: 0 !important;
+            width: min(280px, 88vw) !important; z-index: 60 !important; display: flex !important;
+            flex-direction: column; padding-top: 64px !important; visibility: hidden; transform: translateX(105%); pointer-events: none;
+            transition: transform .18s ease;
+        }
+        body.zam-sidebar-open .zam-sidebar,
+        body.zam-sidebar-open aside.fixed.right-0[class~="w-[280px]"] {
+            visibility: visible; transform: translateX(0); pointer-events: auto;
+        }
+        .zam-sidebar-scrim { display: none !important; position: fixed; inset: 0; z-index: 50; border: 0; background: rgba(27,28,28,.48); }
+        .zam-sidebar-close { position: absolute; inset-block-start: 8px; inset-inline-end: 8px; display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 10px; border: 1px solid #d2c4ba; border-radius: 999px; background: #fff; color: #33210d; font: inherit; font-weight: 700; cursor: pointer; }
+        .zam-header-tools { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; direction: rtl; min-width: 0; }
+        .zam-sidebar-toggle {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px;
+            padding: 0 12px; border: 1px solid #d2c4ba; border-radius: 999px; background: #fff;
+            color: #33210d; font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer;
+        }
+        .zam-sidebar-toggle:focus-visible { outline: 3px solid rgba(192,88,58,.55); outline-offset: 2px; }
+        .zam-header-account { display: inline-flex; align-items: center; gap: 7px; min-width: 0; max-width: 220px; padding: 4px 8px; border: 1px solid #d2c4ba; border-radius: 999px; background: #f6f3f2; color: #33210d; }
+        .zam-header-logo { width: 30px !important; height: 30px !important; flex: 0 0 30px; object-fit: contain; border-radius: 6px; background: #fff; }
+        .zam-header-avatar { width: 32px !important; height: 32px !important; flex: 0 0 32px; border-radius: 50%; object-fit: cover; }
+        .zam-header-employee-name { display: block; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 700; }
+        header.zam-app-header { height: auto !important; min-height: var(--zam-header-min-height, 64px); flex-wrap: wrap !important; gap: 8px; box-sizing: border-box; }
+        header.zam-app-header > :not(.zam-header-tools) { min-width: 0; }
+        @media (min-width: 768px) {
+            body:not(.zam-sidebar-open) [class~="md:pr-[280px]"], body:not(.zam-sidebar-open) [class~="md:pr-[312px]"] { padding-right: 0 !important; }
+            body:not(.zam-sidebar-open) [class~="mr-[280px]"], body:not(.zam-sidebar-open) [class~="md:mr-[280px]"] { margin-right: 0 !important; }
+        body.zam-sidebar-open [class~="md:pr-[280px]"] { padding-right: 280px !important; }
+        body.zam-sidebar-open [class~="md:pr-[312px]"] { padding-right: 312px !important; }
+        body.zam-sidebar-open [class~="mr-[280px]"], body.zam-sidebar-open [class~="md:mr-[280px]"] { margin-right: 280px !important; }
+        }
+        body:not(.zam-sidebar-open) [class~="mr-[280px]"] { margin-right: 0 !important; }
+        @media (max-width: 767px) {
+            body.zam-sidebar-open { overflow: hidden; }
+            body [class~="mr-[280px]"], body [class~="md:mr-[280px]"] { margin-right: 0 !important; }
+            body.zam-sidebar-open .zam-sidebar-scrim { display: block !important; }
+            header.zam-app-header { padding-inline: 16px !important; }
+            .zam-header-tools { gap: 6px; }
+            .zam-header-account { gap: 5px; padding: 3px 6px; }
+            .zam-header-logo { width: 26px !important; height: 26px !important; flex-basis: 26px; }
+            .zam-header-avatar { width: 30px !important; height: 30px !important; flex-basis: 30px; }
+            .zam-header-employee-name { max-width: clamp(56px, 22vw, 92px); font-size: 12px; }
+        }
+        @media (prefers-reduced-motion: reduce) { .zam-sidebar { transition: none !important; } }
+    `;
+    document.head.appendChild(style);
+
+    const findSidebar = () => document.getElementById('zam-main-sidebar') ||
+        Array.from(document.querySelectorAll('aside.fixed.right-0')).find(node =>
+            Array.from(node.classList).some(className => className === 'w-[280px]')) || null;
+
+    const initialize = () => {
+        const sidebar = findSidebar();
+        const header = document.querySelector('header');
+        if (!sidebar || !header) return false;
+        if (sidebar.dataset.zamSidebarReady === 'true') return true;
+
+        sidebar.classList.add('zam-sidebar');
+        sidebar.id = sidebar.id || 'zam-main-sidebar';
+        sidebar.setAttribute('aria-label', 'التنقل الرئيسي');
+        sidebar.setAttribute('aria-hidden', 'true');
+        sidebar.inert = true;
+        document.body.classList.remove('zam-sidebar-open');
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'zam-sidebar-close';
+        closeButton.setAttribute('aria-label', 'إغلاق قائمة التنقل');
+        closeButton.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">close</span><span>إغلاق القائمة</span>';
+        sidebar.prepend(closeButton);
+
+        const profile = typeof ZamSession !== 'undefined' ? ZamSession.get() : null;
+        const employeeName = profile?.full_name || profile?.name || 'حسابي';
+        const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
+
+        const tools = document.createElement('div');
+        tools.className = 'zam-header-tools';
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'zam-sidebar-toggle';
+        toggle.setAttribute('aria-controls', sidebar.id);
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-label', 'إظهار قائمة التنقل');
+        toggle.title = 'إظهار قائمة التنقل';
+        toggle.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">menu</span><span class="zam-sidebar-toggle-text">إظهار القائمة</span>';
+
+        const account = document.createElement('div');
+        account.className = 'zam-header-account';
+        account.setAttribute('aria-label', `الموظف: ${employeeName}`);
+        const headerHasLogo = Array.from(header.querySelectorAll('img')).some(image =>
+            /zam-logo/i.test(image.currentSrc || image.src) || /zam|زام/i.test(image.alt || ''));
+        if (!headerHasLogo) {
+            const sidebarLogo = Array.from(sidebar.querySelectorAll('img')).find(image =>
+                /zam-logo/i.test(image.currentSrc || image.src) || /zam|زام/i.test(image.alt || ''));
+            if (sidebarLogo) {
+                const logo = sidebarLogo.cloneNode(false);
+                logo.removeAttribute('id');
+                logo.className = 'zam-header-logo';
+                logo.alt = 'شعار زام';
+                account.appendChild(logo);
+            }
+        }
+
+        let avatar = header.querySelector('#header-avatar');
+        if (avatar) {
+            const originalParent = avatar.parentElement;
+            const avatarWrapper = avatar.closest('a') || avatar;
+            account.appendChild(avatarWrapper);
+            if (originalParent && originalParent !== header && !originalParent.children.length && !originalParent.textContent.trim()) {
+                originalParent.remove();
+            }
+        } else {
+            avatar = document.createElement('img');
+            avatar.src = profile?.avatar_url || avatarFallback;
+            avatar.alt = `صورة ${employeeName}`;
+            account.appendChild(avatar);
+        }
+        avatar.classList.add('zam-header-avatar');
+        if (!avatar.alt || avatar.alt === 'حسابي' || avatar.alt === 'صورتك الشخصية') avatar.alt = `صورة ${employeeName}`;
+
+        const name = document.createElement('span');
+        name.className = 'zam-header-employee-name';
+        name.textContent = employeeName;
+        name.title = employeeName;
+        account.appendChild(name);
+        tools.append(toggle, account);
+        header.prepend(tools);
+
+        const initialHeaderHeight = Math.round(header.getBoundingClientRect().height) || 64;
+        header.style.setProperty('--zam-header-min-height', `${initialHeaderHeight}px`);
+        header.classList.add('zam-app-header');
+        const main = document.querySelector('main');
+        const syncMainOffset = () => {
+            if (main && window.getComputedStyle(header).position === 'fixed') {
+                main.style.paddingTop = `${Math.ceil(header.getBoundingClientRect().height)}px`;
+            }
+        };
+        syncMainOffset();
+        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(syncMainOffset).observe(header);
+
+        let scrim = document.querySelector('.zam-sidebar-scrim');
+        if (!scrim) {
+            scrim = document.createElement('button');
+            scrim.type = 'button';
+            scrim.className = 'zam-sidebar-scrim';
+            scrim.setAttribute('aria-label', 'إغلاق قائمة التنقل');
+            document.body.appendChild(scrim);
+        }
+
+        const setOpen = (open, returnFocus = false) => {
+            document.body.classList.toggle('zam-sidebar-open', open);
+            sidebar.setAttribute('aria-hidden', String(!open));
+            sidebar.inert = !open;
+            toggle.setAttribute('aria-expanded', String(open));
+            toggle.setAttribute('aria-label', open ? 'إخفاء قائمة التنقل' : 'إظهار قائمة التنقل');
+            toggle.title = open ? 'إخفاء قائمة التنقل' : 'إظهار قائمة التنقل';
+            toggle.querySelector('.material-symbols-outlined').textContent = open ? 'close' : 'menu';
+            toggle.querySelector('.zam-sidebar-toggle-text').textContent = open ? 'إخفاء القائمة' : 'إظهار القائمة';
+            if (open) sidebar.querySelector('a[href], button:not([disabled])')?.focus();
+            else if (returnFocus) toggle.focus();
+        };
+        toggle.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'));
+        closeButton.addEventListener('click', () => setOpen(false, true));
+        scrim.addEventListener('click', () => setOpen(false, true));
+        document.addEventListener('keydown', event => {
+            if (!document.body.classList.contains('zam-sidebar-open')) return;
+            if (event.key === 'Escape') {
+                setOpen(false, true);
+                return;
+            }
+            if (event.key === 'Tab') {
+                const focusable = Array.from(sidebar.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+                if (!focusable.length) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey && (document.activeElement === first || document.activeElement === toggle)) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            }
+        });
+
+        sidebar.dataset.zamSidebarReady = 'true';
+        return true;
+    };
+
+    const startWatching = () => {
+        if (initialize()) return;
+        const hasSidebarSlot = !!document.getElementById('sidebar-slot');
+        const hasLegacySidebar = Array.from(document.querySelectorAll('aside.fixed.right-0')).some(node =>
+            Array.from(node.classList).some(className => className === 'w-[280px]'));
+        if (!hasSidebarSlot && !hasLegacySidebar) return;
+        const observer = new MutationObserver(() => {
+            if (initialize()) observer.disconnect();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startWatching, { once: true });
+    else startWatching();
+}
+
+installZamSidebarExperience();
+
 
 // ============================================
 // جرس الإشعارات التشغيلي المشترك
