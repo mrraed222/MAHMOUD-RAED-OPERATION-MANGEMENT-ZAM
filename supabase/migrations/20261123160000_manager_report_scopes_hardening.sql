@@ -23,17 +23,23 @@ $preflight$;
 -- A non-login, non-owner, NOBYPASSRLS function owner confines the summary RPC
 -- to the granted projection columns and the RLS policy below. It is not service_role.
 DO $role$
+DECLARE
+  v_role record;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_catalog.pg_roles
-    WHERE rolname = 'zam_daily_summary_reader'
-  ) THEN
+  SELECT rolcanlogin, rolsuper, rolcreatedb, rolcreaterole, rolinherit,
+         rolreplication, rolbypassrls
+    INTO v_role
+  FROM pg_catalog.pg_roles
+  WHERE rolname = 'zam_daily_summary_reader';
+  IF NOT FOUND THEN
     EXECUTE 'CREATE ROLE zam_daily_summary_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS';
+  ELSIF v_role.rolcanlogin OR v_role.rolsuper OR v_role.rolcreatedb
+     OR v_role.rolcreaterole OR v_role.rolinherit OR v_role.rolreplication
+     OR v_role.rolbypassrls THEN
+    RAISE EXCEPTION 'Existing zam_daily_summary_reader role has unsafe privileges';
   END IF;
 END;
 $role$;
-ALTER ROLE zam_daily_summary_reader
-  NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
 
 CREATE TABLE IF NOT EXISTS public.manager_report_scopes (
   profile_id uuid PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
