@@ -12,6 +12,10 @@ test('dashboard preserves authorization and source contracts', () => {
   assert.match(source, /from\('checklist_logs'\)/);
   assert.match(source, /from\('daily_reports'\)/);
   assert.match(source, /from\('shift_issues'\)/);
+  assert.match(source, /from\('shift_issues'\)\.select\('id, created_at, daily_reports!inner\(branch_id\)'\)/);
+  assert.match(source, /const branchId = row\.daily_reports\?\.branch_id/);
+  assert.doesNotMatch(source, /from\('shift_issues'\)\.select\('id, branch_id'\)/,
+    'shift_issues has no direct branch_id column; scope it through the related daily report');
   assert.match(source, /const branchPage = '\.\.\/supervisor-dashboard\/index\.html'/);
 });
 

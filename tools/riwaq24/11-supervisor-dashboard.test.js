@@ -35,5 +35,5 @@ test('refresh, retry, accessible visit modal, and independent empty states are a
   assert.match(source, /لا توجد مخالفات أو تكليفات مفتوحة/);
   assert.match(source, /لا توجد ملاحظات من الفريق حتى الآن/);
   assert.match(source, /لا توجد مهام مستحقة في هذه الوردية اليوم/);
-  assert.match(source, /id="notif-bell-slot"/);
+  assert.doesNotMatch(source, /notif-bell-slot/);
 });

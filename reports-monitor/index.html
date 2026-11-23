@@ -3,10 +3,26 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>مراقبة تسليم التقارير | ZAM Operation</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/riwaq-theme.css">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+try {
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: { primary: '#217a5e', 'primary-container': '#e7f3ed', 'on-primary': '#ffffff', 'surface-container-lowest': '#ffffff', 'surface-container': '#f0f4ef', 'on-surface-variant': '#697871', 'outline-variant': '#e3e9e3', error: '#a73b35', 'error-container': '#fff0ed', 'on-error': '#ffffff', tertiary: '#287752', 'tertiary-fixed': '#e9f5ed' },
+        spacing: { xs: '4px', sm: '12px', md: '24px' },
+        fontFamily: { 'body-sm': ['IBM Plex Sans Arabic', 'Tajawal', 'sans-serif'] },
+        fontSize: { 'body-sm': ['14px', { lineHeight: '20px' }] }
+      }
+    }
+  };
+} catch (_e) {}
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261121212700"></script>
+<script src="../assets/supabase-config.js?v=20261123210100"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -35,64 +51,81 @@
 <script>
 const dateInput=document.getElementById('check-date');
 const tbody=document.getElementById('monitor-tbody');
+const refreshButton=document.getElementById('refresh-monitor');
+const sortSelect=document.getElementById('sort-branches');
 let branchRows=[];
 let monitorLoadGeneration=0;
 let monitorAuthorized=false;
 dateInput.disabled=true;
-document.getElementById('refresh-monitor').disabled=true;
+refreshButton.disabled=true;
+sortSelect.disabled=true;
 dateInput.value=ZamBranchLifecycle.riyadhDateString(new Date());
 dateInput.addEventListener('change',loadMonitor);
-document.getElementById('refresh-monitor').addEventListener('click',loadMonitor);
-document.getElementById('sort-branches').addEventListener('change',renderMonitor);
+refreshButton.addEventListener('click',loadMonitor);
+sortSelect.addEventListener('change',renderMonitor);
 function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function statusBadge(submitted,time){return submitted?`<span class="rm-state ok"><span aria-hidden="true">✓</span> تم التسجيل${time?` · ${escapeHtml(time)}`:''}</span>`:'<span class="rm-state missing"><span aria-hidden="true">—</span> لم يُسجّل</span>';}
-function showLoading(){document.getElementById('monitor-feedback').textContent='جارٍ تحميل بيانات الفروع والتقارير…';tbody.innerHTML='<tr><td colspan="3" class="rm-loading">جارٍ التحميل…</td></tr>';document.getElementById('monitor-mobile').innerHTML='';['c-morning-done','c-morning-missing','c-evening-done','c-evening-missing'].forEach(id=>document.getElementById(id).textContent='—');}
-function renderMonitor(){const sort=document.getElementById('sort-branches').value;const rows=[...branchRows].sort((a,b)=>String(a.branch.name).localeCompare(String(b.branch.name),'ar')*(sort==='desc'?-1:1));const done={Morning:0,Evening:0};rows.forEach(x=>{if(x.morning)done.Morning++;if(x.evening)done.Evening++;});
+async function loadDailyChecklistSummary(date){
+ const rangeRes=await zamClient.rpc('get_daily_checklist_summary',{p_date_from:date,p_date_to:date});
+ if(!rangeRes.error)return rangeRes.data||[];
+ if(currentUser.role==='Manager'||rangeRes.error.code!=='PGRST202')throw rangeRes.error;
+ const legacyRes=await zamClient.rpc('get_daily_checklist_summary',{p_report_date:date});
+ if(legacyRes.error)throw legacyRes.error;
+ return legacyRes.data||[];
+}
+function resetCounts(){['c-morning-done','c-morning-missing','c-evening-done','c-evening-missing'].forEach(id=>document.getElementById(id).textContent='—');}
+function showLoading(){document.getElementById('monitor-feedback').textContent='جارٍ تحميل بيانات الفروع والتقارير…';document.getElementById('results-count').textContent='';tbody.innerHTML='<tr><td colspan="3" class="rm-loading">جارٍ التحميل…</td></tr>';document.getElementById('monitor-mobile').innerHTML='';resetCounts();sortSelect.disabled=true;}
+function showMonitorMessage(message,isError=false){branchRows=[];resetCounts();document.getElementById('results-count').textContent='';document.getElementById('monitor-feedback').textContent=message;const stateClass=isError?'rm-error':'rm-empty';tbody.innerHTML=`<tr><td colspan="3" class="${stateClass}">${escapeHtml(message)}</td></tr>`;document.getElementById('monitor-mobile').innerHTML=`<div class="rm-card ${stateClass}">${escapeHtml(message)}</div>`;sortSelect.disabled=true;}
+function renderMonitor(){if(sortSelect.disabled)return;const sort=sortSelect.value;const rows=[...branchRows].sort((a,b)=>String(a.branch.name).localeCompare(String(b.branch.name),'ar')*(sort==='desc'?-1:1));const done={Morning:0,Evening:0};rows.forEach(x=>{if(x.morning)done.Morning++;if(x.evening)done.Evening++;});
  document.getElementById('c-morning-done').textContent=done.Morning;document.getElementById('c-morning-missing').textContent=rows.length-done.Morning;document.getElementById('c-evening-done').textContent=done.Evening;document.getElementById('c-evening-missing').textContent=rows.length-done.Evening;document.getElementById('results-count').textContent=`${rows.length} ${rows.length===1?'فرع':'فروع'} ضمن النطاق`;
- const mobile=document.getElementById('monitor-mobile');if(!rows.length){tbody.innerHTML='<tr><td colspan="3" class="rm-empty">لا توجد فروع تشغيلية لعرضها في هذا التاريخ.</td></tr>';mobile.innerHTML='<div class="rm-card rm-empty">لا توجد فروع تشغيلية لعرضها في هذا التاريخ.</div>';document.getElementById('monitor-feedback').textContent='اكتمل التحديث؛ لا توجد فروع ضمن النطاق.';return;}
+ const mobile=document.getElementById('monitor-mobile');if(!rows.length){tbody.innerHTML='<tr><td colspan="3" class="rm-empty">لا توجد فروع تشغيلية لعرضها في هذا التاريخ.</td></tr>';mobile.innerHTML='<div class="rm-card rm-empty">لا توجد فروع تشغيلية لعرضها في هذا التاريخ.</div>';document.getElementById('monitor-feedback').textContent='اكتمل التحديث؛ لا توجد فروع تشغيلية ضمن النطاق.';return;}
  tbody.innerHTML=rows.map(x=>`<tr><th scope="row">${escapeHtml(x.branch.name)}</th><td>${statusBadge(!!x.morning,x.morning?.entry_time?.slice(0,5))}</td><td>${statusBadge(!!x.evening,x.evening?.entry_time?.slice(0,5))}</td></tr>`).join('');
  mobile.innerHTML=rows.map(x=>`<article class="rm-branch-card"><h3>${escapeHtml(x.branch.name)}</h3><div class="rm-mobile-shifts"><div class="rm-mobile-shift"><small>الصباحية</small>${statusBadge(!!x.morning,x.morning?.entry_time?.slice(0,5))}</div><div class="rm-mobile-shift"><small>المسائية</small>${statusBadge(!!x.evening,x.evening?.entry_time?.slice(0,5))}</div></div></article>`).join('');document.getElementById('monitor-feedback').textContent=`اكتمل التحديث — ${rows.length} فرع.`;
 }
 async function loadMonitor(){
  if(!monitorAuthorized)return;
  const generation=++monitorLoadGeneration;
- const button=document.getElementById('refresh-monitor');
  const date=dateInput.value;
- if(!date){
-  branchRows=[];
-  showLoading();
-  document.getElementById('monitor-feedback').textContent='اختر تاريخًا صالحًا لعرض التقارير.';
-  tbody.innerHTML='<tr><td colspan="3" class="rm-empty">اختر تاريخًا صالحًا لعرض التقارير.</td></tr>';
-  document.getElementById('monitor-mobile').innerHTML='<div class="rm-card rm-empty">اختر تاريخًا صالحًا لعرض التقارير.</div>';
-  button.disabled=false;
-  return;
- }
-	 showLoading();
-	 button.disabled=true;
-	 try{
-	  const branchRequest=currentUser.role==='Manager'
-	   ? zamClient.rpc('list_manager_report_branches')
-	   : ZamAPI.getBranches().then(data=>({data,error:null}));
-  const [branchesRes,reportsRes]=await Promise.all([branchRequest,zamClient.rpc('get_daily_checklist_summary',{p_report_date:date})]);
-	  if(branchesRes.error)throw branchesRes.error;
-	  if(reportsRes.error)throw reportsRes.error;
-	  if(generation!==monitorLoadGeneration||date!==dateInput.value)return;
-	  const branches=(branchesRes.data||[]).filter(branch=>ZamBranchLifecycle.isOperational(branch,date));
-	  const reports=reportsRes.data||[];
+ branchRows=[];
+ showLoading();
+ if(!date){showMonitorMessage('اختر تاريخًا صالحًا لعرض التقارير.');refreshButton.disabled=false;return;}
+ refreshButton.disabled=true;
+ try{
+  let branches;
+  if(currentUser.role==='Manager'){
+   const branchesRes=await zamClient.rpc('list_manager_daily_summary_branches');
+   if(branchesRes.error)throw branchesRes.error;
+   branches=branchesRes.data||[];
+   if(generation!==monitorLoadGeneration||date!==dateInput.value)return;
+   if(!branches.length){showMonitorMessage('نطاق فروع المدير غير مهيأ أو لا يحتوي على فروع مسموح بها؛ لا توجد أرقام متاحة.',true);return;}
+  }else{
+   branches=await ZamAPI.getBranches();
+  }
+  if(generation!==monitorLoadGeneration||date!==dateInput.value)return;
+  const reports=await loadDailyChecklistSummary(date);
+  if(generation!==monitorLoadGeneration||date!==dateInput.value)return;
+  branches=(branches||[]).filter(branch=>ZamBranchLifecycle.isOperational(branch,date));
   branchRows=branches.map(branch=>({branch,morning:reports.find(r=>r.branch_id===branch.id&&r.shift_type==='Morning'),evening:reports.find(r=>r.branch_id===branch.id&&r.shift_type==='Evening')}));
+  sortSelect.disabled=false;
   renderMonitor();
  }catch(err){
   if(generation!==monitorLoadGeneration)return;
-  console.error(err);branchRows=[];['c-morning-done','c-morning-missing','c-evening-done','c-evening-missing'].forEach(id=>document.getElementById(id).textContent='—');document.getElementById('results-count').textContent='';document.getElementById('monitor-feedback').textContent='تعذّر تحميل بيانات المراقبة. تحقق من الاتصال ثم أعد المحاولة.';tbody.innerHTML='<tr><td colspan="3" class="rm-error">تعذّر تحميل البيانات. استخدم «تحديث البيانات» لإعادة المحاولة.</td></tr>';document.getElementById('monitor-mobile').innerHTML='<div class="rm-card rm-error">تعذّر تحميل البيانات. استخدم «تحديث البيانات» لإعادة المحاولة.</div>';
- }finally{if(generation===monitorLoadGeneration)button.disabled=false;}
+  console.error(err);
+  const message=currentUser.role==='Manager'
+   ? 'تعذّر التحقق من صلاحية ملخص المدير ونطاق فروعه أو تحميل البيانات؛ لم تُعرض أرقام. أعد المحاولة بعد التحقق من الإعداد.'
+   : 'تعذّر تحميل بيانات المراقبة. تحقق من الاتصال ثم أعد المحاولة.';
+  showMonitorMessage(message,true);
+ }finally{if(generation===monitorLoadGeneration)refreshButton.disabled=false;}
 }
+
 async function initializeMonitor(){
  if(!currentUser||!['Owner','Admin','Manager'].includes(currentUser.role))return;
  try{
-  const permission=currentUser.role==='Manager'?'can_view_daily_checklist_summary':'can_view_all_reports';
-  if(!(await ZamAPI.requireAdminPerm(permission))){window.location.href=zamRoleHomePath(currentUser.role);return;}
+  // Manager scope is stored separately; the branch-list and summary RPCs are the server-side authorization gates.
+  if(currentUser.role!=='Manager'&&!(await ZamAPI.requireAdminPerm('can_view_all_reports'))){window.location.href=zamRoleHomePath(currentUser.role);return;}
   monitorAuthorized=true;
   dateInput.disabled=false;
+  refreshButton.disabled=false;
   await loadMonitor();
  }catch(err){
   console.error(err);

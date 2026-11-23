@@ -133,6 +133,7 @@ const ZAM_OWNER_NAV_KEYS = new Set([
 ]);
 
 async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
+    window.__zamActiveSidebarKey = activeKey;
     const sessionProfile = ZamSession.get();
     const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
     const userAvatar = sessionProfile?.avatar_url || avatarFallback;
@@ -198,7 +199,7 @@ function installZamSidebarExperience() {
     style.id = 'zam-sidebar-experience-styles';
     style.textContent = `
         .zam-sidebar, aside.fixed.right-0[class~="w-[280px]"] {
-            position: fixed !important; inset-block: 0 !important; inset-inline-end: 0 !important;
+            position: fixed !important; inset-block: 0 !important; inset-inline-start: 0 !important; inset-inline-end: auto !important;
             width: min(280px, 88vw) !important; z-index: 60 !important; display: flex !important;
             flex-direction: column; padding-top: 64px !important; visibility: hidden; transform: translateX(105%); pointer-events: none;
             transition: transform .18s ease;
@@ -219,7 +220,7 @@ function installZamSidebarExperience() {
             padding: 0 12px; border: 1px solid #d2c4ba; border-radius: 999px; background: #fff;
             color: #33210d; font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer;
         }
-        .zam-sidebar .zam-sidebar-toggle { position: absolute; inset-block-start: 8px; inset-inline-end: 8px; z-index: 2; }
+        .zam-sidebar .zam-sidebar-toggle { position: absolute; inset-block-start: 8px; inset-inline-start: 8px; inset-inline-end: auto; z-index: 2; }
         .zam-sidebar-toggle:focus-visible { outline: 3px solid rgba(192,88,58,.55); outline-offset: 2px; }
         .zam-header-account { display: inline-flex; align-items: center; gap: 7px; min-width: 0; max-width: 220px; padding: 4px 8px; border: 1px solid #d2c4ba; border-radius: 999px; background: #f6f3f2; color: #33210d; }
         .zam-header-logo { width: 30px !important; height: 30px !important; flex: 0 0 30px; object-fit: contain; border-radius: 6px; background: #fff; }
@@ -230,11 +231,13 @@ function installZamSidebarExperience() {
         .zam-sidebar, .zam-sidebar.bg-surface { background-color: var(--riwaq-sidebar, #16392f) !important; color: #f4f6f2 !important; border-color: rgba(255,255,255,.18) !important; }
         .zam-sidebar h1 { color: #f4f6f2 !important; }
         .zam-sidebar { padding-inline: 16px; }
-        .zam-sidebar > div:first-of-type { gap: 8px; margin-bottom: 16px; padding-inline: 4px; border-bottom: 1px solid rgba(255,255,255,.16); padding-bottom: 12px; }
-        .zam-sidebar > div:first-of-type > div { gap: 8px; }
+        .zam-sidebar > div:first-of-type { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; padding-inline: 4px; border-bottom: 1px solid rgba(255,255,255,.16); padding-bottom: 12px; }
+        .zam-sidebar > div:first-of-type > div { display: flex; align-items: center; gap: 8px; }
+        .zam-sidebar .zam-logo { width: 56px; height: 56px; flex: 0 0 56px; }
+        .zam-sidebar > div:first-of-type img:last-child { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; object-fit: cover; }
         .zam-sidebar > div:first-of-type p { color: var(--riwaq-sidebar-muted, #a8beb4) !important; }
-        .zam-sidebar nav { gap: 4px; }
-        .zam-sidebar nav a { color: #e7f0eb !important; gap: 8px; min-height: 44px; padding: 8px; flex-shrink: 0; border-radius: 8px; }
+        .zam-sidebar nav { display: flex; flex: 1 1 auto; flex-direction: column; overflow-y: auto; gap: 4px; }
+        .zam-sidebar nav a { color: #e7f0eb !important; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px; flex-shrink: 0; border-radius: 8px; text-decoration: none; }
         .zam-sidebar nav a:hover { background-color: var(--riwaq-sidebar-active, #285849) !important; color: #fff !important; }
         .zam-sidebar nav a.bg-surface-container, .zam-sidebar nav a[aria-current="page"] { background-color: var(--riwaq-sidebar-active, #285849) !important; border-color: var(--riwaq-accent, #bd8150) !important; color: #fff !important; }
         .zam-sidebar > button:not(.zam-sidebar-toggle) { border-top: 1px solid rgba(255,255,255,.16); color: #ffd9d4 !important; }
@@ -275,6 +278,12 @@ function installZamSidebarExperience() {
         @media (prefers-reduced-motion: reduce) { .zam-sidebar { transition: none !important; } }
     `;
     document.head.appendChild(style);
+    if (!Array.from(document.querySelectorAll('link[href]')).some(link => link.href.includes('fonts.googleapis.com/css2?family=Material+Symbols+Outlined'))) {
+        const materialSymbols = document.createElement('link');
+        materialSymbols.rel = 'stylesheet';
+        materialSymbols.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block';
+        document.head.appendChild(materialSymbols);
+    }
 
     const findSidebar = () => document.getElementById('zam-main-sidebar') ||
         Array.from(document.querySelectorAll('aside.fixed.right-0')).find(node =>
@@ -359,18 +368,20 @@ function installZamSidebarExperience() {
             identityCopy.appendChild(role);
         }
         account.appendChild(identityCopy);
+        const showNotifications = window.__zamActiveSidebarKey === 'dashboard';
         let notificationSlot = document.getElementById('notif-bell-slot');
-        if (!notificationSlot) {
+        if (showNotifications && !notificationSlot) {
             notificationSlot = document.createElement('div');
             notificationSlot.id = 'notif-bell-slot';
         }
-        tools.replaceChildren(toggle, notificationSlot, account);
+        if (!showNotifications) notificationSlot?.remove();
+        tools.replaceChildren(...(showNotifications ? [toggle, notificationSlot, account] : [toggle, account]));
         if (!hostedTools) header.prepend(tools);
 
         const initialHeaderHeight = Math.round(header.getBoundingClientRect().height) || 64;
         header.style.setProperty('--zam-header-min-height', `${initialHeaderHeight}px`);
         header.classList.add('zam-app-header');
-        refreshNotificationBell().catch(err => { console.error('Notification initialization error:', err); showNotificationFailure(err); });
+        if (showNotifications) refreshNotificationBell().catch(err => { console.error('Notification initialization error:', err); showNotificationFailure(err); });
         const main = document.querySelector('main');
         const syncMainOffset = () => {
             if (main && window.getComputedStyle(header).position === 'fixed') {
@@ -864,18 +875,32 @@ const ZamAPI = {
         return data.profile;
     },
 
-    async getBranches() {
-        const { data, error } = await zamClient.from('branches').select('*').order('name');
+    async getBranches({ signal } = {}) {
+        let query = zamClient.from('branches').select('*').order('name');
+        if (signal) query = query.abortSignal(signal);
+        const { data, error } = await query;
         if (error) throw error;
         return data;
     },
 
-    async getStaff(branchId = null) {
+    async getStaff(branchId = null, { signal } = {}) {
         let query = zamClient.from('profiles').select('*, branches(name)');
         if (branchId) query = query.eq('branch_id', branchId);
-        const { data, error } = await query.order('full_name');
+        query = query.order('full_name');
+        if (signal) query = query.abortSignal(signal);
+        const { data, error } = await query;
         if (error) throw error;
         return data;
+    },
+
+    async getStaffForManagement({ signal } = {}) {
+        let query = zamClient.from('profiles')
+            .select('id, full_name, email, employee_number, status, role, branch_id, shift_type, passcode, avatar_url, whatsapp_number, receives_branch_reports, branches(name)')
+            .order('full_name');
+        if (signal) query = query.abortSignal(signal);
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
     },
 
     // ============================================
@@ -950,31 +975,67 @@ const ZamAPI = {
         return data;
     },
 
-    async getManagerReportScopes() {
-        const [scopesResult, branchesResult] = await Promise.all([
-            zamClient.from('manager_report_scopes').select('profile_id,scope_mode'),
-            zamClient.from('manager_report_scope_branches').select('profile_id,branch_id')
-        ]);
-        if (scopesResult.error) throw scopesResult.error;
-        if (branchesResult.error) throw branchesResult.error;
-        const scopes = Object.fromEntries((scopesResult.data || []).map(row => [row.profile_id, {
-            mode: row.scope_mode,
-            branchIds: []
-        }]));
-        (branchesResult.data || []).forEach(row => {
-            if (scopes[row.profile_id]) scopes[row.profile_id].branchIds.push(row.branch_id);
-        });
-        return scopes;
+    managerReportScopeError(error) {
+        const code = String(error?.code || '');
+        const message = String(error?.message || '');
+        if (['PGRST202', 'PGRST204', 'PGRST205', '42P01', '42703', '42883'].includes(code)
+            || /could not find|does not exist|schema cache|not found in schema/i.test(message)) {
+            const configuredError = new Error('ميزة نطاق فروع المدير غير مهيأة على قاعدة البيانات الحالية.');
+            configuredError.code = 'MANAGER_SCOPE_UNCONFIGURED';
+            configuredError.details = message;
+            return configuredError;
+        }
+        return error;
     },
 
-    async saveManagerReportScope(profileId, mode, branchIds = [], legacyCanViewAll = false) {
+    async getManagerReportScopes(profileIds = null, { signal } = {}) {
+        const targetIds = Array.isArray(profileIds) ? Array.from(new Set(profileIds.filter(Boolean))) : null;
+        if (targetIds && !targetIds.length) return {};
+
+        let scopesQuery = zamClient.from('manager_report_scopes')
+            .select('profile_id, scope_mode, can_view_daily_checklist_summary, can_view_checklist_logs, can_view_visit_reports, can_view_analytics');
+        if (targetIds) scopesQuery = scopesQuery.in('profile_id', targetIds);
+        if (signal) scopesQuery = scopesQuery.abortSignal(signal);
+        const { data: scopeRows, error: scopesError } = await scopesQuery;
+        if (scopesError) throw this.managerReportScopeError(scopesError);
+
+        const branchIdsToRead = targetIds || (scopeRows || []).map(row => row.profile_id);
+        if (!branchIdsToRead.length) return {};
+        let branchesQuery = zamClient.from('manager_report_scope_branches')
+            .select('profile_id, branch_id').in('profile_id', branchIdsToRead);
+        if (signal) branchesQuery = branchesQuery.abortSignal(signal);
+        const { data: branchRows, error: branchesError } = await branchesQuery;
+        if (branchesError) throw this.managerReportScopeError(branchesError);
+
+        const branchesByProfile = {};
+        (branchRows || []).forEach(row => {
+            (branchesByProfile[row.profile_id] ||= []).push(row.branch_id);
+        });
+        const scopesByProfile = {};
+        (scopeRows || []).forEach(row => {
+            scopesByProfile[row.profile_id] = {
+                scope_mode: row.scope_mode,
+                branchIds: branchesByProfile[row.profile_id] || [],
+                can_view_daily_checklist_summary: row.can_view_daily_checklist_summary === true,
+                can_view_checklist_logs: row.can_view_checklist_logs === true,
+                can_view_visit_reports: row.can_view_visit_reports === true,
+                can_view_analytics: row.can_view_analytics === true,
+            };
+        });
+        return scopesByProfile;
+    },
+
+    async saveManagerReportScope(profileId, mode, branchIds = [], canViewDailySummary = false, canViewChecklistLogs = false, canViewVisitReports = false, canViewAnalytics = false) {
         const { error } = await zamClient.rpc('save_manager_report_scope', {
             p_profile_id: profileId,
             p_scope_mode: mode,
-            p_branch_ids: mode === 'selected' ? Array.from(new Set(branchIds || [])) : [],
-            p_legacy_can_view_all: !!legacyCanViewAll
+            p_branch_ids: Array.from(new Set(branchIds || [])),
+            p_can_view_daily_checklist_summary: canViewDailySummary === true,
+            p_can_view_checklist_logs: canViewChecklistLogs === true,
+            p_can_view_visit_reports: canViewVisitReports === true,
+            p_can_view_analytics: canViewAnalytics === true,
         });
-        if (error) throw error;
+        if (error) throw this.managerReportScopeError(error);
     },
 
     // ============================================
@@ -1379,7 +1440,7 @@ const ZamAPI = {
         return readAllRows(() => {
             let query = zamClient
                 .from('shift_issues')
-                .select('*, daily_reports!inner(branch_id, report_date, branches(name))')
+                .select('*, daily_reports!inner(branch_id, report_date, shift_type, branches(name))')
                 .order('created_at', { ascending: false });
             if (branchId) query = query.eq('daily_reports.branch_id', branchId);
             if (dateFrom) query = query.gte('daily_reports.report_date', dateFrom);

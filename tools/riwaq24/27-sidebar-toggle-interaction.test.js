@@ -88,6 +88,14 @@ test('one shared sidebar toggle opens and closes with correct focus and ARIA sta
   assert.match(shared, /visibility: hidden; transform: translateX\(105%\)/);
   assert.match(shared, /body\.zam-sidebar-open \.zam-sidebar[\s\S]*?visibility: visible/);
   assert.match(shared, /body\.zam-sidebar-open \.zam-sidebar-scrim \{ display: block !important; \}/);
+  assert.match(shared, /inset-inline-start: 0 !important; inset-inline-end: auto !important;/,
+    'the RTL sidebar must open from the right-hand inline start');
+  assert.match(shared, /\.zam-sidebar nav \{[^}]*display: flex;[^}]*flex-direction: column;/,
+    'navigation layout must not depend on page-specific Tailwind imports');
+  assert.match(shared, /\.zam-sidebar nav a \{[^}]*display: flex;[^}]*align-items: center;/,
+    'menu links must remain visible and usable without page utility CSS');
+  assert.match(shared, /Material\+Symbols\+Outlined:wght,FILL/,
+    'shared navigation must load its icon font on pages that do not import it themselves');
   assert.doesNotMatch(shared, /zam-sidebar-close|const closeButton/);
   const globalStyles = shared.slice(shared.indexOf('.zam-sidebar-scrim {'), shared.indexOf('@media (min-width: 768px)'));
   assert.match(globalStyles, /body\.zam-sidebar-open \{ overflow: hidden; \}/, 'background scrolling is locked at every viewport width');

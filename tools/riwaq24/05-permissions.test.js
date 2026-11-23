@@ -39,7 +39,7 @@ test('partial task-category saves keep previous assignments when adding a catego
 });
 
 test('role, branch, shift, reports flag and inventory branch scope keep their existing data semantics', () => {
-  assert.match(script, /role:card\.querySelector\('\.role-select'\)\.value/);
+  assert.match(script, /role:requestedRole/);
   assert.match(script, /branch_id:card\.querySelector\('\.branch-select'\)\.value\|\|null/);
   assert.match(script, /shift_type:card\.querySelector\('\.shift-select'\)\.value/);
   assert.match(script, /receives_branch_reports:card\.querySelector\('\.p-reports-check'\)\.checked/);
@@ -51,7 +51,8 @@ test('role, branch, shift, reports flag and inventory branch scope keep their ex
 test('review, account editing and employee editing expose loading, empty, error and success feedback', () => {
   assert.match(source, /جارٍ تحميل طلبات التسجيل/);
   assert.match(script, /لا توجد طلبات تسجيل معلّقة حاليًا/);
-  assert.match(script, /تعذّر تحميل بيانات الإدارة/);
+  assert.match(script, /تعذّر تحميل الموظفين أو الصلاحيات/);
+  assert.match(script, /ميزة نطاق فروع المدير غير مهيأة على قاعدة البيانات الحالية/);
   assert.match(script, /تم حفظ بيانات الحساب/);
   assert.match(script, /تم حفظ التغييرات/);
   assert.match(script, /إعادة المحاولة/);
@@ -78,31 +79,40 @@ test('active employee accounts use an accessible responsive table and preserve r
   assert.match(script, /btn\.addEventListener\('click'/);
   assert.match(source, /href="\.\.\/register\/index\.html"/);
   assert.match(source, /@media\(max-width:760px\)/);
-  assert.doesNotMatch(source, /id="notif-bell-slot"/);
+  assert.match(script, /coreDeadline=new Promise/);
+  assert.match(script, /loadTimeout=setTimeout\(\(\)=>\{loadTimedOut=true;controller\.abort\(\);reject\(new Error\('staff_permission_load_timeout'\)\);\},20000\)/);
+  assert.match(script, /abortSignal\(controller\.signal\)/);
 });
 
-test('Manager is selectable and existing unknown roles remain selected and visible', () => {
+test('Manager stays visible for existing accounts but cannot be newly granted while its scope RPC is unavailable', () => {
   assert.match(source, /'Owner', 'Admin', 'Manager', 'Supervisor'/);
   assert.match(source, /Manager: 'مدير'/);
-  assert.match(script, /if\(currentRole&&!roles\.includes\(currentRole\)\) roles\.push\(currentRole\)/);
+  assert.match(script, /roleOptionsHTML\(currentRole, allowManager = currentRole === 'Manager'\)/);
+  assert.match(script, /role!=='Manager'\|\|allowManager/);
+  assert.match(script, /roleOptionsHTML\(emp\.role==='Owner'\?'':emp\.role,false\)/);
+  assert.match(script, /role==='Manager'&&!allowManager\?'disabled':''/);
+  assert.match(script, /requestedRole==='Manager'\)throw new Error\('manager_scope_unavailable'\)/);
+  assert.match(script, /requestedRole==='Manager'&&employee\?\.role!=='Manager'/);
   assert.match(script, /ROLE_LABELS\[role\]\|\|role/);
   assert.match(script, /ROLE_LABELS\[emp\.role\]\|\|emp\.role/);
-  assert.match(script, /role:card\.querySelector\('\.role-select'\)\.value/);
+  assert.match(script, /role:requestedRole/);
 });
 
-test('individual template assignments and Manager report scopes load and save separately', () => {
+test('individual assignments remain separate while Manager report scope loads explicitly and saves through its RPC', () => {
   assert.match(source, /إسنادات مهام فردية/);
   assert.match(script, /ZamAPI\.getChecklistTemplateAssignmentIds\(empId\)/);
   assert.match(script, /ZamAPI\.replaceChecklistTemplateAssignments\(empId,selectedTemplateIds\)/);
   assert.match(script, /ZamChecklistSchedule\.isTemplateAssignableToEmployee/);
-  assert.match(script, /ZamAPI\.getManagerReportScopes\(\)/);
-  assert.match(script, /ZamAPI\.saveManagerReportScope\(empId,reportModeSelect\.value/);
-  assert.match(script, /reportModeSelect\?\.value==='selected'&&!selectedReportIds\.length/);
+  assert.match(script, /ZamAPI\.getManagerReportScopes\(managerIds/);
+  assert.match(script, /ZamAPI\.saveManagerReportScope\(empId,managerReportMode,managerReportBranchIds,managerReadFlags\.can_view_daily_checklist_summary,managerReadFlags\.can_view_checklist_logs,managerReadFlags\.can_view_visit_reports,managerReadFlags\.can_view_analytics\)/);
+  assert.match(script, /reportScope\?\.scope_mode\|\|'selected'/, 'a missing scope must never default to all branches');
+  assert.match(script, /branchesCache\.filter\(branch=>branch\.lifecycle_status!=='planned'\)/);
+  assert.match(script, /لم يُحفظ نطاق المدير أو صلاحيات قراءته/);
   assert.match(script, /الفئات السابقة لم تُحذف/);
   assert.match(script, /الإسنادات السابقة كما هي/);
 });
 
-test('Manager read permissions are independent, saved through admin_permissions, and separate from writes', () => {
+test('Manager read permissions are independent, saved through the scope RPC, and separate from writes', () => {
   const readKeys = [...source.matchAll(/\{ key: '(can_view_(?:daily_checklist_summary|checklist_logs|visit_reports|analytics))', label:/g)].map(match => match[1]);
   assert.deepEqual(readKeys, [
     'can_view_daily_checklist_summary', 'can_view_checklist_logs',
@@ -110,18 +120,24 @@ test('Manager read permissions are independent, saved through admin_permissions,
   ]);
   assert.match(script, /const managerReadPanel=empRole==='Manager'/);
   assert.match(script, /MANAGER_READ_PERMS\.map\(item=>`<label class="check-row"><input type="checkbox" class="perm-checkbox manager-read-checkbox" data-key="\$\{item\.key\}"/);
-  assert.match(script, /modal\.querySelectorAll\('\.perm-checkbox'\)\.forEach\(cb=>payload\[cb\.dataset\.key\]=cb\.checked\)/);
+  assert.match(script, /modal\.querySelectorAll\('\.perm-checkbox:not\(\.manager-read-checkbox\)'\)\.forEach\(cb=>payload\[cb\.dataset\.key\]=cb\.checked\)/);
   assert.match(script, /zamClient\.from\('admin_permissions'\)\.upsert\(payload\)/);
+  assert.match(script, /managerReadFlags=Object\.fromEntries\(MANAGER_READ_PERMS\.map/);
+  assert.match(sharedSource, /p_can_view_daily_checklist_summary:[\s\S]*?p_can_view_checklist_logs:[\s\S]*?p_can_view_visit_reports:[\s\S]*?p_can_view_analytics:/);
   assert.match(source, /id="manager-read-permissions"/);
   assert.match(source, /id="admin-permissions-panel"/);
   assert.match(source, /لا يمنح صلاحية إضافة البيانات أو تعديلها أو حذفها/);
   assert.match(source, /can_manage_reports', label: 'إضافة تقارير؛ تعديل\/حذف التقارير المقروءة'/, 'the write grant must not claim edit/delete access to unread details');
 });
 
-test('Manager branch-scope choices exclude planned branches without changing other branch selectors', () => {
-  assert.match(script, /branchesCache\.filter\(branch=>branch\.lifecycle_status!=='planned'\)\.map\(branch=>`<label class="check-row"><input type="checkbox" class="manager-report-branch-checkbox"/);
-  assert.match(source, /لا تظهر الفروع المخططة قبل تأكيد افتتاحها تشغيليًا/);
-  assert.match(script, /ZamAPI\.saveManagerReportScope\(empId,reportModeSelect\.value,selectedReportIds/);
+test('Manager scope UI fails closed when storage is unavailable and exposes all/selected operational branches when ready', () => {
+  assert.match(source, /id="manager-report-scope-mode"/);
+  assert.match(source, /class="manager-report-branch-checkbox"/);
+  assert.match(source, /managerScopeAvailable\?`<section id="manager-report-scope-panel"/);
+  assert.match(script, /managerScopeErrorText\(managerScopeLoadError\)/);
+  assert.match(script, /managerScopeAvailable=false/);
+  assert.match(script, /MANAGER_SCOPE_UNCONFIGURED/);
+  assert.match(sharedSource, /async saveManagerReportScope\(profileId, mode, branchIds = \[\], canViewDailySummary = false, canViewChecklistLogs = false, canViewVisitReports = false, canViewAnalytics = false\)/);
 });
 
 test('Quality visit execution is separate and its editor omits management and review toggles', () => {

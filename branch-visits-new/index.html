@@ -6,7 +6,7 @@
   <title>تسجيل زيارة جديدة | Operations Expert</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../assets/supabase-config.js?v=20261121212700"></script>
+  <script src="../assets/supabase-config.js?v=20261123210100"></script>
   <style>
     body{font-family:Tahoma,sans-serif;background:#f7f3ef;color:#24170c}
     .card{background:#fff;border:1px solid #e5d9cf;border-radius:18px;box-shadow:0 8px 24px #4b362110}
@@ -52,6 +52,10 @@
     body.zam-page header.brand{background:var(--riwaq-surface,#fff);color:var(--riwaq-ink);border-bottom:1px solid var(--riwaq-line);box-shadow:0 4px 20px #24372d0b}
     body.zam-page header.brand>div{max-width:1120px} body.zam-page header.brand h1{font-size:clamp(1.5rem,3vw,2.1rem);line-height:1.2;color:var(--riwaq-sidebar)}
     body.zam-page header.brand .opacity-75,body.zam-page header.brand .opacity-85{color:var(--riwaq-muted);opacity:1}
+    body.zam-page header.brand>.max-w-5xl{width:min(100%,1120px);flex-wrap:wrap}
+    body.zam-page header.brand>.max-w-5xl>div:first-child{min-width:0}
+    body.zam-page header.brand nav{max-width:100%}
+    body.zam-page header.brand nav>[data-zam-header-tools]{min-width:0}
     body.zam-page header.brand img{height:56px;background:transparent;box-shadow:none;padding:0}
     body.zam-page main{max-width:1120px;padding-top:28px;padding-bottom:64px}
     body.zam-page .card{padding:clamp(18px,2.5vw,28px);border:1px solid var(--riwaq-line);border-radius:18px;box-shadow:0 5px 22px #2031290b}
@@ -75,7 +79,7 @@
     .visit-steps a{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid var(--riwaq-line);border-radius:999px;background:#fff;color:var(--riwaq-sidebar);font-weight:700;text-decoration:none}
     .visit-steps a:hover{border-color:var(--riwaq-primary);background:#f6f8f5}
     #assessmentHeading,#signoffHeading{scroll-margin-top:100px}
-    @media(max-width:700px){body.zam-page header.brand{padding:14px 16px}body.zam-page header.brand>div{align-items:flex-start;flex-direction:column}body.zam-page header.brand .h-20{height:42px}body.zam-page header.brand img{height:42px}body.zam-page main{padding:14px 12px 48px}body.zam-page .card{padding:17px!important}body.zam-page #assessmentHeading+ p{max-width:38ch}.visit-steps{display:grid;grid-template-columns:1fr 1fr}.visit-steps a{justify-content:center;font-size:.87rem}.item .flex.justify-between{align-items:flex-start}body.zam-page #assignmentForm{grid-template-columns:minmax(0,1fr)}}
+    @media(max-width:700px){body.zam-page header.brand{padding:14px 16px}body.zam-page header.brand>div{width:100%;align-items:flex-start;flex-direction:column}body.zam-page header.brand nav{width:100%;justify-content:flex-start}body.zam-page header.brand .h-20{height:42px}body.zam-page header.brand img{height:42px}body.zam-page main{padding:14px 12px 48px}body.zam-page .card{padding:17px!important}body.zam-page #assessmentHeading+ p{max-width:38ch}.visit-steps{display:grid;grid-template-columns:1fr 1fr}.visit-steps a{justify-content:center;font-size:.87rem}.item .flex.justify-between{align-items:flex-start}body.zam-page #assignmentForm{grid-template-columns:minmax(0,1fr)}}
     @media(max-width:360px){.visit-steps{grid-template-columns:1fr}body.zam-page .item .score{min-width:45px;padding-inline:8px}}
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
     @media print{.visit-steps,body.zam-page header.brand{display:none!important}body.zam-page main{padding:0}.card{break-inside:avoid}}

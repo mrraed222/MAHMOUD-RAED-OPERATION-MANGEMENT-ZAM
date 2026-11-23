@@ -44,5 +44,5 @@ test('empty, loading, error and retry states are accessible and user actions rem
   assert.match(source, /aria-live="polite"/);
   assert.match(source, /id="save-note-btn"/);
   assert.match(source, /id="send-report-btn"/);
-  assert.match(source, /id="notif-bell-slot"/);
+  assert.doesNotMatch(source, /notif-bell-slot/);
 });

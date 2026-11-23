@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html class="light" dir="rtl" lang="ar"><head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261121212700"></script>
+<script src="../assets/supabase-config.js?v=20261123210100"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: admin without this permission is sent home
@@ -181,8 +181,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </div>
 </div>
 <div class="flex items-center gap-md">
-<!-- جرس الإشعارات الموحد -->
-<div id="notif-bell-slot"></div>
 <div class="flex items-center gap-sm">
 <a href="../employee-profile/index.html" class="block">
 <img class="w-10 h-10 rounded-full overflow-hidden border border-outline ml-sm object-cover" id="header-avatar"
@@ -451,15 +449,31 @@ async function loadStats() {
 
 async function loadStaff() {
     const tbody = document.getElementById('staff-tbody');
+    const controller = new AbortController();
+    let loadTimedOut = false;
+    let loadTimeout;
+    document.getElementById('retry-staff-btn').hidden = true;
+    document.getElementById('staff-list').setAttribute('aria-busy', 'true');
     try {
         // عرض الصورة الرمزية للمستخدم
         const headerAvatar = document.getElementById('header-avatar');
         if (headerAvatar && currentUser.avatar_url) headerAvatar.src = currentUser.avatar_url;
 
-        const [branches, staff] = await Promise.all([
-            ZamAPI.getBranches(),
-            ZamAPI.getStaff()
+        const staffLoad = Promise.all([
+            ZamAPI.getBranches({ signal: controller.signal }),
+            ZamAPI.getStaffForManagement({ signal: controller.signal })
         ]);
+        const timeoutLoad = new Promise((_, reject) => {
+            loadTimeout = setTimeout(() => {
+                loadTimedOut = true;
+                controller.abort();
+                const error = new Error('staff_load_timeout');
+                error.code = 'STAFF_LOAD_TIMEOUT';
+                reject(error);
+            }, 20000);
+        });
+        const [branches, staff] = await Promise.race([staffLoad, timeoutLoad]);
+        clearTimeout(loadTimeout);
         branchesCache = branches;
         allStaff = staff;
 
@@ -494,9 +508,13 @@ async function loadStaff() {
         document.getElementById('staff-total-count').textContent = staff.length;
         renderStaff();
     } catch (err) {
+        clearTimeout(loadTimeout);
+        controller.abort();
         console.error(err);
         document.getElementById('staff-list').setAttribute('aria-busy', 'false');
-        document.getElementById('staff-list').innerHTML = '<div class="col-span-full rounded-xl border border-error bg-error-container/20 p-lg text-center" role="alert"><strong class="block">تعذّر تحميل بيانات الموظفين</strong><span class="text-body-sm">تحقق من الاتصال ثم أعد المحاولة.</span></div>';
+        const errorTitle = loadTimedOut ? 'انتهت مهلة تحميل بيانات الموظفين' : 'تعذّر تحميل بيانات الموظفين';
+        const errorDetail = loadTimedOut ? 'استغرق تحميل الفروع أو الموظفين أكثر من 45 ثانية؛ تحقق من الاتصال ثم أعد المحاولة.' : 'تحقق من الاتصال ثم أعد المحاولة.';
+        document.getElementById('staff-list').innerHTML = `<div class="col-span-full rounded-xl border border-error bg-error-container/20 p-lg text-center" role="alert"><strong class="block">${errorTitle}</strong><span class="text-body-sm">${errorDetail}</span></div>`;
         document.getElementById('retry-staff-btn').hidden = false;
     }
 }

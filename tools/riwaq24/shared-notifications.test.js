@@ -5,14 +5,18 @@ const path = require('node:path');
 
 const source = fs.readFileSync(path.join(__dirname, '../../assets/supabase-config.js'), 'utf8');
 
-test('shared header mounts the live bell opposite employee identity and preserves role context', () => {
-  assert.match(source, /tools\.replaceChildren\(toggle, notificationSlot, account\)/);
+test('shared header mounts the live bell only on the main dashboard and preserves role context', () => {
+  assert.match(source, /window\.__zamActiveSidebarKey = activeKey/);
+  assert.match(source, /const showNotifications = window\.__zamActiveSidebarKey === 'dashboard'/);
+  assert.match(source, /if \(showNotifications && !notificationSlot\)/);
+  assert.match(source, /if \(!showNotifications\) notificationSlot\?\.remove\(\)/);
+  assert.match(source, /tools\.replaceChildren\(\.\.\.\(showNotifications \? \[toggle, notificationSlot, account\] : \[toggle, account\]\)\)/);
+  assert.match(source, /if \(showNotifications\) refreshNotificationBell\(\)\.catch/);
   assert.match(source, /\.zam-header-tools \.zam-header-account \{ order: 1; \}/);
   assert.match(source, /\.zam-header-tools #notif-bell-slot \{ order: 3;/);
   assert.match(source, /\.zam-header-tools \.zam-sidebar-toggle \{ order: 2; \}/);
   assert.match(source, /header\.querySelector\('\[data-zam-header-tools\]'\)/);
   assert.match(source, /if \(!hostedTools\) header\.prepend\(tools\)/);
-  assert.match(source, /refreshNotificationBell\(\)\.catch/);
   assert.match(source, /zam-header-employee-role/);
   assert.match(source, /profile\?\.role/);
   assert.match(source, /document\.getElementById\('notif-bell-slot'\)/);
@@ -69,4 +73,10 @@ test('pages rely on the shared header instead of issuing duplicate bell reads or
     assert.doesNotMatch(html, /renderNotificationBell\s*\(/, `${page} must not perform a second bell fetch`);
     assert.doesNotMatch(html, /attachNotificationBellHandlers\s*\(/, `${page} must not rebind shared bell handlers`);
   }
+  for (const page of ['permissions', 'automation-settings', 'my-checklist', 'inventory-requests']) {
+    const html = fs.readFileSync(path.join(__dirname, `../../${page}/index.html`), 'utf8');
+    assert.doesNotMatch(html, /renderNotificationBell\s*\(|attachNotificationBellHandlers\s*\(/, `${page} must rely on shared notification wiring`);
+  }
+  const dashboard = fs.readFileSync(path.join(__dirname, '../../dashboard/index.html'), 'utf8');
+  assert.match(dashboard, /renderZamSidebar\('dashboard'/, 'the main dashboard must remain the sole bell page');
 });

@@ -11,11 +11,18 @@ const reportsLog = read('reports-log/index.html');
 const checklistLogs = read('checklist-logs/index.html');
 const sidebar = read('assets/supabase-config.js');
 const migration = read('supabase/migrations/20261123120000_manager_summary_projection_and_read_separation.sql');
+const hardening = read('supabase/migrations/20261123160000_manager_report_scopes_hardening.sql');
 
-test('daily summary page uses the summary-only Manager permission and projection RPC', () => {
+test('daily summary uses its date-range projection and separate Manager summary branch permission', () => {
   assert.match(monitor, /currentUser\.role==='Manager'\?'can_view_daily_checklist_summary':'can_view_all_reports'/);
-  assert.match(monitor, /zamClient\.rpc\('get_daily_checklist_summary',\{p_report_date:date\}\)/);
+  assert.match(monitor, /rpc\('get_daily_checklist_summary',\{p_date_from:date,p_date_to:date\}\)/);
+  assert.match(monitor, /rpc\('list_manager_daily_summary_branches'\)/);
+  assert.doesNotMatch(monitor, /rpc\('list_manager_report_branches'\)/);
   assert.doesNotMatch(monitor, /from\('daily_reports'\)/);
+  const branchList = hardening.match(/CREATE OR REPLACE FUNCTION public\.list_manager_daily_summary_branches\(\)[\s\S]*?\$function\$;/)?.[0] || '';
+  assert.ok(branchList, 'Migration B must provide a dedicated summary branch list');
+  assert.match(branchList, /current_user_manager_scope_allows\([\s\S]*?can_view_daily_checklist_summary/);
+  assert.doesNotMatch(branchList, /can_read_manager_report_branch/);
 });
 
 test('analytics and report details require the independent analytics permission for Managers', () => {

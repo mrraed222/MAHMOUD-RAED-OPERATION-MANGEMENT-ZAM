@@ -61,7 +61,7 @@ test('saved order history remains limited to the current authorized scope and su
 
 test('notification bell is not duplicated locally; shared header owns it and inline scripts parse', () => {
   assert.equal((source.match(/renderNotificationBell\(\)/g) || []).length, 0);
-  assert.match(source, /id="notif-bell-slot"/);
+  assert.doesNotMatch(source, /notif-bell-slot/);
   const scripts = [...source.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
   assert.ok(scripts.length > 0);
   for (const script of scripts) assert.doesNotThrow(() => new Function(script));

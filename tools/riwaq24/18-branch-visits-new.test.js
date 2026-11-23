@@ -34,6 +34,14 @@ test('visit workflow presents clear stages, accessible progress and real loading
   assert.match(source, /prefers-reduced-motion:reduce/);
 });
 
+test('new-visit header wraps without overlap and omits the notification control', () => {
+  assert.match(source, /<header class="brand p-6">/);
+  assert.match(source, /<h1 class="text-3xl font-black">تسجيل زيارة فرع<\/h1>/);
+  assert.match(source, /header\.brand>\.max-w-5xl\{width:min\(100%,1120px\);flex-wrap:wrap\}/);
+  assert.match(source, /@media\(max-width:700px\).*header\.brand nav\{width:100%;justify-content:flex-start\}/);
+  assert.doesNotMatch(source, /notif-bell-slot|إشعارات/);
+});
+
 test('visit page retains separate assignment and assessment actions and responsive task layout', () => {
   assert.match(source, /id="assignmentForm"/);
   assert.match(source, /id="useAssignment"/);

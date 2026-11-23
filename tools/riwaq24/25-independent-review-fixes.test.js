@@ -52,14 +52,17 @@ test('supervisor receiving section has one class attribute and remains initially
   assert.match(section, /class="workflow-anchor hidden rounded-xl/);
 });
 
-test('shared bell installer waits for asynchronously rendered sidebars and populates both affected page slots once', () => {
+test('shared bell installer waits for sidebars and removes bell slots from non-dashboard pages', () => {
   assert.match(pages.shared, /const startWatching = \(\) => \{\s*if \(initialize\(\)\) return;[\s\S]*new MutationObserver/);
-  assert.match(pages.shared, /refreshNotificationBell\(\)\.catch/);
+  assert.match(pages.shared, /window\.__zamActiveSidebarKey === 'dashboard'/);
+  assert.match(pages.shared, /if \(!showNotifications\) notificationSlot\?\.remove\(\)/);
+  assert.match(pages.shared, /if \(showNotifications\) refreshNotificationBell\(\)\.catch/);
   for (const page of ['staff-management', 'supervisor-checklist']) {
     const html = read(`${page}/index.html`);
     assert.match(html, /id="sidebar-slot"/, `${page} needs the shared sidebar lifecycle hook`);
-    assert.match(html, /<header[\s\S]*?id="notif-bell-slot"/, `${page} needs the shared notification slot inside its header`);
+    assert.match(html, /renderZamSidebar\('/, `${page} must provide its active key to the shared header`);
   }
+  assert.match(pages.dashboard, /renderZamSidebar\('dashboard'/);
 });
 
 test('shared sidebar uses the approved Riwaq background, active and readable text colors', () => {
@@ -99,7 +102,7 @@ test('starting a report-log refresh clears the exportable prior result set', () 
 test('report monitor ignores stale date responses and only unlocks the latest request', () => {
   assert.match(pages.reportsMonitor, /let monitorLoadGeneration=0/);
   assert.match(pages.reportsMonitor, /if\(generation!==monitorLoadGeneration\|\|date!==dateInput\.value\)return/);
-  assert.match(pages.reportsMonitor, /if\(generation!==monitorLoadGeneration\)return;[\s\S]*?finally\{if\(generation===monitorLoadGeneration\)button\.disabled=false/);
+  assert.match(pages.reportsMonitor, /if\(generation!==monitorLoadGeneration\)return;[\s\S]*?finally\{if\(generation===monitorLoadGeneration\)refreshButton\.disabled=false/);
 });
 
 test('branch image modal restores focus to the exact opener or a safe fallback', () => {

@@ -15,7 +15,7 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261121212700"></script>
+<script src="../assets/supabase-config.js?v=20261123210100"></script>
 <script src="../assets/checklist-schedule.js?v=20261121164000"></script>
 <script src="../assets/restroom-hourly.js?v=20261121170500"></script>
 <script src="../assets/checklist-dashboard.js?v=20261117203400"></script>
@@ -164,7 +164,7 @@ async function loadDashboard() {
         }),
         zamClient.from('checklist_logs').select('branch_id, template_id, executed_by, shift_type, execution_date, status, photo_url, created_at').gte('execution_date', yesterday).lte('execution_date', today),
         zamClient.from('daily_reports').select('branch_id, total_sales').eq('report_date', today),
-        zamClient.from('shift_issues').select('id, branch_id').gte('created_at', today)
+        zamClient.from('shift_issues').select('id, created_at, daily_reports!inner(branch_id)').gte('created_at', today)
     ]);
 
     if (generation !== dashboardLoadGeneration) return;
@@ -176,8 +176,11 @@ async function loadDashboard() {
         ZamBranchLifecycle.isOperational(branchById.get(String(row.branch_id)), row.execution_date || now));
     const todayReports = (todayReportsRes.data || []).filter(row => operationalBranchIds.has(row.branch_id) &&
         ZamBranchLifecycle.isOperational(branchById.get(String(row.branch_id)), row.report_date || now));
-    const openIssues = (openIssuesRes.data || []).filter(row => operationalBranchIds.has(row.branch_id) &&
-        ZamBranchLifecycle.isOperational(branchById.get(String(row.branch_id)), row.created_at || now));
+    const openIssues = (openIssuesRes.data || []).filter(row => {
+        const branchId = row.daily_reports?.branch_id;
+        return operationalBranchIds.has(branchId) &&
+            ZamBranchLifecycle.isOperational(branchById.get(String(branchId)), row.created_at || now);
+    });
     const totalSales = todayReports.reduce((s, r) => s + (Number(r.total_sales) || 0), 0);
 
     document.getElementById('branch-count').textContent = branches.length;

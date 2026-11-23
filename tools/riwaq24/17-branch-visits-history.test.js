@@ -14,6 +14,16 @@ test('branch visit history retains route authentication, permission guards and b
   assert.match(html, /visit-action-evidence/);
 });
 
+test('visit history keeps its Riwaq header readable, uses the shared dark-green sidebar color and omits the notification control', () => {
+  assert.match(html, /<body class="zam-page">/);
+  assert.match(html, /<header class="brand/);
+  assert.match(html, /سجل زيارات الفروع/);
+  assert.match(html, /body\.zam-page \.brand \.mt-6>div:first-child\{flex:1 1 22rem;min-width:0\}/);
+  assert.match(html, /body\.zam-page \.zam-sidebar\{background-color:var\(--riwaq-sidebar,#16392f\)!important\}/);
+  assert.match(html, /@media\(max-width:640px\).*header\.brand \.mt-6>\.no-print\{width:100%/);
+  assert.doesNotMatch(html, /notif-bell-slot|إشعارات/);
+});
+
 test('filters, retry, search, print and visit actions remain reachable', () => {
   for (const id of ['from', 'to', 'branch', 'search', 'apply', 'reload', 'clearFilters', 'print']) assert.match(html, new RegExp(`id="${id}"`));
   for (const action of ['requestVisitPdf', 'printVisit', 'openMailDialog', 'openActionReview', 'changeQualityStatus']) assert.ok(html.includes(action));

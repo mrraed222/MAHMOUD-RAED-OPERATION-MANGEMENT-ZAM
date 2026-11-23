@@ -15,8 +15,10 @@ test('reports log preserves auth, scoped branch options, operational filtering, 
   assert.match(source, /ZamSession\.requireAuth\('\.\.\/index\.html'\)/);
   assert.match(source, /renderZamSidebar\('reports-log',currentUser\.role\)/);
   assert.match(source, /select\('\*, branches\(name\)'\)\.order\('report_date',\{ascending:false\}\)\.range\(0,9999\)/);
-  assert.match(source, /currentUser\.role==='Manager'[\s\S]*?rpc\('list_manager_report_branches'\)/,
-    'Manager branch options must come from their scoped branch-list RPC');
+  assert.doesNotMatch(source, /rpc\('list_manager_report_branches'\)/);
+  assert.match(source, /currentUser\.role==='Manager'[\s\S]*?MANAGER_SCOPE_UNCONFIGURED/);
+  assert.match(source, /async function loadReports\(\)\{if\(currentUser\.role==='Manager'\)\{setStatus\([\s\S]*?return;\}/,
+    'manual filtering and retry must not fall back to all Manager branches');
   assert.match(source, /currentUser\.role==='Supervisor'[\s\S]*?branchId=currentUser\.branch_id/);
   assert.match(source, /query\.eq\('shift_type',currentUser\.shift_type\)/,
     'Morning/Evening Supervisors must filter to their assigned shift');
@@ -38,12 +40,15 @@ test('filters, retry, empty state and export operate on the currently loaded res
   assert.match(source, /id="result-count"/);
 });
 
-test('detail modal is accessible and loads full child rows scoped to the selected report', () => {
+test('detail modal is accessible, scopes child data to the selected report, and prints only that report', () => {
   assert.match(source, /role="dialog" aria-modal="true" aria-labelledby="detail-title"/);
   assert.match(source, /Escape/);
   assert.match(source, /fetchAllRows\(zamClient,\s*table,\s*'report_id',\s*report\.id\)/,
-    'every child query must paginate while filtering on the exact selected report ID');
-  for (const table of ['waste_logs', 'shift_issues', 'negative_reviews', 'technical_issues']) {
+    'non-waste child queries must paginate while filtering on the exact selected report ID');
+  assert.match(source, /columns:'id,report_id,shift_type,sheet_key'/,
+    'waste loading should select only metadata needed to verify report and shift association');
+  assert.match(source, /ZamReportDetailRenderer\.filterWasteForReport\(report,\s*wasteRes\.data\s*\|\|\s*\[\]\)/);
+  for (const table of ['shift_issues', 'negative_reviews', 'technical_issues']) {
     assert.match(source, new RegExp(`loadChildren\\('${table}'\\)`),
       `${table} must be loaded through the paginated, report-scoped helper`);
   }
@@ -51,6 +56,8 @@ test('detail modal is accessible and loads full child rows scoped to the selecte
     'technical issue rows must be exact-ID filtered again before rendering');
   assert.match(source, /ZamReportDetailRenderer\.render\(report/);
   assert.match(source, /branchName: report\.branches\?\.name/);
+  assert.match(source, /id="print-detail"/);
+  assert.match(source, /@media print[\s\S]*?body \*\{visibility:hidden!important\}[\s\S]*?#detail-modal,#detail-modal \*\{visibility:visible!important\}/);
 });
 
 test('desktop table and mobile cards are semantic, responsive, and escape database text', () => {

@@ -39,13 +39,13 @@ test('schedule list has truthful loading, empty, error and retry states; filters
   assert.match(source, /if\(error\)throw error/);
 });
 
-test('state changes report errors and delete remains confirmed; accessible form and shared notification slot are retained', () => {
+test('state changes report errors and delete remains confirmed; no bell is declared outside the dashboard', () => {
   assert.match(source, /confirm\('حذف هذا الموعد نهائيًا؟'\)/);
   assert.match(source, /تعذر حفظ الحالة/);
   assert.match(source, /تعذر حفظ الإعداد/);
   assert.match(source, /<form id="schedule-form"/);
   assert.match(source, /aria-live="polite"/);
-  assert.match(source, /id="notif-bell-slot"/);
+  assert.doesNotMatch(source, /notif-bell-slot/);
   assert.doesNotMatch(source, /renderNotificationBell\(\)/);
 });
 

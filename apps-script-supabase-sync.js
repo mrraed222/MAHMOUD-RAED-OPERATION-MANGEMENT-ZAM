@@ -379,6 +379,7 @@ function toIssueRow(r) {
     priority: txt(val(r, ['الأولوية', 'priority', 'issue_priority'])),
     type: txt(val(r, ['نوع المشكلة', 'النوع', 'type', 'issue_type'])),
     date: toISO(val(r, ['التاريخ', 'تاريخ', 'date'])),
+    shift_type: shiftLabel(val(r, ['الشفت', 'الفت', 'الوردية', 'shift', 'shift_type'])),
     branchRaw: txt(val(r, ['الفرع', 'فرع', 'branch'])),
     sheet_row: r.__row
   };
@@ -461,7 +462,7 @@ function syncToSupabase() {
       summary.inserted = toInsert.length;
     }
 
-    // 5) ربط صفوف الهدر / المشاكل / التعليقات بأقرب تقرير (نفس التاريخ + نفس الفرع)
+    // 5) ربط الصفوف بالتاريخ والفرع والوردية؛ لا نخمن إذا كان التقرير ملتبساً.
     var reportsByDateBranch = {};
     prepared.forEach(function (p) {
       var k = p.date + '|' + p.branchName;
@@ -469,9 +470,17 @@ function syncToSupabase() {
       reportsByDateBranch[k].push(p);
     });
 
-    function findReport(date, branchRaw, sheetRow) {
+    function findReport(date, branchRaw, sheetRow, shiftType) {
       var bn = zamBranchName(branchRaw);
       var cands = reportsByDateBranch[date + '|' + bn] || [];
+      var normalizedShift = shiftLabel(shiftType);
+      if (normalizedShift === 'Morning' || normalizedShift === 'Evening') {
+        cands = cands.filter(function (candidate) { return candidate.row.shift_type === normalizedShift; });
+      } else {
+        var candidateShifts = {};
+        cands.forEach(function (candidate) { candidateShifts[candidate.row.shift_type] = true; });
+        if (Object.keys(candidateShifts).length > 1) return null;
+      }
       if (!cands.length) return null;
       // الأقرب في ترتيب الشيت
       var best = cands[0], bestDiff = 1e9;
@@ -509,7 +518,7 @@ function syncToSupabase() {
     data.waste.forEach(function (r) {
       var w = toWasteRow(r);
       if (!w) return;
-      var rep = findReport(w.date, w.branchRaw, w.sheet_row);
+      var rep = findReport(w.date, w.branchRaw, w.sheet_row, w.shift_type);
       if (!rep || !rep.id) { summary.skipped++; return; }
       var key = sheetKey([rep.key, 'W', w.item_name, w.quantity, w.unit, w.reason]);
       var wrow = {
@@ -538,7 +547,7 @@ function syncToSupabase() {
     data.issues.forEach(function (r) {
       var i = toIssueRow(r);
       if (!i) return;
-      var rep = findReport(i.date, i.branchRaw, i.sheet_row);
+      var rep = findReport(i.date, i.branchRaw, i.sheet_row, i.shift_type);
       if (!rep || !rep.id) { summary.skipped++; return; }
       var key = sheetKey([rep.key, 'I', i.description]);
       var irow = {
@@ -716,5 +725,4 @@ function diagnose() {
     Logger.log('أعمدة ' + t + ' غير مدعومة: ' + (missing.length ? missing.join('، ') : 'لا شيء — الجدول كامل'));
   });
 }
-
 

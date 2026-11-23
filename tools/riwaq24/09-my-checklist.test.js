@@ -12,7 +12,7 @@ test('employee task page prioritizes branch/shift context, progress and accessib
   assert.match(source, /تعذّر تحميل المهام/);
   assert.match(source, /id="retry-checklist-btn"/);
   assert.match(source, /لا توجد مهام مستحقة أو متاحة لهذه الوردية الآن/);
-  assert.match(source, /id="notif-bell-slot"/);
+  assert.doesNotMatch(source, /notif-bell-slot/);
 });
 
 test('existing auth, role, shift, branch, evidence, restroom and email contracts remain unchanged', () => {

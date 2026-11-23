@@ -109,8 +109,8 @@ const branchListStart = migration.indexOf('CREATE OR REPLACE FUNCTION public.lis
 const branchListEnd = migration.indexOf('$function$;', branchListStart);
 assert.ok(branchListStart >= 0 && branchListEnd > branchListStart, 'scoped Manager branch-list RPC should exist');
 assert.match(migration.slice(branchListStart, branchListEnd), /public\.can_read_manager_report_branch\(b\.id\)/);
-assert.match(monitor, /currentUser\.role==='Manager'[\s\S]*?zamClient\.rpc\('list_manager_report_branches'\)/);
-assert.match(monitor, /if\(branchesRes\.error\)throw branchesRes\.error/);
+assert.doesNotMatch(monitor, /zamClient\.rpc\('list_manager_report_branches'\)/);
+assert.match(monitor, /ميزة ملخص متابعة التقارير غير مهيأة حاليًا/);
 
 function scopeAllows(mode, selectedBranchIds, targetBranchId, canViewAll = true) {
   if (!canViewAll) return false;
