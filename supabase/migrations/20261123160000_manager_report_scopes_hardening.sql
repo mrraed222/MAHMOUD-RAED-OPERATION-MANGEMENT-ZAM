@@ -1089,9 +1089,28 @@ BEGIN
   ORDER BY r.report_date, b.name, r.shift_type;
 END;
 $function$;
+-- The Supabase migration connection is CREATEROLE but not SUPERUSER. Grant it
+-- temporary membership so PostgreSQL can transfer function ownership safely.
+DO $reader_membership$
+BEGIN
+  EXECUTE pg_catalog.format(
+    'GRANT zam_daily_summary_reader TO %I', CURRENT_USER
+  );
+END;
+$reader_membership$;
+-- PostgreSQL requires CREATE on the target schema during ownership transfer.
+-- This grant is transaction-local in effect: revoke it before COMMIT.
+GRANT CREATE ON SCHEMA public TO zam_daily_summary_reader;
 ALTER FUNCTION public.get_daily_checklist_summary(date, date)
   OWNER TO zam_daily_summary_reader;
 REVOKE CREATE ON SCHEMA public FROM zam_daily_summary_reader;
+DO $reader_membership_cleanup$
+BEGIN
+  EXECUTE pg_catalog.format(
+    'REVOKE zam_daily_summary_reader FROM %I', CURRENT_USER
+  );
+END;
+$reader_membership_cleanup$;
 REVOKE ALL ON FUNCTION public.get_daily_checklist_summary(date, date)
   FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.get_daily_checklist_summary(date, date) TO authenticated;
