@@ -22,7 +22,7 @@ test('daily report organizes completion from identity through review and submiss
   assert.match(source, /role="status" aria-live="polite"/);
 });
 
-test('auth, owner redirect, branch lifecycle, duplicate guard and report payload contracts remain unchanged', () => {
+test('auth, owner redirect, branch lifecycle, duplicate guard, payload and saved-report actions remain correct', () => {
   assert.match(source, /ZamSession\.requireAuth\('\.\.\/index\.html'\)/);
   assert.match(source, /currentUser\.role === 'Owner'[\s\S]*?\.\.\/dashboard\/index\.html/);
   assert.match(source, /ZamBranchLifecycle\.isOperational\(branch, submissionDate\)/);
@@ -31,7 +31,9 @@ test('auth, owner redirect, branch lifecycle, duplicate guard and report payload
   assert.match(source, /zamDailyReportPartial:/);
   assert.match(source, /duplicateReport/);
   assert.match(source, /partialSubmission = \{ key: submissionKey, reportId: String\(partialReportId\) \}/);
-  assert.match(source, /window\.location\.href = '\.\.\/reports-log\/index\.html'/);
+  assert.match(source, /savedReportPrintSnapshot = printSnapshot/);
+  assert.match(source, /id="saved-report-actions"/);
+  assert.match(source, /تم حفظ التقرير، لكن تعذر تأكيد البريد/);
 });
 
 test('row editing, complaint and technical workflows remain present and the shared bell is not duplicated', () => {
@@ -44,6 +46,12 @@ test('row editing, complaint and technical workflows remain present and the shar
   assert.match(source, /\.from\('negative_reviews'\)\.update\(payload\)/);
   assert.doesNotMatch(source, /id="notif-bell-slot"/);
   assert.match(source, /renderZamSidebar\('daily-report', currentUser\.role\)/);
+});
+
+test('waste table scrolls horizontally in a keyboard-accessible region without changing row bindings', () => {
+  assert.match(source, /<div class="overflow-x-auto rounded-lg border border-outline-variant" role="region" aria-label="جدول الهدر، قابل للتمرير أفقيًا" tabindex="0">\s*<table class="w-full text-right" id="waste-table">/);
+  assert.match(source, /onclick="addRow\('waste-table'\)"/);
+  assert.match(source, /<tbody id="waste-tbody"><\/tbody>/);
 });
 
 test('mobile layout and keyboard focus styles are provided without changing the data semantics', () => {

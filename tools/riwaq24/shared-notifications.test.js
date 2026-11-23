@@ -5,14 +5,26 @@ const path = require('node:path');
 
 const source = fs.readFileSync(path.join(__dirname, '../../assets/supabase-config.js'), 'utf8');
 
-test('shared header mounts the live bell beside identity and preserves employee role context', () => {
+test('shared header mounts the live bell opposite employee identity and preserves role context', () => {
   assert.match(source, /tools\.replaceChildren\(toggle, notificationSlot, account\)/);
+  assert.match(source, /\.zam-header-tools \.zam-header-account \{ order: 1; \}/);
+  assert.match(source, /\.zam-header-tools #notif-bell-slot \{ order: 3;/);
+  assert.match(source, /\.zam-header-tools \.zam-sidebar-toggle \{ order: 2; \}/);
   assert.match(source, /header\.querySelector\('\[data-zam-header-tools\]'\)/);
   assert.match(source, /if \(!hostedTools\) header\.prepend\(tools\)/);
   assert.match(source, /refreshNotificationBell\(\)\.catch/);
   assert.match(source, /zam-header-employee-role/);
   assert.match(source, /profile\?\.role/);
   assert.match(source, /document\.getElementById\('notif-bell-slot'\)/);
+});
+
+test('notification popup stays within viewport bounds and repositions after resize or scroll', () => {
+  assert.match(source, /function positionNotificationMenu\(btn, menu\)/);
+  assert.match(source, /menu\.style\.position = 'fixed'/);
+  assert.match(source, /Math\.max\(margin, Math\.min\(buttonRect\.left, viewportWidth - menuWidth - margin\)\)/);
+  assert.match(source, /window\.addEventListener\('resize', repositionOpenMenu, \{ passive: true \}\)/);
+  assert.match(source, /window\.addEventListener\('scroll', repositionOpenMenu, true\)/);
+  assert.match(source, /if \(willOpen\) positionNotificationMenu\(btn, menu\)/);
 });
 
 test('notification reads remain scoped to the authenticated profile and use exact unread count', () => {

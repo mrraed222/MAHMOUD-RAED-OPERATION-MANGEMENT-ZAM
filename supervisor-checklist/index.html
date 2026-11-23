@@ -196,7 +196,7 @@ body.zam-page main { animation: zamFadeInUp .28s cubic-bezier(.2,.7,.3,1) both; 
 .zam-btn, button, [role="button"] { transition: background-color .14s ease, border-color .14s ease; }
 .zam-btn:hover, button:hover, [role="button"]:hover { filter: brightness(.98); }
 .zam-btn:active, button:active, [role="button"]:active { filter: brightness(.95); }
-input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .42); outline-offset: 2px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible, .evidence-input:focus-visible + span { outline: 3px solid rgba(192, 88, 58, .42); outline-offset: 2px; }
 .zam-loading { opacity: .82; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 </style>
@@ -247,7 +247,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   <a class="summary-card flex items-center justify-between gap-3" href="#inventory-receiving-tasks-section"><span>أولوية الآن</span><strong class="text-base">الاستلام والفحص ←</strong></a>
 </section>
 
-<section id="inventory-receiving-tasks-section" class="workflow-anchor" aria-labelledby="receiving-title" class="hidden rounded-xl border border-secondary bg-secondary-container/20 shadow-sm">
+<section id="inventory-receiving-tasks-section" class="workflow-anchor hidden rounded-xl border border-secondary bg-secondary-container/20 shadow-sm" aria-labelledby="receiving-title">
   <div class="flex flex-col gap-2 border-b border-outline-variant bg-secondary-container/40 px-md py-base sm:flex-row sm:items-center sm:justify-between">
     <div>
       <h2 id="receiving-title" class="font-bold text-primary">أولوية الوردية · استلام التوريدات</h2>
@@ -659,9 +659,9 @@ function renderChecklist(templates, logsByTemplate) {
                     <div class="flex items-center gap-md flex-1">
                         ${ZamChecklistSchedule.isSupervisorOnlyTask(item)
                             ? `<span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-primary'}">${completed ? 'task_alt' : 'inventory_2'}</span>`
-                            : `<input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${escHtml(item.id)}" ${completed ? 'checked disabled' : ''}/>`}
+                            : `<input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" id="task-${escHtml(item.id)}" aria-labelledby="task-title-${escHtml(item.id)}" data-id="${escHtml(item.id)}" ${completed ? 'checked disabled' : ''}/>`}
                         <div class="flex-1">
-                            <div class="flex flex-wrap items-center gap-xs"><h4 class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${escHtml(item.task_title)}</h4>${weeklyLabel}</div>
+                            <div class="flex flex-wrap items-center gap-xs"><h4 id="task-title-${escHtml(item.id)}" class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${escHtml(item.task_title)}</h4>${weeklyLabel}</div>
                             ${item.target_time ? `<p class="text-[11px] font-bold text-secondary">موعد التنفيذ: ${escHtml(String(item.target_time).slice(0, 5))}</p>` : ''}
                             ${item.instructions ? `<p class="text-body-sm text-on-surface-variant">${escHtml(item.instructions)}</p>` : ''}
                             ${item.task_type === 'inventory_request' ? `<a href="../inventory-requests/index.html?shift=${currentShift}" class="mt-2 inline-flex items-center gap-1 rounded-lg bg-secondary-container px-3 py-2 text-sm font-bold text-primary"><span class="material-symbols-outlined text-base">open_in_new</span> فتح صفحة الجرد والطلبيات</a>` : ''}
@@ -677,11 +677,11 @@ function renderChecklist(templates, logsByTemplate) {
                         <label class="flex items-center gap-xs cursor-pointer px-sm py-1 bg-surface-container border border-outline rounded-lg text-[12px] font-bold text-primary hover:bg-surface-container-high transition-all">
                             <span class="material-symbols-outlined text-[16px]">photo_camera</span>
                             <span>ارفق صورة الإثبات</span>
-                            <input type="file" accept="image/*" capture="environment" class="hidden evidence-input"/>
+                            <input type="file" accept="image/*" capture="environment" class="evidence-input sr-only" aria-label="إرفاق صورة إثبات المهمة ${escHtml(item.task_title)}"/>
                         </label>
                     ` : ''}
-                    ${item.allows_notes ? `<textarea rows="2" class="task-note w-full border border-outline-variant rounded-lg p-sm text-body-sm" data-id="${escHtml(item.id)}" placeholder="ملاحظة أو تعليق (اختياري) — اكتبها قبل التأشير"></textarea>` : ''}
-                    <span class="task-status text-error text-[11px]"></span>
+                    ${item.allows_notes ? `<label class="sr-only" for="supervisor-note-${escHtml(item.id)}">ملاحظة للمهمة ${escHtml(item.task_title)}</label><textarea id="supervisor-note-${escHtml(item.id)}" rows="2" class="task-note w-full border border-outline-variant rounded-lg p-sm text-body-sm" data-id="${escHtml(item.id)}" placeholder="ملاحظة أو تعليق (اختياري) — اكتبها قبل التأشير"></textarea>` : ''}
+                    <span class="task-status text-error text-[11px]" role="status" aria-live="polite"></span>
                     <span class="loading-indicator text-primary text-[11px] font-bold hidden"><span class="material-symbols-outlined animate-spin text-sm">sync</span> جارِ رفع الصورة والحفظ...</span>
                 </div>` : ''}
             </div>`;

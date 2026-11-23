@@ -167,7 +167,7 @@
     return !task?.branch_id || String(task.branch_id) === String(branchId);
   }
 
-  function isTemplateScheduledForEmployee(task, { role, branchId, branchName, categories, shiftType, branchHours } = {}, date = new Date()) {
+  function isTemplateScheduledForEmployee(task, { role, branchId, branchName, categories, assignedTemplateIds, shiftType, branchHours } = {}, date = new Date()) {
     if (!task || isSupervisorOnlyTask(task)) return false;
     if (task.frequency === 'hourly' && role !== 'Waiter') return false;
     if (!templateAppliesToBranch(task, branchId)) return false;
@@ -177,7 +177,10 @@
     const allowedCategories = Array.isArray(categories) && categories.length
       ? categories
       : (ROLE_CATEGORY[role] ? [ROLE_CATEGORY[role]] : null);
-    if (allowedCategories && !allowedCategories.includes(task.category)) return false;
+    const assignedIds = Array.isArray(assignedTemplateIds) ? assignedTemplateIds.map(String) : [];
+    const individuallyAssigned = assignedIds.includes(String(task.id));
+    if (individuallyAssigned && !['Barista', 'Kitchen', 'Waiter', 'Supervisor'].includes(role)) return false;
+    if (!individuallyAssigned && allowedCategories && !allowedCategories.includes(task.category)) return false;
     if (shiftType && ![shiftType, 'Both'].includes(task.shift_type)) return false;
     if (shiftType ? !isTaskDueForShift(task, shiftType, date, branchHours) : !isTaskDueToday(task, date)) return false;
     if (!isTaskTimeVisible(task, date, shiftType)) return false;
@@ -188,6 +191,17 @@
   function isTemplateVisibleForEmployee(task, context = {}, date = new Date()) {
     return isTemplateScheduledForEmployee(task, context, date) &&
       (!context.shiftType || isWithinShiftTaskWindow(context.shiftType, context.branchHours, date));
+  }
+
+  function isTemplateAssignableToEmployee(task, { role, branchId, branchName, shiftType } = {}) {
+    if (!task || isSupervisorOnlyTask(task) || task.frequency === 'hourly') return false;
+    if (!['Barista', 'Kitchen', 'Waiter', 'Supervisor'].includes(role)) return false;
+    if (!templateAppliesToBranch(task, branchId)) return false;
+    if (String(branchId || '') === BAR_ONLY_BRANCH_ID && task.category === 'الصالة') return false;
+    if (role === 'Waiter' && branchName === 'زام المنح' && shiftType === 'Morning') return false;
+    if (branchName === 'زام الحي' && task.task_type === 'restroom_check') return false;
+    if (shiftType && ![shiftType, 'Both'].includes(task.shift_type)) return false;
+    return true;
   }
 
   // Branch/manager views keep scheduled tasks in the denominator after the employee window closes.
@@ -254,6 +268,7 @@
     millisecondsUntilNextVisibilityChange,
     isTemplateScheduledForEmployee,
     isTemplateVisibleForEmployee,
+    isTemplateAssignableToEmployee,
     isTemplateVisibleInBranch
   };
 });

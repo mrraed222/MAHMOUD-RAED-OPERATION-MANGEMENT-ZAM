@@ -106,9 +106,9 @@
     </section>
     <section id="assignmentAdmin" class="card p-5 hidden" aria-labelledby="assignmentAdminHeading">
       <p class="flow-label text-xs font-bold">إسناد زيارة</p><h2 id="assignmentAdminHeading" class="text-xl font-bold mt-1">تكليف مشرف بزيارة وفحص فرعه</h2>
-      <p class="muted text-sm mt-1">اختر الفرع والمشرف النشط التابع له، وحدد موعد الزيارة والشفت ونوعها. سيظهر التكليف للمشرف في صفحة الزيارة؛ ولا يتيح له ذلك صلاحية مراجعة الإثباتات أو إغلاق المخالفات.</p>
+      <p class="muted text-sm mt-1">اختر الفرع والمكلف النشط؛ يُختار المشرف من فرعه، بينما يظهر مراقب الجودة عبر الفروع عند تفعيل صلاحية تنفيذ الزيارات. لا يمنح التكليف صلاحية إدارة الزيارات أو مراجعة الإثباتات.</p>
       <form id="assignmentForm" class="grid md:grid-cols-3 gap-3 mt-4">
-        <label>الفرع<select id="scheduleBranch" required class="w-full border rounded-lg p-2 mt-1"></select></label><label>المشرف المكلف بالزيارة<select id="scheduleAssignee" required class="w-full border rounded-lg p-2 mt-1"><option value="">اختر الفرع أولاً</option></select></label><label>موعد الزيارة<input id="scheduleDate" type="date" required class="w-full border rounded-lg p-2 mt-1"></label>
+        <label>الفرع<select id="scheduleBranch" required class="w-full border rounded-lg p-2 mt-1"></select></label><label>المكلف بالزيارة<select id="scheduleAssignee" required class="w-full border rounded-lg p-2 mt-1"><option value="">اختر الفرع أولاً</option></select></label><label>موعد الزيارة<input id="scheduleDate" type="date" required class="w-full border rounded-lg p-2 mt-1"></label>
         <label>الشفت<select id="scheduleShift" class="w-full border rounded-lg p-2 mt-1"><option value="Morning">صباحي</option><option value="Evening">مسائي</option></select></label><label>نوع الزيارة<select id="scheduleType" class="w-full border rounded-lg p-2 mt-1"><option>زيارة دورية</option><option>زيارة مفاجئة</option><option>زيارة متابعة</option><option>بسبب شكوى أو مشكلة</option></select></label><label>ملاحظات للمكلف<textarea id="scheduleNotes" rows="1" class="w-full border rounded-lg p-2 mt-1"></textarea></label>
         <div class="md:col-span-3"><button id="assignButton" type="submit" class="bg-[#33210d] text-white rounded-full px-5 py-2 font-bold">إسناد المهمة</button></div>
       </form>
@@ -148,7 +148,7 @@ const GOVERNMENT_CHECKS = [
   {code:'GOV-GMP', title:'تطبيق ممارسات التصنيع الجيد GMP'}
 ];
 date.value = today;
-signer.textContent = `${currentUser.full_name || currentUser.name || 'المستخدم الحالي'} — ${currentUser.role || 'غير محدد'}`;
+signer.textContent = `${currentUser.full_name || currentUser.name || 'المستخدم الحالي'} — ${currentUser.role === 'Owner' ? 'مالك ومطور النظام' : currentUser.role || 'غير محدد'}`;
 
 function show(messageText, isError = false) {
   message.className = isError ? 'block card p-4 text-[#8d332c]' : 'block card p-4 text-[#19623a]';
@@ -236,19 +236,19 @@ function renderItems() {
     return `
     <article class="item" data-id="${template.id}" data-code="${esc(template.code)}">
       <div class="flex justify-between gap-3 flex-wrap">
-        <div class="flex-1 min-w-[240px]"><span class="text-xs muted">${esc(template.category)}</span><h3 class="font-bold">${esc(template.title)}</h3><p class="text-sm muted whitespace-pre-line">${esc(template.instructions || '')}</p></div>
-        <div role="group" aria-label="درجة المعيار" class="flex gap-1 items-start ${isGovernment ? 'hidden' : ''}"><button type="button" class="score" data-score="10">10</button><button type="button" class="score" data-score="5">5</button><button type="button" class="score" data-score="0">0</button><button type="button" class="score" data-score="na">لا ينطبق</button></div>
+        <div class="flex-1 min-w-[240px]"><span class="text-xs muted">${esc(template.category)}</span><h3 id="criterion-${esc(template.id)}" class="font-bold">${esc(template.title)}</h3><p class="text-sm muted whitespace-pre-line">${esc(template.instructions || '')}</p></div>
+        <div role="group" aria-label="درجة المعيار" aria-labelledby="criterion-${esc(template.id)}" class="flex gap-1 items-start ${isGovernment ? 'hidden' : ''}"><button type="button" class="score" data-score="10" aria-pressed="false">10</button><button type="button" class="score" data-score="5" aria-pressed="false">5</button><button type="button" class="score" data-score="0" aria-pressed="false">0</button><button type="button" class="score" data-score="na" aria-pressed="false">لا ينطبق</button></div>
         ${isGovernment ? `<div class="hidden">${Array.from({length:11}, (_, i) => `<button type="button" class="score" data-score="${i}">${i}</button>`).join('')}</div>` : ''}
       </div>
-      ${isGovernment ? `<div class="mt-3 space-y-2"><b class="text-sm">قيّم كل نقطة حكومية على حدة (10 مطابق، 5 جزئي، 0 غير مطابق)</b>${GOVERNMENT_CHECKS.map(check => `<div class="rounded-lg border p-3 flex justify-between items-center gap-3 flex-wrap"><span class="text-sm">${esc(check.title)}</span><div role="group" aria-label="تقييم ${esc(check.title)}" class="flex gap-1">${[10,5,0].map(score => `<button type="button" class="subcheck-score score" data-code="${check.code}" data-score="${score}">${score}</button>`).join('')}</div></div>`).join('')}<p data-aggregate class="text-sm font-bold text-[#76583d]">أكمل النقاط الفرعية الخمس (0/5)</p></div>` : ''}
+      ${isGovernment ? `<div class="mt-3 space-y-2"><b class="text-sm">قيّم كل نقطة حكومية على حدة (10 مطابق، 5 جزئي، 0 غير مطابق)</b>${GOVERNMENT_CHECKS.map(check => `<div class="rounded-lg border p-3 flex justify-between items-center gap-3 flex-wrap"><span class="text-sm">${esc(check.title)}</span><div role="group" aria-label="تقييم ${esc(check.title)}" class="flex gap-1">${[10,5,0].map(score => `<button type="button" class="subcheck-score score" data-code="${check.code}" data-score="${score}" aria-pressed="false">${score}</button>`).join('')}</div></div>`).join('')}<p data-aggregate class="text-sm font-bold text-[#76583d]">أكمل النقاط الفرعية الخمس (0/5)</p></div>` : ''}
       <div class="grid md:grid-cols-2 gap-3 mt-3">
-        <textarea data-note placeholder="ملاحظة اختيارية" class="w-full border rounded-lg p-2" rows="2"></textarea>
+        <textarea data-note aria-label="ملاحظة معيار ${esc(template.title)}" placeholder="ملاحظة اختيارية" class="w-full border rounded-lg p-2" rows="2"></textarea>
         <div>
-          <label class="flex gap-2 items-center"><input type="checkbox" data-action> تسجيل إجراء</label>
+          <label class="flex gap-2 items-center"><input type="checkbox" data-action aria-label="تسجيل إجراء للمعيار ${esc(template.title)}"> تسجيل إجراء</label>
           <div class="action-fields hidden mt-2 space-y-2">
             <select data-action-type class="w-full border rounded-lg p-2" aria-label="نوع الإجراء"><option value="مخالفة">مخالفة</option><option value="تكليف">تكليف</option></select>
             <input data-action-title class="w-full border rounded-lg p-2" placeholder="عنوان المخالفة">
-            <select data-assignee class="w-full border rounded-lg p-2"><option value="">اختر الموظف المسؤول</option>${assignees.map(person => `<option value="${person.user_id}">${esc(person.full_name)} — ${esc(person.role)}${person.shift_type ? ' — ' + (person.shift_type === 'Morning' ? 'صباحي' : person.shift_type === 'Evening' ? 'مسائي' : 'كلا الشفتين') : ''}</option>`).join('')}</select>
+            <select data-assignee class="w-full border rounded-lg p-2" aria-label="المسؤول عن إجراء المعيار ${esc(template.title)}"><option value="">اختر الموظف المسؤول</option>${assignees.map(person => `<option value="${person.user_id}">${esc(person.full_name)} — ${esc(person.role)}${person.shift_type ? ' — ' + (person.shift_type === 'Morning' ? 'صباحي' : person.shift_type === 'Evening' ? 'مسائي' : 'كلا الشفتين') : ''}</option>`).join('')}</select>
             <input data-due type="date" class="w-full border rounded-lg p-2" aria-label="موعد استحقاق التكليف">
           </div>
           <div class="evidence hidden mt-2"><label class="text-sm">صورة المخالفة (إلزامية)<input data-file type="file" accept="image/*" class="w-full mt-1"></label><p data-evidence-status class="text-xs muted mt-1"></p></div>
@@ -291,8 +291,9 @@ async function loadAssignees(branchId) {
   if (supervisorError) throw supervisorError;
   assignees = people || [];
   renderItems();
-  scheduleAssignee.innerHTML = '<option value="">اختر المشرف</option>' + (supervisors || []).map(p => `<option value="${p.user_id}">${esc(p.full_name)} — مشرف${p.shift_type ? ' — ' + (p.shift_type === 'Morning' ? 'صباحي' : p.shift_type === 'Evening' ? 'مسائي' : 'كلاهما') : ''}</option>`).join('');
-  if (!(supervisors || []).length) scheduleAssignee.innerHTML = '<option value="">لا يوجد مشرف نشط في هذا الفرع</option>';
+  const eligibleAssignees=(supervisors||[]).filter(person=>person.shift_type==='Both'||person.shift_type===scheduleShift.value);
+  scheduleAssignee.innerHTML = '<option value="">اختر المكلف بالزيارة</option>' + eligibleAssignees.map(person => `<option value="${person.user_id}">${esc(person.full_name)} — ${person.role==='Quality'?'مراقب جودة · عبر الفروع':'مشرف'}${person.shift_type ? ' — ' + (person.shift_type === 'Morning' ? 'صباحي' : person.shift_type === 'Evening' ? 'مسائي' : 'كلاهما') : ''}</option>`).join('');
+  if (!eligibleAssignees.length) scheduleAssignee.innerHTML = '<option value="">لا يوجد مكلف نشط ومؤهل لهذه الوردية</option>';
 }
 async function loadAssignments() {
   const {data, error} = await zamClient.from('branch_visit_assignments')
@@ -403,12 +404,14 @@ items.addEventListener('click', event => {
   if (!button) return;
   const card = button.closest('.item');
   if (button.classList.contains('subcheck-score')) {
-    card.querySelectorAll(`.subcheck-score[data-code="${button.dataset.code}"]`).forEach(score => score.classList.remove('selected'));
+    card.querySelectorAll(`.subcheck-score[data-code="${button.dataset.code}"]`).forEach(score => { score.classList.remove('selected'); score.setAttribute('aria-pressed', 'false'); });
     button.classList.add('selected');
+    button.setAttribute('aria-pressed', 'true');
     syncGovernmentScore(card);
   } else {
-    card.querySelectorAll('.score:not(.subcheck-score)').forEach(score => score.classList.remove('selected'));
+    card.querySelectorAll('.score:not(.subcheck-score)').forEach(score => { score.classList.remove('selected'); score.setAttribute('aria-pressed', 'false'); });
     button.classList.add('selected');
+    button.setAttribute('aria-pressed', 'true');
   }
   saveItemState(card);
   updateProgress();
@@ -426,6 +429,7 @@ items.addEventListener('input', event => {
 });
 assignmentForm.addEventListener('submit', insertAssignment);
 scheduleBranch.addEventListener('change', () => loadAssignees(scheduleBranch.value).catch(error => show(error.message, true)));
+scheduleShift.addEventListener('change', () => loadAssignees(scheduleBranch.value).catch(error => show(error.message, true)));
 useAssignment.addEventListener('click', async () => {
   const task = window.assignmentTasks?.find(item => item.id === assignmentSelect.value);
   if (!task) { show('اختر تكليفاً صالحاً أولاً.', true); return; }

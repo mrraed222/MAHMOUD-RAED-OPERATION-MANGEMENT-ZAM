@@ -5,11 +5,23 @@ const path = require('node:path');
 
 const source = fs.readFileSync(path.join(__dirname, '../../reports-log/index.html'), 'utf8');
 
-test('reports log preserves auth, query range, operational filtering and supervisor branch scope', () => {
+test('the Supabase SDK loads before the shared configuration', () => {
+  const sdk = source.indexOf('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+  const config = source.indexOf('../assets/supabase-config.js');
+  assert.ok(sdk >= 0 && config > sdk, 'the SDK must be present and precede shared configuration');
+});
+
+test('reports log preserves auth, scoped branch options, operational filtering, and Supervisor branch/shift scope', () => {
   assert.match(source, /ZamSession\.requireAuth\('\.\.\/index\.html'\)/);
   assert.match(source, /renderZamSidebar\('reports-log',currentUser\.role\)/);
   assert.match(source, /select\('\*, branches\(name\)'\)\.order\('report_date',\{ascending:false\}\)\.range\(0,9999\)/);
-  assert.match(source, /if\(currentUser\.role==='Supervisor'\)branchId=currentUser\.branch_id/);
+  assert.match(source, /currentUser\.role==='Manager'[\s\S]*?rpc\('list_manager_report_branches'\)/,
+    'Manager branch options must come from their scoped branch-list RPC');
+  assert.match(source, /currentUser\.role==='Supervisor'[\s\S]*?branchId=currentUser\.branch_id/);
+  assert.match(source, /query\.eq\('shift_type',currentUser\.shift_type\)/,
+    'Morning/Evening Supervisors must filter to their assigned shift');
+  assert.match(source, /query\.in\('shift_type',\['Morning','Evening'\]\)/,
+    'Both Supervisors may see both valid shift types');
   assert.match(source, /!report\.custom_fields\?\.technical_parent/);
   assert.match(source, /ZamBranchLifecycle\.isOperational\(branchesById\.get/);
 });
@@ -26,20 +38,29 @@ test('filters, retry, empty state and export operate on the currently loaded res
   assert.match(source, /id="result-count"/);
 });
 
-test('detail modal is accessible and waste uses count-only without exposing raw waste data', () => {
+test('detail modal is accessible and loads full child rows scoped to the selected report', () => {
   assert.match(source, /role="dialog" aria-modal="true" aria-labelledby="detail-title"/);
   assert.match(source, /Escape/);
-  assert.match(source, /select\('id',\{count:'exact',head:true\}\)\.eq\('report_id',id\)/);
-  assert.doesNotMatch(source, /waste_logs\)\.select\('\*'/);
-  assert.doesNotMatch(source, /wasteRes\.data/);
-  assert.doesNotMatch(source, /wasteRes\.count[^\n]*quantity|wasteRes\.count[^\n]*reason/i);
-  assert.match(source, /عدد سجلات الهدر/);
+  assert.match(source, /fetchAllRows\(zamClient,\s*table,\s*'report_id',\s*report\.id\)/,
+    'every child query must paginate while filtering on the exact selected report ID');
+  for (const table of ['waste_logs', 'shift_issues', 'negative_reviews', 'technical_issues']) {
+    assert.match(source, new RegExp(`loadChildren\\('${table}'\\)`),
+      `${table} must be loaded through the paginated, report-scoped helper`);
+  }
+  assert.match(source, /technicalIssues: \(technicalIssuesRes\.data \|\| \[\]\)\.filter\(issue => String\(issue\.report_id\) === String\(report\.id\)\)/,
+    'technical issue rows must be exact-ID filtered again before rendering');
+  assert.match(source, /ZamReportDetailRenderer\.render\(report/);
+  assert.match(source, /branchName: report\.branches\?\.name/);
 });
 
 test('desktop table and mobile cards are semantic, responsive, and escape database text', () => {
   assert.match(source, /<table class="desktop-table"><caption/);
   assert.match(source, /<div id="mobile-list" class="mobile-list" hidden>/);
   assert.match(source, /@media\(max-width:680px\)/);
+  assert.match(source, /@media\(max-width:420px\)\{\.filter-grid\{grid-template-columns:minmax\(0,1fr\)\}\}/,
+    'narrow screens must stack date filters to avoid clipping browser-native date inputs');
+  assert.doesNotMatch(source, /calc\(312px\s*\+\s*24px\)/,
+    'the hidden-by-default sidebar must not reserve a permanent desktop gutter');
   assert.match(source, /escapeHtml\(r\.supervisor_name/);
   assert.match(source, /aria-live="polite"/);
 });

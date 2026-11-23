@@ -3,11 +3,11 @@
 <meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>ZAM Operations - داشبورد الفرع</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261121212700"></script>
+<script src="../assets/supabase-config.js?v=20261122200000"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
   <script src="../assets/checklist-schedule.js?v=20261121164000"></script>
   <script src="../assets/restroom-hourly.js?v=20261121170500"></script>
-  <script src="../assets/checklist-dashboard.js?v=20261117203400"></script>
+  <script src="../assets/checklist-dashboard.js?v=20261122200000"></script>
 <script>
   let currentUser = ZamSession.requireAuth('../index.html');
   // المالك والأدمن يفتحان فرعاً محدداً من لوحة التحكم للمتابعة التفصيلية فقط.
@@ -205,7 +205,7 @@ body.zam-page .dashboard-section-intro { max-width: 72ch; line-height: 1.7; }
 </header>
 
 <main class="md:pr-[280px] pt-20 min-h-screen">
-<div class="max-w-6xl mx-auto p-margin-desktop>
+<div class="max-w-6xl mx-auto p-margin-desktop">
   <section class="mb-md flex flex-wrap items-end justify-between gap-sm" aria-labelledby="dashboard-title">
     <div><p class="text-body-sm text-on-surface-variant">متابعة القراءة فقط · <span id="branch-context-name">الفرع</span> · <span id="dashboard-shift-context">الوردية الحالية</span></p><h2 id="dashboard-title" class="font-headline-lg text-2xl font-bold text-primary">لوحة متابعة الفرع</h2><p class="dashboard-section-intro text-body-sm text-on-surface-variant">ملخص تقدم الفريق والتقرير والتكليفات المفتوحة. تنفيذ المهام وإضافة الملاحظات يتم من الصفحات المخصصة.</p></div>
     <button id="refresh-dashboard" type="button" class="inline-flex items-center justify-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-xs font-bold" aria-label="تحديث بيانات لوحة الفرع"><span class="material-symbols-outlined" aria-hidden="true">refresh</span>تحديث البيانات</button>
@@ -331,7 +331,7 @@ const ROLE_CATEGORY = { Barista: 'البار', Waiter: 'الصالة', Kitchen: 
 const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
 
 let currentShift = ZamChecklistDashboard.initialDashboardShift(currentUser);
-let cache = { staff: [], catsBy: {}, templates: [], logs: [], hourlyLogs: [], restroomConfig: null, reports: [], notes: [], visitActions: [], branchName: '', branchHours: {} };
+let cache = { staff: [], catsBy: {}, assignmentsByProfile: {}, assignmentDataAvailable: false, templates: [], logs: [], hourlyLogs: [], restroomConfig: null, reports: [], notes: [], visitActions: [], branchName: '', branchHours: {} };
 
 // مبدّل الوردية للمتابعة الإدارية أو لمن يغطي الورديتين؛ لا يغيّر صلاحيات التنفيذ.
 if (ZamChecklistDashboard.canSelectDashboardShift(currentUser)) {
@@ -369,6 +369,7 @@ function tasksFor(emp, now = new Date(), includeExpired = true) {
         branchName: cache.branchName,
         branchHours: cache.branchHours,
         categoriesBy: cache.catsBy,
+        assignmentsByProfile: cache.assignmentsByProfile,
         shiftType: currentShift,
         includeExpired,
         now
@@ -386,7 +387,7 @@ async function loadAll() {
     const branchRes = await zamClient.from('branches').select('name, opening_time, closing_time, lifecycle_status, planned_opening_date').eq('id', branchId).maybeSingle();
     if (branchRes.error) throw branchRes.error;
     if (!ZamBranchLifecycle.isOperational(branchRes.data, now)) {
-        cache.staff = []; cache.templates = []; cache.logs = []; cache.hourlyLogs = []; cache.restroomConfig = null; cache.reports = []; cache.notes = []; cache.visitActions = [];
+        cache.staff = []; cache.templates = []; cache.assignmentsByProfile = {}; cache.assignmentDataAvailable = false; cache.logs = []; cache.hourlyLogs = []; cache.restroomConfig = null; cache.reports = []; cache.notes = []; cache.visitActions = [];
         cache.branchUnavailable = true;
         document.getElementById('branch-name').textContent = cache.branchName || 'الفرع';
         render();
@@ -396,7 +397,9 @@ async function loadAll() {
     let actionsQuery = zamClient.from('visit_action_items').select('id,visit_id,title,description,item_type,priority,status,shift_type,due_date,created_at,assigned_to,assigned_role,completion_note,completion_submitted_at,review_note')
         .eq('branch_id', branchId)
         .not('status', 'in', '("مغلقة","ملغاة")').order('created_at', { ascending: false }).limit(100);
-    const [staffRes, catRes, templates, logsRes, hourlyLogs, restroomConfig, reportsRes, notesRes, actionsRes] = await Promise.all([
+    const assignmentResultPromise = ZamAPI.getBranchChecklistTemplateAssignments(branchId)
+        .then(data => ({ data, error: null }), error => ({ data: {}, error }));
+    const [staffRes, catRes, templates, logsRes, hourlyLogs, restroomConfig, reportsRes, notesRes, actionsRes, assignmentResult] = await Promise.all([
         zamClient.from('profiles').select('id, full_name, role, shift_type, avatar_url, employee_number')
             .eq('branch_id', branchId).eq('status', 'active')
             .in('role', ['Barista', 'Waiter', 'Kitchen']),
@@ -410,6 +413,7 @@ async function loadAll() {
         zamClient.from('team_notes').select('id, profile_id, note, created_at, profiles(full_name, avatar_url)')
             .eq('branch_id', branchId).order('created_at', { ascending: false }).limit(30),
         actionsQuery,
+        assignmentResultPromise,
     ]);
     for (const result of [staffRes, catRes, logsRes, reportsRes, notesRes, actionsRes]) {
         if (result.error) throw result.error;
@@ -417,6 +421,9 @@ async function loadAll() {
     cache.staff = staffRes.data || [];
     cache.catsBy = {};
     (catRes.data || []).forEach(r => { (cache.catsBy[r.profile_id] = cache.catsBy[r.profile_id] || []).push(r.category); });
+    cache.assignmentsByProfile = assignmentResult.data || {};
+    cache.assignmentDataAvailable = !assignmentResult.error;
+    if (assignmentResult.error) console.warn('Individual checklist assignments are unavailable:', assignmentResult.error);
     cache.templates = (templates || []).filter(t => t.is_active !== false);
     cache.logs = (logsRes.data || []).filter(row => ZamBranchLifecycle.isOperational(branchRes.data, row.execution_date || today));
     cache.hourlyLogs = (hourlyLogs || []).filter(row => ZamBranchLifecycle.isOperational(branchRes.data, row.execution_date || today));
@@ -456,6 +463,7 @@ function render() {
         templates: cache.templates,
         staff: shiftStaff,
         categoriesBy: cache.catsBy,
+        assignmentsByProfile: cache.assignmentsByProfile,
         branchId,
         branchName: cache.branchName,
         branchHours: cache.branchHours,
@@ -502,6 +510,7 @@ function render() {
             const myDone = mine.filter(t => myDoneKeys.has(keyFor(t))).length;
             const p = mine.length ? Math.round(myDone / mine.length * 100) : 0;
             const cats = empCategories(emp);
+            const taskSummary = cache.assignmentDataAvailable ? `${myDone}/${mine.length}` : 'غير متاح';
             return `
             <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
                 <div class="flex items-center gap-sm mb-sm">
@@ -510,7 +519,7 @@ function render() {
                         <p class="font-bold text-on-surface truncate">${escapeHtml(emp.full_name)}</p>
                         <p class="text-[11px] text-on-surface-variant">${escapeHtml(ROLE_LABELS[emp.role] || emp.role)}${emp.employee_number ? ' · ' + escapeHtml(emp.employee_number) : ''}</p>
                     </div>
-                    <span class="text-[11px] font-bold px-xs py-[2px] rounded-full ${p === 100 ? 'bg-tertiary text-on-tertiary' : 'bg-surface-container text-on-surface-variant'}">${myDone}/${mine.length}</span>
+                    <span class="text-[11px] font-bold px-xs py-[2px] rounded-full ${p === 100 && cache.assignmentDataAvailable ? 'bg-tertiary text-on-tertiary' : 'bg-surface-container text-on-surface-variant'}">${taskSummary}</span>
                 </div>
                 <div class="flex flex-wrap gap-xs mb-sm">
                     ${cats.map(c => {
@@ -518,9 +527,9 @@ function render() {
                         return `<span class="px-xs py-[2px] rounded-full text-[10px] font-bold ${isExtra ? 'bg-primary-fixed text-on-primary-fixed' : 'bg-secondary-container text-on-secondary-container'}">${escapeHtml(c)}${isExtra ? ' +إسناد' : ''}</span>`;
                     }).join('')}
                 </div>
-                <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden" role="progressbar" aria-label="إنجاز مهام الموظف" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}">
+                ${cache.assignmentDataAvailable ? `<div class="w-full h-2 bg-surface-container rounded-full overflow-hidden" role="progressbar" aria-label="إنجاز مهام الموظف" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}">
                     <div class="h-full ${p === 100 ? 'bg-tertiary' : 'bg-primary'} transition-all" style="width:${p}%"></div>
-                </div>
+                </div>` : '<p class="text-[11px] text-on-surface-variant" role="status">تعذّر تحميل الإسنادات؛ تقدم الموظف غير متاح.</p>'}
             </div>`;
         }).join('');
     }
@@ -655,8 +664,9 @@ function renderVisitActions() {
 const visitActionModal = document.getElementById('visit-action-modal');
 const visitActionForm = document.getElementById('visit-action-form');
 let activeVisitAction = null;
+let visitActionCleanup=null;
 function closeVisitActionModal() {
-    visitActionModal.classList.add('hidden');
+    visitActionModal.classList.add('hidden'); visitActionCleanup?.(); visitActionCleanup=null;
     visitActionModal.setAttribute('aria-hidden', 'true');
     document.querySelector('.visit-action-submit-btn')?.focus();
     visitActionForm.reset();
@@ -674,7 +684,7 @@ document.getElementById('visit-actions-list').addEventListener('click', event =>
     document.getElementById('visit-action-title').textContent = action.title || 'إفادة تنفيذ التكليف';
     document.getElementById('visit-action-summary').textContent = `${action.item_type || 'تكليف'} · ${action.priority || '—'}${action.due_date ? ' · موعد الاستحقاق: ' + action.due_date : ''}`;
     visitActionModal.classList.remove('hidden');
-    visitActionModal.setAttribute('aria-hidden', 'false');
+    visitActionModal.setAttribute('aria-hidden', 'false'); visitActionCleanup=window.zamEnableModalFocus(visitActionModal,document.activeElement);
     visitActionModal.querySelector('[tabindex="-1"]').focus();
 });
 document.getElementById('cancel-visit-action').addEventListener('click', closeVisitActionModal);

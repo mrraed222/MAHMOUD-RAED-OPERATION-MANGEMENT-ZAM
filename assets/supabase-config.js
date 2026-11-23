@@ -101,10 +101,10 @@ const ZAM_NAV_ITEMS = [
     { key: 'supervisor-dashboard', label: 'داشبورد الفرع', icon: 'space_dashboard', href: 'supervisor-dashboard/index.html', roles: ['Supervisor', 'Manager'], perm: null },
     { key: 'manage-templates', label: 'إدارة قوائم التحقق', icon: 'edit_note', href: 'manage-templates/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_manage_templates' },
     { key: 'daily-report', label: 'التقارير اليومية', icon: 'assignment', href: 'daily-report/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: null },
-    { key: 'reports-log', label: 'سجل التقارير', icon: 'assessment', href: 'reports-log/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: null },
-    { key: 'checklist-logs', label: 'سجل التشيك ليست بالصور', icon: 'photo_library', href: 'checklist-logs/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports' },
-    { key: 'reports-monitor', label: 'متابعة التقارير', icon: 'fact_check', href: 'reports-monitor/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports' },
-    { key: 'analytics', label: 'داشبورد التحليلات', icon: 'insights', href: 'analytics/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports' },
+    { key: 'reports-log', label: 'سجل التقارير', icon: 'assessment', href: 'reports-log/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: null, managerPerm: 'can_view_analytics' },
+    { key: 'checklist-logs', label: 'سجل التشيك ليست بالصور', icon: 'photo_library', href: 'checklist-logs/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports', managerPerm: 'can_view_checklist_logs' },
+    { key: 'reports-monitor', label: 'متابعة التقارير', icon: 'fact_check', href: 'reports-monitor/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports', managerPerm: 'can_view_daily_checklist_summary' },
+    { key: 'analytics', label: 'داشبورد التحليلات', icon: 'insights', href: 'analytics/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports', managerPerm: 'can_view_analytics' },
     { key: 'weekly-report', label: 'التقرير الأسبوعي', icon: 'summarize', href: 'weekly-report/index.html', roles: ['Owner'], perm: null },
     { key: 'branch-visits', label: 'زيارات الفروع والتكليفات', icon: 'fact_check', href: 'branch-visits-new/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor', 'Quality', 'Quality Manager', 'Barista', 'Kitchen', 'Waiter'], perm: null },
     { key: 'staff-management', label: 'إدارة الطاقم', icon: 'groups', href: 'staff-management/index.html', roles: ['Owner', 'Admin', 'Supervisor'], perm: 'can_manage_staff' },
@@ -119,6 +119,7 @@ const ZAM_OWNER_NAV_KEYS = new Set([
     'branches',
     'checklist-logs',
     'reports-log',
+    'daily-report',
     'reports-monitor',
     'analytics',
     'weekly-report',
@@ -149,8 +150,9 @@ async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
         if (role === 'Owner') return ZAM_OWNER_NAV_KEYS.has(i.key);
         if (!i.roles.includes(role)) return false;
         if (i.key === 'inventory-requests' && role === 'Supervisor') return true;
-        if (i.perm) {
-            return !!(permsRow && permsRow[i.perm]);
+        const requiredPerm = role === 'Manager' && i.managerPerm ? i.managerPerm : i.perm;
+        if (requiredPerm) {
+            return !!(permsRow && permsRow[requiredPerm]);
         }
         return true;
     });
@@ -206,16 +208,18 @@ function installZamSidebarExperience() {
             visibility: visible; transform: translateX(0); pointer-events: auto;
         }
         .zam-sidebar-scrim { display: none !important; position: fixed; inset: 0; z-index: 50; border: 0; background: rgba(27,28,28,.48); }
-        .zam-sidebar-close { position: absolute; inset-block-start: 8px; inset-inline-end: 8px; display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 10px; border: 1px solid #d2c4ba; border-radius: 999px; background: #fff; color: #33210d; font: inherit; font-weight: 700; cursor: pointer; }
+        body.zam-sidebar-open { overflow: hidden; }
+        body.zam-sidebar-open .zam-sidebar-scrim { display: block !important; }
         .zam-header-tools { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; direction: rtl; min-width: 0; }
-        .zam-header-tools #notif-bell-slot { order: 1; flex: 0 0 auto; }
+        .zam-header-tools .zam-header-account { order: 1; }
+        .zam-header-tools #notif-bell-slot { order: 3; flex: 0 0 auto; }
         .zam-header-tools .zam-sidebar-toggle { order: 2; }
-        .zam-header-tools .zam-header-account { order: 3; }
         .zam-sidebar-toggle {
             display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px;
             padding: 0 12px; border: 1px solid #d2c4ba; border-radius: 999px; background: #fff;
             color: #33210d; font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer;
         }
+        .zam-sidebar .zam-sidebar-toggle { position: absolute; inset-block-start: 8px; inset-inline-end: 8px; z-index: 2; }
         .zam-sidebar-toggle:focus-visible { outline: 3px solid rgba(192,88,58,.55); outline-offset: 2px; }
         .zam-header-account { display: inline-flex; align-items: center; gap: 7px; min-width: 0; max-width: 220px; padding: 4px 8px; border: 1px solid #d2c4ba; border-radius: 999px; background: #f6f3f2; color: #33210d; }
         .zam-header-logo { width: 30px !important; height: 30px !important; flex: 0 0 30px; object-fit: contain; border-radius: 6px; background: #fff; }
@@ -223,6 +227,17 @@ function installZamSidebarExperience() {
         .zam-header-identity-copy { display: flex; flex-direction: column; min-width: 0; text-align: right; }
         .zam-header-employee-name { display: block; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 700; }
         .zam-header-employee-role { display:block; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; color:#66736d; }
+        .zam-sidebar, .zam-sidebar.bg-surface { background-color: var(--riwaq-sidebar, #16392f) !important; color: #f4f6f2 !important; border-color: rgba(255,255,255,.18) !important; }
+        .zam-sidebar h1 { color: #f4f6f2 !important; }
+        .zam-sidebar { padding-inline: 16px; }
+        .zam-sidebar > div:first-of-type { gap: 8px; margin-bottom: 16px; padding-inline: 4px; border-bottom: 1px solid rgba(255,255,255,.16); padding-bottom: 12px; }
+        .zam-sidebar > div:first-of-type > div { gap: 8px; }
+        .zam-sidebar > div:first-of-type p { color: var(--riwaq-sidebar-muted, #a8beb4) !important; }
+        .zam-sidebar nav { gap: 4px; }
+        .zam-sidebar nav a { color: #e7f0eb !important; gap: 8px; min-height: 44px; padding: 8px; flex-shrink: 0; border-radius: 8px; }
+        .zam-sidebar nav a:hover { background-color: var(--riwaq-sidebar-active, #285849) !important; color: #fff !important; }
+        .zam-sidebar nav a.bg-surface-container, .zam-sidebar nav a[aria-current="page"] { background-color: var(--riwaq-sidebar-active, #285849) !important; border-color: var(--riwaq-accent, #bd8150) !important; color: #fff !important; }
+        .zam-sidebar > button:not(.zam-sidebar-toggle) { border-top: 1px solid rgba(255,255,255,.16); color: #ffd9d4 !important; }
         header.zam-app-header { height: auto !important; min-height: var(--zam-header-min-height, 64px); flex-wrap: wrap !important; gap: 8px; box-sizing: border-box; }
         header.zam-app-header > :not(.zam-header-tools) { min-width: 0; }
         @media (min-width: 768px) {
@@ -234,9 +249,7 @@ function installZamSidebarExperience() {
         }
         body:not(.zam-sidebar-open) [class~="mr-[280px]"] { margin-right: 0 !important; }
         @media (max-width: 767px) {
-            body.zam-sidebar-open { overflow: hidden; }
             body [class~="mr-[280px]"], body [class~="md:mr-[280px]"] { margin-right: 0 !important; }
-            body.zam-sidebar-open .zam-sidebar-scrim { display: block !important; }
             header.zam-app-header { padding-inline: 16px !important; }
             header.zam-app-header {
                 display: grid !important; grid-template-columns: minmax(0, 1fr);
@@ -279,16 +292,10 @@ function installZamSidebarExperience() {
         sidebar.setAttribute('aria-hidden', 'true');
         sidebar.inert = true;
         document.body.classList.remove('zam-sidebar-open');
-        const closeButton = document.createElement('button');
-        closeButton.type = 'button';
-        closeButton.className = 'zam-sidebar-close';
-        closeButton.setAttribute('aria-label', 'إغلاق قائمة التنقل');
-        closeButton.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">close</span><span>إغلاق القائمة</span>';
-        sidebar.prepend(closeButton);
 
         const profile = typeof ZamSession !== 'undefined' ? ZamSession.get() : null;
         const employeeName = profile?.full_name || profile?.name || 'حسابي';
-        const employeeRole = ({Owner:'مالك النظام',Admin:'مدير النظام',Manager:'مدير',Supervisor:'مشرف',Barista:'باريستا',Kitchen:'مطبخ',Waiter:'نادل',Quality:'جودة','Quality Manager':'مدير جودة'})[profile?.role] || profile?.role || '';
+        const employeeRole = ({Owner:'مالك ومطور النظام',Admin:'مدير النظام',Manager:'مدير',Supervisor:'مشرف',Barista:'باريستا',Kitchen:'مطبخ',Waiter:'نادل',Quality:'مراقب جودة','Quality Manager':'مدير جودة'})[profile?.role] || profile?.role || '';
         const avatarFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e4e2e1'/><circle cx='50' cy='38' r='18' fill='%2380756c'/><ellipse cx='50' cy='88' rx='30' ry='22' fill='%2380756c'/></svg>";
 
         const hostedTools = header.querySelector('[data-zam-header-tools]');
@@ -383,6 +390,8 @@ function installZamSidebarExperience() {
         }
 
         const setOpen = (open, returnFocus = false) => {
+            if (open && toggle.parentElement !== sidebar) sidebar.prepend(toggle);
+            else if (!open && toggle.parentElement !== tools) tools.prepend(toggle);
             document.body.classList.toggle('zam-sidebar-open', open);
             sidebar.setAttribute('aria-hidden', String(!open));
             sidebar.inert = !open;
@@ -394,8 +403,7 @@ function installZamSidebarExperience() {
             if (open) sidebar.querySelector('a[href], button:not([disabled])')?.focus();
             else if (returnFocus) toggle.focus();
         };
-        toggle.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'));
-        closeButton.addEventListener('click', () => setOpen(false, true));
+        toggle.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true', true));
         scrim.addEventListener('click', () => setOpen(false, true));
         document.addEventListener('keydown', event => {
             if (!document.body.classList.contains('zam-sidebar-open')) return;
@@ -578,6 +586,38 @@ function subscribeNotificationBell(profile) {
         });
 }
 
+function positionNotificationMenu(btn, menu) {
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+    const margin = 8;
+    const gap = 4;
+    const availableWidth = Math.max(0, viewportWidth - margin * 2);
+    const availableHeight = Math.max(0, viewportHeight - margin * 2);
+    menu.style.position = 'fixed';
+    menu.style.maxWidth = '';
+    menu.style.maxHeight = `${availableHeight}px`;
+    menu.style.overflowY = 'auto';
+    menu.style.marginTop = '0';
+
+    const buttonRect = btn.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const measuredWidth = menuRect.width || menu.scrollWidth;
+    const menuWidth = Math.min(measuredWidth, availableWidth);
+    if (measuredWidth > availableWidth) menu.style.maxWidth = `${availableWidth}px`;
+    const menuHeight = Math.min(menuRect.height || menu.scrollHeight, availableHeight);
+    const left = Math.max(margin, Math.min(buttonRect.left, viewportWidth - menuWidth - margin));
+    const spaceBelow = viewportHeight - buttonRect.bottom - gap - margin;
+    let top = buttonRect.bottom + gap;
+    if (menuHeight > spaceBelow && menuHeight <= buttonRect.top - gap - margin) {
+        top = buttonRect.top - gap - menuHeight;
+    } else if (menuHeight > spaceBelow) {
+        top = Math.max(margin, Math.min(top, viewportHeight - menuHeight - margin));
+    }
+    menu.style.left = `${left}px`;
+    menu.style.right = 'auto';
+    menu.style.top = `${top}px`;
+}
+
 function attachNotificationBellHandlers() {
     const profile = ZamSession.get();
     const btn = document.getElementById('zam-notif-btn');
@@ -586,12 +626,26 @@ function attachNotificationBellHandlers() {
     if (btn.dataset.zamBound === 'true') return;
     btn.dataset.zamBound = 'true';
 
+    if (!window.__zamNotificationPositionBound) {
+        const repositionOpenMenu = () => {
+            const currentButton = document.getElementById('zam-notif-btn');
+            const currentMenu = document.getElementById('zam-notif-menu');
+            if (currentButton && currentMenu && !currentMenu.classList.contains('hidden')) {
+                positionNotificationMenu(currentButton, currentMenu);
+            }
+        };
+        window.addEventListener('resize', repositionOpenMenu, { passive: true });
+        window.addEventListener('scroll', repositionOpenMenu, true);
+        window.__zamNotificationPositionBound = true;
+    }
+
     btn.addEventListener('click', (event) => {
         event.stopPropagation();
         if (btn.getAttribute('aria-label') === 'تعذر تحميل الإشعارات') { refreshNotificationBell(); return; }
         const willOpen = menu.classList.contains('hidden');
         menu.classList.toggle('hidden');
         btn.setAttribute('aria-expanded', String(willOpen));
+        if (willOpen) positionNotificationMenu(btn, menu);
     });
 
     document.querySelectorAll('[data-notification-link]').forEach(link => {
@@ -727,6 +781,39 @@ function zamTemplateAppliesToBranch(template, branchId) {
     return template?.branch_id == null;
 }
 
+window.zamEnableModalFocus = function(dialog, trigger) {
+    if (!dialog) return function() {};
+    const opener = trigger || document.activeElement;
+    const inertStates = [];
+    let node = dialog;
+    while (node && node !== document.body) {
+        const parent = node.parentElement;
+        if (!parent) break;
+        for (const sibling of parent.children) {
+            if (sibling !== node && !sibling.contains(dialog)) {
+                inertStates.push([sibling, sibling.inert]); sibling.inert = true;
+            }
+        }
+        node = parent;
+    }
+    const focusable = () => Array.from(dialog.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'))
+        .filter(el => !el.hidden && el.getAttribute('aria-hidden') !== 'true' && el.getClientRects().length);
+    const onKeydown = event => {
+        if (event.key !== 'Tab') return;
+        const items = focusable();
+        if (!items.length) { event.preventDefault(); dialog.focus?.(); return; }
+        const first = items[0], last = items[items.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+    };
+    dialog.addEventListener('keydown', onKeydown);
+    return function cleanup() {
+        dialog.removeEventListener('keydown', onKeydown);
+        inertStates.forEach(([element, wasInert]) => { if (element.isConnected) element.inert = wasInert; });
+        if (opener?.isConnected) opener.focus();
+    };
+};
+
 const ZamAPI = {
     // تسجيل الدخول برمز المرور عبر Edge Function
     async login(passcode) {
@@ -827,6 +914,67 @@ const ZamAPI = {
                 .in('category', categoriesToRemove);
             if (error) throw error;
         }
+    },
+
+    async getChecklistTemplateAssignmentIds(profileId) {
+        const { data, error } = await zamClient.from('checklist_template_assignments')
+            .select('template_id').eq('profile_id', profileId).eq('is_active', true);
+        if (error) throw error;
+        return (data || []).map(row => row.template_id);
+    },
+
+    async getBranchChecklistTemplateAssignments(branchId) {
+        const { data, error } = await zamClient.rpc('list_branch_checklist_template_assignments', {
+            p_branch_id: branchId
+        });
+        if (error) throw error;
+        const byProfile = {};
+        (data || []).forEach(row => {
+            (byProfile[row.profile_id] = byProfile[row.profile_id] || []).push(row.template_id);
+        });
+        return byProfile;
+    },
+
+    async getMyAssignedTemplateIds() {
+        const profile = ZamSession.get();
+        if (!profile?.id) return [];
+        return this.getChecklistTemplateAssignmentIds(profile.id);
+    },
+
+    async replaceChecklistTemplateAssignments(profileId, templateIds) {
+        const { data, error } = await zamClient.rpc('replace_checklist_template_assignments', {
+            p_profile_id: profileId,
+            p_template_ids: Array.from(new Set(templateIds || []))
+        });
+        if (error) throw error;
+        return data;
+    },
+
+    async getManagerReportScopes() {
+        const [scopesResult, branchesResult] = await Promise.all([
+            zamClient.from('manager_report_scopes').select('profile_id,scope_mode'),
+            zamClient.from('manager_report_scope_branches').select('profile_id,branch_id')
+        ]);
+        if (scopesResult.error) throw scopesResult.error;
+        if (branchesResult.error) throw branchesResult.error;
+        const scopes = Object.fromEntries((scopesResult.data || []).map(row => [row.profile_id, {
+            mode: row.scope_mode,
+            branchIds: []
+        }]));
+        (branchesResult.data || []).forEach(row => {
+            if (scopes[row.profile_id]) scopes[row.profile_id].branchIds.push(row.branch_id);
+        });
+        return scopes;
+    },
+
+    async saveManagerReportScope(profileId, mode, branchIds = [], legacyCanViewAll = false) {
+        const { error } = await zamClient.rpc('save_manager_report_scope', {
+            p_profile_id: profileId,
+            p_scope_mode: mode,
+            p_branch_ids: mode === 'selected' ? Array.from(new Set(branchIds || [])) : [],
+            p_legacy_can_view_all: !!legacyCanViewAll
+        });
+        if (error) throw error;
     },
 
     // ============================================
@@ -1469,9 +1617,16 @@ const ZamAPI = {
         return { readings: data || [], problemCount: problems.length };
     },
 
-    async createTechnicalIssue({ branch_id, reported_by, title, description = null, priority = 'normal', fridge_id = null }) {
+    async createTechnicalIssue({ branch_id, reported_by, title, description = null, priority = 'normal', fridge_id = null, report_id = null }) {
+        const issue = { branch_id, reported_by, source: 'manual', title, description, priority, fridge_id };
+        if (report_id !== null && report_id !== undefined) {
+            if (typeof report_id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(report_id)) {
+                throw new Error('معرّف التقرير غير صالح.');
+            }
+            issue.report_id = report_id;
+        }
         const { data, error } = await zamClient.from('technical_issues')
-            .insert([{ branch_id, reported_by, source: 'manual', title, description, priority, fridge_id }])
+            .insert([issue])
             .select().single();
         if (error) throw error;
         return data;

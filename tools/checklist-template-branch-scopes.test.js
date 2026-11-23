@@ -7,7 +7,9 @@ const vm = require('node:vm');
 const root = path.join(__dirname, '..');
 const api = fs.readFileSync(path.join(root, 'assets', 'supabase-config.js'), 'utf8');
 const page = fs.readFileSync(path.join(root, 'manage-templates', 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'supabase', 'drafts', 'add_checklist_template_branch_scopes.sql'), 'utf8');
+const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20261117184300_checklist_template_branch_scopes.sql'), 'utf8');
+const plannedBranchMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20261123121500_reject_planned_checklist_template_branches.sql'), 'utf8');
+const rlsFixture = fs.readFileSync(path.join(root, 'tools', 'technical-issues-report-association-rls.sql'), 'utf8');
 const plan = fs.readFileSync(path.join(root, 'supabase', 'drafts', 'checklist-template-branch-scopes-plan.md'), 'utf8');
 
 const helpers = api.match(/function zamTemplateBranchIds\(template\) \{[\s\S]*?\n\}\n\nfunction zamTemplateAppliesToBranch\(template, branchId\) \{[\s\S]*?\n\}/);
@@ -48,10 +50,25 @@ test('draft UI requires an explicit scope and submits selected branch ids throug
   assert.match(page, /if \(!allBranches && !selectedBranchIds\.length\)/);
   assert.match(page, /saveTemplateWithBranches\(editingId, payload, selectedBranchIds, allBranches\)/);
   assert.match(api, /save_checklist_template_with_branches/);
+  assert.match(page, /branchesCache\.filter\(branch => branch\.lifecycle_status !== 'planned'\)/);
+  assert.match(page, /plannedSelections\.length/);
   assert.doesNotMatch(page, /index === 0 \? 'open'/);
 });
 
-test('draft migration backfills existing non-global versions without editing their rows', () => {
+test('database rejects checklist template branch links to planned branches', () => {
+  assert.match(plannedBranchMigration, /BEFORE INSERT OR UPDATE OF branch_id ON public\.checklist_template_branches/);
+  assert.match(plannedBranchMigration, /b\.lifecycle_status = 'planned'[\s\S]*?USING ERRCODE = 'check_violation'/);
+  assert.match(plannedBranchMigration, /BEFORE INSERT OR UPDATE OF branch_id ON public\.checklist_templates/,
+    'legacy checklist_templates.branch_id writes must also hit the trigger');
+  assert.match(rlsFixture, /INSERT INTO public\.checklist_templates[\s\S]*?Direct planned template/,
+    'the isolated SQL fixture exercises a direct client INSERT bypass attempt');
+  assert.match(rlsFixture, /UPDATE public\.checklist_templates SET branch_id[\s\S]*?planned legacy branch/,
+    'the isolated SQL fixture exercises a direct client UPDATE bypass attempt');
+  assert.match(rlsFixture, /version_checklist_template\([\s\S]*?planned legacy branch/,
+    'the isolated SQL fixture exercises the template-version RPC bypass attempt');
+});
+
+test('branch-scope migration backfills existing non-global versions without editing their rows', () => {
   assert.match(migration, /INSERT INTO public\.checklist_template_branches \(template_id, branch_id\)[\s\S]*?SELECT t\.id, t\.branch_id[\s\S]*?WHERE t\.branch_id IS NOT NULL/i);
   assert.match(migration, /ON DELETE RESTRICT/i);
   assert.match(migration, /has_admin_permission\('templates'\)/i);

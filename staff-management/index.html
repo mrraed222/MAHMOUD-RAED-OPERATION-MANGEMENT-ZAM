@@ -336,7 +336,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   </div>
 </div>
 <script>
-const ROLE_LABELS = { Barista: 'باريستا', Supervisor: 'مشرف وردية', Manager: 'مدير', Kitchen: 'مطبخ', Waiter: 'خدمة', Admin: 'أدمن', Owner: 'مالك' };
+const ROLE_LABELS = { Barista: 'باريستا', Supervisor: 'مشرف وردية', Manager: 'مدير', Kitchen: 'مطبخ', Waiter: 'خدمة', Admin: 'أدمن', Owner: 'مالك ومطور النظام', Quality: 'مراقب جودة' };
 const STATUS_LABELS = { active: 'نشط', pending: 'قيد المراجعة', suspended: 'موقوف', rejected: 'مرفوض' };
 
 function initials(name) {
@@ -369,7 +369,9 @@ function renderStaff() {
     list.querySelectorAll('.edit-employee-btn').forEach(btn => btn.addEventListener('click', () => openEditModal(btn.dataset.id)));
 }
 
+let employeeModalCleanup=null;
 function openEditModal(id) {
+    const employeeModalTrigger=document.activeElement;
     const emp = allStaff.find(e => e.id === id);
     if (!emp) return;
     document.getElementById('edit-modal-name').textContent = emp.full_name;
@@ -383,6 +385,7 @@ function openEditModal(id) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     modal.setAttribute('aria-hidden', 'false');
+    employeeModalCleanup=window.zamEnableModalFocus(modal.querySelector('[role=dialog]'),employeeModalTrigger);
     document.getElementById('edit-name').focus();
     document.getElementById('edit-save').onclick = async () => {
         const payload = {
@@ -403,7 +406,7 @@ function openEditModal(id) {
             if (error) throw error;
             modal.classList.add('hidden');
             modal.classList.remove('flex');
-            modal.setAttribute('aria-hidden', 'true');
+            modal.setAttribute('aria-hidden', 'true'); employeeModalCleanup?.(); employeeModalCleanup=null;
             await loadStaff();
         } catch (err) {
             document.getElementById('edit-error').textContent = err.message?.toLowerCase().includes('duplicate') ? 'رمز المرور مستخدم.' : 'تعذر حفظ التعديلات. تحقق من الاتصال وحاول مجددًا.';

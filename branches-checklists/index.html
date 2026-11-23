@@ -90,8 +90,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   body.zam-page #branch-modal #save-branch-btn { background: var(--riwaq-primary); color: #fff; }
   body.zam-page :focus-visible { outline-color: var(--riwaq-focus) !important; }
   body.zam-page .branches-layout { max-width: 1120px; }
-  body.zam-page .branches-toolbar { display:grid; grid-template-columns:minmax(220px,1fr) minmax(180px,.45fr); gap:12px; margin:18px 0 16px; }
-  body.zam-page .branches-toolbar input, body.zam-page .branches-toolbar select { min-height:46px; width:100%; border:1px solid var(--riwaq-line); border-radius:10px; background:#fff; padding:10px 13px; }
+  body.zam-page .branches-toolbar { display:grid; grid-template-columns:minmax(180px,280px); justify-content:start; gap:12px; margin:18px 0 16px; }
+  body.zam-page .branches-toolbar select { min-height:46px; width:100%; border:1px solid var(--riwaq-line); border-radius:10px; background:#fff; padding:10px 13px; }
   body.zam-page .branches-summary { display:flex; flex-wrap:wrap; gap:10px; margin:16px 0; }
   body.zam-page .branches-summary > div { flex:1 1 150px; padding:13px 16px; border:1px solid var(--riwaq-line); border-radius:12px; background:var(--riwaq-surface); }
   body.zam-page .branches-summary strong { display:block; font-size:22px; line-height:1.2; }
@@ -157,7 +157,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     <div class="branches-section-heading">
       <div>
         <h2 id="branches-heading">دليل الفروع</h2>
-        <p>دليل الفروع وحالة تشغيلها وطاقمها. ابحث أو صفِّ الدليل، ثم عدّل بيانات الفرع أو احذفه عند الحاجة.</p>
+        <p>دليل الفروع وحالة تشغيلها وطاقمها. صفِّ الدليل بحسب حالة التشغيل، ثم عدّل بيانات الفرع أو احذفه عند الحاجة.</p>
       </div>
     </div>
     <div class="branches-summary" aria-label="ملخص الفروع">
@@ -166,11 +166,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
       <div><strong id="branch-staff-total">—</strong><span>موظفون نشطون عبر الفروع</span></div>
     </div>
     <div class="branches-toolbar" aria-label="أدوات دليل الفروع">
-      <label class="sr-only" for="branch-search">البحث باسم الفرع أو الموقع</label>
-      <input id="branch-search" type="search" placeholder="ابحث باسم الفرع أو الموقع" autocomplete="off">
       <label class="sr-only" for="branch-status-filter">تصفية حسب حالة الفرع</label>
       <select id="branch-status-filter"><option value="all">كل حالات التشغيل</option><option value="operational">نشط تشغيليًا</option><option value="planned">قيد التجهيز</option><option value="unclassified">غير مصنّف</option></select>
-    </div>
+      </div>
     <p id="branch-feedback" class="branches-feedback" role="status" aria-live="polite"></p>
     <div id="branches-list" class="grid grid-cols-1 md:grid-cols-2 gap-md" aria-live="polite" aria-busy="true">
       <p class="branch-empty">جارٍ تحميل دليل الفروع…</p>
@@ -215,9 +213,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
       <option value="planned">قيد التجهيز — غير تشغيلي</option>
       <option value="operational">نشط تشغيليًا</option>
     </select>
-    <label for="branch-opening-date-input" class="text-body-sm text-on-surface-variant">تاريخ الافتتاح المؤكد (اختياري)</label>
+    <label for="branch-opening-date-input" class="text-body-sm text-on-surface-variant">تاريخ الافتتاح المخطط (اختياري)</label>
     <input id="branch-opening-date-input" type="date" class="w-full border border-outline-variant rounded-lg p-sm mt-xs mb-sm"/>
-    <p class="field-help">تنبيه: تاريخ الافتتاح المخطط لا يثبت وحده تأكيد افتتاح فعلي. تبقى الفروع غير المصنفة على السلوك الحالي، ويظل احتساب التشغيل وفق قاعدة النظام القائمة.</p>
+    <p class="field-help">هذا تاريخ تخطيطي وليس تأكيدًا لافتتاح فعلي؛ التاريخ لا يفعّل الفرع تشغيليًا، ويلزم تأكيد المالك للافتتاح.</p>
     <p class="field-help">الورديات المعروضة هنا للتوضيح فقط؛ هذه الصفحة لا تغيّر إعدادات الورديات أو مهام الموظفين.</p>
     <div class="branch-modal-actions">
       <button id="cancel-branch-modal" class="px-md py-sm rounded-lg text-on-surface-variant">إلغاء</button>
@@ -233,21 +231,22 @@ let branchData = [];
 let branchStaff = [];
 const $ = id => document.getElementById(id);
 function announceBranch(message, kind = 'info') { const el = $('branch-feedback'); el.textContent = message; el.dataset.kind = kind; }
+let branchModalCleanup=null;
 function openBranchModal(branch = null) {
+    const branchModalTrigger=document.activeElement;
     editingBranchId = branch ? branch.id : null;
     $('branch-modal-title').textContent = branch ? 'تعديل بيانات الفرع' : 'إضافة فرع إلى الدليل';
     $('branch-name-input').value = branch?.name || ''; $('branch-location-input').value = branch?.location || '';
     $('branch-lifecycle-input').value = branch?.lifecycle_status || (branch ? '' : 'planned');
     $('branch-opening-date-input').value = branch?.planned_opening_date || ''; $('branch-name-error').textContent = '';
     $('branch-name-input').removeAttribute('aria-invalid'); $('branch-modal').classList.remove('hidden'); $('branch-modal').classList.add('flex');
-    $('branch-modal').setAttribute('aria-hidden', 'false'); $('branch-name-input').focus();
+    $('branch-modal').setAttribute('aria-hidden', 'false'); branchModalCleanup=window.zamEnableModalFocus($('branch-modal').querySelector('[role=dialog]'),branchModalTrigger); $('branch-name-input').focus();
 }
-function closeBranchModal() { $('branch-modal').classList.add('hidden'); $('branch-modal').classList.remove('flex'); $('branch-modal').setAttribute('aria-hidden', 'true'); $('add-branch-btn').focus(); }
+function closeBranchModal() { $('branch-modal').classList.add('hidden'); $('branch-modal').classList.remove('flex'); $('branch-modal').setAttribute('aria-hidden', 'true'); branchModalCleanup?.(); branchModalCleanup=null; }
 $('add-branch-btn').addEventListener('click', () => openBranchModal());
 $('cancel-branch-modal').addEventListener('click', closeBranchModal);
 $('branch-modal').addEventListener('click', e => { if (e.target === $('branch-modal')) closeBranchModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('branch-modal').getAttribute('aria-hidden') === 'false') closeBranchModal(); });
-$('branch-search').addEventListener('input', renderBranches);
 $('branch-status-filter').addEventListener('change', renderBranches);
 $('save-branch-btn').addEventListener('click', async () => {
     const name = $('branch-name-input').value.trim();
@@ -271,17 +270,16 @@ async function deleteBranch(id, name) {
 }
 function escapeBranchText(value) { return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])); }
 function renderBranches() {
-    const container = $('branches-list'), query = $('branch-search').value.trim().toLocaleLowerCase('ar'), filter = $('branch-status-filter').value;
+    const container = $('branches-list'), filter = $('branch-status-filter').value;
     $('branch-total').textContent = branchData.length;
     $('branch-operational').textContent = branchData.filter(b => ZamBranchLifecycle.isOperational(b)).length;
     $('branch-staff-total').textContent = branchStaff.filter(s => s.status === 'active').length;
     const shown = branchData.filter(b => {
-        const matchesText = `${b.name || ''} ${b.location || ''}`.toLocaleLowerCase('ar').includes(query);
         const state = b.lifecycle_status == null ? 'unclassified' : ZamBranchLifecycle.isOperational(b) ? 'operational' : 'planned';
-        return matchesText && (filter === 'all' || filter === state);
+        return filter === 'all' || filter === state;
     });
     if (!branchData.length) { container.innerHTML = '<div class="branch-empty"><strong>لا توجد فروع في الدليل بعد.</strong><p>أضف أول فرع لبدء تنظيم الدليل.</p><button class="zam-btn" onclick="openBranchModal()">إضافة أول فرع</button></div>'; container.setAttribute('aria-busy','false'); return; }
-    if (!shown.length) { container.innerHTML = '<p class="branch-empty">لا توجد نتائج مطابقة. جرّب تغيير البحث أو حالة التشغيل.</p>'; container.setAttribute('aria-busy','false'); return; }
+    if (!shown.length) { container.innerHTML = '<p class="branch-empty">لا توجد فروع تطابق حالة التشغيل المحددة.</p>'; container.setAttribute('aria-busy','false'); return; }
     container.innerHTML = shown.map(b => {
         const staffCount = branchStaff.filter(s => s.branch_id === b.id && s.status === 'active').length;
         const active = ZamBranchLifecycle.isOperational(b), lifecycleLabel = ZamBranchLifecycle.label(b);

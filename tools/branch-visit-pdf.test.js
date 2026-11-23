@@ -7,6 +7,7 @@ const root = path.join(__dirname, '..');
 const page = fs.readFileSync(path.join(root, 'branch-visits-history', 'index.html'), 'utf8');
 const pdf = fs.readFileSync(path.join(root, 'assets', 'branch-visit-pdf.js'), 'utf8');
 const endpoint = fs.readFileSync(path.join(root, 'supabase', 'functions', 'visit-report-pdf', 'index.ts'), 'utf8');
+const evidenceScope = import(path.join(root, 'supabase', 'functions', 'visit-report-pdf', 'scope-evidence.mjs'));
 
 test('visit history page loads the shared report renderer and native print waits for HTML assets', () => {
   assert.match(page, /assets\/branch-visit-pdf\.js\?v=\d+/);
@@ -35,10 +36,57 @@ test('PDF endpoint validates JPEG pages and uses the exact assembled PDF for sto
   assert.doesNotMatch(endpoint, /suppliedPdfBytes|pdf_base64|suppliedPdf/);
 });
 
-test('PDF assembler embeds each rendered page and only appends authorized server-loaded evidence', () => {
+test('Full-report permission is checked before the service-role visit read', () => {
+  const accessCheck = endpoint.indexOf("rpc('can_access_branch_visit',");
+  const fullReportGate = endpoint.indexOf("rpc('can_generate_branch_visit_report_pdf',");
+  const serviceClientCreate = endpoint.indexOf('supabaseAdmin = createClient');
+  const serviceProfileRead = endpoint.indexOf("supabaseAdmin.from('profiles')");
+  const serviceVisitRead = endpoint.indexOf("supabaseAdmin.from('supervisory_visits')");
+  assert.ok(accessCheck < 0 && fullReportGate >= 0 && serviceClientCreate > fullReportGate
+      && serviceProfileRead > fullReportGate && serviceVisitRead > fullReportGate,
+    'the full-report gate must precede service-client creation and every service-role read');
+  assert.doesNotMatch(endpoint, /can_review_branch_visit_actions/);
+  const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20261123110000_manager_branch_scoped_read_permissions.sql'), 'utf8');
+  assert.match(migration, /public\.can_review_branch_visit_actions\(\)[\s\S]*?ai\.status = 'بانتظار اعتماد الإدارة'[\s\S]*?ai\.reviewed_by/);
+  assert.match(migration, /FUNCTION public\.can_access_branch_visit_report\(p_visit_id uuid\)[\s\S]*?public\.can_view_branch_visit_reports\(\)[\s\S]*?public\.branch_visit_assignments/);
+  assert.match(migration, /FUNCTION public\.can_generate_branch_visit_report_pdf\(p_visit_id uuid\)[\s\S]*?public\.current_user_role\(\)[\s\S]*?can_manager_read_visit_report[\s\S]*?can_access_branch_visit_report/);
+  assert.doesNotMatch(migration.match(/FUNCTION public\.can_access_branch_visit_report\(p_visit_id uuid\)[\s\S]*?\$function\$;/)[0], /visit_action_items/);
+  assert.match(migration, /manager_supervisory_visit_notes_read_capability[\s\S]*?can_manager_read_visit_report/);
+  assert.match(endpoint, /rpc\('get_branch_visit_report_email_recipients', \{ p_visit_id: visitId \}\)/);
+  assert.doesNotMatch(endpoint, /from\('profiles'\)\.select\('email'\)\.in\('role', managementRoles\)/);
+  assert.match(migration, /FUNCTION public\.profile_can_read_manager_visit_report\(\s*p_profile_id uuid,\s*p_visit_id uuid\s*\)[\s\S]*?p\.role = 'Manager'[\s\S]*?ap\.can_view_visit_reports IS TRUE[\s\S]*?manager_report_branch_in_scope/);
+  assert.match(migration, /FUNCTION public\.get_branch_visit_report_email_recipients\(p_visit_id uuid\)[\s\S]*?public\.profile_can_read_manager_visit_report\(p\.id, p_visit_id\)/);
+});
+
+test('PDF assembler embeds rendered pages and downloads evidence only after RLS-scoped row selection', () => {
   assert.match(endpoint, /for \(const bytes of renderedPages\)[\s\S]*?doc\.embedJpg\(bytes\)[\s\S]*?doc\.addPage\(\[595, 842\]\)/);
-  assert.match(endpoint, /action_item_id && !canReviewActionProof && !actionIdsVisibleToActor\.has\(item\.action_item_id\)/);
+  assert.match(endpoint, /userClient\.from\('visit_action_items'\)/);
+  assert.match(endpoint, /userClient\.from\('visit_evidence'\)/);
+  assert.doesNotMatch(endpoint, /supabaseAdmin\.from\('visit_evidence'\)/,
+    'the service role must not enumerate all visit evidence');
+  assert.match(endpoint, /scopeVisitPdfRows\([\s\S]*?visibleActions[\s\S]*?visibleEvidenceRows[\s\S]*?fullReportVisible/);
+  assert.match(endpoint, /storage\.from\(evidenceBucket\)\.download\(item\.file_path\)/);
   assert.match(endpoint, /const pdfBytes = await buildPdf\(renderedPages, evidence\)/);
+});
+
+test('an action-only PDF excludes evidence linked to another action', async () => {
+  const { scopeVisitPdfRows } = await evidenceScope;
+  const result = scopeVisitPdfRows({
+    actions: [{ id: 'assigned-action' }],
+    evidenceRows: [
+      { id: 'assigned-proof', action_item_id: 'assigned-action', file_path: 'assigned/photo.jpg' },
+      { id: 'other-proof', action_item_id: 'other-action', file_path: 'other/photo.jpg' },
+      { id: 'result-proof', result_id: 'other-result', action_item_id: null, file_path: 'result/photo.jpg' },
+    ],
+  });
+  assert.deepEqual(result.evidenceRows.map(row => row.id), ['assigned-proof']);
+});
+
+test('visit-report emails conceal recipient addresses in BCC and in the message body', () => {
+  assert.match(endpoint, /to: 'operation@zam\.sa', bcc: recipients\.filter/);
+  const emailHtml = endpoint.match(/function emailHtml\([\s\S]*?\n\}/)?.[0] || '';
+  assert.ok(emailHtml);
+  assert.doesNotMatch(emailHtml, /recipients|المستلمون/);
 });
 
 test('report shows quality outcome, contact address and approval stamp', () => {

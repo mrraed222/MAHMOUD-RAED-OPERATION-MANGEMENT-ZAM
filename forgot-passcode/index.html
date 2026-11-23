@@ -125,15 +125,17 @@ form.addEventListener('submit', async (event) => {
     btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">progress_activity</span> جارٍ إرسال الطلب…';
     showStatus('loading', 'جارٍ إرسال طلبك بأمان. يرجى الانتظار…');
     try {
-        // Keep the existing endpoint and exact trimmed-email payload. The UI intentionally
-        // gives the same response for resolved results and thrown errors.
-        await zamClient.functions.invoke('request-passcode-reset', { body: { email } });
+        const { error } = await zamClient.functions.invoke('request-passcode-reset', { body: { email } });
+        if (error) throw error;
+        showStatus('success', 'إذا كان هذا البريد مرتبطًا بحساب، فستتواصل معك الإدارة قريبًا لإعادة تعيين رمز المرور.');
+        btn.innerHTML = 'تم إرسال الطلب';
     } catch (err) {
         console.error(err);
+        showStatus('error', 'تعذّر إرسال الطلب الآن. أعد المحاولة بعد قليل.', 'alert');
+        btn.disabled = false;
+        btn.textContent = 'إعادة المحاولة';
     } finally {
-        showStatus('success', 'إذا كان هذا البريد مرتبطًا بحساب، فستتواصل معك الإدارة قريبًا لإعادة تعيين رمز المرور.');
         btn.removeAttribute('aria-busy');
-        btn.innerHTML = 'تم إرسال الطلب';
     }
 });
 </script>

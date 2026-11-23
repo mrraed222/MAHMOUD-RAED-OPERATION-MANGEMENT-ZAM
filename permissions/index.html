@@ -15,6 +15,7 @@
         }
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../assets/checklist-schedule.js?v=20261122190000"></script>
 <script src="../assets/supabase-config.js?v=20261121212700"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -61,14 +62,14 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   .panel-title { display:flex; align-items:center; gap:10px; }
   .status-chip { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:5px 10px; background:#f4eadf; color:#69401f; font-weight:700; font-size:14px; white-space:nowrap; }
   .account-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-items:end; }
-  .field { display:grid; gap:6px; min-width:0; }
+  .field { display:grid; grid-template-columns:minmax(0,1fr); gap:6px; min-width:0; }
   .field label { font-weight:700; }
   input,select { min-height:46px; border:1px solid var(--riwaq-line)!important; border-radius:10px!important; padding:9px 12px!important; background:#fff!important; max-width:100%; }
   button,.button-link { min-height:44px; border-radius:10px; padding:9px 16px; font:inherit; font-weight:700; cursor:pointer; }
   button:disabled { opacity:.6; cursor:wait; }
   .primary-action { color:white; background:#33210d; }
   .quiet-action { border:1px solid var(--riwaq-line); color:var(--riwaq-ink); background:white; }
-  .pending-list,.staff-cards { display:grid; gap:12px; }
+  .pending-list { display:grid; gap:12px; }
   .pending-card,.staff-card { border:1px solid var(--riwaq-line); border-radius:14px; padding:16px; background:white; }
   .pending-card { border-inline-start:4px solid #b76539; }
   .employee-identity { display:flex; align-items:center; gap:12px; min-width:0; }
@@ -83,13 +84,17 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   .button-row button { flex:1; }
   .approve-btn { color:#fff; background:#2c6346; }
   .reject-btn { color:#fff; background:#a23530; }
-  .staff-cards { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .staff-card { display:grid; gap:14px; }
-  .staff-card-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
-  .staff-card-head h3 { font-size:18px; font-weight:800; overflow-wrap:anywhere; }
-  .staff-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-  .staff-card input.passcode-input { width:100%; }
-  .staff-card-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; border-top:1px solid var(--riwaq-line); padding-top:12px; }
+  .staff-table-wrap { width:100%; overflow-x:auto; }
+  .staff-table { width:100%; border-collapse:separate; border-spacing:0 10px; text-align:start; }
+  .staff-table th { padding:8px 10px; color:var(--riwaq-muted); font-size:14px; }
+  .staff-row td { padding:12px 10px; vertical-align:top; background:white; border-block:1px solid var(--riwaq-line); }
+  .staff-row td:first-child { border-inline-start:1px solid var(--riwaq-line); border-start-start-radius:12px; border-end-start-radius:12px; min-width:170px; }
+  .staff-row td:last-child { border-inline-end:1px solid var(--riwaq-line); border-start-end-radius:12px; border-end-end-radius:12px; }
+  .staff-identity h3 { font-size:17px; font-weight:800; overflow-wrap:anywhere; }
+  .staff-fields { display:grid; gap:10px; min-width:160px; }
+  .staff-row input.passcode-input { width:100%; }
+  .staff-actions { display:grid; gap:8px; min-width:150px; }
+  .staff-row .row-msg { min-height:24px; }
   .message { min-height:24px; }
   #perms-modal { position:fixed; inset:0; background:rgba(22,25,22,.55); display:grid; place-items:center; z-index:60; padding:16px; }
   #perms-modal .dialog { background:white; border-radius:18px; padding:22px; width:min(620px,100%); max-height:90dvh; overflow:auto; box-shadow:0 16px 60px #0003; }
@@ -101,7 +106,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   .dialog-actions { display:flex; justify-content:flex-start; gap:10px; border-top:1px solid var(--riwaq-line); padding-top:14px; margin-top:14px; }
   .hidden { display:none!important; }
   :focus-visible { outline:3px solid #b45e40!important; outline-offset:3px; }
-  @media(max-width:760px) { header.fixed { height:auto; min-height:76px; padding:10px 14px; } header.fixed>div { gap:8px; } header.fixed img { height:32px; } header.fixed h1 { font-size:18px; } main.md\:pr-\[280px\] { padding-top:0; } main>.permissions-layout { padding:100px 14px 24px; gap:14px; } .account-grid,.pending-fields,.staff-cards,.staff-fields { grid-template-columns:1fr; } .section-heading { flex-direction:column; } .staff-card-foot { align-items:stretch; flex-direction:column; } }
+  @media(max-width:760px) { header.fixed { height:auto; min-height:76px; padding:10px 14px; } header.fixed>div { gap:8px; } header.fixed img { height:32px; } header.fixed h1 { font-size:18px; } main.md\:pr-\[280px\] { padding-top:0; } main>.permissions-layout { padding:100px 14px 24px; gap:14px; } .account-grid,.pending-fields { grid-template-columns:1fr; } .section-heading { flex-direction:column; } .staff-table-wrap { overflow:visible; } .staff-table,.staff-table tbody { display:block; } .staff-table thead { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; } .staff-row { display:grid; gap:0; margin:0 0 14px; border:1px solid var(--riwaq-line); border-radius:14px; overflow:hidden; background:white; } .staff-row td,.staff-row td:first-child,.staff-row td:last-child { display:grid; grid-template-columns:minmax(92px, .65fr) minmax(0,1.35fr); gap:10px; min-width:0; padding:12px; border:0; border-bottom:1px solid var(--riwaq-line); border-radius:0; } .staff-row td::before { content:attr(data-label); font-weight:700; color:var(--riwaq-muted); } .staff-row td:last-child { border-bottom:0; } .staff-fields { min-width:0; } .staff-actions { min-width:0; } }
   @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; transition-duration:.01ms!important; } }
 </style>
 </head>
@@ -140,22 +145,29 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   <section class="panel" aria-labelledby="staff-title">
     <div class="section-heading"><div><h2 id="staff-title">حسابات الموظفين</h2><p>عدّل الدور والفرع والوردية ورمز المرور، أو افتح محرر صلاحيات الحساب.</p></div><a href="../register/index.html" class="button-link quiet-action">إضافة موظف جديد</a></div>
     <div id="staff-summary" class="hint" role="status" aria-live="polite">جارٍ تحميل الحسابات…</div>
-    <div id="staff-list" class="staff-cards" aria-live="polite"><p class="hint">جارٍ تحميل حسابات الموظفين…</p></div>
+    <div id="staff-list" class="staff-table-wrap" aria-live="polite"><p class="hint">جارٍ تحميل حسابات الموظفين…</p></div>
   </section>
 </div></main>
 <script>
-const ROLES = ['Owner', 'Admin', 'Supervisor', 'Barista', 'Kitchen', 'Waiter'];
-const ROLE_LABELS = { Owner: 'مالك', Admin: 'أدمن', Supervisor: 'مشرف وردية', Barista: 'باريستا', Kitchen: 'مطبخ', Waiter: 'خدمة' };
+const ROLES = ['Owner', 'Admin', 'Manager', 'Supervisor', 'Barista', 'Kitchen', 'Waiter', 'Quality'];
+const ROLE_LABELS = { Owner: 'مالك ومطور النظام', Admin: 'أدمن', Manager: 'مدير', Supervisor: 'مشرف وردية', Barista: 'باريستا', Kitchen: 'مطبخ', Waiter: 'خدمة', Quality: 'مراقب جودة' };
 const PERMS = [
     { key: 'can_manage_staff', label: 'إدارة الموظفين' },
     { key: 'can_manage_branches', label: 'إدارة الفروع' },
     { key: 'can_manage_templates', label: 'تعديل قوالب التشيك ليست' },
     { key: 'can_manage_automations', label: 'إعدادات الأتمتة' },
-    { key: 'can_manage_reports', label: 'تعديل/حذف التقارير' },
+    { key: 'can_manage_reports', label: 'إضافة تقارير؛ تعديل/حذف التقارير المقروءة' },
     { key: 'can_manage_branch_visits', label: 'إسناد وإدارة تكليفات الزيارات' },
+    { key: 'can_perform_branch_visits', label: 'تنفيذ زيارات الجودة المسندة عبر الفروع' },
     { key: 'can_review_visit_actions', label: 'مراجعة إثباتات المخالفات وإغلاقها أو إعادتها' },
     { key: 'can_manage_inventory', label: 'إدارة الجرد والاطلاع على سجلات الطلبات' },
     { key: 'can_view_all_reports', label: 'الاطلاع على كل التقارير' },
+];
+const MANAGER_READ_PERMS = [
+    { key: 'can_view_daily_checklist_summary', label: 'الاطلاع على ملخص التقارير اليومية' },
+    { key: 'can_view_checklist_logs', label: 'الاطلاع على سجلات قوائم الفحص' },
+    { key: 'can_view_visit_reports', label: 'الاطلاع على تقارير الزيارات' },
+    { key: 'can_view_analytics', label: 'الاطلاع على التحليلات' },
 ];
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 document.getElementById('my-email').value = currentUser.email || '';
@@ -174,34 +186,66 @@ accountForm.addEventListener('submit', async event => {
   } catch(err) { console.error(err); msg.textContent=err.message?.includes('duplicate')?'رمز المرور ده مستخدم بالفعل.':'تعذّر حفظ الحساب. تحقق من الاتصال وحاول مجددًا.'; msg.className='message text-error'; }
   finally { btn.disabled=false; btn.textContent='حفظ بيانات الحساب'; }
 });
-let branchesCache=[]; let permsCache={};
-function permsCellHTML(emp) { return emp.role==='Owner' ? '<span class="hint">لا تنطبق على المالك</span>' : `<button type="button" class="edit-perms-btn quiet-action" data-id="${escapeHtml(emp.id)}">تحديد الصلاحيات</button>`; }
-async function openPermsEditor(empId, empName) {
+let branchesCache=[]; let permsCache={}; let reportScopeCache={};
+function roleOptionsHTML(currentRole) { const roles=ROLES.filter(role=>role!=='Owner'||currentRole==='Owner'); if(currentRole&&!roles.includes(currentRole)) roles.push(currentRole); return roles.map(role=>`<option value="${escapeHtml(role)}" ${role===currentRole?'selected':''}>${escapeHtml(ROLE_LABELS[role]||role)}</option>`).join(''); }
+function permsCellHTML(emp) { return emp.role==='Owner' ? '<span class="hint">لا تنطبق على مالك ومطور النظام</span>' : `<button type="button" class="edit-perms-btn quiet-action" data-id="${escapeHtml(emp.id)}">تحديد الصلاحيات</button>`; }
+async function openPermsEditor(empId, empName, empRole, empBranchId, empShiftType) {
+  const opener=document.activeElement;
   const p=permsCache[empId]||{}; const old=document.getElementById('perms-modal'); if(old) old.remove();
-  const [catsResult, templatesResult]=await Promise.allSettled([ZamAPI.getTaskCategories(empId),zamClient.from('checklist_templates').select('category')]);
-  if(catsResult.status==='rejected'||templatesResult.status==='rejected'||templatesResult.value?.error) { alert('تعذّر تحميل بيانات الصلاحيات والفئات. أعد المحاولة.'); return; }
-  const activeCategories=catsResult.value||[]; const dbCategories=(templatesResult.value.data||[]).map(t=>t.category).filter(Boolean);
+  const employeeBranch=branchesCache.find(branch=>branch.id===empBranchId);
+  const [catsResult, templatesResult, assignmentsResult, categoryResult]=await Promise.allSettled([
+    ZamAPI.getTaskCategories(empId),
+    empBranchId?ZamAPI.getTemplates(null,null,empBranchId):Promise.resolve([]),
+    ZamAPI.getChecklistTemplateAssignmentIds(empId),
+    zamClient.from('checklist_templates').select('category')
+  ]);
+  if(catsResult.status==='rejected'||templatesResult.status==='rejected'||assignmentsResult.status==='rejected'||categoryResult.status==='rejected'||categoryResult.value?.error) { alert('تعذّر تحميل بيانات الصلاحيات أو المهام. أعد المحاولة.'); return; }
+  const activeCategories=catsResult.value||[]; const assignedIds=assignmentsResult.value||[];
+  const dbCategories=(categoryResult.value.data||[]).map(t=>t.category).filter(Boolean);
   const categories=[...new Set(['البار','الصالة','المطبخ','مهام المشرفين',...dbCategories])];
+  const canEditAssignments=!!empBranchId&&employeeBranch?.lifecycle_status!=='planned'&&['Morning','Evening','Both'].includes(empShiftType)&&['Barista','Kitchen','Waiter','Supervisor'].includes(empRole);
+  const taskCandidates=canEditAssignments?(templatesResult.value||[]).filter(task=>ZamChecklistSchedule.isTemplateAssignableToEmployee(task,{
+    role:empRole,branchId:empBranchId,branchName:employeeBranch?.name,shiftType:empShiftType
+  })):[];
+  const taskAssignments=taskCandidates.length?taskCandidates.map(task=>{
+    const repeat=task.frequency==='weekly'?'أسبوعي':task.frequency==='monthly'?'شهري':'يومي';
+    const shift=task.shift_type==='Both'?'كلتا الورديتين':task.shift_type==='Morning'?'صباحي':'مسائي';
+    return `<label class="check-row"><input type="checkbox" class="task-template-checkbox" data-template-id="${escapeHtml(task.id)}" ${assignedIds.includes(task.id)?'checked':''}><span><strong>${escapeHtml(task.task_title)}</strong><span class="block hint">${escapeHtml(task.category||'بدون فئة')} · ${shift} · ${repeat}</span></span></label>`;
+  }).join(''):!canEditAssignments&&assignedIds.length?'<p class="hint">توجد إسنادات محفوظة، لكن تعديلها غير متاح ما دام الحساب بلا فرع أو وردية مؤهلين أو ليس على دور تشغيلي.</p>':employeeBranch?.lifecycle_status==='planned'?'<p class="hint">لا يمكن إسناد مهام إلى فرع مخطط قبل تأكيد افتتاحه تشغيليًا.</p>':'<p class="hint">لا توجد مهام متاحة توافق الفرع والوردية وقيود هذا الدور.</p>';
+  const reportScope=reportScopeCache[empId]||null; const reportMode=reportScope?.mode||'legacy';
+  const selectedReportBranches=reportScope?.branchIds||[];
+  const reportScopePanel=empRole==='Manager'?`<section id="manager-report-scope-panel" class="panel" style="margin-top:14px;padding:14px"><h4>نطاق فروع المدير</h4><label for="manager-report-scope-mode">الفروع المسموح بها</label><select id="manager-report-scope-mode" class="w-full"><option value="legacy" ${reportMode==='legacy'?'selected':''}>الإعداد السابق — اترك النطاق الحالي كما هو</option><option value="all" ${reportMode==='all'?'selected':''}>كل الفروع</option><option value="selected" ${reportMode==='selected'?'selected':''}>فروع محددة</option><option value="none" ${reportMode==='none'?'selected':''}>بلا فروع</option></select><div id="manager-report-branch-options" class="check-list ${reportMode==='selected'?'':'hidden'}" style="max-height:180px;overflow:auto;margin-top:8px">${branchesCache.filter(branch=>branch.lifecycle_status!=='planned').map(branch=>`<label class="check-row"><input type="checkbox" class="manager-report-branch-checkbox" value="${escapeHtml(branch.id)}" ${selectedReportBranches.includes(branch.id)?'checked':''}><span>${escapeHtml(branch.name)}</span></label>`).join('')}</div><p class="hint">النطاق يحدد الفروع لعمليات المدير المسموح بها. لا يمنح قراءة أي صفحة وحده؛ اضبط صلاحيات القراءة المستقلة أدناه. لا تظهر الفروع المخططة قبل تأكيد افتتاحها تشغيليًا.</p></section>`:'';
+  const managerReadPanel=empRole==='Manager'?`<section id="manager-read-permissions" class="panel" aria-labelledby="manager-read-title" style="margin-top:14px;padding:14px"><h4 id="manager-read-title">صلاحيات قراءة المدير</h4><p class="hint">كل خيار مستقل. لا يمنح صلاحية إضافة البيانات أو تعديلها أو حذفها.</p><div class="check-list">${MANAGER_READ_PERMS.map(item=>`<label class="check-row"><input type="checkbox" class="perm-checkbox manager-read-checkbox" data-key="${item.key}" ${p[item.key]?'checked':''}><span>${item.label}</span></label>`).join('')}</div></section>`:'';
+  const visiblePerms=PERMS.filter(item=>(empRole!=='Manager'||item.key!=='can_view_all_reports')&&(empRole==='Quality'||item.key!=='can_perform_branch_visits')&&(empRole!=='Quality'||!['can_manage_branch_visits','can_review_visit_actions'].includes(item.key)));
   const modal=document.createElement('div'); modal.id='perms-modal'; modal.setAttribute('role','presentation');
-  modal.innerHTML=`<section class="dialog" role="dialog" aria-modal="true" aria-labelledby="perms-title" tabindex="-1"><h3 id="perms-title">صلاحيات ${escapeHtml(empName)}</h3><p class="hint">حدد فئات المهام والصلاحيات الإدارية. مراجعة الإثبات مستقلة عن إسناد الزيارات.</p>
+  modal.innerHTML=`<section class="dialog" role="dialog" aria-modal="true" aria-labelledby="perms-title" tabindex="-1"><h3 id="perms-title">صلاحيات ${escapeHtml(empName)}</h3><p class="hint">حدد فئات المهام والصلاحيات الإدارية. إسناد المهمة الفردي يتجاوز الفئة فقط، ومراجعة إثبات الزيارة منفصلة عن تنفيذها.</p>
   <div style="margin-top:18px"><h4>فئات قوائم المهام المسندة</h4><div class="check-list">${categories.map(cat=>`<label class="check-row"><input type="checkbox" class="category-checkbox" data-category="${escapeHtml(cat)}" ${activeCategories.includes(cat)?'checked':''}><span>${escapeHtml(cat)}</span></label>`).join('')}</div></div>
-  <div style="margin-top:18px"><h4>الصلاحيات الإدارية</h4><div class="check-list">${PERMS.map(item=>`<label class="check-row"><input type="checkbox" class="perm-checkbox" data-key="${item.key}" ${p[item.key]?'checked':''}><span>${item.label}</span></label>`).join('')}</div></div>
+  <section class="panel" style="margin-top:14px;padding:14px"><h4>إسنادات مهام فردية</h4><p class="hint">تتعدد المهام لكل موظف. يبقى الفرع والوردية والتكرار والاستثناءات سارية؛ ولا تشمل القائمة مهام الجرد المحمية أو المهام الساعية.</p><div class="check-list" style="max-height:260px;overflow:auto">${taskAssignments}</div></section>
+  ${reportScopePanel}
+  ${managerReadPanel}
+  <section id="admin-permissions-panel" aria-labelledby="admin-permissions-title" style="margin-top:18px"><h4 id="admin-permissions-title">الصلاحيات الإدارية والكتابية</h4><div class="check-list">${visiblePerms.map(item=>`<label class="check-row"><input type="checkbox" class="perm-checkbox" data-key="${item.key}" ${p[item.key]?'checked':''}><span>${item.label}</span></label>`).join('')}</div></section>
   <section id="inventory-scope-panel" class="panel ${p.can_manage_inventory?'':'hidden'}" style="margin-top:14px;padding:14px"><h4>نطاق صلاحية إدارة الجرد</h4><label for="inventory-scope-mode">السجلات المسموح بالاطلاع عليها</label><select id="inventory-scope-mode" class="w-full"><option value="all" ${p.can_view_all_inventory?'selected':''}>كل الفروع</option><option value="selected" ${!p.can_view_all_inventory?'selected':''}>فروع محددة</option></select><div id="inventory-branch-options" class="check-list" style="max-height:150px;overflow:auto;margin-top:8px">${branchesCache.map(branch=>`<label class="check-row"><input type="checkbox" class="inventory-branch-checkbox" value="${escapeHtml(branch.id)}" ${Array.isArray(p.inventory_branch_ids)&&p.inventory_branch_ids.includes(branch.id)?'checked':''}><span>${escapeHtml(branch.name)}</span></label>`).join('')}</div><p class="hint">عند اختيار فروع محددة، لا تظهر الطلبات إلا من الفروع المحددة. للمشرف صلاحية سجلات فرعه بالإضافة إلى النطاق الممنوح.</p></section>
   <div class="dialog-actions"><button id="cancel-perms" class="quiet-action">إلغاء</button><button id="save-perms" class="primary-action">حفظ التغييرات</button></div><p id="perms-msg" class="message" role="status" aria-live="polite"></p></section>`;
   document.body.appendChild(modal); const dialog=modal.querySelector('.dialog'); const focusables=()=>[...dialog.querySelectorAll('button,input,select')].filter(el=>!el.disabled); dialog.focus();
-  const close=()=>{document.removeEventListener('keydown',keyHandler);modal.remove();};
+  const close=()=>{document.removeEventListener('keydown',keyHandler);modal.remove();if(opener?.isConnected)opener.focus();};
   const keyHandler=e=>{if(e.key==='Escape'){close();return;} if(e.key==='Tab'){const f=focusables(),first=f[0],last=f.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}};
   document.addEventListener('keydown',keyHandler); modal.addEventListener('click',e=>{if(e.target===modal)close();});
   const mode=modal.querySelector('#inventory-scope-mode'), branches=modal.querySelector('#inventory-branch-options'), scope=modal.querySelector('#inventory-scope-panel'), inventory=modal.querySelector('[data-key="can_manage_inventory"]');
-  const sync=()=>{scope.classList.toggle('hidden',!inventory.checked);branches.classList.toggle('hidden',!inventory.checked||mode.value!=='selected');}; inventory.addEventListener('change',sync);mode.addEventListener('change',sync);sync();
+  const reportModeSelect=modal.querySelector('#manager-report-scope-mode'), reportBranches=modal.querySelector('#manager-report-branch-options');
+  const sync=()=>{scope.classList.toggle('hidden',!inventory.checked);branches.classList.toggle('hidden',!inventory.checked||mode.value!=='selected');if(reportModeSelect&&reportBranches)reportBranches.classList.toggle('hidden',reportModeSelect.value!=='selected');}; inventory.addEventListener('change',sync);mode.addEventListener('change',sync);reportModeSelect?.addEventListener('change',sync);sync();
   modal.querySelector('#cancel-perms').addEventListener('click',close);
   modal.querySelector('#save-perms').addEventListener('click',async e=>{const btn=e.currentTarget,msg=modal.querySelector('#perms-msg'); const payload={profile_id:empId}; modal.querySelectorAll('.perm-checkbox').forEach(cb=>payload[cb.dataset.key]=cb.checked);
     const scopeMode=mode.value,selected=[...modal.querySelectorAll('.inventory-branch-checkbox:checked')].map(cb=>cb.value);
+    const selectedReportIds=reportModeSelect?[...modal.querySelectorAll('.manager-report-branch-checkbox:checked')].map(cb=>cb.value):[];
     if(payload.can_manage_inventory&&scopeMode==='selected'&&!selected.length){msg.textContent='اختر فرعًا واحدًا على الأقل أو حدّد كل الفروع.';msg.className='message text-error';return;}
+    if(reportModeSelect?.value==='selected'&&!selectedReportIds.length){msg.textContent='اختر فرعًا واحدًا على الأقل لنطاق التقارير.';msg.className='message text-error';return;}
     payload.can_view_all_inventory=!!payload.can_manage_inventory&&scopeMode==='all';payload.inventory_branch_ids=payload.can_manage_inventory&&scopeMode==='selected'?selected:[];
-    const selectedCats=[...modal.querySelectorAll('.category-checkbox:checked')].map(cb=>cb.dataset.category); btn.disabled=true;btn.textContent='جارٍ حفظ الصلاحيات…';
-    try {const {error}=await zamClient.from('admin_permissions').upsert(payload);if(error)throw error;permsCache[empId]=payload;
-      try {await ZamAPI.replaceTaskCategories(empId,selectedCats);} catch(categoryError) {console.error(categoryError); msg.textContent='حُفظت الصلاحيات الإدارية، لكن تعذّر إكمال تحديث فئات المهام؛ الفئات السابقة لم تُحذف. أعد المحاولة من المحرر.';msg.className='message text-error';btn.disabled=false;btn.textContent='إعادة حفظ فئات المهام';return;}
+    const selectedCats=[...modal.querySelectorAll('.category-checkbox:checked')].map(cb=>cb.dataset.category);
+    const selectedTemplateIds=[...modal.querySelectorAll('.task-template-checkbox:checked')].map(cb=>cb.dataset.templateId); btn.disabled=true;btn.textContent='جارٍ حفظ الصلاحيات…';
+    try {const {error}=await zamClient.from('admin_permissions').upsert(payload);if(error)throw error;permsCache[empId]={...p,...payload};
+      if(reportModeSelect){try{await ZamAPI.saveManagerReportScope(empId,reportModeSelect.value,selectedReportIds,p.can_view_all_reports);reportScopeCache[empId]=reportModeSelect.value==='legacy'?null:{mode:reportModeSelect.value,branchIds:reportModeSelect.value==='selected'?selectedReportIds:[]};permsCache[empId].can_view_all_reports=reportModeSelect.value==='all'||reportModeSelect.value==='selected'?true:reportModeSelect.value==='none'?false:!!p.can_view_all_reports;}catch(scopeError){console.error(scopeError);msg.textContent='حُفظت الصلاحيات الإدارية، لكن تعذّر حفظ نطاق تقارير المدير؛ لم يُغيّر النطاق القديم.';msg.className='message text-error';btn.disabled=false;btn.textContent='إعادة حفظ النطاق';return;}}
+      try {await ZamAPI.replaceTaskCategories(empId,selectedCats);} catch(categoryError) {console.error(categoryError); msg.textContent='حُفظت الصلاحيات، لكن تعذّر تحديث فئات المهام؛ الفئات السابقة لم تُحذف. أعد المحاولة من المحرر.';msg.className='message text-error';btn.disabled=false;btn.textContent='إعادة حفظ فئات المهام';return;}
+      if(canEditAssignments){try{await ZamAPI.replaceChecklistTemplateAssignments(empId,selectedTemplateIds);}catch(assignmentError){console.error(assignmentError);msg.textContent='حُفظت الصلاحيات والفئات، لكن تعذّر تحديث إسنادات المهام؛ بقيت الإسنادات السابقة كما هي. أعد المحاولة.';msg.className='message text-error';btn.disabled=false;btn.textContent='إعادة حفظ إسنادات المهام';return;}}
       close();await loadStaff();
     } catch(err){console.error(err);msg.textContent='تعذّر حفظ الصلاحيات الإدارية. لم يُغلق المحرر؛ تحقق من الاتصال وأعد المحاولة.';msg.className='message text-error';btn.disabled=false;btn.textContent='إعادة المحاولة';}
   });
@@ -209,19 +253,20 @@ async function openPermsEditor(empId, empName) {
 function renderPending(pending) {
   const list=document.getElementById('pending-list'),count=document.getElementById('pending-count'); count.textContent=`${pending.length} ${pending.length===1?'طلب':'طلبات'}`;
   if(!pending.length){list.innerHTML='<p class="hint">لا توجد طلبات تسجيل معلّقة حاليًا.</p>';return;}
-  list.innerHTML=pending.map(emp=>`<article class="pending-card" data-id="${escapeHtml(emp.id)}"><div class="employee-identity">${emp.avatar_url?`<img alt="" src="${escapeHtml(emp.avatar_url)}">`:'<div class="avatar-placeholder" aria-hidden="true">موظف</div>'}<div><p><strong>${escapeHtml(emp.full_name)}</strong> <span class="hint">(${escapeHtml(emp.employee_number||'—')})</span></p><p class="hint" dir="auto">${escapeHtml(emp.email||'—')} ${emp.whatsapp_number?' · '+escapeHtml(emp.whatsapp_number):''}</p></div></div><div class="pending-fields"><div class="field"><label>الدور</label><select class="p-role-select">${ROLES.filter(r=>r!=='Owner').map(r=>`<option value="${r}" ${r===emp.role?'selected':''}>${ROLE_LABELS[r]}</option>`).join('')}</select></div><div class="field"><label>الفرع</label><select class="p-branch-select"><option value="">بدون فرع</option>${branchesCache.map(b=>`<option value="${escapeHtml(b.id)}" ${b.id===emp.branch_id?'selected':''}>${escapeHtml(b.name)}</option>`).join('')}</select></div><div class="field"><label>الوردية</label><select class="p-shift-select"><option value="Morning" ${emp.shift_type==='Morning'?'selected':''}>صباحي</option><option value="Evening" ${emp.shift_type==='Evening'?'selected':''}>مسائي</option><option value="Both" ${emp.shift_type==='Both'?'selected':''}>كلاهما</option></select></div><label class="report-choice"><input type="checkbox" class="p-reports-check"> يستلم ملخص/تقرير فرعه</label><div class="button-row"><button class="approve-btn">قبول الطلب</button><button class="reject-btn">رفض الطلب</button></div><p class="message pending-msg" role="status" aria-live="polite"></p></div></article>`).join('');
-  list.querySelectorAll('.approve-btn').forEach(btn=>btn.addEventListener('click',async()=>{const card=btn.closest('[data-id]'),msg=card.querySelector('.pending-msg');btn.disabled=true;try{const {error}=await zamClient.from('profiles').update({status:'active',role:card.querySelector('.p-role-select').value,branch_id:card.querySelector('.p-branch-select').value||null,shift_type:card.querySelector('.p-shift-select').value,receives_branch_reports:card.querySelector('.p-reports-check').checked}).eq('id',card.dataset.id);if(error)throw error;await loadStaff();}catch(err){console.error(err);msg.textContent='تعذّرت الموافقة؛ لم يتغير الطلب. حاول مجددًا.';msg.className='message pending-msg text-error';btn.disabled=false;}}));
+  list.innerHTML=pending.map(emp=>`<article class="pending-card" data-id="${escapeHtml(emp.id)}"><div class="employee-identity">${emp.avatar_url?`<img alt="" src="${escapeHtml(emp.avatar_url)}">`:'<div class="avatar-placeholder" aria-hidden="true">موظف</div>'}<div><p><strong>${escapeHtml(emp.full_name)}</strong> <span class="hint">(${escapeHtml(emp.employee_number||'—')})</span></p><p class="hint" dir="auto">${escapeHtml(emp.email||'—')} ${emp.whatsapp_number?' · '+escapeHtml(emp.whatsapp_number):''}</p></div></div><div class="pending-fields"><div class="field"><label for="pending-role-${escapeHtml(emp.id)}">الدور</label><select id="pending-role-${escapeHtml(emp.id)}" class="p-role-select">${roleOptionsHTML(emp.role==='Owner'?'':emp.role).replace(/<option value="Owner"[^>]*>.*?<\/option>/,'')}</select></div><div class="field"><label for="pending-branch-${escapeHtml(emp.id)}">الفرع</label><select id="pending-branch-${escapeHtml(emp.id)}" class="p-branch-select"><option value="">بدون فرع</option>${branchesCache.map(b=>`<option value="${escapeHtml(b.id)}" ${b.id===emp.branch_id?'selected':''}>${escapeHtml(b.name)}</option>`).join('')}</select></div><div class="field"><label for="pending-shift-${escapeHtml(emp.id)}">الوردية</label><select id="pending-shift-${escapeHtml(emp.id)}" class="p-shift-select"><option value="Morning" ${emp.shift_type==='Morning'?'selected':''}>صباحي</option><option value="Evening" ${emp.shift_type==='Evening'?'selected':''}>مسائي</option><option value="Both" ${emp.shift_type==='Both'?'selected':''}>كلاهما</option></select></div><label class="report-choice"><input type="checkbox" class="p-reports-check"> يستلم ملخص/تقرير فرعه</label><div class="button-row"><button class="approve-btn">قبول الطلب</button><button class="reject-btn">رفض الطلب</button></div><p class="message pending-msg" role="status" aria-live="polite"></p></div></article>`).join('');
+  list.querySelectorAll('.approve-btn').forEach(btn=>btn.addEventListener('click',async()=>{const card=btn.closest('[data-id]'),msg=card.querySelector('.pending-msg');btn.disabled=true;try{const requestedRole=card.querySelector('.p-role-select').value;if(!requestedRole||requestedRole==='Owner')throw new Error('invalid_pending_role');const {error}=await zamClient.from('profiles').update({status:'active',role:requestedRole,branch_id:card.querySelector('.p-branch-select').value||null,shift_type:card.querySelector('.p-shift-select').value,receives_branch_reports:card.querySelector('.p-reports-check').checked}).eq('id',card.dataset.id);if(error)throw error;await loadStaff();}catch(err){console.error(err);msg.textContent=err.message==='invalid_pending_role'?'لا يمكن قبول الطلب بدور المالك. اختر دورًا آخر.':'تعذّرت الموافقة؛ لم يتغير الطلب. حاول مجددًا.';msg.className='message pending-msg text-error';btn.disabled=false;}}));
   list.querySelectorAll('.reject-btn').forEach(btn=>btn.addEventListener('click',async()=>{if(!confirm('تأكيد رفض هذا الطلب؟'))return;const card=btn.closest('[data-id]'),msg=card.querySelector('.pending-msg');btn.disabled=true;try{const {error}=await zamClient.from('profiles').update({status:'rejected'}).eq('id',card.dataset.id);if(error)throw error;await loadStaff();}catch(err){console.error(err);msg.textContent='تعذّر رفض الطلب؛ حاول مجددًا.';msg.className='message pending-msg text-error';btn.disabled=false;}}));
 }
 async function loadStaff() {
  const list=document.getElementById('staff-list'),summary=document.getElementById('staff-summary'); summary.textContent='جارٍ تحميل الحسابات والطلبات…';
- try {const [branches,staff,permsRes]=await Promise.all([ZamAPI.getBranches(),ZamAPI.getStaff(),zamClient.from('admin_permissions').select('*')]);if(permsRes.error)throw permsRes.error;
-  branchesCache=branches||[]; (permsRes.data||[]).forEach(row=>permsCache[row.profile_id]=row); const pending=staff.filter(e=>e.status==='pending'),others=staff.filter(e=>e.status!=='pending'); renderPending(pending); summary.textContent=`${others.length} حسابًا · ${pending.length} طلب معلّق`;
+ try {const [branches,staff,permsRes,reportScopes]=await Promise.all([ZamAPI.getBranches(),ZamAPI.getStaff(),zamClient.from('admin_permissions').select('*'),ZamAPI.getManagerReportScopes()]);if(permsRes.error)throw permsRes.error;
+  branchesCache=branches||[]; reportScopeCache=reportScopes||{}; (permsRes.data||[]).forEach(row=>permsCache[row.profile_id]=row); const pending=staff.filter(e=>e.status==='pending'),others=staff.filter(e=>e.status!=='pending'); renderPending(pending); summary.textContent=`${others.length} حسابًا · ${pending.length} طلب معلّق`;
   if(!others.length){list.innerHTML='<div class="panel hint">لا توجد حسابات موظفين لعرضها.</div>';return;}
-  list.innerHTML=others.map(emp=>`<article class="staff-card" data-id="${escapeHtml(emp.id)}" data-name="${escapeHtml(emp.full_name)}"><div class="staff-card-head"><div><h3>${escapeHtml(emp.full_name)} ${emp.id===currentUser.id?'<span class="hint">(أنت)</span>':''} ${emp.status==='rejected'?'<span class="text-error">(مرفوض)</span>':''}</h3><p class="hint" dir="auto">${escapeHtml(emp.email||'')}</p></div><span class="status-chip">${ROLE_LABELS[emp.role]||escapeHtml(emp.role)}</span></div><div class="staff-fields"><div class="field"><label>الدور</label><select class="role-select" ${emp.id===currentUser.id?'disabled':''}>${ROLES.map(r=>`<option value="${r}" ${r===emp.role?'selected':''}>${ROLE_LABELS[r]}</option>`).join('')}</select></div><div class="field"><label>الفرع</label><select class="branch-select"><option value="">بدون فرع</option>${branchesCache.map(b=>`<option value="${escapeHtml(b.id)}" ${b.id===emp.branch_id?'selected':''}>${escapeHtml(b.name)}</option>`).join('')}</select></div><div class="field"><label>الوردية</label><select class="shift-select"><option value="Morning" ${emp.shift_type==='Morning'?'selected':''}>صباحي</option><option value="Evening" ${emp.shift_type==='Evening'?'selected':''}>مسائي</option><option value="Both" ${emp.shift_type==='Both'?'selected':''}>كلاهما</option></select></div><div class="field"><label>رمز المرور</label><input type="password" class="passcode-input" autocomplete="new-password" value="${escapeHtml(emp.passcode||'')}" dir="ltr"></div></div><div class="perms-cell">${permsCellHTML(emp)}</div><div class="staff-card-foot"><button class="save-row-btn primary-action">حفظ تغييرات الموظف</button><span class="row-msg message" role="status" aria-live="polite"></span></div></article>`).join('');
-  list.querySelectorAll('.edit-perms-btn').forEach(btn=>btn.addEventListener('click',()=>{const card=btn.closest('.staff-card');openPermsEditor(card.dataset.id,card.dataset.name);}));
-  list.querySelectorAll('.role-select').forEach(sel=>sel.addEventListener('change',()=>{const card=sel.closest('.staff-card');card.querySelector('.perms-cell').innerHTML=permsCellHTML({id:card.dataset.id,role:sel.value});card.querySelector('.edit-perms-btn')?.addEventListener('click',()=>openPermsEditor(card.dataset.id,card.dataset.name));}));
-  list.querySelectorAll('.save-row-btn').forEach(btn=>btn.addEventListener('click',async()=>{const card=btn.closest('.staff-card'),msg=card.querySelector('.row-msg');btn.disabled=true;btn.textContent='جارٍ الحفظ…';try{const {error}=await zamClient.from('profiles').update({role:card.querySelector('.role-select').value,branch_id:card.querySelector('.branch-select').value||null,shift_type:card.querySelector('.shift-select').value,passcode:card.querySelector('.passcode-input').value.trim()}).eq('id',card.dataset.id);if(error)throw error;msg.textContent='تم حفظ التغييرات.';msg.className='row-msg message text-tertiary-container font-bold';}catch(err){console.error(err);msg.textContent=err.message?.includes('duplicate')?'رمز المرور مستخدم؛ اختر رمزًا آخر.':'تعذّر الحفظ؛ تحقق من الاتصال وحاول مجددًا.';msg.className='row-msg message text-error';}finally{btn.disabled=false;btn.textContent='حفظ تغييرات الموظف';}}));
+  list.innerHTML=`<table class="staff-table"><caption class="sr-only">حسابات الموظفين النشطين وإعداداتها</caption><thead><tr><th scope="col">الموظف</th><th scope="col">الدور</th><th scope="col">الفرع والوردية ورمز المرور</th><th scope="col">الصلاحيات والحفظ</th></tr></thead><tbody>${others.map(emp=>`<tr class="staff-row" data-id="${escapeHtml(emp.id)}" data-name="${escapeHtml(emp.full_name)}"><td data-label="الموظف"><div class="staff-identity"><h3>${escapeHtml(emp.full_name)} ${emp.id===currentUser.id?'<span class="hint">(أنت)</span>':''} ${emp.status==='rejected'?'<span class="text-error">(مرفوض)</span>':''}</h3><p class="hint" dir="auto">${escapeHtml(emp.email||'')}</p><span class="status-chip">${escapeHtml(ROLE_LABELS[emp.role]||emp.role||'')}</span></div></td><td data-label="الدور"><div class="field"><label class="sr-only">الدور</label><select class="role-select" aria-label="الدور" ${emp.id===currentUser.id?'disabled':''}>${roleOptionsHTML(emp.role)}</select></div></td><td data-label="الفرع والوردية ورمز المرور"><div class="staff-fields"><div class="field"><label>الفرع</label><select class="branch-select"><option value="">بدون فرع</option>${branchesCache.map(b=>`<option value="${escapeHtml(b.id)}" ${b.id===emp.branch_id?'selected':''}>${escapeHtml(b.name)}</option>`).join('')}</select></div><div class="field"><label>الوردية</label><select class="shift-select"><option value="Morning" ${emp.shift_type==='Morning'?'selected':''}>صباحي</option><option value="Evening" ${emp.shift_type==='Evening'?'selected':''}>مسائي</option><option value="Both" ${emp.shift_type==='Both'?'selected':''}>كلاهما</option></select></div><div class="field"><label>رمز المرور</label><input type="password" class="passcode-input" autocomplete="new-password" value="${escapeHtml(emp.passcode||'')}" dir="ltr"></div></div></td><td data-label="الصلاحيات والحفظ"><div class="staff-actions"><div class="perms-cell">${permsCellHTML(emp)}</div><button class="save-row-btn primary-action">حفظ تغييرات الموظف</button><span class="row-msg message" role="status" aria-live="polite"></span></div></td></tr>`).join('')}</tbody></table>`;
+  const openEmployeeEditor=card=>{const employee=others.find(row=>row.id===card.dataset.id);if(employee)openPermsEditor(employee.id,employee.full_name,employee.role,employee.branch_id,employee.shift_type);};
+  list.querySelectorAll('.edit-perms-btn').forEach(btn=>btn.addEventListener('click',()=>openEmployeeEditor(btn.closest('.staff-row'))));
+  list.querySelectorAll('.role-select').forEach(sel=>sel.addEventListener('change',()=>{const card=sel.closest('.staff-row');card.querySelector('.perms-cell').innerHTML=permsCellHTML({id:card.dataset.id,role:sel.value});card.querySelector('.edit-perms-btn')?.addEventListener('click',()=>openEmployeeEditor(card));}));
+  list.querySelectorAll('.save-row-btn').forEach(btn=>btn.addEventListener('click',async()=>{const card=btn.closest('.staff-row'),msg=card.querySelector('.row-msg');btn.disabled=true;btn.textContent='جارٍ الحفظ…';try{const {error}=await zamClient.from('profiles').update({role:card.querySelector('.role-select').value,branch_id:card.querySelector('.branch-select').value||null,shift_type:card.querySelector('.shift-select').value,passcode:card.querySelector('.passcode-input').value.trim()}).eq('id',card.dataset.id);if(error)throw error;msg.textContent='تم حفظ التغييرات.';msg.className='row-msg message text-tertiary-container font-bold';}catch(err){console.error(err);msg.textContent=err.message?.includes('duplicate')?'رمز المرور مستخدم؛ اختر رمزًا آخر.':'تعذّر الحفظ؛ تحقق من الاتصال وحاول مجددًا.';msg.className='row-msg message text-error';}finally{btn.disabled=false;btn.textContent='حفظ تغييرات الموظف';}}));
  } catch(err){console.error(err);summary.textContent='تعذّر تحميل بيانات الإدارة.';list.innerHTML='<div class="panel" role="alert"><p class="text-error">تعذّر تحميل الموظفين أو الصلاحيات. تحقق من الاتصال.</p><button id="retry-staff" class="quiet-action" type="button">إعادة المحاولة</button></div>';document.getElementById('pending-list').innerHTML='<p class="hint" role="alert">تعذّر تحميل طلبات التسجيل.</p>';document.getElementById('pending-count').textContent='غير متاح';document.getElementById('retry-staff').addEventListener('click',loadStaff);}
 }
 loadStaff();

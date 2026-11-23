@@ -260,7 +260,12 @@ function testIssuesComplaintsAndSupervisorForm() {
   const copyCallCount = (form.match(/functions\.invoke\('send-report-copy'/g) || []).length;
   assert.equal(copyCallCount, 1, 'the report copy must be requested exactly once');
   assert.doesNotMatch(api, /functions\.invoke\('send-report-copy'/, 'the save API must not send before reviews are saved');
-  assert.ok(form.indexOf("functions.invoke('send-report-copy'") > form.indexOf("from('negative_reviews').insert"), 'send the report copy only after reviews are saved');
+  assert.ok(form.indexOf("await zamClient.functions.invoke('send-report-copy'") > form.indexOf("from('negative_reviews').insert"), 'await the report copy only after reviews are saved');
+  assert.match(form, /mailResult\.email_sent !== true/, 'do not present a successful save as a successful email send');
+  assert.match(form, /تم حفظ التقرير، لكن تعذر تأكيد البريد/);
+  assert.match(form, /تم حفظ التقرير وإرسال نسخ البريد؛ بدأ تنزيل PDF تلقائيًا/);
+  assert.match(form, /existingReportGuards\.set\(submissionKey, String\(report\.id\)\)/,
+    'an email failure must retain the duplicate-report guard for the saved report');
   assert.match(form, /const \{ error: reviewError \}/, 'review insert errors must not be silently ignored');
   assert.match(form, /sessionStorage\.setItem\(submissionKey/);
   assert.match(form, /لتجنب التكرار/);
@@ -371,6 +376,33 @@ function testSalesTableMobileAndPrint() {
   assert.match(html, /\.sales-table th:nth-child\(6\)/);
 }
 
+function testNarrowDateFiltersStayWithinViewport() {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'weekly-report', 'index.html'), 'utf8');
+  const core = fs.readFileSync(path.join(__dirname, '..', 'assets', 'weekly-report-core.js'), 'utf8');
+  const narrowRules = html.match(/@media \(max-width:360px\) \{([\s\S]*?)\n  \}/);
+  assert.ok(narrowRules, 'the narrow-phone filter layout should be scoped to the confirmed 320px case');
+  assert.match(narrowRules[1], /#reportFilters \.px-margin-desktop \{ padding-inline:16px; \}/);
+  assert.match(narrowRules[1], /#reportFilters \.flex\.items-center\.gap-xs \{ display:grid; grid-template-columns:minmax\(0,1fr\); width:100%; min-width:0; gap:4px; \}/);
+  assert.match(narrowRules[1], /#reportFilters \.flex\.items-center\.gap-xs > label \{ position:static;[^}]*font-size:13px/);
+  assert.match(narrowRules[1], /#reportFilters \.flex\.items-center\.gap-xs > span \{ display:none; \}/);
+  assert.match(narrowRules[1], /#reportFilters input\[type="date"\] \{ box-sizing:border-box; min-width:0; width:100%; max-width:100%; min-height:44px; padding-inline:8px; \}/);
+
+  const helperMatch = core.match(/function customDateRange\(fromValue, toValue, currentRange\) \{[\s\S]*?\n  \}/);
+  assert.ok(helperMatch, 'custom date selection should preserve the current value of the untouched field');
+  const context = {};
+  vm.runInNewContext(`${helperMatch[0]}\nthis.result = customDateRange('2026-11-20', '', { from: '2026-11-18', to: '2026-11-24' });`, context);
+  assert.equal(context.result.from, '2026-11-20');
+  assert.equal(context.result.to, '2026-11-24');
+  vm.runInNewContext(`${helperMatch[0]}\nthis.result = customDateRange('', '2026-11-26', { from: '2026-11-18', to: '2026-11-24' });`, context);
+  assert.equal(context.result.from, '2026-11-18');
+  assert.equal(context.result.to, '2026-11-26');
+  const initStart = core.indexOf('function init(opts)');
+  const initEnd = core.indexOf('\n  function notify(', initStart);
+  assert.ok(initStart >= 0 && initEnd > initStart);
+  assert.match(core.slice(initStart, initEnd), /df\.addEventListener\('change', applyCustomDateRange\)/);
+  assert.match(core.slice(initStart, initEnd), /dt\.addEventListener\('change', applyCustomDateRange\)/);
+}
+
 function testVisitWiringFiltersAndTableShape() {
   const core = fs.readFileSync(path.join(__dirname, '..', 'assets', 'weekly-report-core.js'), 'utf8');
   assert.match(core, /q\('supervisory_visit_results', '\*'\)/);
@@ -446,6 +478,7 @@ testReportWiringAndPrintSafety();
 testWasteAndPlanDisplayChangesPreserveStoredData();
 testKpiRangeFallbackRequiresDailyReports();
 testSalesTableMobileAndPrint();
+testNarrowDateFiltersStayWithinViewport();
 testVisitWiringFiltersAndTableShape();
 testPrintPeriodAndAccessibleSixTabs();
 testIssuesComplaintsAndSupervisorForm();

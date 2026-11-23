@@ -34,3 +34,11 @@ test('shift controls, retry and recurring refresh remain functional', () => {
   assert.match(source, /addEventListener\("click", loadMyChecklist\)/);
   assert.match(source, /scheduleChecklistRefresh\(\)/);
 });
+
+test('employee checklist merges multiple individual assignments without bypassing schedule checks', () => {
+  assert.match(source, /ZamAPI\.getMyAssignedTemplateIds\(\)/);
+  assert.match(source, /assignedTemplateIds: myAssignedTemplateIds/);
+  assert.match(source, /ZamChecklistSchedule\.isTemplateScheduledForEmployee\(t, visibility, now\)/);
+  assert.match(source, /ZamChecklistSchedule\.isTemplateVisibleForEmployee\(task, visibility, new Date\(\)\)/);
+  assert.match(source, /ZamAPI\.submitChecklistLog\(base\)/);
+});

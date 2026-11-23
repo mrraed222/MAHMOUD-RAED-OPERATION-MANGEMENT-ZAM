@@ -120,9 +120,14 @@
         if (p) window.location.href = zamRoleHomePath(p.role);
     })();
 
+    function normalizePasscode(value) {
+        return value.replace(/[٠-٩۰-۹]/g, digit => String(digit.charCodeAt(0) <= 0x0669 ? digit.charCodeAt(0) - 0x0660 : digit.charCodeAt(0) - 0x06F0));
+    }
+
     async function handleLogin() {
         if (submitBtn.disabled) return;
-        const passcode = input.value.trim();
+        const passcode = normalizePasscode(input.value.trim());
+        input.value = passcode;
         if (!/^\d{4,6}$/.test(passcode)) {
             errorMsg.textContent = 'أدخل رمزًا مكوّنًا من 4 إلى 6 أرقام.';
             errorMsg.classList.remove('hidden');
@@ -173,7 +178,7 @@
             errorMsg.textContent = '';
             input.removeAttribute('aria-invalid');
         }
-        input.value = input.value.replace(/[^0-9]/g, '').slice(0, 6);
+        input.value = normalizePasscode(input.value).replace(/[^0-9]/g, '').slice(0, 6);
     });
   </script>
 </body>

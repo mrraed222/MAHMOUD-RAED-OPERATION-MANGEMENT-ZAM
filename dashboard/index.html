@@ -64,14 +64,9 @@ body.zam-page #summary-cards > div { padding: 20px; }
 body.zam-page #branch-cards > a { transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
 body.zam-page #branch-cards > a:hover { transform: translateY(-2px); border-color: var(--riwaq-primary); box-shadow: 0 10px 28px rgba(29,47,39,.09); }
 body.zam-page h2 { color: var(--riwaq-sidebar); }
-.dashboard-tools { display:flex; align-items:end; gap:12px; flex-wrap:wrap; }
-.dashboard-tools label { display:grid; gap:5px; color:var(--riwaq-muted); font-size:14px; font-weight:700; }
-.dashboard-tools input,.dashboard-tools select { min-height:44px; min-width:220px; border:1px solid var(--riwaq-line); border-radius:10px; padding:8px 12px; background:white; color:var(--riwaq-sidebar); }
-.dashboard-tools button { min-height:44px; padding:8px 18px; border:0; border-radius:10px; background:var(--riwaq-primary); color:white; font-weight:700; cursor:pointer; }
 .dashboard-state:empty { display:none; }
 .dashboard-state { margin:0 0 14px; padding:10px 14px; border-radius:10px; background:#fff8e8; color:#654b18; }
 #branch-cards > a:focus-visible { outline:3px solid var(--riwaq-primary); outline-offset:3px; }
-@media (max-width:767px) { .dashboard-tools { align-items:stretch; } .dashboard-tools label,.dashboard-tools input,.dashboard-tools select,.dashboard-tools button { width:100%; min-width:0; } }
 @media (prefers-reduced-motion:reduce) { #branch-cards > a { transition:none !important; } }
 @media (max-width: 767px) {
  body.zam-page header { position: relative; height: auto; min-height: 80px; padding: 14px 16px; align-items: flex-start; flex-direction: column; gap: 10px; }
@@ -93,25 +88,20 @@ body.zam-page h2 { color: var(--riwaq-sidebar); }
       <h1 class="font-title-md text-title-md text-primary">لوحة أداء الفروع</h1>
     </div>
   </div>
-  <nav aria-label="روابط الإدارة" class="flex items-center flex-wrap gap-x-4 gap-y-2">
+  <div class="flex items-center flex-wrap gap-x-4 gap-y-2">
     <span class="text-body-sm text-on-surface-variant" id="date-label"></span>
-    <a href="../daily-report/index.html" class="text-body-sm font-bold text-primary hover:underline">داشبورد التقارير</a>
-    <a href="../manage-templates/index.html" class="text-body-sm font-bold text-primary hover:underline">إدارة قوائم التحقق</a>
-    <a href="../permissions/index.html" id="permissions-link" class="text-body-sm font-bold text-primary hover:underline hidden">الأذونات والصلاحيات</a>
-  </nav>
+  </div>
 </header>
 
 <main class="md:pr-[280px] pt-20 min-h-screen"><div class="max-w-6xl mx-auto p-margin-desktop">
   <section aria-labelledby="dashboard-context-title" class="mb-lg border-r-4 border-primary pr-4 py-1">
     <h2 id="dashboard-context-title" class="font-title-md text-title-md text-primary">متابعة تنفيذ اليوم</h2>
-    <p class="text-body-sm text-on-surface-variant mt-1">تعرض المؤشرات والفروع العاملة بحسب البيانات المتاحة. نسبة الإنجاز لا تشمل وقوعات المهام الساعية عند تعذر احتسابها؛ و«مشاكل الشفت» تعكس السجلات التي يعيدها المصدر ولا تفترض حالة معالجة غير متاحة.</p>
   </section>
 
   <section aria-label="ملخص الأداء اليوم" class="grid grid-cols-2 md:grid-cols-4 gap-md mb-lg" id="summary-cards">
     <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
       <p class="text-body-sm text-on-surface-variant">متوسط الإنجاز اليوم</p>
       <p class="text-2xl font-bold text-primary" id="avg-completion" aria-live="polite">—</p>
-      <p class="text-body-sm text-on-surface-variant mt-2" id="avg-completion-note">تُعرض النسبة كغير مكتملة إذا تعذّر عدّ كل وقوعات المهام الساعية.</p>
     </div>
     <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
       <p class="text-body-sm text-on-surface-variant">الفروع العاملة</p>
@@ -127,11 +117,6 @@ body.zam-page h2 { color: var(--riwaq-sidebar); }
     </div>
   </section>
 
-  <section aria-label="أدوات استعراض الفروع" class="dashboard-tools bg-surface-container-lowest border border-outline-variant rounded-xl p-md mb-md">
-    <label class="dashboard-search"><span>ابحث عن فرع</span><input id="branch-search" type="search" autocomplete="off" placeholder="اكتب اسم الفرع" aria-controls="branch-cards"></label>
-    <label class="dashboard-sort"><span>ترتيب الفروع</span><select id="branch-sort" aria-controls="branch-cards"><option value="priority">الأقل إنجازًا أولًا</option><option value="name">اسم الفرع</option><option value="completion">الأعلى إنجازًا</option></select></label>
-    <button id="dashboard-refresh" type="button" class="zam-btn" aria-label="إعادة تحميل بيانات لوحة الأداء">إعادة تحميل</button>
-  </section>
   <p id="dashboard-state" class="dashboard-state" role="status" aria-live="polite"></p>
   <section aria-labelledby="branches-title">
     <div class="flex flex-wrap justify-between items-end gap-2 mb-sm">
@@ -147,34 +132,22 @@ body.zam-page h2 { color: var(--riwaq-sidebar); }
 
 <script>
 document.getElementById('date-label').textContent = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-if (currentUser.role === 'Owner') {
-    document.getElementById('permissions-link').classList.remove('hidden');
-}
 
 let dashboardRows = [];
 let dashboardLoadGeneration = 0;
-const searchInput = document.getElementById('branch-search');
-const sortInput = document.getElementById('branch-sort');
 const stateEl = document.getElementById('dashboard-state');
 const cardsEl = document.getElementById('branch-cards');
 
 function renderBranchCards() {
-    const query = searchInput.value.trim().toLocaleLowerCase('ar');
-    const sort = sortInput.value;
-    const rows = dashboardRows.filter(row => String(row.branch.name || '').toLocaleLowerCase('ar').includes(query));
-    rows.sort((a, b) => sort === 'name' ? String(a.branch.name || '').localeCompare(String(b.branch.name || ''), 'ar') : sort === 'completion' ? (b.pct ?? -1) - (a.pct ?? -1) : (a.pct ?? -1) - (b.pct ?? -1));
+    const rows = dashboardRows.slice();
+    rows.sort((a, b) => (a.pct ?? -1) - (b.pct ?? -1));
     cardsEl.innerHTML = rows.map(row => row.html).join('');
     document.getElementById('branch-result-count').textContent = `عرض ${rows.length} من ${dashboardRows.length} فرعًا · الإنجاز والمبيعات بحسب السجلات المتاحة`;
-    if (!rows.length) cardsEl.innerHTML = `<p class="text-on-surface-variant text-body-sm bg-surface-container-lowest border border-outline-variant rounded-xl p-md" role="status">${dashboardRows.length ? 'لا توجد فروع تطابق البحث.' : 'لا توجد فروع عاملة لعرضها وفق البيانات الحالية.'}</p>`;
+    if (!rows.length) cardsEl.innerHTML = `<p class="text-on-surface-variant text-body-sm bg-surface-container-lowest border border-outline-variant rounded-xl p-md" role="status">لا توجد فروع عاملة لعرضها وفق البيانات الحالية.</p>`;
 }
-searchInput.addEventListener('input', renderBranchCards);
-sortInput.addEventListener('change', renderBranchCards);
-document.getElementById('dashboard-refresh').addEventListener('click', loadDashboard);
 
 async function loadDashboard() {
     const generation = ++dashboardLoadGeneration;
-    const refreshButton = document.getElementById('dashboard-refresh');
-    refreshButton.disabled = true; refreshButton.textContent = 'جارٍ التحديث…';
     cardsEl.setAttribute('aria-busy', 'true');
     stateEl.textContent = 'جارٍ تحديث بيانات الفروع والمؤشرات…';
     const now = new Date();
@@ -248,7 +221,6 @@ async function loadDashboard() {
 
         const html = `
         <a href="${branchHref}"
-           aria-label="فتح تفاصيل ${branchName}"
            class="block bg-surface-container-lowest border border-outline-variant rounded-xl p-md hover:shadow-md hover:border-primary transition-all">
             <div class="flex justify-between items-start mb-sm">
                 <h3 class="font-title-md text-title-md text-on-surface">${branchName}</h3>
@@ -270,9 +242,6 @@ async function loadDashboard() {
     stateEl.textContent = failedSources.length ? `بعض البيانات غير متاحة: ${failedSources.join('، ')}. الأرقام الأخرى تعرض السجلات المتاحة فقط.` : 'اكتمل تحديث بيانات لوحة الأداء.';
 
     document.getElementById('avg-completion').textContent = hasIncompleteProgress ? 'غير مكتمل' : (comparableBranches ? Math.round(sumPct / comparableBranches) + '%' : '—');
-    document.getElementById('avg-completion-note').textContent = hasIncompleteProgress
-        ? 'تعذّر احتساب الإجمالي في فرع به قالب ساعي؛ الأعداد الظاهرة تخص المهام غير الساعية فقط.'
-        : 'تعرض النسبة مهام التشيك ليست المنطبقة على الفروع، دون اشتراط وجود ملف موظف.';
     } catch (err) {
         if (generation !== dashboardLoadGeneration) return;
         console.error(err);
@@ -280,7 +249,7 @@ async function loadDashboard() {
         stateEl.textContent = 'تعذّر تحميل بيانات اللوحة. تحقق من الاتصال ثم أعد المحاولة.';
         cardsEl.innerHTML = '<p class="text-error text-body-sm bg-surface-container-lowest border border-error rounded-xl p-md" role="alert">لم نتمكن من تحميل قائمة الفروع أو القوالب.</p>';
     } finally {
-        if (generation === dashboardLoadGeneration) { refreshButton.disabled = false; refreshButton.textContent = 'إعادة تحميل'; }
+        if (generation === dashboardLoadGeneration) cardsEl.setAttribute('aria-busy', 'false');
     }
 }
 

@@ -204,18 +204,18 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
 <p class="text-sm text-on-surface-variant mt-xs">ابدأ بتحديد تاريخ التقرير والوردية واسم المشرف، ثم أدخل المبيعات وبقية تفاصيل الشفت. تُراجع أهلية الفرع والتقرير السابق قبل الإرسال.</p>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-gutter mt-md">
 <div class="bg-surface rounded-xl p-md card-shadow border border-outline-variant report-card">
-<label class="block text-label-bold font-label-bold text-primary mb-xs">التاريخ</label>
+<label for="reportDate" class="block text-label-bold font-label-bold text-primary mb-xs">التاريخ</label>
 <input class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm" id="reportDate" type="date"/>
 </div>
 <div class="bg-surface rounded-xl p-md card-shadow border border-outline-variant report-card">
-<label class="block text-label-bold font-label-bold text-primary mb-xs">الوردية</label>
+<label for="shiftType" class="block text-label-bold font-label-bold text-primary mb-xs">الوردية</label>
 <select class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm" id="shiftType">
 <option value="Morning">الوردية الصباحية</option>
 <option value="Evening">الوردية المسائية</option>
 </select>
 </div>
 <div class="bg-surface rounded-xl p-md card-shadow border border-outline-variant report-card">
-<label class="block text-label-bold font-label-bold text-primary mb-xs">اسم المشرف</label>
+<label for="supervisorName" class="block text-label-bold font-label-bold text-primary mb-xs">اسم المشرف</label>
 <input class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm" id="supervisorName" placeholder="أدخل الاسم" type="text"/>
 </div>
 </div>
@@ -226,11 +226,11 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
                 </h3>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
 <div>
-<label class="block text-label-bold font-label-bold text-on-surface-variant mb-xs">إجمالي المبيعات (ريال)</label>
+<label for="totalSales" class="block text-label-bold font-label-bold text-on-surface-variant mb-xs">إجمالي المبيعات (ريال)</label>
 <input class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm text-headline-lg font-bold" id="totalSales" oninput="calcAverage()" placeholder="0.00" type="number"/>
 </div>
 <div>
-<label class="block text-label-bold font-label-bold text-on-surface-variant mb-xs">عدد الطلبات</label>
+<label for="ordersCount" class="block text-label-bold font-label-bold text-on-surface-variant mb-xs">عدد الطلبات</label>
 <input class="w-full bg-surface-container-lowest border-outline-variant rounded-lg p-sm text-headline-lg font-bold" id="orderCount" oninput="calcAverage()" placeholder="0" type="number"/>
 </div>
 <div>
@@ -268,6 +268,7 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
 <span class="material-symbols-outlined text-[18px]">add</span> إضافة
                         </button>
 </div>
+<div class="overflow-x-auto rounded-lg border border-outline-variant" role="region" aria-label="جدول الهدر، قابل للتمرير أفقيًا" tabindex="0">
 <table class="w-full text-right" id="waste-table">
 <thead>
 <tr class="text-on-surface-variant text-label-bold border-b border-outline-variant">
@@ -280,6 +281,7 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
 </thead>
 <tbody id="waste-tbody"></tbody>
 </table>
+</div>
 </div>
 </div>
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter" id="customer-section">
@@ -352,6 +354,10 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
 <option value="">غير مرتبطة بثلاجة</option>
 </select>
 <textarea id="tech-desc" rows="2" class="border border-outline-variant rounded-lg p-sm md:col-span-2" placeholder="وصف البلاغ الأصلي (اختياري)"></textarea>
+<div id="tech-report-link-row" class="hidden md:col-span-2 rounded-lg border border-outline-variant bg-white p-sm">
+<label class="flex items-start gap-sm text-body-sm font-bold"><input id="tech-report-link" type="checkbox" class="mt-1" disabled/><span id="tech-report-link-label">ربط البلاغ بتقرير محفوظ</span></label>
+<p class="mt-xs text-[11px] text-on-surface-variant">اختياري. لا يُتاح الربط إلا بعد حفظ تقرير محدد، ولا تُربط البلاغات السابقة تلقائيًا.</p>
+</div>
 </div>
 <div class="flex items-center gap-sm mt-sm">
 <button type="button" id="tech-save-btn" class="bg-primary text-white px-md py-xs rounded-full text-label-bold">إرسال البلاغ</button>
@@ -367,12 +373,12 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
 </div>
 </div>
 <div class="bg-surface rounded-xl p-lg card-shadow border border-outline-variant report-card flex flex-col md:flex-row items-center justify-between gap-md" id="report-submit">
-<div class="submit-context"><strong>٥ · مراجعة التقرير</strong><span>تحقق من التاريخ والوردية والبيانات، ثم أقر بصحتها لإتاحة الإرسال.</span><span id="report-submit-status" role="status" aria-live="polite"></span></div>
+<div class="submit-context"><strong>٥ · مراجعة التقرير</strong><span>تحقق من التاريخ والوردية والبيانات، ثم أقر بصحتها لإتاحة الإرسال.</span><span id="report-submit-status" role="status" aria-live="polite"></span><div id="saved-report-actions" class="hidden mt-sm flex flex-wrap gap-sm"><button type="button" id="print-saved-report" class="bg-white border border-outline-variant text-primary px-md py-xs rounded-lg font-bold">طباعة / حفظ PDF من المتصفح</button><a id="download-saved-report" class="hidden bg-white border border-outline-variant text-primary px-md py-xs rounded-lg font-bold text-center" download>تنزيل PDF المُنشأ للإرسال</a><a id="open-saved-report-pdf" class="hidden bg-white border border-outline-variant text-primary px-md py-xs rounded-lg font-bold text-center" target="_blank" rel="noopener">عرض / طباعة نسخة PDF نفسها</a></div></div>
 <label class="flex items-center gap-md cursor-pointer">
 <input class="w-6 h-6 rounded border-outline-variant text-primary focus:ring-primary" id="confirmCheck" type="checkbox"/>
 <span class="text-body-lg font-bold text-primary">أقر بصحة جميع البيانات المدخلة في هذا التقرير تحت مسؤوليتي.</span>
 </label>
-<button class="bg-primary-container text-white px-xl py-md rounded-full font-headline-lg text-title-md shadow-lg hover:scale-[1.02] active:scale-95 transition-all" id="submitReportBtn">
+<button class="bg-primary text-on-primary px-xl py-md rounded-full font-headline-lg text-title-md shadow-lg hover:scale-[1.02] active:scale-95 transition-all" id="submitReportBtn">
                     إرسال التقرير
                 </button>
 </div>
@@ -528,6 +534,54 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
             }).filter(r => Object.values(r).some(v => v));
         }
 
+        let savedReportPrintSnapshot = null;
+        let savedReportPdfUrl = '';
+        function escapeReportPrintText(value) {
+            return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        function printSavedReport() {
+            if (!savedReportPrintSnapshot) return;
+            const popup = window.open('', '_blank');
+            if (!popup) {
+                document.getElementById('report-submit-status').textContent = 'تم حفظ التقرير. اسمح بالنافذة المنبثقة لطباعة نسخة من البيانات المحفوظة.';
+                return;
+            }
+            const snapshot = savedReportPrintSnapshot;
+            const report = snapshot.report;
+            const esc = escapeReportPrintText;
+            const rows = (items, render, empty) => items.length ? items.map(item => `<li>${render(item)}</li>`).join('') : `<li>${esc(empty)}</li>`;
+            const shift = report.shift_type === 'Morning' ? 'صباحية' : report.shift_type === 'Evening' ? 'مسائية' : report.shift_type;
+            const printHtml = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تقرير الوردية ${esc(report.report_date)}</title><style>body{font-family:Arial,sans-serif;color:#20312b;margin:28px;line-height:1.7}h1,h2{color:#17664e}h1{font-size:24px}h2{font-size:18px;margin:20px 0 6px;border-bottom:1px solid #cbd8cf;padding-bottom:4px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px}.meta p{margin:3px 0}ul{padding-right:22px}li{margin:5px 0}.brand{border-top:8px solid #17664e;padding-top:14px}@media print{body{margin:14mm}.no-print{display:none}}</style></head><body><div class="brand"><h1>تقرير الوردية اليومية</h1><div class="meta"><p><b>الفرع:</b> ${esc(snapshot.branchName || '—')}</p><p><b>التاريخ:</b> ${esc(report.report_date || '—')}</p><p><b>الوردية:</b> ${esc(shift || '—')}</p><p><b>المشرف:</b> ${esc(report.supervisor_name || '—')}</p><p><b>حالة الفريق:</b> ${esc(report.team_status || '—')}</p><p><b>إجمالي المبيعات:</b> ${esc(report.total_sales ?? '—')} ر.س</p><p><b>عدد الطلبات:</b> ${esc(report.orders_count ?? '—')}</p><p><b>متوسط الفاتورة:</b> ${esc(report.avg_ticket ?? '—')} ر.س</p><p><b>التقييمات الإيجابية:</b> ${esc(report.positive_reviews ?? '—')}</p></div><h2>سجلات الهدر</h2><ul>${rows(snapshot.waste, item => `${esc(item.item_name)} — ${esc(item.quantity)} ${esc(item.unit)} · ${esc(item.reason || '—')}`, 'لا توجد سجلات هدر.')}</ul><h2>مشكلات الوردية والإجراءات</h2><ul>${rows(snapshot.issues, item => `${esc(item.priority)} — ${esc(item.description)} · الإجراء: ${esc(item.action_taken || '—')}`, 'لا توجد مشكلات مسجلة.')}</ul><h2>تقييمات العملاء</h2><ul>${rows(snapshot.reviews, item => `${esc(item.review_type === 'positive' ? 'إيجابي' : item.review_type === 'negative' ? 'سلبي' : item.review_type)} — ${esc(item.comment_text)}${item.status ? ` · الحالة: ${esc(item.status)}` : ''}${item.owner ? ` · المسؤول: ${esc(item.owner)}` : ''}${item.action_taken ? ` · الإجراء: ${esc(item.action_taken)}` : ''}`, 'لا توجد تقييمات عملاء مضافة.')}</ul></div></body></html>`;
+            popup.document.open();
+            popup.document.write(printHtml);
+            popup.document.close();
+            popup.focus();
+            setTimeout(() => popup.print(), 300);
+        }
+        function attachSavedReportPdf(pdfBase64, fileName) {
+            if (typeof pdfBase64 !== 'string' || pdfBase64.length > 20 * 1024 * 1024 || !/^[A-Za-z0-9+/]*={0,2}$/.test(pdfBase64)) return false;
+            const binary = atob(pdfBase64);
+            if (binary.length > 15 * 1024 * 1024 || binary.slice(0, 5) !== '%PDF-') return false;
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            if (savedReportPdfUrl) URL.revokeObjectURL(savedReportPdfUrl);
+            savedReportPdfUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+            const safeName = String(fileName || 'zam-shift-report.pdf').replace(/[\\/\u0000-\u001f]/g, '-').slice(0, 180);
+            const download = document.getElementById('download-saved-report');
+            const open = document.getElementById('open-saved-report-pdf');
+            download.href = savedReportPdfUrl;
+            download.download = safeName.endsWith('.pdf') ? safeName : `${safeName}.pdf`;
+            open.href = savedReportPdfUrl;
+            download.classList.remove('hidden');
+            open.classList.remove('hidden');
+            // Start the local copy immediately after submission; keep the visible
+            // link as a fallback if the browser blocks an automatic download.
+            download.click();
+            return true;
+        }
+        document.getElementById('print-saved-report').addEventListener('click', printSavedReport);
+        window.addEventListener('pagehide', () => { if (savedReportPdfUrl) URL.revokeObjectURL(savedReportPdfUrl); });
+
         document.getElementById('submitReportBtn').addEventListener('click', async () => {
             const btn = document.getElementById('submitReportBtn');
             const dateInput = document.getElementById('reportDate');
@@ -561,14 +615,16 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
             dateInput.disabled = true;
             shiftInput.disabled = true;
             reportSubmitting = true;
+            let verifiedBranchName = '';
             try {
                 if (!window.ZamBranchLifecycle || typeof window.ZamBranchLifecycle.isOperational !== 'function') {
                     throw new Error('Branch lifecycle helper unavailable');
                 }
                 const { data: branch, error: branchError } = await zamClient.from('branches')
-                    .select('id,lifecycle_status,planned_opening_date')
+                    .select('id,name,lifecycle_status,planned_opening_date')
                     .eq('id', currentUser.branch_id).maybeSingle();
                 if (branchError || !branch) throw branchError || new Error('Branch not found');
+                verifiedBranchName = branch.name || '';
                 if (!window.ZamBranchLifecycle.isOperational(branch, submissionDate)) {
                     restoreReportSubmissionForm(btn, dateInput, shiftInput);
                     alert('لا يمكن إرسال تقرير لهذا الفرع قبل تاريخ افتتاحه المؤكد. يمكنك إرسال التقرير ابتداءً من يوم الافتتاح بتوقيت الرياض.');
@@ -632,23 +688,39 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
             let savedReportId = '';
 
             try {
+                const reportCore = {
+                    branch_id: currentUser.branch_id,
+                    supervisor_name: document.getElementById('supervisorName').value.trim(),
+                    report_date: submissionDate,
+                    shift_type: submissionShift,
+                    total_sales: totalSales,
+                    orders_count: ordersCount,
+                    avg_ticket: avgTicket,
+                    team_status: document.getElementById('teamStatus').value,
+                    positive_reviews: positiveCount,
+                };
+                const printSnapshot = {
+                    report: reportCore,
+                    branchName: verifiedBranchName,
+                    waste: wasteRows,
+                    issues: issueRows,
+                    reviews: reviewRows,
+                };
                 const report = await ZamAPI.submitDailyReport({
-                    core: {
-                        branch_id: currentUser.branch_id,
-                        supervisor_name: document.getElementById('supervisorName').value.trim(),
-                        report_date: submissionDate,
-                        shift_type: submissionShift,
-                        total_sales: totalSales,
-                        orders_count: ordersCount,
-                        avg_ticket: avgTicket,
-                        team_status: document.getElementById('teamStatus').value,
-                        positive_reviews: positiveCount,
-                    },
+                    core: reportCore,
                     custom_fields: {},
                     waste: wasteRows,
                     issues: issueRows,
                 });
                 savedReportId = report.id;
+                const techReportLink = document.getElementById('tech-report-link');
+                techReportLink.dataset.reportId = String(report.id);
+                techReportLink.dataset.branchId = String(reportCore.branch_id);
+                techReportLink.checked = false;
+                techReportLink.disabled = false;
+                const savedShiftLabel = submissionShift === 'Evening' ? 'مسائية' : 'صباحية';
+                document.getElementById('tech-report-link-label').textContent = `ربط البلاغ بهذا التقرير المحفوظ (${verifiedBranchName || 'الفرع'} · ${submissionDate} · ${savedShiftLabel} · ${report.id})`;
+                document.getElementById('tech-report-link-row').classList.remove('hidden');
 
                 // حفظ التقييمات (إيجابية وسلبية) مصنّفة في الجدول
                 if (reviewRows.length) {
@@ -671,12 +743,34 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
                     }
                 }
 
-                // إرسال نسخة PDF فورية للإدارة (لا يوقف العملية لو فشل)
-                zamClient.functions.invoke('send-report-copy', { body: { report_id: report.id } }).catch(e => console.error('send-report-copy error:', e));
+                // خزّن حارس التكرار قبل انتظار البريد؛ ففشله لا يلغي التقرير المحفوظ.
+                existingReportGuards.set(submissionKey, String(report.id));
+                try { sessionStorage.setItem('zamDailyReportExisting:' + submissionKey, String(report.id)); } catch (_) {}
+                savedReportPrintSnapshot = printSnapshot;
+                document.getElementById('saved-report-actions').classList.remove('hidden');
+                document.getElementById('report-submit-status').textContent = 'تم حفظ التقرير. جارٍ إرسال نسخة PDF إلى الإدارة والمشرف.';
 
-                document.getElementById('report-submit-status').textContent = 'تم حفظ التقرير بنجاح. جارٍ فتح سجل التقارير.';
-                alert('تم إرسال التقرير بنجاح ✓');
-                window.location.href = '../reports-log/index.html';
+                try {
+                    const { data: mailResult, error: mailError } = await zamClient.functions.invoke('send-report-copy', {
+                        body: { report_id: report.id }
+                    });
+                    if (mailResult?.pdf_base64 && mailResult?.pdf_filename) {
+                        try { attachSavedReportPdf(mailResult.pdf_base64, mailResult.pdf_filename); }
+                        catch (pdfError) { console.error('Could not expose generated PDF for download'); }
+                    }
+                    if (mailError || !mailResult || mailResult.ok !== true || mailResult.email_sent !== true) {
+                        throw mailError || new Error('email_delivery_not_confirmed');
+                    }
+                } catch (mailError) {
+                    console.error('send-report-copy failed after report save');
+                    restoreReportSubmissionForm(btn, dateInput, shiftInput);
+                    document.getElementById('report-submit-status').textContent = 'تم حفظ التقرير، لكن تعذر تأكيد البريد. يمكنك طباعة البيانات المحفوظة أو تنزيل نسخة PDF إن كانت جاهزة؛ لن يُعاد إرسال التقرير لتجنب التكرار.';
+                    alert('تم حفظ التقرير بنجاح، لكن فشل إرسال نسخة البريد أو لم يصل تأكيد نجاحها. يمكنك طباعة البيانات المحفوظة أو تنزيل نسخة PDF الجاهزة أدناه؛ لم يُعَد إرسال التقرير لتجنب التكرار.');
+                    return;
+                }
+
+                document.getElementById('report-submit-status').textContent = 'تم حفظ التقرير وإرسال نسخ البريد؛ بدأ تنزيل PDF تلقائيًا. رابط التنزيل والنسخة للطباعة متاحان أدناه.';
+                alert('تم حفظ التقرير وإرسال نسخ البريد وبدأ تنزيل نسخة PDF تلقائيًا. إن لم يبدأ التنزيل في المتصفح، استخدم الرابط الظاهر أدناه.');
             } catch (err) {
                 console.error(err);
                 if (err && err.duplicateReport) {
@@ -859,21 +953,28 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
         msgEl.className = 'text-[12px] font-bold text-error';
         if (!title) { msgEl.textContent = 'اكتب عنوان المشكلة.'; return; }
         if (!currentUser.branch_id) { msgEl.textContent = 'الحساب غير مرتبط بفرع.'; return; }
+        const reportLink = document.getElementById('tech-report-link');
+        if (reportLink.checked && (!reportLink.dataset.reportId || reportLink.dataset.branchId !== String(currentUser.branch_id))) {
+            msgEl.textContent = 'تعذّر التحقق من التقرير المحفوظ؛ ألغِ خيار الربط أو أعد حفظ التقرير.';
+            return;
+        }
         btn.disabled = true;
         try {
-            await ZamAPI.createTechnicalIssue({
+            const issuePayload = {
                 branch_id: currentUser.branch_id,
                 reported_by: currentUser.id,
                 title,
                 description: document.getElementById('tech-desc').value.trim() || null,
                 priority: document.getElementById('tech-priority').value,
                 fridge_id: document.getElementById('tech-fridge').value || null
-            });
+            };
+            if (reportLink.checked) issuePayload.report_id = reportLink.dataset.reportId;
+            await ZamAPI.createTechnicalIssue(issuePayload);
             document.getElementById('tech-title').value = '';
             document.getElementById('tech-desc').value = '';
             document.getElementById('tech-fridge').value = '';
             msgEl.className = 'text-[12px] font-bold text-tertiary';
-            msgEl.textContent = 'تم إرسال البلاغ.';
+            msgEl.textContent = reportLink.checked ? 'تم إرسال البلاغ وربطه بالتقرير المحدد.' : 'تم إرسال البلاغ.';
             await loadTechIssues();
         } catch (err) {
             console.error(err);

@@ -47,7 +47,7 @@ body.zam-page main { animation: zamFadeInUp .28s cubic-bezier(.2,.7,.3,1) both; 
 .zam-btn, button, [role="button"] { transition: background-color .14s ease, border-color .14s ease; }
 .zam-btn:hover, button:hover, [role="button"]:hover { filter: brightness(.98); }
 .zam-btn:active, button:active, [role="button"]:active { filter: brightness(.95); }
-input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(192, 88, 58, .42); outline-offset: 2px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible, .evidence-input:focus-visible + span { outline: 3px solid rgba(192, 88, 58, .42); outline-offset: 2px; }
 .zam-loading { opacity: .82; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 </style>
@@ -234,6 +234,7 @@ const container = document.getElementById('checklist-container');
 const progressLabel = document.getElementById('progress-label');
 const categoryLabel = document.getElementById('category-label');
 let visibleTemplatesById = new Map();
+let myAssignedTemplateIds = [];
 let restroomTaskConfig = null;
 let restroomBranchOperational = false;
 let restroomOccurrencesByKey = new Map();
@@ -324,6 +325,7 @@ async function saveTaskCompletion(templateId, notes = null, photo_url = null) {
         branchName: currentUser.branches?.name,
         branchHours: currentBranchHours,
         categories: myCategories,
+        assignedTemplateIds: myAssignedTemplateIds,
         shiftType: currentShift
     };
     if (!task || !ZamChecklistSchedule.isTemplateVisibleForEmployee(task, visibility, new Date())) {
@@ -345,7 +347,7 @@ async function saveTaskCompletion(templateId, notes = null, photo_url = null) {
 }
 
 async function loadMyChecklist() {
-    categoryLabel.textContent = myCategories.length ? `مهامك: ${myCategories.join(' و ')} — ${currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية'}` : 'كل الفئات';
+    categoryLabel.textContent = `${myCategories.length ? `مهام الفئات: ${myCategories.join(' و ')}` : 'مهامك المسندة'}${myAssignedTemplateIds.length ? ' · وتشمل مهامًا فردية' : ''} — ${currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية'}`;
     container.setAttribute("aria-busy", "true");
     container.innerHTML = '<div class="state-panel loading-state" role="status">جارٍ تحديث المهام والإنجازات…</div>';
     document.getElementById('email-summary-card').classList.add('hidden');
@@ -358,10 +360,16 @@ async function loadMyChecklist() {
             progressLabel.textContent = '';
             return;
         }
-        const [allTemplatesRaw, config] = await Promise.all([
+        const [allTemplatesRaw, config, assignedTemplateIds] = await Promise.all([
             ZamAPI.getTemplates(null, currentShift, currentUser.branch_id),
-            ZamAPI.getRestroomHourlyTaskConfig()
+            ZamAPI.getRestroomHourlyTaskConfig(),
+            ZamAPI.getMyAssignedTemplateIds().catch(error => {
+                console.error('Error fetching individual task assignments:', error);
+                return [];
+            })
         ]);
+        myAssignedTemplateIds = assignedTemplateIds || [];
+        categoryLabel.textContent = `${myCategories.length ? `مهام الفئات: ${myCategories.join(' و ')}` : 'مهامك المسندة'}${myAssignedTemplateIds.length ? ' · وتشمل مهامًا فردية' : ''} — ${currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية'}`;
         restroomTaskConfig = config?.is_active ? config : null;
         const allowRestroomForBranch = restroomBranchOperational &&
             !['زام الحي', 'زام البرج'].includes(currentUser.branches?.name);
@@ -375,6 +383,7 @@ async function loadMyChecklist() {
             branchName: currentUser.branches?.name,
             branchHours: currentBranchHours,
             categories: myCategories,
+            assignedTemplateIds: myAssignedTemplateIds,
             shiftType: currentShift
         };
         const scheduledTemplates = allTemplates.filter(t => ZamChecklistSchedule.isTemplateScheduledForEmployee(t, visibility, now));
@@ -610,9 +619,9 @@ async function loadMyChecklist() {
             <div class="checklist-item rounded-xl p-md ${completed ? 'bg-tertiary-fixed/10' : 'bg-surface-container-lowest'}">
                 <div class="flex items-center justify-between gap-md">
                     <div class="flex items-center gap-md flex-1">
-                        <input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" data-id="${taskId}" ${completed ? 'checked disabled' : ''}/>
+                        <input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" id="task-${taskId}" aria-labelledby="task-title-${taskId}" data-id="${taskId}" ${completed ? 'checked disabled' : ''}/>
                         <div class="flex-1">
-                            <h4 class="font-body-lg font-bold text-on-surface leading-6 ${completed ? 'line-through opacity-60' : ''}">${checklistEsc(t.task_title)}</h4>
+                            <h4 id="task-title-${taskId}" class="font-body-lg font-bold text-on-surface leading-6 ${completed ? 'line-through opacity-60' : ''}">${checklistEsc(t.task_title)}</h4>
                             <div class="mt-xs flex flex-wrap items-center gap-xs">
                               <span class="rounded-full bg-secondary-container px-sm py-[2px] text-[11px] font-bold text-on-secondary-container">${frequencyLabel}${weeklyDay}</span>
                               ${t.target_time ? `<span class="rounded-full bg-warning-container px-sm py-[2px] text-[11px] font-bold text-on-warning">موعد ${checklistEsc(String(t.target_time).slice(0, 5))}</span>` : ''}
@@ -628,10 +637,10 @@ async function loadMyChecklist() {
                         <label class="flex items-center gap-xs cursor-pointer px-sm py-1 bg-surface-container border border-outline rounded-lg text-[12px] font-bold text-primary hover:bg-surface-container-high transition-all">
                             <span class="material-symbols-outlined text-[16px]">photo_camera</span>
                             <span>ارفق صورة الإثبات</span>
-                            <input type="file" accept="image/*" capture="environment" class="hidden evidence-input"/>
+                            <input type="file" accept="image/*" capture="environment" class="evidence-input sr-only" aria-label="إرفاق صورة إثبات المهمة ${checklistEsc(t.task_title)}"/>
                         </label>
                     ` : ''}
-                    ${t.allows_notes ? `<textarea rows="2" class="task-note w-full border border-outline-variant rounded-lg p-sm text-body-sm" data-id="${taskId}" placeholder="ملاحظة أو عطل أو نقص (اختياري)"></textarea>` : ''}
+                    ${t.allows_notes ? `<label class="sr-only" for="task-note-${taskId}">ملاحظة للمهمة ${checklistEsc(t.task_title)}</label><textarea id="task-note-${taskId}" rows="2" class="task-note w-full border border-outline-variant rounded-lg p-sm text-body-sm" data-id="${taskId}" placeholder="ملاحظة أو عطل أو نقص (اختياري)"></textarea>` : ''}
                     <span class="task-status text-error text-[11px]"></span>
                     <span class="loading-indicator text-primary text-[11px] font-bold hidden"><span class="material-symbols-outlined animate-spin text-sm">sync</span> جارِ رفع الصورة والحفظ...</span>
                 </div>` : ''}

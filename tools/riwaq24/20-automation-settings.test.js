@@ -11,6 +11,8 @@ test('automation settings retains authentication, permission gate, route context
   for (const value of ['checklist_summary', 'manager_reports_summary', 'missed_report_alert', 'employee_task_reminder', 'supervisor_task_reminder']) {
     assert.ok(source.includes(value), `missing report type ${value}`);
   }
+  assert.doesNotMatch(source, /main\{margin-right:280px/,
+    'the hidden-by-default sidebar must not reserve a desktop gutter');
 });
 
 test('instant forwarding and schedule writes preserve table and payload semantics, including null all-scopes', () => {
@@ -45,4 +47,19 @@ test('state changes report errors and delete remains confirmed; accessible form 
   assert.match(source, /aria-live="polite"/);
   assert.match(source, /id="notif-bell-slot"/);
   assert.doesNotMatch(source, /renderNotificationBell\(\)/);
+});
+
+test('recipient settings use only authorized existing profiles and preserve loading, error, empty, retry and save states', () => {
+  assert.match(source, /report-recipient-settings\.js\?v=\d+/);
+  assert.match(source, /rpc\('list_daily_report_email_recipient_candidates'\)/);
+  assert.match(source, /rpc\('save_daily_report_email_recipients'/);
+  assert.match(source, /aria-labelledby="recipient-panel-title"/);
+  assert.match(source, /id="recipient-list"[^>]*aria-busy="true"/);
+  assert.match(source, /id="retry-recipients"/);
+  assert.match(source, /id="save-recipients"/);
+  assert.match(source, /role="status" aria-live="polite"/);
+  assert.match(source, /ZamReportRecipientSettings\.buildPayload/);
+  assert.doesNotMatch(source, /<input[^>]+type=["']email["']/i, 'do not accept arbitrary email addresses');
+  assert.match(source, /instant-forward-toggle/);
+  assert.match(source, /schedule-form/);
 });

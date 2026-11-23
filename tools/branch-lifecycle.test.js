@@ -17,12 +17,12 @@ test('planned branches without a confirmed opening date stay inactive', () => {
   assert.equal(lifecycle.label({ lifecycle_status: 'planned' }, '2026-11-17'), 'غير نشط — بلا تاريخ افتتاح');
 });
 
-test('planned branches become operational on the confirmed Riyadh calendar date, not before', () => {
+test('planned branches remain inactive after their planned opening date until owner confirmation', () => {
   const branch = { lifecycle_status: 'planned', planned_opening_date: '2026-11-18' };
   assert.equal(lifecycle.isOperational(branch, '2026-11-17'), false);
-  assert.equal(lifecycle.isOperational(branch, '2026-11-18'), true);
-  assert.equal(lifecycle.isOperational(branch, '2026-11-19'), true);
-  assert.equal(lifecycle.label(branch, '2026-11-18'), 'نشط تلقائيًا منذ 2026-11-18');
+  assert.equal(lifecycle.isOperational(branch, '2026-11-18'), false);
+  assert.equal(lifecycle.isOperational(branch, '2026-11-19'), false);
+  assert.equal(lifecycle.label(branch, '2026-11-18'), 'قيد التجهيز — تاريخ افتتاح مخطط 2026-11-18');
 });
 
 test('explicitly operational branches are active and unknown states fail closed', () => {
@@ -38,7 +38,7 @@ test('instant date resolution uses Asia/Riyadh', () => {
   assert.equal(lifecycle.riyadhDateString(beforeRiyadhMidnight), '2026-11-16');
   assert.equal(lifecycle.isOperational(branch, beforeRiyadhMidnight), false);
   assert.equal(lifecycle.riyadhDateString(atRiyadhMidnight), '2026-11-17');
-  assert.equal(lifecycle.isOperational(branch, atRiyadhMidnight), true);
+  assert.equal(lifecycle.isOperational(branch, atRiyadhMidnight), false);
 });
 
 test('reporting filters fail closed for records without a known operational branch', () => {

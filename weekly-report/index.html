@@ -129,6 +129,13 @@
     #panes .sales-table th, #panes .sales-table td { padding-inline:8px !important; }
     .mobile-table-hint { display:block; margin:-6px 0 8px; color:#70655d; font-size:12px; }
   }
+  @media (max-width:360px) {
+    #reportFilters .px-margin-desktop { padding-inline:16px; }
+    #reportFilters .flex.items-center.gap-xs { display:grid; grid-template-columns:minmax(0,1fr); width:100%; min-width:0; gap:4px; }
+    #reportFilters .flex.items-center.gap-xs > label { position:static; width:auto; height:auto; margin:0; padding:0; overflow:visible; clip:auto; white-space:normal; border:0; color:#3f554b; font-size:13px; font-weight:700; line-height:1.4; }
+    #reportFilters .flex.items-center.gap-xs > span { display:none; }
+    #reportFilters input[type="date"] { box-sizing:border-box; min-width:0; width:100%; max-width:100%; min-height:44px; padding-inline:8px; }
+  }
   .dashboard-note-card { display:flex; flex-direction:column; gap:8px; padding:14px; border:1px solid #d2c4ba; border-radius:14px; background:#fffdfb; min-height:118px; }
   .dashboard-note-card > span { color:#5b3518; font-weight:800; font-size:13px; }
   .dashboard-note-card > div { color:#70655d; line-height:1.8; outline:none; }

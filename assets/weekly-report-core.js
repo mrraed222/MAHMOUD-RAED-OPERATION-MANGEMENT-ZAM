@@ -34,9 +34,7 @@
     if (!branch) return false;
     if (LIFECYCLE && typeof LIFECYCLE.isOperational === 'function') return LIFECYCLE.isOperational(branch, date);
     if (branch.lifecycle_status == null || branch.lifecycle_status === '' || branch.lifecycle_status === 'operational') return true;
-    if (branch.lifecycle_status !== 'planned') return false;
-    var opening = String(branch.planned_opening_date || '').slice(0, 10);
-    return /^\d{4}-\d{2}-\d{2}$/.test(opening) && opening <= String(date || '').slice(0, 10);
+    return false;
   }
 
   /* ══════════ ثوابت العرض ══════════ */
@@ -408,6 +406,9 @@
   function resolveRange() {
     if (state.range === 'week' && state.auto && state.auto.alt) return state.auto.alt;
     return rangeFor(state.range);
+  }
+  function customDateRange(fromValue, toValue, currentRange) {
+    return { from: fromValue || currentRange.from, to: toValue || currentRange.to };
   }
   function prevRange(cur) {
     var f = parseD(cur.from), t = parseD(cur.to);
@@ -1634,8 +1635,8 @@
     });
     var managerNote = document.createElement('div');
     managerNote.className = 'bg-surface-container rounded-lg p-md mt-md manager-note';
-    managerNote.innerHTML = '<label class="font-label-bold text-on-surface-variant">ملاحظة مدير التشغيل لهذا المحور</label>' +
-      '<div class="text-body-sm mt-xs" contenteditable="true" spellcheck="true" data-edit="managerNote-' + tab + '">—</div>';
+    managerNote.innerHTML = '<label id="manager-note-label-' + tab + '" class="font-label-bold text-on-surface-variant" for="manager-note-' + tab + '">ملاحظة مدير التشغيل لهذا المحور</label>' +
+      '<div id="manager-note-' + tab + '" class="text-body-sm mt-xs" contenteditable="true" spellcheck="true" aria-labelledby="manager-note-label-' + tab + '" data-edit="managerNote-' + tab + '">—</div>';
     el.appendChild(managerNote);
     if (tab === 1) {
       $$('.branch-drill', el).forEach(function (button) {
@@ -1880,8 +1881,15 @@
     bindEdits();
 
     var df = document.getElementById('dFrom'), dt = document.getElementById('dTo');
-    if (df) df.addEventListener('change', function (e) { state.from = e.target.value; state.range = 'custom'; applyNotes(); renderAll(); });
-    if (dt) dt.addEventListener('change', function (e) { state.to = e.target.value; state.range = 'custom'; applyNotes(); renderAll(); });
+    function applyCustomDateRange() {
+      var current = resolveRange();
+      var next = customDateRange(df && df.value, dt && dt.value, current);
+      if (!next.from || !next.to) return;
+      state.from = next.from; state.to = next.to; state.range = 'custom'; state.auto = null;
+      applyNotes(); renderAll();
+    }
+    if (df) df.addEventListener('change', applyCustomDateRange);
+    if (dt) dt.addEventListener('change', applyCustomDateRange);
 
     var rb = document.getElementById('reloadBtn');
     if (rb) rb.addEventListener('click', function () { boot(); });

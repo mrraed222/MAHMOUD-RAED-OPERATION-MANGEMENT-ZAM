@@ -21,12 +21,13 @@ test('branch directory keeps auth/permission guards, routes and existing data op
   assert.match(source, /href="\.\.\/staff-management\/index\.html"/);
 });
 
-test('directory offers local search/status filters, summaries, mobile-friendly cards and truthful data states', () => {
-  for (const marker of ['id="branch-search"', 'id="branch-status-filter"', 'id="branch-total"', 'id="branch-operational"', 'id="branch-staff-total"']) assert.ok(source.includes(marker));
-  assert.match(source, /addEventListener\('input', renderBranches\)/);
+test('directory offers a status filter, summaries, mobile-friendly cards and truthful data states without branch search', () => {
+  for (const marker of ['id="branch-status-filter"', 'id="branch-total"', 'id="branch-operational"', 'id="branch-staff-total"']) assert.ok(source.includes(marker));
+  assert.doesNotMatch(source, /id="branch-search"|ابحث باسم الفرع|matchesText/);
+  assert.doesNotMatch(source, /addEventListener\('input', renderBranches\)/);
   assert.match(source, /addEventListener\('change', renderBranches\)/);
   assert.match(source, /لا توجد فروع في الدليل بعد/);
-  assert.match(source, /لا توجد نتائج مطابقة/);
+  assert.match(source, /لا توجد فروع تطابق حالة التشغيل المحددة/);
   assert.match(source, /تعذّر تحميل دليل الفروع أو بيانات الطاقم/);
   assert.match(source, /id="retry-branches-btn"/);
   assert.match(source, /جارٍ تحميل دليل الفروع/);
@@ -38,7 +39,8 @@ test('directory offers local search/status filters, summaries, mobile-friendly c
   assert.match(source, /Escape/);
 });
 
-test('planned opening date is not represented as proof of actual opening', () => {
-  assert.match(source, /تاريخ الافتتاح المخطط لا يثبت وحده تأكيد افتتاح فعلي/);
-  assert.match(source, /ليس تأكيدًا لافتتاح فعلي/);
+test('planned opening date is clearly a plan and requires explicit owner confirmation', () => {
+  assert.match(source, /تاريخ الافتتاح المخطط/);
+  assert.match(source, /هذا تاريخ تخطيطي وليس تأكيدًا لافتتاح فعلي/);
+  assert.match(source, /التاريخ لا يفعّل الفرع تشغيليًا، ويلزم تأكيد المالك للافتتاح/);
 });

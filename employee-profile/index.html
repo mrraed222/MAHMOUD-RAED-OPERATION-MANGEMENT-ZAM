@@ -138,7 +138,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 </main>
 
 <script>
-const ROLE_LABELS = { Owner: 'مالك النظام', Admin: 'أدمن', Supervisor: 'مشرف وردية', Barista: 'باريستا', Kitchen: 'مطبخ', Waiter: 'خدمة' };
+const ROLE_LABELS = { Owner: 'مالك ومطور النظام', Admin: 'أدمن', Manager: 'مدير', Supervisor: 'مشرف وردية', Barista: 'باريستا', Kitchen: 'مطبخ', Waiter: 'خدمة', Quality: 'مراقب جودة' };
 
 document.getElementById('p-name').textContent = currentUser.full_name || 'الموظف';
 document.getElementById('p-role-branch').textContent = `${ROLE_LABELS[currentUser.role] || currentUser.role} — ${currentUser.branches?.name || 'بدون فرع'}`;
@@ -206,6 +206,7 @@ async function loadPerformance() {
 
 async function loadMyReports() {
     if (!['Owner', 'Admin', 'Supervisor'].includes(currentUser.role)) return;
+    const escapeReportValue = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     document.getElementById('supervisor-section').classList.remove('hidden');
     const list = document.getElementById('my-reports-list');
     list.setAttribute('aria-busy', 'true');
@@ -227,10 +228,10 @@ async function loadMyReports() {
         list.innerHTML = data.map(r => `
             <div class="p-sm flex justify-between items-center">
                 <div>
-                    <p class="font-bold text-on-surface text-body-sm">${r.branches?.name || '—'} — ${r.report_date}</p>
-                    <p class="text-[12px] text-on-surface-variant">${r.shift_type === 'Morning' ? 'صباحي' : 'مسائي'} • ${r.total_sales} ر.س</p>
+                    <p class="font-bold text-on-surface text-body-sm">${escapeReportValue(r.branches?.name || '—')} — ${escapeReportValue(r.report_date)}</p>
+                    <p class="text-[12px] text-on-surface-variant">${r.shift_type === 'Morning' ? 'صباحي' : 'مسائي'} • ${escapeReportValue(r.total_sales)} ر.س</p>
                 </div>
-                <span class="text-[11px] text-on-surface-variant">${r.team_status || ''}</span>
+                <span class="text-[11px] text-on-surface-variant">${escapeReportValue(r.team_status || '')}</span>
             </div>
         `).join('');
         list.setAttribute('aria-busy', 'false');

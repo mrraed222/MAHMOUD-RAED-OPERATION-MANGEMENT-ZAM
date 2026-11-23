@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
+import { scopeVisitPdfRows } from './scope-evidence.mjs'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,7 +10,6 @@ const corsHeaders = {
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[c] || c))
 const clean = (value: unknown, max = 500) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max)
-const managementRoles = ['Owner', 'Admin', 'Manager', 'Quality', 'Quality Manager']
 
 class RequestBodyError extends Error {
   constructor(message: string, readonly status: number) { super(message) }
@@ -108,13 +108,36 @@ async function buildPdf(renderedPages: Uint8Array[], evidence: any[]) {
 }
 
 function base64(bytes: Uint8Array) { let binary = ''; const chunk = 0x8000; for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunk, bytes.length))); return btoa(binary) }
-function emailHtml(visit: any, recipients: string[], actions: any[]) {
+function emailHtml(visit: any, actions: any[]) {
   const quality = esc(visit.quality_status || 'غير محددة')
   const overrideAt = visit.quality_override_at ? new Date(visit.quality_override_at).toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' }) : '—'
   const override = visit.quality_override
     ? `<p style="color:#8d332c">رسوب استثنائي موثق: <b>${esc(visit.quality_override_reason || '—')}</b> · ${esc(overrideAt)}</p>`
     : ''
-  return `<div dir="rtl" style="font-family:Tahoma,Arial;background:#f7f3ef;padding:24px"><div style="max-width:620px;margin:auto;background:#fff;border-radius:16px;padding:28px;border:1px solid #e5d9cf"><h2 style="color:#33210d">تقرير زيارة فرع</h2><p>تم إنشاء تقرير زيارة <b>${esc(visit.branches?.name)}</b> بتاريخ <b>${esc(visit.visit_date)}</b>.</p><p>الدرجة: <b>${visit.score_percentage == null ? '—' : Number(visit.score_percentage).toFixed(0) + '%'}</b></p><p>حالة الجودة: <b>${quality}</b></p>${override}<p>عدد الإجراءات والمخالفات: <b>${actions.length}</b></p><p>للتواصل: <a href="mailto:operation@zam.sa">operation@zam.sa</a></p><p style="color:#71655c;font-size:12px">المستلمون: ${recipients.map(esc).join('، ')}</p></div></div>`
+  return `<div dir="rtl" style="font-family:Tahoma,Arial;background:#f7f3ef;padding:24px"><div style="max-width:620px;margin:auto;background:#fff;border-radius:16px;padding:28px;border:1px solid #e5d9cf"><h2 style="color:#33210d">تقرير زيارة فرع</h2><p>تم إنشاء تقرير زيارة <b>${esc(visit.branches?.name)}</b> بتاريخ <b>${esc(visit.visit_date)}</b>.</p><p>الدرجة: <b>${visit.score_percentage == null ? '—' : Number(visit.score_percentage).toFixed(0) + '%'}</b></p><p>حالة الجودة: <b>${quality}</b></p>${override}<p>عدد الإجراءات والمخالفات: <b>${actions.length}</b></p><p>للتواصل: <a href="mailto:operation@zam.sa">operation@zam.sa</a></p></div></div>`
+}
+
+type VisitEvidenceRow = {
+  id: string;
+  result_id: string | null;
+  action_item_id: string | null;
+  file_path: string;
+  file_name: string | null;
+  mime_type: string | null;
+}
+
+const DETAIL_PAGE_SIZE = 1000
+async function fetchAllPages<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown | null }>,
+): Promise<T[]> {
+  const rows: T[] = []
+  for (let offset = 0; ; offset += DETAIL_PAGE_SIZE) {
+    const { data, error } = await fetchPage(offset, offset + DETAIL_PAGE_SIZE - 1)
+    if (error) throw error
+    const page = data || []
+    rows.push(...page)
+    if (page.length < DETAIL_PAGE_SIZE) return rows
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -126,14 +149,10 @@ Deno.serve(async (req: Request) => {
     const auth = req.headers.get('Authorization') || ''
     if (!auth.startsWith('Bearer ')) return json({ error: 'تسجيل الدخول مطلوب' }, 401)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') || '', { global: { headers: { Authorization: auth } } })
     const { data: authData, error: authError } = await userClient.auth.getUser()
     if (authError || !authData.user) return json({ error: 'جلسة المستخدم غير صالحة' }, 401)
     actorId = authData.user.id
-    supabaseAdmin = createClient(supabaseUrl, serviceKey)
-    const { data: actor } = await supabaseAdmin.from('profiles').select('id,full_name,email,role,branch_id,shift_type,status').eq('id', actorId).maybeSingle()
-    if (!actor || actor.status !== 'active') return json({ error: 'الحساب غير نشط' }, 403)
     const { data: canManageVisits, error: permissionError } = await userClient.rpc('can_manage_branch_visits')
     if (permissionError) throw permissionError
     const body = await readJsonBody(req, 12 * 1024 * 1024)
@@ -142,32 +161,42 @@ Deno.serve(async (req: Request) => {
     const sendEmail = body.send_email === true
     const modes = Array.isArray(body.recipient_modes) ? body.recipient_modes.filter((x: any) => ['management','shift_supervisor','self'].includes(x)) : []
     const renderedPages = decodeRenderedPages(body.rendered_pages)
+    if (sendEmail && !canManageVisits) return json({ error: 'إرسال تقارير الزيارة بالبريد يتطلب صلاحية إدارة زيارات الفروع' }, 403)
+    const { data: canGeneratePdf, error: pdfPermissionError } = await userClient.rpc('can_generate_branch_visit_report_pdf', { p_visit_id: visitId })
+    if (pdfPermissionError) throw pdfPermissionError
+    if (!canGeneratePdf) return json({ error: 'لا يوجد لديك نطاق فرع أو تكليف وصلاحية التقرير الكامل' }, 403)
+    const [assignedReportAccess, managerReportAccess] = await Promise.all([
+      userClient.rpc('can_access_branch_visit_report', { p_visit_id: visitId }),
+      userClient.rpc('can_manager_read_visit_report', { p_visit_id: visitId }),
+    ])
+    if (assignedReportAccess.error) throw assignedReportAccess.error
+    if (managerReportAccess.error) throw managerReportAccess.error
+    const fullReportVisible = assignedReportAccess.data === true || managerReportAccess.data === true
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    supabaseAdmin = createClient(supabaseUrl, serviceKey)
+    const { data: actor, error: actorError } = await supabaseAdmin.from('profiles')
+      .select('id,full_name,email,role,branch_id,shift_type,status').eq('id', actorId).maybeSingle()
+    if (actorError) throw actorError
+    if (!actor || actor.status !== 'active') return json({ error: 'الحساب غير نشط' }, 403)
     const { data: visit, error: visitError } = await supabaseAdmin.from('supervisory_visits').select('*,branches(name)').eq('id', visitId).maybeSingle()
     if (visitError) throw visitError
     if (!visit) return json({ error: 'الزيارة غير موجودة' }, 404)
-    const { data: canAccessVisit, error: accessError } = await userClient.rpc('can_access_branch_visit', { p_visit_id: visitId })
-    if (accessError) throw accessError
-    if (!canAccessVisit) return json({ error: 'لا يوجد لديك تكليف أو صلاحية لعرض هذا التقرير' }, 403)
-    if (sendEmail && !canManageVisits) return json({ error: 'إرسال تقارير الزيارة بالبريد يتطلب صلاحية إدارة زيارات الفروع' }, 403)
-    const { data: results, error: resultsError } = await supabaseAdmin.from('supervisory_visit_results').select('id,score,result,note,is_violation,subchecks,visit_checklist_templates(category,title,sort_order)').eq('visit_id', visitId).order('sort_order', { referencedTable: 'visit_checklist_templates', ascending: true })
-    if (resultsError) throw resultsError
-    const { data: actions, error: actionsError } = await supabaseAdmin.from('visit_action_items').select('id,title,description,item_type,priority,assigned_role,due_date,status,assigned_to,branch_id,shift_type').eq('visit_id', visitId).order('created_at')
-    if (actionsError) throw actionsError
-    const { data: canReviewActionProof, error: reviewPermissionError } = await userClient.rpc('can_review_branch_visit_actions')
-    if (reviewPermissionError) throw reviewPermissionError
-    const actionIdsVisibleToActor = new Set((actions || []).filter((action: any) => action.assigned_to === actorId || (
-      action.assigned_to == null
-      && actor.role === 'Supervisor'
-      && ['مشرف الشفت', 'Supervisor', 'Shift Supervisor'].includes(action.assigned_role)
-      && action.branch_id === actor.branch_id
-      && (action.shift_type == null || actor.shift_type === 'Both' || action.shift_type === actor.shift_type)
-    )).map((action: any) => action.id))
-    const { data: evidenceRows, error: evidenceError } = await supabaseAdmin.from('visit_evidence')
-      .select('id,result_id,action_item_id,file_path,file_name,mime_type').eq('visit_id', visitId).order('created_at')
-    if (evidenceError) throw evidenceError
+    const [visibleActions, visibleEvidenceRows] = await Promise.all([
+      fetchAllPages((from, to) => userClient.from('visit_action_items')
+        .select('id,title,description,item_type,priority,assigned_role,due_date,status,assigned_to,branch_id,shift_type')
+        .eq('visit_id', visitId).order('created_at', { ascending: true })
+        .order('id', { ascending: true }).range(from, to)),
+      fetchAllPages<VisitEvidenceRow>((from, to) => userClient.from('visit_evidence')
+        .select('id,result_id,action_item_id,file_path,file_name,mime_type').eq('visit_id', visitId)
+        .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
+    ])
+    const { actions, evidenceRows } = scopeVisitPdfRows({
+      actions: visibleActions,
+      evidenceRows: visibleEvidenceRows,
+      fullReportVisible,
+    })
     const evidence = []
     for (const item of evidenceRows || []) {
-      if (item.action_item_id && !canReviewActionProof && !actionIdsVisibleToActor.has(item.action_item_id)) continue
       const mime = String(item.mime_type || '').toLowerCase()
       const name = String(item.file_name || '')
       const supported = mime.includes('png') || mime.includes('jpeg') || mime.includes('jpg') || /\.(png|jpe?g)$/i.test(name)
@@ -190,7 +219,8 @@ Deno.serve(async (req: Request) => {
 
     const emails = new Set<string>()
     if (modes.includes('management')) {
-      const { data } = await supabaseAdmin.from('profiles').select('email').in('role', managementRoles).eq('status', 'active').not('email', 'is', null)
+      const { data, error } = await supabaseAdmin.rpc('get_branch_visit_report_email_recipients', { p_visit_id: visitId })
+      if (error) throw error
       for (const row of data || []) if (row.email) emails.add(row.email.trim().toLowerCase())
     }
     if (modes.includes('shift_supervisor')) {
@@ -206,7 +236,7 @@ Deno.serve(async (req: Request) => {
     const resendKey = Deno.env.get('RESEND_API_KEY')
     const from = Deno.env.get('RESEND_FROM') || 'Operations Expert <onboarding@resend.dev>'
     if (!resendKey) throw new Error('RESEND_API_KEY غير مضبوط في أسرار Edge Function')
-    const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: recipients, subject: `تقرير زيارة ${visit.branches?.name || ''} - ${visit.visit_date}`, html: emailHtml(visit, recipients, actions || []), attachments: [{ filename: `visit-${safeBranch}-${visit.visit_date}.pdf`, content: base64(pdfBytes) }] }) })
+    const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: 'operation@zam.sa', bcc: recipients.filter(email => email !== 'operation@zam.sa'), subject: `تقرير زيارة ${visit.branches?.name || ''} - ${visit.visit_date}`, html: emailHtml(visit, actions || []), attachments: [{ filename: `visit-${safeBranch}-${visit.visit_date}.pdf`, content: base64(pdfBytes) }] }) })
     const responseText = await response.text()
     if (!response.ok) throw new Error(`Resend ${response.status}: ${responseText.slice(0, 300)}`)
     await supabaseAdmin.from('visit_email_logs').insert({ visit_id: visitId, sent_by: actorId, recipients, cc_recipients: [], attachment_path: attachmentPath, status: 'sent', sent_at: new Date().toISOString() })

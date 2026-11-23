@@ -79,3 +79,42 @@ test('migration is scoped to the seven reviewed count templates and the three es
   assert.match(migration, /DROP CONSTRAINT IF EXISTS checklist_templates_task_type_check/);
   assert.doesNotMatch(migration, /DELETE FROM|UPDATE public\.branches|UPDATE public\.checklist_template_branches/);
 });
+
+test('server-side RLS keeps inventory counts Supervisor-only and preserves inventory-request roles', () => {
+  const migrationPath = path.join(__dirname, '..', 'supabase', 'migrations', '20261122190000_riwaq_assignments_scopes_quality.sql');
+  const migration = fs.readFileSync(migrationPath, 'utf8');
+  const functionStart = migration.indexOf('CREATE OR REPLACE FUNCTION public.can_employee_execute_checklist_template(');
+  assert.notEqual(functionStart, -1, 'server-side checklist execution function should exist');
+  const nextFunction = migration.indexOf('\nCREATE OR REPLACE FUNCTION public.', functionStart + 1);
+  const execution = migration.slice(functionStart, nextFunction < 0 ? undefined : nextFunction);
+
+  const countRuleStart = execution.indexOf("COALESCE(t.task_type, 'standard') = 'inventory_count'");
+  const requestRuleStart = execution.indexOf("COALESCE(t.task_type, 'standard') = 'inventory_request'");
+  const standardRuleStart = execution.indexOf("COALESCE(t.task_type, 'standard') NOT IN ('inventory_request', 'inventory_count')");
+  assert.ok(countRuleStart >= 0, 'inventory_count must have its own server-side role rule');
+  assert.ok(requestRuleStart > countRuleStart, 'inventory_request must remain a separate rule');
+  assert.ok(standardRuleStart > requestRuleStart, 'standard tasks must remain a separate rule');
+
+  const countRule = execution.slice(countRuleStart, requestRuleStart);
+  assert.match(countRule, /p\.role = 'Supervisor'/);
+  assert.doesNotMatch(countRule, /p\.role\s+IN\s*\(/, 'inventory_count must not accept a multi-role allowlist');
+  assert.doesNotMatch(countRule, /'Owner'|'Admin'/, 'Owner and Admin must be denied inventory_count');
+  const requestRule = execution.slice(requestRuleStart, standardRuleStart);
+  assert.match(requestRule, /p\.role IN \('Owner', 'Admin', 'Supervisor'\)/);
+
+  const policyStart = migration.indexOf('CREATE POLICY "Users can create own logs"');
+  const policyEnd = migration.indexOf('\n-- Explicit Manager report scopes', policyStart);
+  assert.ok(policyStart >= 0 && policyEnd > policyStart, 'checklist-log INSERT policy should exist');
+  const insertPolicy = migration.slice(policyStart, policyEnd);
+  assert.match(insertPolicy, /FOR INSERT TO authenticated/);
+  assert.match(insertPolicy, /public\.can_employee_execute_checklist_template\(template_id, branch_id, shift_type\)/);
+
+  const updateStart = migration.indexOf('CREATE POLICY "Users can update own logs"');
+  assert.ok(updateStart >= 0, 'checklist-log UPDATE policy should be recreated with server authorization');
+  const updatePolicy = migration.slice(updateStart, policyEnd);
+  assert.match(updatePolicy, /FOR UPDATE TO authenticated/);
+  assert.match(updatePolicy, /USING \([\s\S]*?public\.can_employee_execute_checklist_template\(template_id, branch_id, shift_type\)/);
+  assert.match(updatePolicy, /WITH CHECK \([\s\S]*?public\.can_employee_execute_checklist_template\(template_id, branch_id, shift_type\)/);
+  assert.equal((updatePolicy.match(/public\.can_employee_execute_checklist_template\(template_id, branch_id, shift_type\)/g) || []).length, 2,
+    'both the existing row and updated row must remain executable by the current role');
+});

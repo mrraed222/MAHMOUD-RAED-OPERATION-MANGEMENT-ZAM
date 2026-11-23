@@ -35,6 +35,11 @@
     return ROLE_CATEGORY[employee.role] ? [ROLE_CATEGORY[employee.role]] : [];
   }
 
+  function assignedTemplateIds(employee, assignmentsByProfile = {}) {
+    const assigned = assignmentsByProfile[employee.id];
+    return Array.isArray(assigned) ? assigned.map(String) : [];
+  }
+
   function isEmployeeOnShift(employee, shiftType) {
     return !employee.shift_type || employee.shift_type === 'Both' || employee.shift_type === shiftType;
   }
@@ -44,6 +49,7 @@
     branchName,
     branchHours,
     categoriesBy = {},
+    assignmentsByProfile = {},
     shiftType,
     includeExpired = false,
     now = new Date()
@@ -55,6 +61,7 @@
       branchName,
       branchHours,
       categories: assignedCategories(employee, categoriesBy),
+      assignedTemplateIds: assignedTemplateIds(employee, assignmentsByProfile),
       shiftType
     };
     const isVisible = includeExpired
@@ -78,6 +85,7 @@
     templates,
     staff,
     categoriesBy = {},
+    assignmentsByProfile = {},
     branchId,
     branchName,
     branchHours,
@@ -93,7 +101,7 @@
 
     (staff || []).filter(employee => isEmployeeOnShift(employee, shiftType)).forEach(employee => {
       // Manager summaries retain due tasks after the employee-facing deadline.
-      tasksForEmployee(templates, employee, { branchId, branchName, branchHours, categoriesBy, shiftType, includeExpired: true, now })
+      tasksForEmployee(templates, employee, { branchId, branchName, branchHours, categoriesBy, assignmentsByProfile, shiftType, includeExpired: true, now })
         .forEach(task => tasksById.set(task.id, task));
     });
 

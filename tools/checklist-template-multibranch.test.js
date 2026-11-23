@@ -40,7 +40,7 @@ test('supervisor inventory tasks honor multi-branch links rather than legacy bra
   assert.equal(dashboard.isSupervisorTaskVisible(inventoryTask, { branchId: 'branch-c', shiftType: 'Morning', now }), false);
 });
 
-test('lifecycle gate excludes planned no-date and future-date branches, includes opening day in Riyadh', () => {
+test('lifecycle gate keeps planned branches inactive even when their opening date arrives', () => {
   const noDate = { lifecycle_status: 'planned', planned_opening_date: null };
   const future = { lifecycle_status: 'planned', planned_opening_date: '2026-11-17' };
   const opening = { lifecycle_status: 'planned', planned_opening_date: '2026-11-17' };
@@ -49,6 +49,6 @@ test('lifecycle gate excludes planned no-date and future-date branches, includes
   assert.equal(lifecycle.isOperational(noDate, now), false);
   assert.equal(lifecycle.isOperational(future, '2026-11-16'), false);
   assert.equal(lifecycle.isOperational(opening, beforeRiyadhMidnight), false);
-  assert.equal(lifecycle.isOperational(opening, atRiyadhMidnight), true);
+  assert.equal(lifecycle.isOperational(opening, atRiyadhMidnight), false);
   assert.equal(lifecycle.isOperational({ lifecycle_status: null }, now), true);
 });

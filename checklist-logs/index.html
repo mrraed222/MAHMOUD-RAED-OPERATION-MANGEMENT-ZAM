@@ -207,6 +207,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </div>
 
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
+<script src="../assets/checklist-log-metrics.js?v=20261123171500"></script>
 <script>
 document.getElementById('current-user-role').textContent = ({Owner:'مالك',Admin:'مدير النظام',Manager:'مدير',Supervisor:'مشرف'}[currentUser.role] || '');
 document.getElementById('date-label').textContent = new Date().toLocaleDateString('ar-SA', { timeZone: 'Asia/Riyadh', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -300,7 +301,7 @@ async function loadLogs() {
 
         checklistStatus.textContent = 'تم تحديث السجل حسب الفلاتر المحددة.';
         // حساب الإحصائيات
-        document.getElementById('stat-total-executed').textContent = logs.length + hourlyLogs.length;
+        document.getElementById('stat-total-executed').textContent = ZamChecklistLogMetrics.countCompletedExecutionLogs(logs, hourlyLogs);
         const withPhotos = [...logs, ...hourlyLogs].filter(l => l.photo_url).length;
         document.getElementById('stat-with-photos').textContent = withPhotos;
         const staff = [...new Set([...logs, ...hourlyLogs].map(l => l.executed_by).filter(Boolean))].length;
@@ -315,7 +316,7 @@ async function loadLogs() {
                 <div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col">
                   <div class="h-48 overflow-hidden relative cursor-pointer group flex items-center justify-center bg-surface-container">
                     <button type="button" class="checklist-photo-trigger zoomable-btn" aria-label="تكبير صورة: ${escHtml(l.checklist_templates?.task_title || l.template_title || 'مهمة')}" data-src="${escHtml(safeImageUrl(l.photo_url))}"><img src="${escHtml(safeImageUrl(l.photo_url))}" alt="توثيق مصور للمهمة ${escHtml(l.checklist_templates?.task_title || l.template_title || '')}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-all"/></button>
-                    <div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"><span class="material-symbols-outlined text-4xl">zoom_in</span></div>
+                    <div class="pointer-events-none absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"><span class="material-symbols-outlined text-4xl">zoom_in</span></div>
                   </div>
                   <div class="p-sm flex flex-col gap-xs flex-1 justify-between">
                     <div>
@@ -386,7 +387,7 @@ async function loadLogs() {
                 lastImageTrigger = el;
                 document.getElementById('modal-img').src = src;
                 const modal = document.getElementById('image-modal');
-                modal.classList.remove('hidden'); modal.classList.add('flex'); modal.setAttribute('aria-hidden', 'false');
+                modal.classList.remove('hidden'); modal.classList.add('flex'); modal.setAttribute('aria-hidden', 'false'); window.zamImageModalCleanup?.(); window.zamImageModalCleanup=window.zamEnableModalFocus(modal,document.activeElement);
                 document.getElementById('close-image').focus();
             });
         });
@@ -403,7 +404,7 @@ async function loadLogs() {
 function closeImageModal() {
     const modal = document.getElementById('image-modal');
     modal.classList.add('hidden'); modal.classList.remove('flex'); modal.setAttribute('aria-hidden', 'true');
-    document.getElementById('modal-img').src = '';
+    document.getElementById('modal-img').src = ''; window.zamImageModalCleanup?.(); window.zamImageModalCleanup=null;
     if (lastImageTrigger?.isConnected) lastImageTrigger.focus();
 }
 document.getElementById('close-image').addEventListener('click', closeImageModal);
@@ -413,6 +414,10 @@ document.addEventListener('keydown', event => { if (event.key === 'Escape' && !d
 document.getElementById('apply-filters').addEventListener('click', loadLogs);
 
 (async function init() {
+    if (currentUser.role === 'Manager' && !(await ZamAPI.requireAdminPerm('can_view_checklist_logs'))) {
+        window.location.href = zamRoleHomePath(currentUser.role);
+        return;
+    }
     await loadBranchOptions();
     await loadLogs();
 })();

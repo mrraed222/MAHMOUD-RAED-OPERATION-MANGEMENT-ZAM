@@ -11,6 +11,7 @@ const config = { id: 'restroom-parent', task_title: 'النظافة الدوري
 const branch = (id, name) => ({ branchId: id, branchName: name, shiftType: 'Morning' });
 const root = path.join(__dirname, '..');
 const sql = fs.readFileSync(path.join(root, 'supabase/migrations/20261121160000_restroom_hourly_task_occurrences.sql'), 'utf8');
+const forwardSql = fs.readFileSync(path.join(root, 'supabase/migrations/20261123133000_restroom_hourly_requires_confirmed_branch_opening.sql'), 'utf8');
 const employeePage = fs.readFileSync(path.join(root, 'my-checklist/index.html'), 'utf8');
 const managerPage = fs.readFileSync(path.join(root, 'manage-templates/index.html'), 'utf8');
 const ownerDashboardPage = fs.readFileSync(path.join(root, 'dashboard/index.html'), 'utf8');
@@ -71,7 +72,7 @@ test('لا يسمح بمنح الإكمال بعد المهلة أو قبل تح
   assert.match(sql, /IF p_steps IS DISTINCT FROM v_required_steps THEN/);
 });
 
-test('تشمل النطاقات التشغيلية وتفعّل الفرع المخطط فقط من تاريخ افتتاحه المؤكد بالرياض', () => {
+test('تشمل النطاقات التشغيلية وتستبعد الفرع المخطط حتى تأكيد المالك', () => {
   const active = [
     ['dcec5c36-94ab-42a2-92c9-f949eb5557b9', 'تجربة زام'],
     ['61a89d45-2bc3-4a28-9519-8dfc7fc23f37', 'زام البلد'],
@@ -84,9 +85,11 @@ test('تشمل النطاقات التشغيلية وتفعّل الفرع ال�
   const riyadhToday = '2026-11-16';
   assert.equal(branchLifecycle.isOperational({ lifecycle_status: 'planned', planned_opening_date: null }, at(`${riyadhToday}T07:00:00+03:00`)), false, 'planned without an opening date');
   assert.equal(branchLifecycle.isOperational({ lifecycle_status: 'planned', planned_opening_date: '2026-11-17' }, at(`${riyadhToday}T07:00:00+03:00`)), false, 'future opening date');
-  assert.equal(branchLifecycle.isOperational({ lifecycle_status: 'planned', planned_opening_date: riyadhToday }, at(`${riyadhToday}T07:00:00+03:00`)), true, 'confirmed opening date has arrived');
-  assert.match(sql, /v_branch\.lifecycle_status = 'planned'[\s\S]*?v_branch\.planned_opening_date IS NOT NULL[\s\S]*?v_branch\.planned_opening_date <= pg_catalog\.timezone\('Asia\/Riyadh', v_now\)::date/);
-  assert.match(sql, /b\.lifecycle_status = 'planned'[\s\S]*?b\.planned_opening_date IS NOT NULL[\s\S]*?b\.planned_opening_date <= v_local_now::date/);
+  assert.equal(branchLifecycle.isOperational({ lifecycle_status: 'planned', planned_opening_date: riyadhToday }, at(`${riyadhToday}T07:00:00+03:00`)), false, 'planned opening date is not owner confirmation');
+  assert.match(forwardSql, /v_branch\.lifecycle_status = 'operational'/, 'forward migration completion RPC requires explicit operational status for classified branches');
+  assert.match(forwardSql, /b\.lifecycle_status = 'operational'/, 'forward migration missed-occurrence worker requires explicit operational status for classified branches');
+  assert.doesNotMatch(forwardSql, /lifecycle_status\s*=\s*'planned'[\s\S]{0,180}planned_opening_date\s+IS\s+NOT\s+NULL/, 'planned opening date must not activate an RPC branch');
+  assert.doesNotMatch(forwardSql, /lifecycle_status\s*=\s*'planned'[\s\S]{0,180}planned_opening_date\s*<=/, 'planned opening date must not generate missed occurrences');
   assert.match(employeePage, /restroomBranchOperational = ZamBranchLifecycle\.isOperational\(branch, new Date\(\)\)/);
   assert.match(employeePage, /restroomBranchOperational &&[\s\S]*?زام الحي', 'زام البرج/);
   assert.match(supervisorPage, /!ZamBranchLifecycle\.isOperational\(cache\.branchHours, now\)/);
@@ -114,6 +117,10 @@ test('لا يضيف migration الخاص بالمواعيد أي تغيير لل
   assert.doesNotMatch(sql, /cron\.schedule|zam-run-automations|run-scheduled-automations/i);
   assert.doesNotMatch(sql, /UPDATE\s+public\.branches|INSERT\s+INTO\s+public\.branches/i);
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.mark_restroom_hourly_occurrences_not_performed/);
+  assert.match(forwardSql, /CREATE OR REPLACE FUNCTION public\.complete_restroom_hourly_occurrence/);
+  assert.match(forwardSql, /CREATE OR REPLACE FUNCTION public\.mark_restroom_hourly_occurrences_not_performed/);
+  assert.match(sql, /lifecycle_status = 'planned'[\s\S]*?planned_opening_date IS NOT NULL/,
+    'the historical migration remains unchanged; the forward migration carries the correction');
 });
 
 test('التهيئة تحول قالبًا ساعيًا واحدًا فقط وتبدأ عند الساعة الكاملة التالية', () => {

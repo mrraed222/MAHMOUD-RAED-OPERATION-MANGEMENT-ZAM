@@ -334,11 +334,14 @@ function loadBranchOptions() {
 
 function renderBranchChoices(selectedIds = []) {
     const selected = new Set(selectedIds || []);
-    document.getElementById('f-branch-list').innerHTML = branchesCache.length
-        ? branchesCache.map(branch => {
+    const plannedSelections = [...selected].filter(id => branchesCache.some(branch =>
+        String(branch.id) === String(id) && branch.lifecycle_status === 'planned'));
+    const assignableBranches = branchesCache.filter(branch => branch.lifecycle_status !== 'planned');
+    document.getElementById('f-branch-list').innerHTML = assignableBranches.length
+        ? `${plannedSelections.length ? '<p class="col-span-full text-[12px] text-error">يوجد نطاق محفوظ لفرع مخطط؛ لن يظهر ضمن خيارات الإسناد. اختر الفروع التشغيلية فقط عند تحديث النطاق.</p>' : ''}${assignableBranches.map(branch => {
             const label = ZamBranchLifecycle.label(branch);
             return `<label class="flex items-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-xs text-body-sm"><input type="checkbox" class="f-branch-checkbox accent-primary" value="${frEsc(branch.id)}" ${selected.has(branch.id) ? 'checked' : ''}/><span>${frEsc(branch.name)} <small class="text-on-surface-variant">(${frEsc(label)})</small></span></label>`;
-        }).join('')
+        }).join('')}`
         : '<p class="text-error text-body-sm">لا توجد فروع متاحة للاختيار.</p>';
 }
 
@@ -756,6 +759,9 @@ function applyTemplateFilters() {
         if (!group.querySelector('[data-template-card]')) return;
         group.hidden = !group.querySelector('[data-template-card]:not([hidden])');
     });
+    let empty = document.getElementById('template-filter-empty');
+    if (!empty) { empty = document.createElement('p'); empty.id = 'template-filter-empty'; empty.className = 'rounded-xl border border-outline-variant bg-white p-md text-on-surface-variant text-body-sm'; empty.setAttribute('role', 'status'); empty.textContent = 'لا توجد قوالب مطابقة للبحث أو التكرار المحدد.'; document.getElementById('templates-container').appendChild(empty); }
+    empty.hidden = visible !== 0;
     const count = document.getElementById('template-search-count');
     if (count) count.textContent = query || frequency !== 'all' ? `${visible} قالب مطابق من القوالب المحمّلة، بما فيها الأرشيف.` : `${cards.length} قالب محمّل؛ النشطة والأسبوعية والأرشيف محفوظة في أقسامها.`;
 }

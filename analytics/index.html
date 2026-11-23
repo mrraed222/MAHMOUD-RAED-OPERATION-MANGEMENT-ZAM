@@ -23,8 +23,11 @@
   if (!['Owner','Admin','Manager'].includes(currentUser.role)) {
       window.location.href = zamRoleHomePath(currentUser.role);
   }
-  // real permission gate: admin/manager without this permission is sent home
-  (async () => { if (!(await ZamAPI.requireAdminPerm('can_view_all_reports'))) window.location.href = zamRoleHomePath(currentUser.role); })();
+  // Managers need the dedicated analytics capability; other roles retain the existing gate.
+  (async () => {
+      const permission = currentUser.role === 'Manager' ? 'can_view_analytics' : 'can_view_all_reports';
+      if (!(await ZamAPI.requireAdminPerm(permission))) window.location.href = zamRoleHomePath(currentUser.role);
+  })();
 </script>
 <style id="zam-design-system">
 :root {
@@ -181,19 +184,19 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
     </div>
 
     <div class="bg-surface-container rounded-xl border border-outline-variant p-md mt-md">
-      <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-sm mb-sm">
-        <div>
+      <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-sm mb-sm min-w-0">
+        <div class="min-w-0">
           <h3 class="font-title-md text-title-md text-primary">ترتيب الهدر حسب الفرع</h3>
           <p class="text-body-sm text-on-surface-variant">كل فرع في صف واحد. الجرام والمليلتر مفصولان ولا يجري جمعهما في رقم واحد.</p>
         </div>
-        <div class="flex flex-col sm:flex-row gap-xs">
-          <input id="f-waste-table" type="search" placeholder="ابحث بفرع أو صنف أو سبب" class="border border-outline-variant rounded-lg p-sm text-body-sm" aria-label="فلتر جدول الهدر حسب الفرع"/>
-          <select id="waste-branch-sort" class="border border-outline-variant rounded-lg p-sm text-body-sm" aria-label="ترتيب جدول الهدر">
+        <div id="waste-ranking-filters" class="flex flex-col sm:flex-row gap-xs w-full min-w-0 md:w-auto">
+          <input id="f-waste-table" type="search" placeholder="ابحث بفرع أو صنف أو سبب" class="border border-outline-variant rounded-lg p-sm text-body-sm w-full min-w-0 sm:flex-1 sm:w-auto" aria-label="فلتر جدول الهدر حسب الفرع"/>
+          <select id="waste-branch-sort" class="border border-outline-variant rounded-lg p-sm text-body-sm w-full min-w-0 sm:flex-1 sm:w-auto" aria-label="ترتيب جدول الهدر">
             <option value="grams">الأعلى بالجرام</option>
             <option value="milliliters">الأعلى بالمليلتر</option>
             <option value="records">الأعلى بعدد السجلات</option>
           </select>
-          <button id="apply-waste-table-filter" class="bg-primary text-on-primary rounded-lg px-md py-sm text-body-sm font-bold">تطبيق</button>
+          <button id="apply-waste-table-filter" class="bg-primary text-on-primary rounded-lg px-md py-sm text-body-sm font-bold w-full min-w-0 sm:w-auto sm:flex-none">تطبيق</button>
         </div>
       </div>
       <div class="max-h-[34vh] overflow-auto rounded-lg border border-outline-variant">
@@ -442,10 +445,10 @@ async function applyFilters() {
     if (preset === 'custom') {
         const fromValue = document.getElementById('f-from').value;
         const toValue = document.getElementById('f-to').value;
-        if ((fromValue && !toValue) || (!fromValue && toValue) || (fromValue && toValue && fromValue > toValue)) {
+        if (!fromValue || !toValue || fromValue > toValue) {
             status.textContent = 'تحقق من الفترة: أدخل التاريخين معًا، واجعل تاريخ البداية قبل تاريخ النهاية.';
             status.classList.add('text-error');
-            (fromValue && !toValue ? document.getElementById('f-to') : document.getElementById('f-from')).focus();
+            (!fromValue ? document.getElementById('f-from') : !toValue ? document.getElementById('f-to') : document.getElementById('f-from')).focus();
             return;
         }
     }
@@ -615,9 +618,14 @@ loadBranches().then(applyFilters).catch(error => {
     const status = document.getElementById('analytics-status');
     status.textContent = `تعذّر تحميل قائمة الفروع: ${error && error.message ? error.message : 'خطأ غير معروف'}. يمكنك إعادة المحاولة بتحديث الصفحة.`;
     status.classList.add('text-error');
-    document.getElementById('sales-summary').innerHTML = '<div class="col-span-full p-md text-center text-error">تعذّر بدء التحليلات بسبب فشل تحميل الفروع.</div>';
+    const loadError = `تعذّر بدء التحليلات بسبب فشل تحميل الفروع: ${error && error.message ? error.message : 'خطأ غير معروف'}.`;
+    document.getElementById('sales-summary').innerHTML = `<div class="col-span-full p-md text-center text-error">${esc(loadError)}</div>`;
+    document.getElementById('sales-branch-tbody').innerHTML = `<tr><td colspan="5" class="p-md text-center text-error">${esc(loadError)}</td></tr>`;
+    document.getElementById('waste-tbody').innerHTML = `<tr><td colspan="5" class="p-md text-center text-error">${esc(loadError)}</td></tr>`;
+    document.getElementById('waste-branch-ranking-tbody').innerHTML = `<tr><td colspan="7" class="p-md text-center text-error">${esc(loadError)}</td></tr>`;
+    document.getElementById('issues-tbody').innerHTML = `<tr><td colspan="7" class="p-md text-center text-error">${esc(loadError)}</td></tr>`;
     document.getElementById('waste-summary').innerHTML = '<div class="col-span-full p-md text-center text-error">تعذّر تحميل البيانات.</div>';
-    document.getElementById('issues-summary').innerHTML = '<div class="col-span-full p-md text-center text-error">تعذّر تحميل البيانات.</div>';
+    document.getElementById('issues-summary').innerHTML = `<div class="col-span-full p-md text-center text-error">${esc(loadError)}</div>`;
 });
 </script>
 </body></html>
