@@ -15,7 +15,9 @@ test('visit page preserves auth, assignment permissions, versioning and backend 
   assert.match(source, /assessment_version: activeAssessmentVersion/);
   assert.match(source, /onConflict: 'visit_id,item_id'/);
   assert.match(source, /assignment_id: activeAssignmentId/);
-  assert.match(source, /stableEvidencePath\(visit\.id, row\.item_id, file\)/);
+  assert.ok(source.includes('async function stableEvidencePath(actionId, uploaderId, file)'));
+  assert.ok(source.includes('return `${actionId}/${uploaderId}/${fingerprint}-${safeName}`;'));
+  assert.match(source, /stableEvidencePath\(actionId, currentUser\.id, file\)/);
   assert.match(source, /status: activeAssignmentId \? 'مسودة' : 'معتمدة'/);
   assert.match(source, /يوجد تقرير معتمد لهذا التكليف/);
 });

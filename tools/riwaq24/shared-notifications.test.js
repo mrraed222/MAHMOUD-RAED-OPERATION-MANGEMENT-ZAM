@@ -68,7 +68,7 @@ test('mobile header stacks brand, controls and shift context without shrinking t
 });
 
 test('pages rely on the shared header instead of issuing duplicate bell reads or handlers', () => {
-  for (const page of ['staff-management', 'supervisor-checklist', 'supervisor-dashboard', 'branch-detail']) {
+  for (const page of ['supervisor-checklist', 'supervisor-dashboard', 'branch-detail']) {
     const html = fs.readFileSync(path.join(__dirname, `../../${page}/index.html`), 'utf8');
     assert.doesNotMatch(html, /renderNotificationBell\s*\(/, `${page} must not perform a second bell fetch`);
     assert.doesNotMatch(html, /attachNotificationBellHandlers\s*\(/, `${page} must not rebind shared bell handlers`);

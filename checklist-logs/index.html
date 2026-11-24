@@ -13,7 +13,7 @@
                 }
             }
         }
-    }catch(_e){}</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/checklist-schedule.js?v=20261121164000"></script><script src="../assets/restroom-hourly.js?v=20261121170500"></script><script src="../assets/supabase-config.js?v=20261123210100"></script><script>
+    }catch(_e){}</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/checklist-schedule.js?v=20261121164000"></script><script src="../assets/restroom-hourly.js?v=20261121170500"></script><script src="../assets/supabase-config.js?v=20261124203300"></script><script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (!['Owner','Admin','Manager','Supervisor'].includes(currentUser.role)) {
       window.location.href = zamRoleHomePath(currentUser.role);
@@ -148,7 +148,16 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 
     <section class="checklist-results" aria-labelledby="results-heading">
     <div id="checklist-status" class="checklist-status" role="status" aria-live="polite" aria-atomic="true"></div>
-    <div class="checklist-section-intro"><h2 id="results-heading">سجل التنفيذ والصور</h2><p>يعرض المعرض والجدول السجلات والصور المتاحة فقط ضمن نطاق الفلترة.</p></div>
+    <div class="checklist-section-intro"><h2 id="results-heading">سجل التنفيذ والصور</h2><p>تعرض التفاصيل المهام المنفذة فقط؛ وتظهر حالات «غير منفذة» في العدادات.</p></div>
+    <section class="checklist-summary mb-lg" aria-labelledby="branch-shift-summary-heading">
+      <div class="checklist-section-intro"><h2 id="branch-shift-summary-heading">المنفذ وغير المنفذ حسب الفرع والوردية</h2><p>يعرض الجدول الورديتين معًا للتاريخ والفرع المحددين؛ الحالات المعلّقة لا تدخل في العدّادين.</p></div>
+      <div class="max-h-80 overflow-auto rounded-xl border border-outline-variant" role="region" tabindex="0" aria-label="عدادات التنفيذ حسب الفرع والوردية">
+        <table class="w-full min-w-[560px] text-body-sm text-right">
+          <thead class="sticky top-0 bg-surface-container text-on-surface-variant font-bold"><tr><th class="p-sm">الفرع</th><th class="p-sm">الوردية</th><th class="p-sm">منفذ</th><th class="p-sm">غير منفذ</th></tr></thead>
+          <tbody id="branch-shift-summary-tbody"><tr><td colspan="4" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
     <!-- عرض التبديل بين الجدول والمعرض -->
     <div class="flex justify-between items-center mb-sm border-b border-outline-variant pb-xs">
       <div class="checklist-view-switch" role="group" aria-label="طريقة عرض سجلات التنفيذ">
@@ -162,9 +171,9 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
       <p class="text-on-surface-variant text-body-sm">جارِ التحميل...</p>
     </div>
 
-    <div id="table-view" class="hidden bg-surface-container-lowest rounded-xl border border-outline-variant overflow-x-auto">
+    <div id="table-view" class="hidden max-h-[560px] overflow-auto bg-surface-container-lowest rounded-xl border border-outline-variant" role="region" tabindex="0" aria-label="جدول تفاصيل المهام المنفذة">
       <table class="w-full text-body-sm text-right">
-        <thead class="bg-surface-container text-on-surface-variant font-bold">
+        <thead class="sticky top-0 bg-surface-container text-on-surface-variant font-bold">
           <tr>
             <th class="p-sm">التاريخ</th>
             <th class="p-sm">الفرع</th>
@@ -182,8 +191,8 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
     </div>
 
     <section class="mt-lg bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
-      <div class="p-md border-b border-outline-variant"><h2 class="font-title-md text-primary">تنفيذ المهام الساعية</h2><p class="text-[11px] text-on-surface-variant">كل سجل مرتبط بساعة الرياض، والفرع والمنفذ والوردية.</p></div>
-      <div class="overflow-x-auto"><table class="w-full text-body-sm text-right"><thead class="bg-surface-container text-on-surface-variant font-bold"><tr><th class="p-sm">التاريخ</th><th class="p-sm">الساعة</th><th class="p-sm">الفرع</th><th class="p-sm">المهمة</th><th class="p-sm">الوردية</th><th class="p-sm">الحالة</th><th class="p-sm">الخطوات</th><th class="p-sm">المنفذ / الدور</th><th class="p-sm">ملاحظات</th></tr></thead><tbody id="hourly-logs-tbody"><tr><td colspan="9" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody></table></div>
+      <div class="p-md border-b border-outline-variant"><h2 class="font-title-md text-primary">تفاصيل المهام الساعية المنفذة</h2><p class="text-[11px] text-on-surface-variant">تظهر المهام المكتملة فقط؛ حالات «غير منفذة» ضمن العدادات أعلاه. الساعة حسب توقيت الرياض.</p></div>
+      <div class="max-h-[560px] overflow-auto" role="region" tabindex="0" aria-label="جدول المهام الساعية المكتملة"><table class="w-full min-w-[900px] text-body-sm text-right"><thead class="sticky top-0 bg-surface-container text-on-surface-variant font-bold"><tr><th class="p-sm">التاريخ</th><th class="p-sm">الساعة</th><th class="p-sm">الفرع</th><th class="p-sm">المهمة</th><th class="p-sm">الوردية</th><th class="p-sm">الحالة</th><th class="p-sm">الخطوات</th><th class="p-sm">المنفذ / الدور</th><th class="p-sm">ملاحظات</th><th class="p-sm">الصورة</th></tr></thead><tbody id="hourly-logs-tbody"><tr><td colspan="10" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody></table></div>
     </section>
 
     <section class="mt-md bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
@@ -207,7 +216,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </div>
 
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
-<script src="../assets/checklist-log-metrics.js?v=20261123171500"></script>
+<script src="../assets/checklist-log-metrics.js?v=20261124203300"></script>
 <script>
 document.getElementById('current-user-role').textContent = ({Owner:'مالك',Admin:'مدير النظام',Manager:'مدير',Supervisor:'مشرف'}[currentUser.role] || '');
 document.getElementById('date-label').textContent = new Date().toLocaleDateString('ar-SA', { timeZone: 'Asia/Riyadh', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -283,8 +292,8 @@ async function loadLogs() {
 
     try {
         let [logs, hourlyLogs, notes, readings] = await Promise.all([
-            ZamAPI.getChecklistLogs({ branchId, date, shiftType }),
-            ZamAPI.getHourlyChecklistLogs({ branchId, date, shiftType }),
+            ZamAPI.getChecklistLogs({ branchId, date }),
+            ZamAPI.getHourlyChecklistLogs({ branchId, date }),
             ZamAPI.getTeamNotes({ branchId, date, shiftType }),
             ZamAPI.getFridgeReadings({ branchId, date, shiftType })
         ]);
@@ -299,16 +308,39 @@ async function loadLogs() {
         notes = notes.filter(branchOperationalForRecord);
         readings = readings.filter(branchOperationalForRecord);
 
+        const allLogs = logs;
+        const allHourlyLogs = hourlyLogs;
+        const matchesShift = row => (row.shift_type || row.checklist_templates?.shift_type) === shiftType;
+        if (shiftType) {
+            logs = allLogs.filter(matchesShift);
+            hourlyLogs = allHourlyLogs.filter(matchesShift);
+        }
+
         checklistStatus.textContent = 'تم تحديث السجل حسب الفلاتر المحددة.';
         // حساب الإحصائيات
         document.getElementById('stat-total-executed').textContent = ZamChecklistLogMetrics.countCompletedExecutionLogs(logs, hourlyLogs);
-        const withPhotos = [...logs, ...hourlyLogs].filter(l => l.photo_url).length;
+        const completedLogs = logs.filter(ZamChecklistLogMetrics.isCompleted);
+        const hourlyCompletedLogs = hourlyLogs.filter(ZamChecklistLogMetrics.isCompleted);
+        const completedExecutionLogs = [...completedLogs, ...hourlyCompletedLogs];
+        const withPhotos = completedExecutionLogs.filter(l => safeImageUrl(l.photo_url)).length;
         document.getElementById('stat-with-photos').textContent = withPhotos;
-        const staff = [...new Set([...logs, ...hourlyLogs].map(l => l.executed_by).filter(Boolean))].length;
+        const staff = [...new Set(completedExecutionLogs.map(l => l.executed_by).filter(Boolean))].length;
         document.getElementById('stat-staff-count').textContent = staff;
 
+        const visibleRecordBranchIds = new Set([...allLogs, ...allHourlyLogs].map(log => String(log.branch_id || '')).filter(Boolean));
+        const showAllOperationalBranches = ['Owner', 'Admin'].includes(currentUser.role);
+        const summaryBranches = branchesCache.filter(branch => ZamBranchLifecycle.isOperational(branch, date) && (
+            (showAllOperationalBranches && (!branchId || String(branch.id) === String(branchId))) ||
+            visibleRecordBranchIds.has(String(branch.id)) ||
+            (currentUser.role === 'Supervisor' && String(branch.id) === String(currentUser.branch_id))
+        ));
+        const summaryRows = ZamChecklistLogMetrics.summarizeExecutionCounts(allLogs, allHourlyLogs, summaryBranches);
+        document.getElementById('branch-shift-summary-tbody').innerHTML = summaryRows.length
+            ? summaryRows.map(row => `<tr><th scope="row" class="p-sm font-bold">${escHtml(row.branchName)}</th><td class="p-sm">${row.shiftType === 'Morning' ? 'صباحي' : 'مسائي'}</td><td class="p-sm font-bold text-tertiary">${row.completed}</td><td class="p-sm font-bold">${row.notPerformed}</td></tr>`).join('')
+            : '<tr><td colspan="4" class="p-md text-center text-on-surface-variant">لا توجد سجلات ضمن النطاق لاحتساب العدادات.</td></tr>';
+
         // رندر معرض الصور
-        const logsWithPhotos = [...logs, ...hourlyLogs].filter(l => safeImageUrl(l.photo_url));
+        const logsWithPhotos = completedExecutionLogs.filter(l => safeImageUrl(l.photo_url));
         if (!logsWithPhotos.length) {
             galleryView.innerHTML = '<p class="col-span-3 text-on-surface-variant text-body-sm p-md text-center bg-surface-container-lowest border border-outline-variant rounded-xl">لا توجد مهام موثقة بصور مطابقة للفلاتر اليوم.</p>';
         } else {
@@ -334,10 +366,10 @@ async function loadLogs() {
 
         // رندر جدول التفاصيل
         const tbody = document.getElementById('logs-table-tbody');
-        if (!logs.length) {
+        if (!completedLogs.length) {
             tbody.innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">لا توجد سجلات مطابقة للفلاتر.</td></tr>';
         } else {
-            tbody.innerHTML = logs.map(l => `
+            tbody.innerHTML = completedLogs.map(l => `
                 <tr class="hover:bg-surface-container-low transition-colors">
                   <td class="p-sm">${escHtml(l.execution_date)}</td>
                   <td class="p-sm font-bold">${escHtml(l.branches?.name || 'عام')}</td>
@@ -353,18 +385,13 @@ async function loadLogs() {
         }
 
         const hourlyBody = document.getElementById('hourly-logs-tbody');
-        hourlyBody.innerHTML = hourlyLogs.length ? hourlyLogs.map(l => `
-            ${(() => {
-                const rawStatus = String(l.status || '').trim().toLowerCase();
-                const isMissed = ['notperformed', 'not_performed', 'غير منفذة'].includes(rawStatus);
-                const isCompleted = ['completed', 'done', 'مكتمل', 'منجز'].includes(rawStatus);
-                const statusText = isMissed ? 'غير منفذة' : isCompleted ? 'مكتملة' : (l.status || '—');
-                const stepText = ZamRestroomHourly.STEPS
-                    .filter(step => l.steps_completed?.[step.key] === true)
-                    .map(step => step.label).join('، ') || '—';
-                return `<tr class="${isMissed ? 'bg-error-container/30' : ''}"><td class="p-sm">${escHtml(l.execution_date)}</td><td class="p-sm font-bold">${String(l.occurrence_hour).padStart(2, '0')}:00–${String(l.occurrence_hour).padStart(2, '0')}:59</td><td class="p-sm">${escHtml(l.branches?.name || '—')}</td><td class="p-sm">${escHtml(l.checklist_templates?.task_title || l.template_title || 'مهمة ساعية')}</td><td class="p-sm">${escHtml(shiftLabel(l.shift_type))}</td><td class="p-sm font-bold ${isMissed ? 'text-error' : isCompleted ? 'text-tertiary' : ''}">${escHtml(statusText)}</td><td class="p-sm min-w-64">${escHtml(stepText)}</td><td class="p-sm">${escHtml(l.profiles?.full_name || '—')} <span class="text-[10px] text-outline">${escHtml(l.profiles?.role || '')}</span></td><td class="p-sm">${escHtml(l.notes || '—')}</td></tr>`;
-            })()}
-        `).join('') : '<tr><td colspan="9" class="p-md text-center text-on-surface-variant">لا توجد سجلات ساعية مطابقة.</td></tr>';
+        hourlyBody.innerHTML = hourlyCompletedLogs.length ? hourlyCompletedLogs.map(l => {
+            const stepText = ZamRestroomHourly.STEPS
+                .filter(step => l.steps_completed?.[step.key] === true)
+                .map(step => step.label).join('، ') || '—';
+            const photoUrl = safeImageUrl(l.photo_url);
+            return `<tr><td class="p-sm">${escHtml(l.execution_date)}</td><td class="p-sm font-bold">${String(l.occurrence_hour).padStart(2, '0')}:00–${String(l.occurrence_hour).padStart(2, '0')}:59</td><td class="p-sm">${escHtml(l.branches?.name || '—')}</td><td class="p-sm">${escHtml(l.checklist_templates?.task_title || l.template_title || 'مهمة ساعية')}</td><td class="p-sm">${escHtml(shiftLabel(l.shift_type))}</td><td class="p-sm font-bold text-tertiary">مكتملة</td><td class="p-sm min-w-64">${escHtml(stepText)}</td><td class="p-sm">${escHtml(l.profiles?.full_name || '—')} <span class="text-[10px] text-outline">${escHtml(l.profiles?.role || '')}</span></td><td class="p-sm">${escHtml(l.notes || '—')}</td><td class="p-sm">${photoUrl ? `<button type="button" class="text-primary hover:underline flex items-center gap-xs zoomable-btn" data-src="${escHtml(photoUrl)}" aria-label="عرض صورة المهمة الساعية"><span class="material-symbols-outlined">image</span> عرض</button>` : '<span class="text-outline">—</span>'}</td></tr>`;
+        }).join('') : '<tr><td colspan="10" class="p-md text-center text-on-surface-variant">لا توجد مهام ساعية مكتملة مطابقة.</td></tr>';
 
         const notesList = document.getElementById('team-notes-list');
         notesList.innerHTML = notes.length ? notes.map(n => `

@@ -13,7 +13,6 @@ const visitPage = read('branch-visits-new/index.html');
 const supervisorDashboard = read('supervisor-dashboard/index.html');
 const api = read('assets/supabase-config.js');
 const profilePage = read('employee-profile/index.html');
-const staffPage = read('staff-management/index.html');
 const now = new Date('2026-11-22T09:00:00+03:00');
 
 function functionSql(name) {
@@ -190,6 +189,6 @@ test('Quality assignment is opt-in, cross-branch, and cannot become visit manage
 test('Owner title is consistent and the visit approval stamp remains unchanged', () => {
   assert.match(permissions, /Owner: 'مالك ومطور النظام'/);
   assert.match(profilePage, /Owner: 'مالك ومطور النظام'/);
-  assert.match(staffPage, /Owner: 'مالك ومطور النظام'/);
+  assert.match(permissions, /Owner: 'مالك ومطور النظام'/);
   assert.match(visitPage, /اعتماد إلكتروني — محمود شريف — إدارة التشغيل/);
 });

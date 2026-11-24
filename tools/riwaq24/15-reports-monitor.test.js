@@ -16,6 +16,8 @@ function createMonitorHarness({
   managerBranchResponse = { data: [], error: null },
   rangeSummaryResponse = { data: [], error: null },
   legacySummaryResponse = { data: [], error: null },
+  deferredBranches,
+  deferredRangeSummary,
 } = {}) {
   const elements = new Map();
   const rpcCalls = [];
@@ -54,6 +56,7 @@ function createMonitorHarness({
       },
       async getBranches() {
         branchLoads += 1;
+        if (deferredBranches) return deferredBranches.promise;
         return branches;
       },
     },
@@ -62,6 +65,7 @@ function createMonitorHarness({
         rpcCalls.push({ name, args });
         if (name === 'list_manager_daily_summary_branches') return managerBranchResponse;
         if (name === 'get_daily_checklist_summary') {
+          if (args.p_date_from && deferredRangeSummary) return deferredRangeSummary.promise;
           return args.p_date_from
             ? rangeSummaryResponse
             : legacySummaryResponse;
@@ -85,14 +89,46 @@ function createMonitorHarness({
   };
 }
 
-test('monitor requests a date range first and only falls back to the tracked single-date API for non-Managers', () => {
+test('monitor loads branches and date-range summary together and falls back only for non-Managers', () => {
   assert.match(source, /\['Owner','Admin','Manager'\]\.includes\(currentUser\.role\)/);
   assert.match(source, /async function loadDailyChecklistSummary\(date\)/);
   assert.match(source, /rpc\('get_daily_checklist_summary',\{p_date_from:date,p_date_to:date\}\)/);
   assert.match(source, /if\(currentUser\.role==='Manager'\|\|rangeRes\.error\.code!=='PGRST202'\)throw rangeRes\.error/);
   assert.match(source, /rpc\('get_daily_checklist_summary',\{p_report_date:date\}\)/);
+  assert.match(source, /const \[branches,reports\]=await Promise\.all\(/);
+  assert.match(source, /staged\(loadDailyChecklistSummary\(date\),'ملخص التقارير'\)/);
+  assert.match(source, /رمز الخطأ:/);
   assert.doesNotMatch(source, /from\('daily_reports'\)\.select\('branch_id, shift_type, entry_time'\)/);
   assert.match(source, /ZamBranchLifecycle\.isOperational\(branch,date\)/);
+});
+
+test('branch request and summary RPC both start before either deferred response resolves', async () => {
+  let resolveBranches;
+  let resolveSummary;
+  const deferredBranches = {
+    promise: new Promise(resolve => { resolveBranches = resolve; }),
+  };
+  const deferredRangeSummary = {
+    promise: new Promise(resolve => { resolveSummary = resolve; }),
+  };
+  const harness = createMonitorHarness({
+    role: 'Manager',
+    managerBranchResponse: deferredBranches.promise,
+    deferredRangeSummary,
+  });
+
+  const loading = harness.start();
+  // The Manager path has no permission await, so both RPC starters run before
+  // initializeMonitor reaches its first wait on the deliberately pending gates.
+  assert.equal(harness.branchLoads, 0, 'Managers must not enumerate all branches');
+  assert.deepEqual(harness.rpcCalls.map(call => call.name), [
+    'list_manager_daily_summary_branches',
+    'get_daily_checklist_summary',
+  ]);
+
+  resolveBranches([{ id: 'branch-1', name: 'فرع الاختبار' }]);
+  resolveSummary({ data: [], error: null });
+  await loading;
 });
 
 test('Owner and Admin use their all-reports permission; Managers are authorized by scoped server RPCs', () => {
@@ -100,7 +136,7 @@ test('Owner and Admin use their all-reports permission; Managers are authorized 
   assert.ok(initialization, 'monitor initialization must gate loading');
   assert.match(initialization, /if\(!currentUser\|\|!\['Owner','Admin','Manager'\]\.includes\(currentUser\.role\)\)return/);
   assert.match(initialization, /currentUser\.role!=='Manager'&&!\(await ZamAPI\.requireAdminPerm\('can_view_all_reports'\)\)/);
-  const managerPath = source.match(/if\(currentUser\.role==='Manager'\)\{([\s\S]*?)\n\s*\}else\{/)?.[1];
+  const managerPath = source.match(/const branchPromise=currentUser\.role==='Manager'\s*\?([\s\S]*?):\s*ZamAPI\.getBranches\(\)/)?.[1];
   assert.match(managerPath || '', /rpc\('list_manager_daily_summary_branches'\)/);
   assert.doesNotMatch(managerPath || '', /ZamAPI\.getBranches\(\)/);
   assert.ok(initialization.indexOf('monitorAuthorized=true') < initialization.indexOf('await loadMonitor()'));
@@ -117,12 +153,22 @@ test('manual refresh, date changes and local sorting stay disabled until authori
   assert.match(source, /sortSelect\.addEventListener\('change',renderMonitor\)/);
 });
 
+test('stale empty Manager-scope responses cannot replace the selected date result', () => {
+  const loadMonitor = source.match(/async function loadMonitor\(\)\{([\s\S]*?)\n\}/)?.[1] || '';
+  const staleGuard = loadMonitor.indexOf('if(generation!==monitorLoadGeneration||date!==dateInput.value)return;');
+  const emptyScopeMessage = loadMonitor.indexOf("if(currentUser.role==='Manager'&&!branches.length)");
+  assert.ok(staleGuard >= 0 && emptyScopeMessage > staleGuard);
+});
+
 test('Manager with no configured branch scope receives no fabricated counts and never enumerates all branches', async () => {
   const harness = createMonitorHarness({ role: 'Manager', managerBranchResponse: { data: [], error: null } });
   await harness.start();
 
   assert.deepEqual(harness.permissionsChecked, [], 'Manager access must not depend on the legacy admin_permissions row');
-  assert.deepEqual(harness.rpcCalls.map(call => call.name), ['list_manager_daily_summary_branches']);
+  assert.deepEqual(harness.rpcCalls.map(call => call.name), [
+    'list_manager_daily_summary_branches',
+    'get_daily_checklist_summary',
+  ]);
   assert.equal(harness.branchLoads, 0, 'Manager must never fall back to all branches');
   assert.equal(harness.elements.get('c-morning-done').textContent, '—');
   assert.equal(harness.elements.get('c-morning-missing').textContent, '—');
@@ -187,6 +233,12 @@ test('Managers do not fall back to the legacy summary or branch APIs when a scop
   assert.equal(harness.branchLoads, 0);
   assert.equal(harness.elements.get('c-morning-done').textContent, '—');
   assert.match(harness.elements.get('monitor-feedback').textContent, /لم تُعرض أرقام/);
+});
+
+test('monitor error copy identifies the failing stage without exposing raw server messages', () => {
+  assert.match(source, /const stage=failure\?\.stage\|\|'تحميل البيانات'/);
+  assert.match(source, /const code=String\(err\?\.code\|\|''\)\.match/);
+  assert.doesNotMatch(source, /showMonitorMessage\(err\.message/);
 });
 
 test('date, refresh and sorting are actionable with accessible responsive output', () => {

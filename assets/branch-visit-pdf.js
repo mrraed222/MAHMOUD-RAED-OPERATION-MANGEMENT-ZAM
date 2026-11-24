@@ -5,6 +5,10 @@
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
   })[char]);
 
+  function attachmentBucket(item) {
+    return item?.action_item_id ? 'visit-action-evidence' : 'task-evidence';
+  }
+
   async function loadAttachments(visitId) {
     const { data, error } = await global.zamClient
       .from('visit_evidence')
@@ -14,7 +18,7 @@
     if (error) throw error;
 
     return Promise.all((data || []).map(async item => {
-      const bucket = item.action_item_id ? 'visit-action-evidence' : 'task-evidence';
+      const bucket = attachmentBucket(item);
       const { data: signed, error: urlError } = await global.zamClient.storage
         .from(bucket)
         .createSignedUrl(item.file_path, 600);

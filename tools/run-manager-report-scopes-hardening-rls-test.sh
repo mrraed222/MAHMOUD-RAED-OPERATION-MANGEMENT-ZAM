@@ -19,7 +19,7 @@ if [[ "$(id -un)" == root ]]; then
   exit 2
 fi
 
-RESULTS="$ROOT/test-artifacts/manager-report-scopes-hardening-20261123.log"
+RESULTS="${RESULTS_FILE:-$ROOT/test-artifacts/manager-report-scopes-hardening-20261123.log}"
 mkdir -p "$(dirname "$RESULTS")"
 TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/zam-manager-scope-rls.XXXXXX")"
 cleanup() {

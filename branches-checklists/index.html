@@ -16,7 +16,7 @@
     }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
-<script src="../assets/supabase-config.js?v=20261123210100"></script>
+<script src="../assets/supabase-config.js?v=20261124203300"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // real permission gate: admin without this permission is sent home
@@ -177,8 +177,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
   <section class="branches-related" aria-labelledby="branches-related-heading">
     <h2 id="branches-related-heading">إدارة مرتبطة</h2>
-    <p>انتقل إلى إدارة أداء الفروع أو قوائم التحقق أو طاقم الفروع.</p>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-md">
+    <p>انتقل إلى متابعة أداء الفروع أو قوائم التحقق.</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
     <a href="../dashboard/index.html" class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md hover:border-primary transition-all flex items-center gap-sm">
       <span class="material-symbols-outlined text-primary">insights</span>
       <div><p class="font-bold">أداء الفروع</p><p class="text-[12px] text-on-surface-variant">داشبورد متابعة التشغيل</p></div>
@@ -186,10 +186,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     <a href="../manage-templates/index.html" class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md hover:border-primary transition-all flex items-center gap-sm">
       <span class="material-symbols-outlined text-primary">edit_note</span>
       <div><p class="font-bold">قوائم التحقق</p><p class="text-[12px] text-on-surface-variant">إدارة تشيك ليست كل فرع</p></div>
-    </a>
-    <a href="../staff-management/index.html" class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md hover:border-primary transition-all flex items-center gap-sm">
-      <span class="material-symbols-outlined text-primary">groups</span>
-      <div><p class="font-bold">الطاقم</p><p class="text-[12px] text-on-surface-variant">موظفو كل فرع</p></div>
     </a>
     </div>
   </section>

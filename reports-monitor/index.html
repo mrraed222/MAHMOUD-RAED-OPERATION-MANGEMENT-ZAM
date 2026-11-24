@@ -22,7 +22,7 @@ try {
 } catch (_e) {}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261123210100"></script>
+<script src="../assets/supabase-config.js?v=20261124203300"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -37,11 +37,11 @@ try {
 </head>
 <body class="zam-page">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('reports-monitor',currentUser.role);})();</script>
-<header class="rm-page-header"><img src="../assets/logo/zam-logo.png" alt="شعار زام" width="42" height="42"><div><h1>مراقبة تسليم التقارير</h1><p>ZAM Operation · متابعة تسجيل التقارير حسب الفرع والوردية</p></div></header>
+<header class="rm-page-header"><img src="../assets/logo/zam-logo.png" alt="شعار زام" width="42" height="42"><div><h1>مراقبة تسليم التقارير</h1><p>ZAM Operation</p></div></header>
 <main class="rm-main"><div class="rm-wrap">
-<header class="rm-heading"><div><p style="margin:0 0 6px;color:#217a5e;font-weight:700">التقارير · متابعة التسجيل</p><h1 class="rm-title">مراقبة تسليم التقارير</h1><p class="rm-sub">راجع ما إذا كان لكل فرع سجل تقرير في الوردية الصباحية والمسائية للتاريخ المحدد.</p></div>
+<header class="rm-heading"><div><h1 class="rm-title">ملخص التسجيل حسب الفرع والوردية</h1><p class="rm-sub">اختر التاريخ لعرض السجلات الموجودة فقط.</p></div>
 <div class="rm-controls"><label class="rm-control" for="check-date">تاريخ التقرير <input type="date" id="check-date"></label><div class="rm-actions"><button class="rm-btn primary" id="refresh-monitor" type="button">تحديث البيانات</button></div></div></header>
-<div class="rm-note" role="note">«لم يُسجّل» تعني أن سجل التقرير غير موجود لهذا الفرع والوردية فقط؛ لا تشير إلى التأخر عن موعد تسليم. التاريخ يُراجع وفق تاريخ التقرير المحلي (الرياض).</div>
+<div class="rm-note" role="note">«لم يُسجّل» تعني عدم وجود سجل فقط، ولا تعني التأخر. التاريخ حسب توقيت الرياض.</div>
 <section class="rm-section" aria-labelledby="summary-title"><div class="rm-section-head"><div><h2 id="summary-title">ملخص التغطية</h2><p id="summary-context">حسب الفروع التشغيلية في التاريخ المحدد</p></div></div><div class="rm-summary">
 <article class="rm-card"><h3>الوردية الصباحية</h3><div class="rm-stats"><div class="rm-stat ok"><span>تم تسجيل التقرير</span><strong id="c-morning-done" aria-live="polite">—</strong></div><div class="rm-stat missing"><span>لم يُسجّل تقرير</span><strong id="c-morning-missing" aria-live="polite">—</strong></div></div></article>
 <article class="rm-card"><h3>الوردية المسائية</h3><div class="rm-stats"><div class="rm-stat ok"><span>تم تسجيل التقرير</span><strong id="c-evening-done" aria-live="polite">—</strong></div><div class="rm-stat missing"><span>لم يُسجّل تقرير</span><strong id="c-evening-missing" aria-live="polite">—</strong></div></div></article></div></section>
@@ -91,29 +91,27 @@ async function loadMonitor(){
  if(!date){showMonitorMessage('اختر تاريخًا صالحًا لعرض التقارير.');refreshButton.disabled=false;return;}
  refreshButton.disabled=true;
  try{
-  let branches;
-  if(currentUser.role==='Manager'){
-   const branchesRes=await zamClient.rpc('list_manager_daily_summary_branches');
-   if(branchesRes.error)throw branchesRes.error;
-   branches=branchesRes.data||[];
-   if(generation!==monitorLoadGeneration||date!==dateInput.value)return;
-   if(!branches.length){showMonitorMessage('نطاق فروع المدير غير مهيأ أو لا يحتوي على فروع مسموح بها؛ لا توجد أرقام متاحة.',true);return;}
-  }else{
-   branches=await ZamAPI.getBranches();
-  }
+  const branchPromise=currentUser.role==='Manager'
+   ? zamClient.rpc('list_manager_daily_summary_branches').then(result=>{if(result.error)throw result.error;return result.data||[];})
+   : ZamAPI.getBranches();
+  const staged=(promise,stage)=>promise.catch(error=>{throw {stage,error};});
+  const [branches,reports]=await Promise.all([
+   staged(branchPromise,currentUser.role==='Manager'?'نطاق الفروع':'قائمة الفروع'),
+   staged(loadDailyChecklistSummary(date),'ملخص التقارير'),
+  ]);
   if(generation!==monitorLoadGeneration||date!==dateInput.value)return;
-  const reports=await loadDailyChecklistSummary(date);
-  if(generation!==monitorLoadGeneration||date!==dateInput.value)return;
-  branches=(branches||[]).filter(branch=>ZamBranchLifecycle.isOperational(branch,date));
-  branchRows=branches.map(branch=>({branch,morning:reports.find(r=>r.branch_id===branch.id&&r.shift_type==='Morning'),evening:reports.find(r=>r.branch_id===branch.id&&r.shift_type==='Evening')}));
+  if(currentUser.role==='Manager'&&!branches.length){showMonitorMessage('نطاق فروع المدير غير مهيأ أو لا يحتوي على فروع مسموح بها؛ لا توجد أرقام متاحة.',true);return;}
+  const operationalBranches=(branches||[]).filter(branch=>ZamBranchLifecycle.isOperational(branch,date));
+  branchRows=operationalBranches.map(branch=>({branch,morning:reports.find(r=>r.branch_id===branch.id&&r.shift_type==='Morning'),evening:reports.find(r=>r.branch_id===branch.id&&r.shift_type==='Evening')}));
   sortSelect.disabled=false;
   renderMonitor();
- }catch(err){
+ }catch(failure){
   if(generation!==monitorLoadGeneration)return;
+  const err=failure?.error||failure;
   console.error(err);
-  const message=currentUser.role==='Manager'
-   ? 'تعذّر التحقق من صلاحية ملخص المدير ونطاق فروعه أو تحميل البيانات؛ لم تُعرض أرقام. أعد المحاولة بعد التحقق من الإعداد.'
-   : 'تعذّر تحميل بيانات المراقبة. تحقق من الاتصال ثم أعد المحاولة.';
+  const stage=failure?.stage||'تحميل البيانات';
+  const code=String(err?.code||'').match(/^[A-Za-z0-9_-]{1,32}$/)?.[0];
+  const message=`تعذّر ${stage}؛ لم تُعرض أرقام غير مكتملة${code?` (رمز الخطأ: ${code})`:''}. أعد المحاولة.`;
   showMonitorMessage(message,true);
  }finally{if(generation===monitorLoadGeneration)refreshButton.disabled=false;}
 }

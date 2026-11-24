@@ -9,7 +9,7 @@ assert.match(api, /invoke\('login-with-passcode'/, 'shared API must retain the p
 assert.match(api, /body: \{ passcode \}/, 'shared API must preserve the exact passcode request payload');
 assert.match(html, /forgot-passcode\/index\.html/, 'must retain password-reset help route');
 assert.match(html, /register\/index\.html/, 'must retain registration route');
-assert.match(html, /4 إلى 6 أرقام/, 'must clearly communicate the allowed passcode length');
+assert.match(html, /4 إلى 20 حرفًا أو رقمًا أو رمزًا/, 'must clearly communicate the allowed passcode formats and length');
 assert.match(html, /aria-live="assertive"/, 'errors must be announced accessibly');
 assert.match(html, /loadingNote\.hidden = false/, 'must expose a pending state during login');
 assert.match(html, /toggleCode\.addEventListener/, 'the passcode visibility control must work');

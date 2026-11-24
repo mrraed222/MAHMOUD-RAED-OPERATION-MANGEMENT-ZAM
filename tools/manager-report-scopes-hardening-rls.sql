@@ -2,11 +2,14 @@
 \echo 'Running existing isolated report-association RLS suite and the local Manager-scope hardening candidate'
 \ir technical-issues-report-association-rls.sql
 \ir ../supabase/migrations/20261123160000_manager_report_scopes_hardening.sql
+\ir ../supabase/migrations/20261124153000_manager_branch_scope_type.sql
+\ir ../supabase/migrations/20261124160000_manager_write_scope_guards.sql
+\ir ../supabase/migrations/20261124170000_visit_action_evidence_scoped_storage.sql
 
 BEGIN;
 INSERT INTO public.branches(id, name, lifecycle_status) VALUES
-  ('81000000-0000-4000-8000-000000000001', 'Hardening Branch A', 'open'),
-  ('81000000-0000-4000-8000-000000000002', 'Hardening Branch B', 'open'),
+  ('81000000-0000-4000-8000-000000000001', 'Hardening Branch A', 'operational'),
+  ('81000000-0000-4000-8000-000000000002', 'Hardening Branch B', 'operational'),
   ('81000000-0000-4000-8000-000000000003', 'Hardening Planned C', 'planned');
 
 INSERT INTO public.profiles(id, full_name, email, passcode, role, status, branch_id, shift_type) VALUES
@@ -18,28 +21,42 @@ INSERT INTO public.profiles(id, full_name, email, passcode, role, status, branch
   ('82000000-0000-4000-8000-000000000006', 'Branch A Morning Supervisor', 'supervisor-a@example.test', 'supervisor-a', 'Supervisor', 'active', '81000000-0000-4000-8000-000000000001', 'Morning'),
   ('82000000-0000-4000-8000-000000000007', 'Branch B Morning Supervisor', 'supervisor-b@example.test', 'supervisor-b', 'Supervisor', 'active', '81000000-0000-4000-8000-000000000002', 'Morning'),
   ('82000000-0000-4000-8000-000000000008', 'Ordinary Branch A Barista', 'barista-a@example.test', 'barista-a', 'Barista', 'active', '81000000-0000-4000-8000-000000000001', 'Morning'),
-  ('82000000-0000-4000-8000-000000000009', 'Action Reviewer', 'reviewer@example.test', 'reviewer', 'Admin', 'active', '81000000-0000-4000-8000-000000000001', 'Both');
+  ('82000000-0000-4000-8000-000000000009', 'Action Reviewer', 'reviewer@example.test', 'reviewer', 'Admin', 'active', '81000000-0000-4000-8000-000000000001', 'Both'),
+  ('82000000-0000-4000-8000-000000000010', 'Branch Manager A', 'branch-manager-a@example.test', 'branch-manager-a', 'Manager', 'active', '81000000-0000-4000-8000-000000000001', 'Both'),
+  ('82000000-0000-4000-8000-000000000011', 'Visit Reader A', 'visit-reader-a@example.test', 'visit-reader-a', 'Manager', 'active', '81000000-0000-4000-8000-000000000001', 'Both'),
+  ('82000000-0000-4000-8000-000000000012', 'Analytics Reader A', 'analytics-reader-a@example.test', 'analytics-reader-a', 'Manager', 'active', '81000000-0000-4000-8000-000000000001', 'Both'),
+  ('82000000-0000-4000-8000-000000000013', 'Planned Branch Supervisor', 'supervisor-planned@example.test', 'supervisor-planned', 'Supervisor', 'active', '81000000-0000-4000-8000-000000000003', 'Morning');
 INSERT INTO auth.users(id) VALUES
   ('82000000-0000-4000-8000-000000000001'), ('82000000-0000-4000-8000-000000000002'),
   ('82000000-0000-4000-8000-000000000003'), ('82000000-0000-4000-8000-000000000004'),
   ('82000000-0000-4000-8000-000000000005'), ('82000000-0000-4000-8000-000000000006'),
   ('82000000-0000-4000-8000-000000000007'), ('82000000-0000-4000-8000-000000000008'),
-  ('82000000-0000-4000-8000-000000000009');
-INSERT INTO public.admin_permissions(profile_id, can_manage_reports, can_view_all_reports) VALUES
-  ('82000000-0000-4000-8000-000000000002', true, false),
-  ('82000000-0000-4000-8000-000000000003', true, false),
-  ('82000000-0000-4000-8000-000000000005', false, false);
+  ('82000000-0000-4000-8000-000000000009'), ('82000000-0000-4000-8000-000000000010'),
+  ('82000000-0000-4000-8000-000000000011'), ('82000000-0000-4000-8000-000000000012'),
+  ('82000000-0000-4000-8000-000000000013');
+INSERT INTO public.admin_permissions(profile_id, can_manage_reports, can_view_all_reports, can_manage_branch_visits) VALUES
+  ('82000000-0000-4000-8000-000000000002', true, false, true),
+  ('82000000-0000-4000-8000-000000000003', true, false, true),
+  ('82000000-0000-4000-8000-000000000005', false, false, false);
 INSERT INTO public.admin_permissions(profile_id, can_review_visit_actions)
 VALUES ('82000000-0000-4000-8000-000000000009', true);
+INSERT INTO public.admin_permissions(profile_id, can_manage_reports, can_manage_branch_visits, can_review_visit_actions)
+VALUES ('82000000-0000-4000-8000-000000000010', true, true, true);
 INSERT INTO public.manager_report_scopes(
-  profile_id, scope_mode, can_view_daily_checklist_summary, can_view_checklist_logs,
+  profile_id, manager_type, scope_mode, can_view_daily_checklist_summary, can_view_checklist_logs,
   can_view_visit_reports, can_view_analytics, configured_by
 ) VALUES
-  ('82000000-0000-4000-8000-000000000002', 'all', true, true, true, true, '82000000-0000-4000-8000-000000000001'),
-  ('82000000-0000-4000-8000-000000000003', 'selected', true, true, true, true, '82000000-0000-4000-8000-000000000001'),
-  ('82000000-0000-4000-8000-000000000005', 'all', true, false, false, false, '82000000-0000-4000-8000-000000000001');
+  ('82000000-0000-4000-8000-000000000002', 'branches', 'all', true, true, true, true, '82000000-0000-4000-8000-000000000001'),
+  ('82000000-0000-4000-8000-000000000003', 'branches', 'selected', true, true, true, true, '82000000-0000-4000-8000-000000000001'),
+  ('82000000-0000-4000-8000-000000000005', 'branches', 'all', true, false, false, false, '82000000-0000-4000-8000-000000000001'),
+  ('82000000-0000-4000-8000-000000000010', 'branch', 'selected', false, false, true, false, '82000000-0000-4000-8000-000000000001'),
+  ('82000000-0000-4000-8000-000000000011', 'branches', 'selected', false, false, true, false, '82000000-0000-4000-8000-000000000001'),
+  ('82000000-0000-4000-8000-000000000012', 'branches', 'selected', false, false, false, true, '82000000-0000-4000-8000-000000000001');
 INSERT INTO public.manager_report_scope_branches(profile_id, branch_id) VALUES
-  ('82000000-0000-4000-8000-000000000003', '81000000-0000-4000-8000-000000000002');
+  ('82000000-0000-4000-8000-000000000003', '81000000-0000-4000-8000-000000000002'),
+  ('82000000-0000-4000-8000-000000000010', '81000000-0000-4000-8000-000000000001'),
+  ('82000000-0000-4000-8000-000000000011', '81000000-0000-4000-8000-000000000001'),
+  ('82000000-0000-4000-8000-000000000012', '81000000-0000-4000-8000-000000000001');
 
 INSERT INTO public.daily_reports(id, branch_id, report_date, shift_type, submitted_by, supervisor_name, total_sales, entry_time) VALUES
   ('83000000-0000-4000-8000-000000000001', '81000000-0000-4000-8000-000000000001', '2026-11-21', 'Morning', '82000000-0000-4000-8000-000000000006', 'Supervisor A', 100, '11:00'),
@@ -87,6 +104,25 @@ SELECT set_config('app.visit_action_transition', '', true);
 INSERT INTO storage.objects(bucket_id, name) VALUES
   ('visit-action-evidence', '8c000000-0000-4000-8000-000000000001/82000000-0000-4000-8000-000000000001/branch-a.png'),
   ('visit-action-evidence', '8c000000-0000-4000-8000-000000000002/82000000-0000-4000-8000-000000000001/branch-b.png');
+INSERT INTO public.visit_evidence(id, visit_id, file_path, uploaded_by, action_item_id) VALUES
+  ('8d000000-0000-4000-8000-000000000001', '89000000-0000-4000-8000-000000000002',
+   '8c000000-0000-4000-8000-000000000002/82000000-0000-4000-8000-000000000007/branch-b-proof.png',
+   '82000000-0000-4000-8000-000000000007', '8c000000-0000-4000-8000-000000000002');
+
+-- Isolated SECURITY DEFINER probe: table-owner writes bypass RLS but must still
+-- be stopped by the manager branch-scope trigger.
+CREATE FUNCTION public.test_manager_security_definer_visit_update(p_action_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+BEGIN
+  UPDATE public.visit_action_items SET title = title WHERE id = p_action_id;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.test_manager_security_definer_visit_update(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.test_manager_security_definer_visit_update(uuid) TO authenticated;
 
 DO $test$
 DECLARE v_reader_oid oid;
@@ -155,7 +191,7 @@ RESET ROLE;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '82000000-0000-4000-8000-000000000002', true);
 DO $test$
-DECLARE n integer;
+DECLARE n integer; denied boolean := false;
 BEGIN
   SELECT count(*) INTO n FROM public.daily_reports WHERE id::text LIKE '83000000-0000-4000-8000-00000000000%';
   IF n <> 3 THEN RAISE EXCEPTION 'FAIL all-scope Manager expected three operational reports, got %', n; END IF;
@@ -184,6 +220,28 @@ BEGIN
   IF NOT public.current_user_can_read_visit_branch('81000000-0000-4000-8000-000000000002') THEN
     RAISE EXCEPTION 'FAIL all-scope Manager visit authorization did not follow visit capability';
   END IF;
+  IF NOT public.current_user_manager_branch_in_scope('81000000-0000-4000-8000-000000000001')
+     OR NOT public.current_user_manager_branch_in_scope('81000000-0000-4000-8000-000000000002')
+     OR public.current_user_manager_branch_in_scope('81000000-0000-4000-8000-000000000003')
+     OR NOT public.can_manage_branch_visit_in_scope('81000000-0000-4000-8000-000000000001')
+     OR NOT public.can_manage_branch_visit_in_scope('81000000-0000-4000-8000-000000000002')
+     OR public.can_manage_branch_visit_in_scope('81000000-0000-4000-8000-000000000003') THEN
+    RAISE EXCEPTION 'FAIL all-scope Manager must be limited to operational branches';
+  END IF;
+  INSERT INTO public.branch_visit_assignments(branch_id, assigned_to, assigned_by, visit_date, shift_type)
+  VALUES ('81000000-0000-4000-8000-000000000001', '82000000-0000-4000-8000-000000000006',
+          '82000000-0000-4000-8000-000000000002', '2026-11-23', 'Morning');
+  INSERT INTO public.branch_visit_assignments(branch_id, assigned_to, assigned_by, visit_date, shift_type)
+  VALUES ('81000000-0000-4000-8000-000000000002', '82000000-0000-4000-8000-000000000007',
+          '82000000-0000-4000-8000-000000000002', '2026-11-23', 'Morning');
+  BEGIN
+    INSERT INTO public.branch_visit_assignments(branch_id, assigned_to, assigned_by, visit_date, shift_type)
+    VALUES ('81000000-0000-4000-8000-000000000003', '82000000-0000-4000-8000-000000000013',
+            '82000000-0000-4000-8000-000000000002', '2026-11-23', 'Morning');
+    RAISE EXCEPTION 'FAIL all-scope Manager assigned a visit in a planned branch';
+  EXCEPTION WHEN insufficient_privilege THEN denied := true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL expected planned-branch visit assignment denial'; END IF;
   RAISE NOTICE 'PASS all-scope Manager: summary, analytics, weekly-report visits, reports-log details, and checklist logs';
 END;
 $test$;
@@ -192,7 +250,7 @@ RESET ROLE;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '82000000-0000-4000-8000-000000000003', true);
 DO $test$
-DECLARE n integer;
+DECLARE n integer; denied boolean := false;
 BEGIN
   SELECT count(*) INTO n FROM public.daily_reports WHERE id::text LIKE '83000000-0000-4000-8000-00000000000%';
   IF n <> 1 OR NOT EXISTS (SELECT 1 FROM public.daily_reports WHERE id='83000000-0000-4000-8000-000000000003') THEN
@@ -242,6 +300,30 @@ BEGIN
   IF public.current_user_can_read_visit_branch('81000000-0000-4000-8000-000000000001') THEN
     RAISE EXCEPTION 'FAIL selected Manager visit helper allowed Branch A outside scope';
   END IF;
+  IF NOT public.current_user_manager_branch_in_scope('81000000-0000-4000-8000-000000000002')
+     OR public.current_user_manager_branch_in_scope('81000000-0000-4000-8000-000000000001')
+     OR public.current_user_manager_branch_in_scope('81000000-0000-4000-8000-000000000003')
+     OR NOT public.can_manage_branch_visit_in_scope('81000000-0000-4000-8000-000000000002')
+     OR public.can_manage_branch_visit_in_scope('81000000-0000-4000-8000-000000000001') THEN
+    RAISE EXCEPTION 'FAIL selected Manager write scope must be only operational Branch B';
+  END IF;
+  SELECT count(*) INTO n FROM public.list_branch_visit_supervisors('81000000-0000-4000-8000-000000000002')
+  WHERE user_id = '82000000-0000-4000-8000-000000000007';
+  IF n <> 1 THEN RAISE EXCEPTION 'FAIL selected Manager cannot list in-scope Branch B supervisor'; END IF;
+  SELECT count(*) INTO n FROM public.list_branch_visit_supervisors('81000000-0000-4000-8000-000000000001');
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL selected Manager RPC returned out-of-scope Branch A supervisors'; END IF;
+  INSERT INTO public.branch_visit_assignments(branch_id, assigned_to, assigned_by, visit_date, shift_type)
+  VALUES ('81000000-0000-4000-8000-000000000002', '82000000-0000-4000-8000-000000000007',
+          '82000000-0000-4000-8000-000000000003', '2026-11-24', 'Morning');
+  denied := false;
+  BEGIN
+    INSERT INTO public.branch_visit_assignments(branch_id, assigned_to, assigned_by, visit_date, shift_type)
+    VALUES ('81000000-0000-4000-8000-000000000001', '82000000-0000-4000-8000-000000000006',
+            '82000000-0000-4000-8000-000000000003', '2026-11-24', 'Morning');
+    RAISE EXCEPTION 'FAIL selected Manager assigned a visit outside Branch B';
+  EXCEPTION WHEN insufficient_privilege THEN denied := true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL expected selected Manager out-of-scope assignment denial'; END IF;
   RAISE NOTICE 'PASS selected Manager: summary branch list, report data, visits, and evidence storage stay in Branch B';
 END;
 $test$;
@@ -300,6 +382,60 @@ BEGIN
   SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='visit-action-evidence';
   IF n <> 0 THEN RAISE EXCEPTION 'FAIL summary-only Manager read % visit evidence objects without visit permission', n; END IF;
   RAISE NOTICE 'PASS summary-only Manager: projection allowed; raw reports, details, analytics denied';
+END;
+$test$;
+RESET ROLE;
+
+-- Branch scope and read access are not report-write grants.
+UPDATE public.manager_report_scopes
+SET can_view_analytics = true
+WHERE profile_id = '82000000-0000-4000-8000-000000000005';
+UPDATE public.admin_permissions
+SET can_view_analytics = true, can_manage_reports = false
+WHERE profile_id = '82000000-0000-4000-8000-000000000005';
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '82000000-0000-4000-8000-000000000005', true);
+DO $test$
+DECLARE n integer; denied boolean := false;
+BEGIN
+  IF NOT public.current_user_can_read_daily_report(
+    '81000000-0000-4000-8000-000000000001', 'Morning'
+  ) THEN
+    RAISE EXCEPTION 'FAIL fixture Manager must have report read access for the write-independence test';
+  END IF;
+  IF public.can_manager_write_daily_report('83000000-0000-4000-8000-000000000001') IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'FAIL Manager without can_manage_reports passed the write helper';
+  END IF;
+  BEGIN
+    INSERT INTO public.daily_reports(id, branch_id, report_date, shift_type, submitted_by)
+    VALUES ('83000000-0000-4000-8000-000000000031', '81000000-0000-4000-8000-000000000001',
+            '2026-11-22', 'Morning', '82000000-0000-4000-8000-000000000005');
+    RAISE EXCEPTION 'FAIL branch-scoped Manager without write permission inserted a report';
+  EXCEPTION WHEN insufficient_privilege THEN denied := true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL expected report insert denial without can_manage_reports'; END IF;
+
+  denied := false;
+  BEGIN
+    INSERT INTO public.waste_logs(report_id, item_name, quantity, unit)
+    VALUES ('83000000-0000-4000-8000-000000000001', 'No write permission', 1, 'kg');
+    RAISE EXCEPTION 'FAIL branch-scoped Manager without write permission inserted waste';
+  EXCEPTION WHEN insufficient_privilege THEN denied := true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL expected report detail insert denial without can_manage_reports'; END IF;
+
+  UPDATE public.daily_reports SET total_sales = total_sales + 1
+  WHERE id = '83000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL Manager without can_manage_reports updated a report'; END IF;
+  DELETE FROM public.daily_reports WHERE id = '83000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL Manager without can_manage_reports deleted a report'; END IF;
+  UPDATE public.technical_issues SET title = title
+  WHERE id = '88000000-0000-4000-8000-000000000001';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL Manager without can_manage_reports updated a technical issue'; END IF;
+  RAISE NOTICE 'PASS Manager with branch scope and read access still cannot write without can_manage_reports';
 END;
 $test$;
 RESET ROLE;
@@ -380,6 +516,137 @@ END;
 $test$;
 RESET ROLE;
 
+-- Branch Manager: write permission is bounded by the active primary branch,
+-- while visit and analytics read permissions remain independent.
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '82000000-0000-4000-8000-000000000010', true);
+DO $test$
+DECLARE n integer; denied boolean := false;
+BEGIN
+  IF NOT public.current_user_manager_branch_in_scope('81000000-0000-4000-8000-000000000001')
+     OR public.current_user_manager_branch_in_scope('81000000-0000-4000-8000-000000000002')
+     OR public.current_user_manager_branch_in_scope('81000000-0000-4000-8000-000000000003') THEN
+    RAISE EXCEPTION 'FAIL Branch Manager scope must be only the active primary operational branch';
+  END IF;
+  IF NOT public.can_manage_branch_visit_in_scope('81000000-0000-4000-8000-000000000001')
+     OR public.can_manage_branch_visit_in_scope('81000000-0000-4000-8000-000000000002') THEN
+    RAISE EXCEPTION 'FAIL Branch Manager visit-management helper crossed its primary branch';
+  END IF;
+  IF NOT public.current_user_can_read_visit_branch('81000000-0000-4000-8000-000000000001')
+     OR public.current_user_can_read_visit_branch('81000000-0000-4000-8000-000000000002') THEN
+    RAISE EXCEPTION 'FAIL Branch Manager visit-read permission did not follow its one-branch scope';
+  END IF;
+  SELECT count(*) INTO n FROM public.supervisory_visits
+  WHERE id::text LIKE '89000000-0000-4000-8000-00000000000%';
+  IF n <> 1 THEN RAISE EXCEPTION 'FAIL Branch Manager expected only the primary-branch visit, got %', n; END IF;
+  SELECT count(*) INTO n FROM public.technical_issues
+  WHERE id::text LIKE '88000000-0000-4000-8000-00000000000%';
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL Branch Manager received analytics without can_view_analytics'; END IF;
+  SELECT count(*) INTO n FROM public.list_branch_visit_supervisors('81000000-0000-4000-8000-000000000001');
+  IF n < 1 OR NOT EXISTS (
+    SELECT 1 FROM public.list_branch_visit_supervisors('81000000-0000-4000-8000-000000000001')
+    WHERE user_id = '82000000-0000-4000-8000-000000000006'
+  ) THEN RAISE EXCEPTION 'FAIL Branch Manager lost its in-scope visit-assignment candidate'; END IF;
+  SELECT count(*) INTO n FROM public.list_branch_visit_supervisors('81000000-0000-4000-8000-000000000002');
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL Branch Manager RPC returned out-of-scope supervisors'; END IF;
+
+  INSERT INTO public.branch_visit_assignments(branch_id, assigned_to, assigned_by, visit_date, shift_type)
+  VALUES ('81000000-0000-4000-8000-000000000001', '82000000-0000-4000-8000-000000000006',
+          '82000000-0000-4000-8000-000000000010', '2026-11-24', 'Morning');
+  BEGIN
+    INSERT INTO public.branch_visit_assignments(branch_id, assigned_to, assigned_by, visit_date, shift_type)
+    VALUES ('81000000-0000-4000-8000-000000000002', '82000000-0000-4000-8000-000000000007',
+            '82000000-0000-4000-8000-000000000010', '2026-11-24', 'Morning');
+    RAISE EXCEPTION 'FAIL Branch Manager assigned a visit outside the primary branch';
+  EXCEPTION WHEN insufficient_privilege THEN denied := true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL expected out-of-branch visit assignment denial'; END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.test_manager_security_definer_visit_update('8c000000-0000-4000-8000-000000000002');
+  EXCEPTION WHEN SQLSTATE '42501' THEN denied := true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL SECURITY DEFINER write bypassed the visit branch-scope trigger'; END IF;
+
+  -- Exercise the real SECURITY DEFINER review RPC, not only a synthetic writer.
+  denied := false;
+  BEGIN
+    PERFORM public.review_branch_visit_action(
+      '8c000000-0000-4000-8000-000000000002', 'return', 'Out-of-scope review test'
+    );
+    RAISE EXCEPTION 'FAIL Branch Manager reviewed an action outside the primary branch';
+  EXCEPTION WHEN SQLSTATE '42501' THEN denied := true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL expected out-of-branch review RPC denial'; END IF;
+
+  -- A Manager with report-write permission can save details in scope even when
+  -- daily-summary/analytics reads are off; a different branch remains denied.
+  INSERT INTO public.daily_reports(id, branch_id, report_date, shift_type, submitted_by, supervisor_name, entry_time)
+  VALUES ('83000000-0000-4000-8000-000000000021', '81000000-0000-4000-8000-000000000001',
+          '2026-11-22', 'Morning', '82000000-0000-4000-8000-000000000010', 'Branch Manager A', '12:00');
+  INSERT INTO public.waste_logs(report_id, item_name, quantity, unit)
+  VALUES ('83000000-0000-4000-8000-000000000021', 'In-scope manager waste', 1, 'kg');
+  denied := false;
+  BEGIN
+    INSERT INTO public.daily_reports(id, branch_id, report_date, shift_type, submitted_by)
+    VALUES ('83000000-0000-4000-8000-000000000022', '81000000-0000-4000-8000-000000000002',
+            '2026-11-22', 'Morning', '82000000-0000-4000-8000-000000000010');
+    RAISE EXCEPTION 'FAIL Branch Manager inserted report outside primary branch';
+  EXCEPTION WHEN insufficient_privilege THEN denied := true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL expected Branch Manager report-scope denial'; END IF;
+  RAISE NOTICE 'PASS Branch Manager writes and review RPC stay in the primary branch; direct and SECURITY DEFINER cross-branch writes denied';
+END;
+$test$;
+RESET ROLE;
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '82000000-0000-4000-8000-000000000011', true);
+DO $test$
+DECLARE n integer; denied boolean := false;
+BEGIN
+  IF NOT public.current_user_can_read_visit_branch('81000000-0000-4000-8000-000000000001') THEN
+    RAISE EXCEPTION 'FAIL visit-only Manager lost visit read access';
+  END IF;
+  IF public.can_manage_branch_visit_in_scope('81000000-0000-4000-8000-000000000001') THEN
+    RAISE EXCEPTION 'FAIL visit read permission implied visit management permission';
+  END IF;
+  SELECT count(*) INTO n FROM public.supervisory_visits
+  WHERE id='89000000-0000-4000-8000-000000000001';
+  IF n <> 1 THEN RAISE EXCEPTION 'FAIL visit-only Manager expected one in-scope visit'; END IF;
+  BEGIN
+    INSERT INTO public.branch_visit_assignments(branch_id, assigned_to, assigned_by, visit_date, shift_type)
+    VALUES ('81000000-0000-4000-8000-000000000001', '82000000-0000-4000-8000-000000000006',
+            '82000000-0000-4000-8000-000000000011', '2026-11-24', 'Morning');
+    RAISE EXCEPTION 'FAIL visit read permission allowed assignment write';
+  EXCEPTION WHEN insufficient_privilege THEN denied := true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL expected visit reader write denial'; END IF;
+  RAISE NOTICE 'PASS visit read permission remains independent from visit assignment/write permission';
+END;
+$test$;
+RESET ROLE;
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '82000000-0000-4000-8000-000000000012', true);
+DO $test$
+DECLARE n integer;
+BEGIN
+  IF public.current_user_can_read_visit_branch('81000000-0000-4000-8000-000000000001') THEN
+    RAISE EXCEPTION 'FAIL analytics permission implied visit-report read permission';
+  END IF;
+  SELECT count(*) INTO n FROM public.technical_issues
+  WHERE id='88000000-0000-4000-8000-000000000001';
+  IF n <> 1 THEN RAISE EXCEPTION 'FAIL analytics-only Manager did not receive scoped analytics'; END IF;
+  SELECT count(*) INTO n FROM public.supervisory_visits
+  WHERE id='89000000-0000-4000-8000-000000000001';
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL analytics-only Manager received visit reports'; END IF;
+  RAISE NOTICE 'PASS analytics read is independent from visit-report read';
+END;
+$test$;
+RESET ROLE;
+
 -- Verify report saving and child-detail writes are independently enforced by report_id/branch scope.
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '82000000-0000-4000-8000-000000000003', true);
@@ -434,6 +701,8 @@ BEGIN
 END;
 $test$;
 RESET ROLE;
+
+\ir visit-action-evidence-storage-rls.sql
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '82000000-0000-4000-8000-000000000006', true);

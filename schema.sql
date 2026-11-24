@@ -61,7 +61,8 @@ create table if not exists admin_permissions (
   can_manage_templates boolean default false,
   can_manage_automations boolean default false,
   can_manage_reports boolean default false,
-  can_view_all_reports boolean default false
+  can_view_all_reports boolean default false,
+  can_perform_branch_visits boolean not null default false
 );
 
 -- 4. قوالب قوائم التحقق (Checklist Templates)
@@ -325,10 +326,12 @@ create table if not exists automation_schedules (
   send_time time not null,
   shift_type text check (shift_type in ('Morning','Evening')),
   is_active boolean default true,
+  last_run_date date,
   created_at timestamptz default now()
 );
 
 alter table automation_schedules add column if not exists shift_type text check (shift_type in ('Morning','Evening'));
+alter table public.automation_schedules add column if not exists last_run_date date;
 
 -- 12. تعريفات حقول التقارير الإضافية (Report Field Definitions)
 create table if not exists report_field_definitions (

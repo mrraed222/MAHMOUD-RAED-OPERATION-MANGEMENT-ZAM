@@ -25,6 +25,11 @@ test('record gallery/table, secure image URLs, image dialog and status states ar
   assert.match(source, /event\.key === 'Escape'/);
   assert.match(source, /loading="lazy"/);
   assert.match(source, /إجمالي المهام لا يعني تحقق حالة الإنجاز/);
+  assert.match(source, /if \(!completedLogs\.length\)/);
+  assert.match(source, /tbody\.innerHTML = completedLogs\.map/);
+  assert.match(source, /hourlyBody\.innerHTML = hourlyCompletedLogs\.length \? hourlyCompletedLogs\.map/);
+  assert.match(source, /data-src="\$\{escHtml\(photoUrl\)\}" aria-label="عرض صورة المهمة الساعية"/);
+  assert.match(source, /لا توجد مهام ساعية مكتملة مطابقة/);
 });
 
 test('all inline JavaScript parses', () => {

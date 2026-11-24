@@ -1,6 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
-import { scopeVisitPdfRows } from './scope-evidence.mjs'
+import { scopeVisitPdfRows, visitEvidenceBucketFor } from './scope-evidence.mjs'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -201,7 +201,7 @@ Deno.serve(async (req: Request) => {
       const name = String(item.file_name || '')
       const supported = mime.includes('png') || mime.includes('jpeg') || mime.includes('jpg') || /\.(png|jpe?g)$/i.test(name)
       if (!supported) { evidence.push({ ...item, loadError: 'نوع الصورة غير مدعوم داخل PDF' }); continue }
-      const evidenceBucket = item.action_item_id ? 'visit-action-evidence' : 'task-evidence'
+      const evidenceBucket = visitEvidenceBucketFor(item)
       const { data: file, error: fileError } = await supabaseAdmin.storage.from(evidenceBucket).download(item.file_path)
       if (fileError || !file) { evidence.push({ ...item, loadError: 'تعذر تحميل المرفق من التخزين' }); continue }
       evidence.push({ ...item, bytes: new Uint8Array(await file.arrayBuffer()) })

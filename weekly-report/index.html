@@ -24,7 +24,7 @@
     }
 }catch(_e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261123210100"></script>
+<script src="../assets/supabase-config.js?v=20261124203300"></script>
 <script src="../assets/weekly-report-metrics.js?v=20261117194500"></script>
 <script src="../assets/weekly-report-core.js?v=20261118205235"></script>
 <script>
@@ -240,7 +240,7 @@
     @page { size:A4 portrait; margin:12mm 10mm 14mm; }
     html, body { background:#fff !important; color:#1b1c1c; }
     body { font-size:10pt; }
-    .no-print, aside, #notification-bell-container { display:none !important; }
+    .no-print, aside, #notification-bell-container, header.report-header, [data-zam-header-tools], #srcChip { display:none !important; }
     #snapshotsSection { display:none !important; }
     #emptyState { display:none !important; }
     .plan-save { display:none !important; }
@@ -455,13 +455,13 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 <main class="mr-[280px] min-h-screen">
 
   <!-- ================= HEADER ================= -->
-  <div class="print-brand"><img src="../assets/logo/zam-logo.png" alt="شعار زام"><div><h1>التقرير الأسبوعي لإدارة التشغيل</h1><p>نظام زام للعمليات · نسخة للطباعة</p><p>فترة التقرير: <span id="printPeriod">—</span></p><p>مدير التشغيل: <span id="printManagerName">مدير التشغيل</span> · البريد: <span id="printManagerEmail">—</span> · الهاتف: <span id="printManagerPhone">0563505653</span></p></div></div>
+  <div class="print-brand"><img src="../assets/logo/zam-logo.png" alt="شعار زام"><div><h1>التقرير الأسبوعي لإدارة التشغيل</h1><p>نسخة للطباعة</p><p>فترة التقرير: <span id="printPeriod">—</span></p></div></div>
   <header class="no-print sticky top-0 z-40 report-header shadow-sm" aria-label="رأس التقرير الأسبوعي">
     <div class="header-inner px-margin-desktop py-3 flex items-center justify-between gap-4 flex-wrap">
       <div class="flex items-center gap-md">
         <img class="report-logo" src="../assets/logo/zam-logo.png" alt="شعار زام">
         <div><h2 class="font-headline-lg text-on-primary">التقرير الأسبوعي لإدارة التشغيل</h2>
-        <p class="text-body-sm text-on-surface-variant">مقهى زام المختص — ينبع &nbsp;·&nbsp; <span dir="ltr">operations@zam.sa</span> &nbsp;·&nbsp; <span dir="ltr">0563505653</span></p></div>
+        <p class="text-body-sm text-on-surface-variant">نظام زام للعمليات</p></div>
       </div>
       <div class="flex items-center gap-sm flex-wrap">
         <div data-zam-header-tools aria-label="أدوات المستخدم"></div>
@@ -603,13 +603,6 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 <div id="toast" class="no-print fixed bottom-md left-md z-50 px-md py-sm rounded-lg text-body-sm font-semibold shadow-lg" role="status" aria-live="polite" style="display:none"></div>
 
 <script>
-var printProfile = currentUser || {};
-var printName = document.getElementById("printManagerName");
-var printEmail = document.getElementById("printManagerEmail");
-var printPhone = document.getElementById("printManagerPhone");
-  if (printName) printName.textContent = "محمود رائد مدير التشغيل والجودة";
-if (printEmail) printEmail.textContent = printProfile.email || "operations@zam.sa";
-if (printPhone) printPhone.textContent = printProfile.whatsapp_number || printProfile.phone || "0563505653";
 if (ZAM_WEEKLY_ALLOWED) {
   ZamWeeklyReport.init({
     client: ZAM_WEEKLY_CLIENT,

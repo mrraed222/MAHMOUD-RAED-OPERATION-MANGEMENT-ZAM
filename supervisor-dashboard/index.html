@@ -3,7 +3,7 @@
 <meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>ZAM Operations - داشبورد الفرع</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261123210100"></script>
+<script src="../assets/supabase-config.js?v=20261124203300"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
   <script src="../assets/checklist-schedule.js?v=20261121164000"></script>
   <script src="../assets/restroom-hourly.js?v=20261121170500"></script>
@@ -206,14 +206,12 @@ body.zam-page .dashboard-section-intro { max-width: 72ch; line-height: 1.7; }
 <main class="md:pr-[280px] pt-20 min-h-screen">
 <div class="max-w-6xl mx-auto p-margin-desktop">
   <section class="mb-md flex flex-wrap items-end justify-between gap-sm" aria-labelledby="dashboard-title">
-    <div><p class="text-body-sm text-on-surface-variant">متابعة القراءة فقط · <span id="branch-context-name">الفرع</span> · <span id="dashboard-shift-context">الوردية الحالية</span></p><h2 id="dashboard-title" class="font-headline-lg text-2xl font-bold text-primary">لوحة متابعة الفرع</h2><p class="dashboard-section-intro text-body-sm text-on-surface-variant">ملخص تقدم الفريق والتقرير والتكليفات المفتوحة. تنفيذ المهام وإضافة الملاحظات يتم من الصفحات المخصصة.</p></div>
-    <button id="refresh-dashboard" type="button" class="inline-flex items-center justify-center gap-xs rounded-lg border border-outline-variant bg-surface-container-lowest px-md py-xs font-bold" aria-label="تحديث بيانات لوحة الفرع"><span class="material-symbols-outlined" aria-hidden="true">refresh</span>تحديث البيانات</button>
+    <div><p class="text-body-sm text-on-surface-variant">متابعة القراءة فقط · <span id="branch-context-name">الفرع</span> · <span id="dashboard-shift-context">الوردية الحالية</span></p><h2 id="dashboard-title" class="font-headline-lg text-2xl font-bold text-primary">لوحة متابعة الفرع</h2></div>
     <p id="dashboard-refresh-state" class="sr-only" role="status" aria-live="polite"></p>
   </section>
 
   <section class="mb-lg" aria-labelledby="visit-actions-heading">
     <h2 id="visit-actions-heading" class="font-title-md text-title-md text-primary mb-sm flex items-center gap-xs"><span class="material-symbols-outlined" aria-hidden="true">report</span> ما يتطلب إجراءً</h2>
-    <p class="mb-sm text-body-sm text-on-surface-variant dashboard-section-intro">تكليفات الزيارات المفتوحة المسندة لهذا الفرع. هذه الصفحة للمتابعة وإرسال إفادة التكليف فقط، وليست لتنفيذ قائمة المهام.</p>
     <div id="visit-actions-list" class="space-y-sm" aria-live="polite">
       <p class="p-md bg-surface-container-lowest border border-outline-variant rounded-xl text-body-sm text-on-surface-variant">جارٍ تحميل التكليفات…</p>
     </div>
@@ -802,12 +800,10 @@ function noteCardHTML(n) {
         document.getElementById('dashboard-refresh-state').textContent = message;
     }
     let refreshRunning = false;
-    const refreshButton = document.getElementById('refresh-dashboard');
     const refreshState = document.getElementById('dashboard-refresh-state');
     const refreshDashboard = async () => {
         if (refreshRunning || document.hidden) return;
         refreshRunning = true;
-        if (refreshButton) refreshButton.disabled = true;
         if (refreshState) refreshState.textContent = 'جارٍ تحديث البيانات…';
         try {
             await loadAll();
@@ -821,10 +817,8 @@ function noteCardHTML(n) {
             });
         } finally {
             refreshRunning = false;
-            if (refreshButton) refreshButton.disabled = false;
         }
     };
-    refreshButton?.addEventListener('click', refreshDashboard);
     document.addEventListener('click', event => { if (event.target.closest('.retry-dashboard')) refreshDashboard(); });
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && !visitActionModal.classList.contains('hidden')) closeVisitActionModal(); });
     window.setInterval(refreshDashboard, 60000);

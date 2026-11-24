@@ -110,7 +110,8 @@ const branchListEnd = migration.indexOf('$function$;', branchListStart);
 assert.ok(branchListStart >= 0 && branchListEnd > branchListStart, 'scoped Manager branch-list RPC should exist');
 assert.match(migration.slice(branchListStart, branchListEnd), /public\.can_read_manager_report_branch\(b\.id\)/);
 assert.doesNotMatch(monitor, /zamClient\.rpc\('list_manager_report_branches'\)/);
-assert.match(monitor, /ميزة ملخص متابعة التقارير غير مهيأة حاليًا/);
+assert.match(monitor, /const message=`تعذّر \$\{stage\}؛ لم تُعرض أرقام غير مكتملة/);
+assert.match(monitor, /نطاق فروع المدير غير مهيأ أو لا يحتوي على فروع مسموح بها؛ لا توجد أرقام متاحة/);
 
 function scopeAllows(mode, selectedBranchIds, targetBranchId, canViewAll = true) {
   if (!canViewAll) return false;

@@ -1,3 +1,7 @@
+export function visitEvidenceBucketFor(item) {
+  return item?.action_item_id ? 'visit-action-evidence' : 'task-evidence';
+}
+
 export function scopeVisitPdfRows({ actions = [], evidenceRows = [], fullReportVisible = false }) {
   const scopedActions = Array.isArray(actions) ? actions : [];
   if (fullReportVisible) {

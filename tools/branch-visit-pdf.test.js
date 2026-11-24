@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const page = fs.readFileSync(path.join(root, 'branch-visits-history', 'index.html'), 'utf8');
@@ -22,6 +23,92 @@ test('downloads and email request the same rendered-page PDF from the server', (
   assert.match(pdf, /page\.canvas\.toDataURL\('image\/jpeg', 0\.9\)/);
   assert.match(pdf, /async function requestPdf\(visit, options = \{\}\)[\s\S]*?rendered_pages/);
   assert.match(pdf, /async function downloadPdf\(visit\)[\s\S]*?requestPdf\(visit\)[\s\S]*?fetch\(data\.signed_url\)/);
+});
+
+test('client PDF signs action-linked evidence privately and keeps legacy evidence in task-evidence', async () => {
+  const calls = [];
+  const windowMock = {
+    URL,
+    location: { href: 'https://zam.test/branch-visits-history/index.html' },
+    zamClient: {
+      from(table) {
+        assert.equal(table, 'visit_evidence');
+        return {
+          select() { return this; },
+          eq() { return this; },
+          order: async () => ({
+            data: [
+              { action_item_id: 'action-1', file_path: 'action-1/uploader-1/new.png', file_name: 'new.png', mime_type: 'image/png' },
+              { action_item_id: null, file_path: 'legacy/old.jpg', file_name: 'old.jpg', mime_type: 'image/jpeg' },
+            ],
+            error: null,
+          }),
+        };
+      },
+      storage: {
+        from(bucket) {
+          return { createSignedUrl: async filePath => {
+            calls.push({ bucket, filePath });
+            return { data: { signedUrl: `https://signed.test/${bucket}/${filePath}` }, error: null };
+          } };
+        },
+      },
+    },
+  };
+  vm.runInNewContext(pdf, { window: windowMock, URL });
+  const html = await windowMock.ZamVisitPdf.buildHtml({ id: 'visit-1' });
+  assert.deepEqual(calls, [
+    { bucket: 'visit-action-evidence', filePath: 'action-1/uploader-1/new.png' },
+    { bucket: 'task-evidence', filePath: 'legacy/old.jpg' },
+  ]);
+  assert.match(html, /https:\/\/signed\.test\/visit-action-evidence\/action-1\/uploader-1\/new\.png/);
+  assert.match(html, /https:\/\/signed\.test\/task-evidence\/legacy\/old\.jpg/);
+});
+
+test('new violation uploads persist the action before using its ID and associate the private object row', async () => {
+  const form = fs.readFileSync(path.join(root, 'branch-visits-new', 'index.html'), 'utf8');
+  const actionSave = form.indexOf(".upsert(actionRows, {onConflict: 'visit_id,client_key'})");
+  const uploadCall = form.indexOf('await uploadViolationEvidence(');
+  assert.ok(actionSave >= 0 && uploadCall > actionSave, 'action IDs must be persisted before evidence upload');
+  assert.match(form, /const actionIdByItem = Object\.fromEntries\(\(savedActions \|\| \[\]\)\.map\(action => \[action\.client_key, action\.id\]\)\)/);
+  assert.match(form, /uploadViolationEvidence\(visit\.id, resultIdByItem\[row\.item_id\], row\.item_id, actionId, file\)/);
+  assert.match(form, /onConflict: 'visit_id,action_item_id,file_path', ignoreDuplicates: true/);
+  assert.doesNotMatch(form, /storage\.from\('task-evidence'\)\.upload/);
+
+  const pathBuilder = form.match(/async function stableEvidencePath\(actionId, uploaderId, file\) \{[\s\S]*?\n\}/)?.[0];
+  const uploadHelper = form.match(/async function uploadViolationEvidence\(visitId, resultId, itemId, actionId, file\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(pathBuilder && uploadHelper, 'the test must execute the real upload-path helper');
+  const uploads = [];
+  const currentUser = { id: 'uploader-456' };
+  const zamClient = { storage: { from(bucket) {
+    assert.equal(bucket, 'visit-action-evidence');
+    return { upload: async (filePath, file, options) => {
+      uploads.push({ bucket, filePath, file, options });
+      return { data: { path: filePath }, error: null };
+    } };
+  } } };
+  const fakeCrypto = { subtle: { digest: async () => new Uint8Array([0xab, 0xcd]).buffer } };
+  const stablePath = new Function('crypto', `${pathBuilder}\nreturn stableEvidencePath;`)(fakeCrypto);
+  const helper = new Function('crypto', 'currentUser', 'zamClient', 'stableEvidencePath', 'isDuplicateEvidenceUpload',
+    `${uploadHelper}\nreturn uploadViolationEvidence;`)(
+      fakeCrypto, currentUser, zamClient, stablePath,
+      error => error?.statusCode === 409 || /duplicate/i.test(error?.message || ''),
+    );
+  const file = { name: 'violation photo.png', type: 'image/png', arrayBuffer: async () => new ArrayBuffer(0) };
+  const row = await helper('visit-1', 'result-1', 'item-1', 'action-1', file);
+  assert.deepEqual(uploads.map(({ bucket, filePath }) => ({ bucket, filePath })), [
+    { bucket: 'visit-action-evidence', filePath: 'action-1/uploader-456/abcd-violation_photo.png' },
+  ]);
+  assert.equal(row.action_item_id, 'action-1');
+  assert.equal(row.file_path, uploads[0].filePath);
+  assert.equal(row.uploaded_by, 'uploader-456');
+});
+
+test('Edge evidence bucket selector preserves private and legacy paths', async () => {
+  const { visitEvidenceBucketFor } = await evidenceScope;
+  assert.equal(visitEvidenceBucketFor({ action_item_id: 'action-1' }), 'visit-action-evidence');
+  assert.equal(visitEvidenceBucketFor({ action_item_id: null }), 'task-evidence');
+  assert.match(endpoint, /const evidenceBucket = visitEvidenceBucketFor\(item\)/);
 });
 
 test('PDF endpoint validates JPEG pages and uses the exact assembled PDF for storage and email', () => {
@@ -109,7 +196,7 @@ test('new visits separate government items and keep old drafts on the legacy tem
   assert.match(form, /draft\.assessment_version === 2 \? 2 : 1/);
   assert.match(form, /legacyMode \? \(template\.active \|\| template\.code === 'BRV-GOV-01'/);
   assert.match(form, /item_type: actionType/);
-  assert.match(form, /file && actionType === 'مخالفة'/);
+  assert.match(form, /if \(!file \|\| card\.querySelector\('\[data-action-type\]'\)\.value !== 'مخالفة'\) continue/);
 });
 
 test('quality outcome uses an unrounded 70% threshold and supports documented exceptional failure', () => {

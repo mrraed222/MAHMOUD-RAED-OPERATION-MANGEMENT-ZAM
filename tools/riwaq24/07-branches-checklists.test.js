@@ -18,7 +18,7 @@ test('branch directory keeps auth/permission guards, routes and existing data op
   assert.match(source, /ZamBranchLifecycle\.isOperational\(b\)/);
   assert.match(source, /href="\.\.\/dashboard\/index\.html"/);
   assert.match(source, /href="\.\.\/manage-templates\/index\.html"/);
-  assert.match(source, /href="\.\.\/staff-management\/index\.html"/);
+  assert.doesNotMatch(source, /href="\.\.\/staff-management\/index\.html"/);
 });
 
 test('directory offers a status filter, summaries, mobile-friendly cards and truthful data states without branch search', () => {

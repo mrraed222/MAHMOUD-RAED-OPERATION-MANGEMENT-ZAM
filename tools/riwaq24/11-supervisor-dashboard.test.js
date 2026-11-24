@@ -5,13 +5,14 @@ const path = require('node:path');
 
 const source = fs.readFileSync(path.join(__dirname, '../../supervisor-dashboard/index.html'), 'utf8');
 
-test('dashboard prioritizes follow-up and explains branch/shift and read-only metrics context', () => {
+test('dashboard prioritizes follow-up and keeps concise branch/shift context', () => {
   const positions = [source.indexOf('id="dashboard-title"'), source.indexOf('id="visit-actions-heading"'), source.indexOf('id="report-status"'), source.indexOf('id="stat-team"'), source.indexOf('id="team-grid"'), source.indexOf('id="restroom-hourly-panel"'), source.indexOf('id="category-grid"'), source.indexOf('id="notes-list"')];
   assert.ok(positions.every(p => p >= 0));
   assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
   assert.match(source, /متابعة القراءة فقط/);
   assert.match(source, /id="dashboard-shift-context"/);
-  assert.match(source, /id="refresh-dashboard"/);
+  assert.doesNotMatch(source, /id="refresh-dashboard"/);
+  assert.doesNotMatch(source, /ملخص تقدم الفريق والتقرير والتكليفات المفتوحة|تكليفات الزيارات المفتوحة المسندة لهذا الفرع/);
 });
 
 test('role guards, branch/shift APIs, query limits and action payloads remain unchanged', () => {
@@ -27,8 +28,9 @@ test('role guards, branch/shift APIs, query limits and action payloads remain un
   assert.match(source, /href="\.\.\/supervisor-checklist\/index\.html"/);
 });
 
-test('refresh, retry, accessible visit modal, and independent empty states are available', () => {
-  assert.match(source, /refreshButton\?\.addEventListener\('click', refreshDashboard\)/);
+test('automatic refresh, retry, accessible visit modal, and independent empty states remain available', () => {
+  assert.match(source, /window\.setInterval\(refreshDashboard, 60000\)/);
+  assert.match(source, /document\.addEventListener\('visibilitychange',[\s\S]*?refreshDashboard\(\)/);
   assert.match(source, /\.retry-dashboard/);
   assert.match(source, /role="dialog" aria-modal="true"/);
   assert.match(source, /aria-hidden/);

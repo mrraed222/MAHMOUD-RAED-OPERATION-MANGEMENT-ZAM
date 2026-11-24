@@ -247,7 +247,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.supervisory_visits,
   public.visit_email_logs TO authenticated;
 GRANT SELECT ON public.supervisory_visit_notes TO authenticated;
 GRANT SELECT ON public.visit_action_review_events TO authenticated;
-GRANT SELECT ON storage.objects TO authenticated;
+GRANT SELECT, INSERT ON storage.objects TO authenticated;
+GRANT SELECT ON storage.objects TO anon;
 GRANT SELECT ON public.daily_reports, public.technical_issues,
   public.branch_visit_assignments TO service_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;

@@ -6,7 +6,7 @@
   <title>تسجيل زيارة جديدة | Operations Expert</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../assets/supabase-config.js?v=20261123210100"></script>
+  <script src="../assets/supabase-config.js?v=20261124203300"></script>
   <style>
     body{font-family:Tahoma,sans-serif;background:#f7f3ef;color:#24170c}
     .card{background:#fff;border:1px solid #e5d9cf;border-radius:18px;box-shadow:0 8px 24px #4b362110}
@@ -158,14 +158,29 @@ function show(messageText, isError = false) {
   message.className = isError ? 'block card p-4 text-[#8d332c]' : 'block card p-4 text-[#19623a]';
   message.textContent = messageText;
 }
-async function stableEvidencePath(visitId, itemId, file) {
+async function stableEvidencePath(actionId, uploaderId, file) {
   const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
   const fingerprint = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  return `${visitId}/${itemId}-${fingerprint}-${safeName}`;
+  return `${actionId}/${uploaderId}/${fingerprint}-${safeName}`;
 }
 function isDuplicateEvidenceUpload(error) {
   return error?.statusCode === 409 || error?.statusCode === '409' || /already exists|duplicate/i.test(error?.message || '');
+}
+async function uploadViolationEvidence(visitId, resultId, itemId, actionId, file) {
+  const path = await stableEvidencePath(actionId, currentUser.id, file);
+  const {data: upload, error} = await zamClient.storage.from('visit-action-evidence').upload(path, file, {upsert: false});
+  if (error && !isDuplicateEvidenceUpload(error)) throw error;
+  return {
+    visit_id: visitId,
+    result_id: resultId,
+    action_item_id: actionId,
+    client_key: itemId,
+    file_path: upload?.path || path,
+    file_name: file.name,
+    mime_type: file.type,
+    uploaded_by: currentUser.id
+  };
 }
 function selectedItems() { return [...document.querySelectorAll('.item')]; }
 function saveItemState(card) {
@@ -517,26 +532,32 @@ form.addEventListener('submit', async event => {
       visit = data;
     }
 
+    const actionItemIds = new Set(scored.filter(row => row.is_violation).map(row => row.item_id));
+    const {data: oldActions, error: oldActionsError} = await zamClient.from('visit_action_items').select('id,client_key').eq('visit_id', visit.id);
+    if (oldActionsError) throw oldActionsError;
+    const removedActions = (oldActions || []).filter(action => action.client_key && !actionItemIds.has(action.client_key));
+    if (removedActions.length) {
+      const {data: linkedEvidence, error: linkedEvidenceError} = await zamClient.from('visit_evidence')
+        .select('id').in('action_item_id', removedActions.map(action => action.id)).limit(1);
+      if (linkedEvidenceError) throw linkedEvidenceError;
+      if (linkedEvidence?.length) throw new Error('لا يمكن إزالة مخالفة سبق ربط إثبات خاص بها. أبقِ المخالفة محددة حتى لا ينفصل المرفق عن الإجراء.');
+    }
+
     const resultRows = scored.map(row => ({...row, visit_id: visit.id}));
     const {data: insertedResults, error: resultsError} = await zamClient.from('supervisory_visit_results')
       .upsert(resultRows, {onConflict: 'visit_id,item_id'}).select('id,item_id');
     if (resultsError) throw resultsError;
     const resultIdByItem = Object.fromEntries((insertedResults || []).map(row => [row.item_id, row.id]));
-    const actionItemIds = new Set(scored.filter(row => row.is_violation).map(row => row.item_id));
     const actionRows = [];
     const evidenceRows = [];
-    const {data: oldActions, error: oldActionsError} = await zamClient.from('visit_action_items').select('id,client_key').eq('visit_id', visit.id);
-    if (oldActionsError) throw oldActionsError;
-    for (const action of oldActions || []) {
-      if (action.client_key && !actionItemIds.has(action.client_key)) {
-        const {error} = await zamClient.from('visit_action_items').delete().eq('id', action.id);
+    for (const action of removedActions) {
+      const {error} = await zamClient.from('visit_action_items').delete().eq('id', action.id);
         if (error) throw error;
-      }
     }
-    const {data: oldEvidence, error: oldEvidenceError} = await zamClient.from('visit_evidence').select('id,client_key').eq('visit_id', visit.id);
+    const {data: oldEvidence, error: oldEvidenceError} = await zamClient.from('visit_evidence').select('id,client_key,action_item_id').eq('visit_id', visit.id);
     if (oldEvidenceError) throw oldEvidenceError;
     for (const evidence of oldEvidence || []) {
-      if (evidence.client_key && !actionItemIds.has(evidence.client_key)) {
+      if (evidence.client_key && !actionItemIds.has(evidence.client_key) && !evidence.action_item_id) {
         const {error} = await zamClient.from('visit_evidence').delete().eq('id', evidence.id);
         if (error) throw error;
       }
@@ -563,20 +584,25 @@ form.addEventListener('submit', async event => {
         status: 'مفتوحة',
         created_by: currentUser.id
       });
-      const file = card.querySelector('[data-file]').files[0];
-      if (file && actionType === 'مخالفة') {
-        const path = await stableEvidencePath(visit.id, row.item_id, file);
-        const {data: upload, error: uploadError} = await zamClient.storage.from('task-evidence').upload(path, file, {upsert: false});
-        if (uploadError && !isDuplicateEvidenceUpload(uploadError)) throw uploadError;
-        evidenceRows.push({visit_id: visit.id, result_id: resultIdByItem[row.item_id], client_key: row.item_id, file_path: upload?.path || path, file_name: file.name, mime_type: file.type, uploaded_by: currentUser.id});
-      }
     }
     if (actionRows.length) {
-      const {error} = await zamClient.from('visit_action_items').upsert(actionRows, {onConflict: 'visit_id,client_key'});
+      const {data: savedActions, error} = await zamClient.from('visit_action_items')
+        .upsert(actionRows, {onConflict: 'visit_id,client_key'}).select('id,client_key');
       if (error) throw error;
+      const actionIdByItem = Object.fromEntries((savedActions || []).map(action => [action.client_key, action.id]));
+      for (const row of scored.filter(result => result.is_violation)) {
+        const card = cards.find(item => item.dataset.id === row.item_id);
+        const file = card.querySelector('[data-file]').files[0];
+        if (!file || card.querySelector('[data-action-type]').value !== 'مخالفة') continue;
+        const actionId = actionIdByItem[row.item_id];
+        if (!actionId) throw new Error('تعذر ربط صورة المخالفة بالإجراء المحفوظ. أعد المحاولة قبل اعتماد التقرير.');
+        evidenceRows.push(await uploadViolationEvidence(visit.id, resultIdByItem[row.item_id], row.item_id, actionId, file));
+      }
     }
     if (evidenceRows.length) {
-      const {error} = await zamClient.from('visit_evidence').upsert(evidenceRows, {onConflict: 'visit_id,client_key'});
+      const {error} = await zamClient.from('visit_evidence').upsert(evidenceRows, {
+        onConflict: 'visit_id,action_item_id,file_path', ignoreDuplicates: true
+      });
       if (error) throw error;
     }
     if (activeAssignmentId) {

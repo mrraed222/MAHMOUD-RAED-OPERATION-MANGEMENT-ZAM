@@ -107,9 +107,8 @@ const ZAM_NAV_ITEMS = [
     { key: 'analytics', label: 'داشبورد التحليلات', icon: 'insights', href: 'analytics/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports', managerPerm: 'can_view_analytics' },
     { key: 'weekly-report', label: 'التقرير الأسبوعي', icon: 'summarize', href: 'weekly-report/index.html', roles: ['Owner'], perm: null },
     { key: 'branch-visits', label: 'زيارات الفروع والتكليفات', icon: 'fact_check', href: 'branch-visits-new/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor', 'Quality', 'Quality Manager', 'Barista', 'Kitchen', 'Waiter'], perm: null },
-    { key: 'staff-management', label: 'إدارة الطاقم', icon: 'groups', href: 'staff-management/index.html', roles: ['Owner', 'Admin', 'Supervisor'], perm: 'can_manage_staff' },
     { key: 'automation-settings', label: 'إعدادات الأتمتة', icon: 'settings', href: 'automation-settings/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_manage_automations' },
-    { key: 'permissions', label: 'الأذونات والصلاحيات', icon: 'admin_panel_settings', href: 'permissions/index.html', roles: ['Owner'], perm: null },
+    { key: 'permissions', label: 'الأذونات وإدارة الطاقم', icon: 'admin_panel_settings', href: 'permissions/index.html', roles: ['Owner', 'Admin', 'Supervisor', 'Manager', 'Quality', 'Quality Manager'], perm: 'can_manage_staff' },
     { key: 'employee-profile', label: 'الملف الشخصي', icon: 'person', href: 'employee-profile/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor', 'Barista', 'Kitchen', 'Waiter'], perm: null },
 ];
 
@@ -125,7 +124,6 @@ const ZAM_OWNER_NAV_KEYS = new Set([
     'weekly-report',
     'inventory-requests',
     'branch-visits',
-    'staff-management',
     'automation-settings',
     'manage-templates',
     'permissions',
@@ -903,6 +901,16 @@ const ZamAPI = {
         return data || [];
     },
 
+    async getStaffDirectory({ signal } = {}) {
+        let query = zamClient.from('profiles')
+            .select('id, full_name, email, employee_number, status, role, branch_id, shift_type, avatar_url, whatsapp_number, branches(name)')
+            .order('full_name');
+        if (signal) query = query.abortSignal(signal);
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+    },
+
     // ============================================
     // فئات المهام (مصدر الحقيقة = employee_task_categories)
     // ============================================
@@ -990,16 +998,22 @@ const ZamAPI = {
 
     async getManagerReportScopes(profileIds = null, { signal } = {}) {
         const targetIds = Array.isArray(profileIds) ? Array.from(new Set(profileIds.filter(Boolean))) : null;
-        if (targetIds && !targetIds.length) return {};
 
         let scopesQuery = zamClient.from('manager_report_scopes')
-            .select('profile_id, scope_mode, can_view_daily_checklist_summary, can_view_checklist_logs, can_view_visit_reports, can_view_analytics');
-        if (targetIds) scopesQuery = scopesQuery.in('profile_id', targetIds);
+            .select('profile_id, manager_type, scope_mode, can_view_daily_checklist_summary, can_view_checklist_logs, can_view_visit_reports, can_view_analytics');
+        if (targetIds?.length) scopesQuery = scopesQuery.in('profile_id', targetIds);
+        else if (targetIds) scopesQuery = scopesQuery.limit(1);
         if (signal) scopesQuery = scopesQuery.abortSignal(signal);
         const { data: scopeRows, error: scopesError } = await scopesQuery;
         if (scopesError) throw this.managerReportScopeError(scopesError);
+        if ((scopeRows || []).some(row => !['branch', 'branches'].includes(row.manager_type)
+            || !['all', 'selected'].includes(row.scope_mode))) {
+            const invalidScope = new Error('Stored Manager scope has an invalid type or mode.');
+            invalidScope.code = 'MANAGER_SCOPE_INVALID';
+            throw invalidScope;
+        }
 
-        const branchIdsToRead = targetIds || (scopeRows || []).map(row => row.profile_id);
+        const branchIdsToRead = targetIds ? targetIds : (scopeRows || []).map(row => row.profile_id);
         if (!branchIdsToRead.length) return {};
         let branchesQuery = zamClient.from('manager_report_scope_branches')
             .select('profile_id, branch_id').in('profile_id', branchIdsToRead);
@@ -1013,9 +1027,18 @@ const ZamAPI = {
         });
         const scopesByProfile = {};
         (scopeRows || []).forEach(row => {
+            const branchIds = branchesByProfile[row.profile_id] || [];
+            if ((row.scope_mode === 'all' && branchIds.length)
+                || (row.scope_mode === 'selected' && !branchIds.length)
+                || (row.manager_type === 'branch' && (row.scope_mode !== 'selected' || branchIds.length !== 1))) {
+                const invalidScope = new Error('Stored Manager branch scope is inconsistent.');
+                invalidScope.code = 'MANAGER_SCOPE_INVALID';
+                throw invalidScope;
+            }
             scopesByProfile[row.profile_id] = {
+                manager_type: row.manager_type,
                 scope_mode: row.scope_mode,
-                branchIds: branchesByProfile[row.profile_id] || [],
+                branchIds,
                 can_view_daily_checklist_summary: row.can_view_daily_checklist_summary === true,
                 can_view_checklist_logs: row.can_view_checklist_logs === true,
                 can_view_visit_reports: row.can_view_visit_reports === true,
@@ -1025,9 +1048,10 @@ const ZamAPI = {
         return scopesByProfile;
     },
 
-    async saveManagerReportScope(profileId, mode, branchIds = [], canViewDailySummary = false, canViewChecklistLogs = false, canViewVisitReports = false, canViewAnalytics = false) {
+    async saveManagerReportScope(profileId, managerType, mode, branchIds = [], canViewDailySummary = false, canViewChecklistLogs = false, canViewVisitReports = false, canViewAnalytics = false) {
         const { error } = await zamClient.rpc('save_manager_report_scope', {
             p_profile_id: profileId,
+            p_manager_type: managerType === 'branch' ? 'branch' : 'branches',
             p_scope_mode: mode,
             p_branch_ids: Array.from(new Set(branchIds || [])),
             p_can_view_daily_checklist_summary: canViewDailySummary === true,
@@ -1489,25 +1513,26 @@ const ZamAPI = {
         return !!(data && data[permKey]);
     },
 
-    async getStaffStats() {
-        // آخر تسجيل دخول حقيقي من عمود last_login_at (وليس created_at)
-        const lastLogin = await zamClient.from('profiles')
-            .select('full_name, last_login_at')
-            .not('last_login_at', 'is', null)
-            .order('last_login_at', { ascending: false }).limit(1).maybeSingle()
-            .catch(() => null);
-        const lastPermUpdate = await zamClient.from('admin_permissions')
-            .select('profile_id, updated_at').order('updated_at', { ascending: false }).limit(1).maybeSingle()
-            .catch(() => null);
-        // قد لا يكون العمود مضافاً بعد في قاعدة البيانات — نُرجع null بدل رقم مضلل
-        const pendingReset = await zamClient.from('profiles')
-            .select('id', { count: 'exact', head: true }).eq('passcode_reset_requested', true)
-            .catch(() => null);
+    async getStaffStats({ includePermissionStats = false } = {}) {
+        // آخر تسجيل دخول حقيقي من عمود last_login_at (وليس created_at).
+        // Return row data, not the Supabase { data, error } wrapper.
+        const [loginResult, permissionResult, resetResult] = await Promise.all([
+            zamClient.from('profiles').select('full_name, last_login_at')
+                .not('last_login_at', 'is', null)
+                .order('last_login_at', { ascending: false }).limit(1).maybeSingle()
+                .catch(() => null),
+            includePermissionStats ? zamClient.from('admin_permissions').select('profile_id, updated_at')
+                .order('updated_at', { ascending: false }).limit(1).maybeSingle()
+                .catch(() => null) : Promise.resolve(null),
+            // قد لا يكون العمود مضافاً بعد في قاعدة البيانات.
+            zamClient.from('profiles').select('id', { count: 'exact', head: true })
+                .eq('passcode_reset_requested', true).catch(() => null)
+        ]);
         return {
-            lastLogin,
-            lastPermUpdate,
-            pendingResetCount: pendingReset?.count,
-            resetTrackingAvailable: pendingReset !== null
+            lastLogin: loginResult?.error ? null : loginResult?.data || null,
+            lastPermUpdate: !includePermissionStats || permissionResult?.error ? null : permissionResult?.data || null,
+            pendingResetCount: resetResult?.error ? null : resetResult?.count,
+            resetTrackingAvailable: !!resetResult && !resetResult.error
         };
     },
 
@@ -1515,9 +1540,12 @@ const ZamAPI = {
     // تصدير بيانات الطاقم إلى CSV
     // ============================================
     async exportStaffToCSV() {
-        const staff = await this.getStaff();
+        const { data: staff, error } = await zamClient.from('profiles')
+            .select('full_name, email, employee_number, role, shift_type, status, whatsapp_number, branches(name)')
+            .order('full_name');
+        if (error) throw error;
         const headers = ['الاسم', 'البريد', 'الرقم الوظيفي', 'الدور', 'الفرع', 'الوردية', 'الحالة', 'الواتساب'];
-        const rows = staff.map(emp => [
+        const rows = (staff || []).map(emp => [
             emp.full_name || '',
             emp.email || '',
             emp.employee_number || '',

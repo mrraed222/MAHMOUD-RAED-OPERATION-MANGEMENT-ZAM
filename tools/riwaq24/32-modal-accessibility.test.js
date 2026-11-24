@@ -22,7 +22,6 @@ test('every requested page loads helper and wires its assigned dialogs', () => {
   'branches-checklists/index.html': /zamEnableModalFocus\(\$\('branch-modal'\)\.querySelector/,
   'checklist-logs/index.html': /zamEnableModalFocus\(modal,document\.activeElement\)/,
   'reports-log/index.html': /zamEnableModalFocus\(modal\.querySelector/,
-  'staff-management/index.html': /zamEnableModalFocus\(modal\.querySelector/,
   'supervisor-dashboard/index.html': /zamEnableModalFocus\(visitActionModal/,
   'register/index.html': /success-title[^;]*focus\(\)/
  };

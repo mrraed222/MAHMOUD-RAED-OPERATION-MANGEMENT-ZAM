@@ -27,8 +27,25 @@ test('hourly completed checks count once while missed and pending checks remain 
   assert.equal(metrics.countCompletedExecutionLogs([], hourlyLogs), 1);
 });
 
-test('checklist-log summary uses the shared status-aware counter', () => {
+test('branch-and-shift counters include completed and explicitly missed records only', () => {
+  const branches = [{ id: 'b1', name: 'الفرع الأول' }];
+  const logs = [
+    { branch_id: 'b1', shift_type: 'Morning', status: 'completed' },
+    { branch_id: 'b1', shift_type: 'Morning', status: 'pending' },
+    { branch_id: 'b1', shift_type: 'Evening', status: 'غير منفذة' },
+    { branch_id: 'b1', shift_type: 'Evening', status: 'done' },
+  ];
+
+  assert.deepEqual(metrics.summarizeExecutionCounts(logs, [], branches), [
+    { branchId: 'b1', branchName: 'الفرع الأول', shiftType: 'Morning', completed: 1, notPerformed: 0 },
+    { branchId: 'b1', branchName: 'الفرع الأول', shiftType: 'Evening', completed: 1, notPerformed: 1 },
+  ]);
+});
+
+test('checklist-log view uses the shared status-aware counter and completed-only hourly rows', () => {
   assert.match(page, /checklist-log-metrics\.js\?v=\d+/);
   assert.match(page, /ZamChecklistLogMetrics\.countCompletedExecutionLogs\(logs, hourlyLogs\)/);
+  assert.match(page, /summarizeExecutionCounts/);
+  assert.match(page, /hourlyCompletedLogs/);
   assert.doesNotMatch(page, /stat-total-executed'\)\.textContent\s*=\s*logs\.length\s*\+\s*hourlyLogs\.length/);
 });

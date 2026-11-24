@@ -21,6 +21,7 @@ const pages = {
   branchVisits: read('branch-visits-new/index.html'),
   shared: read('assets/supabase-config.js')
 };
+const managerWriteMigration = read('supabase/migrations/20261124160000_manager_write_scope_guards.sql');
 
 test('password-reset UI reports success only after a successful function result', () => {
   assert.match(pages.forgot, /const \{ error \} = await zamClient\.functions\.invoke\('request-passcode-reset'/);
@@ -37,8 +38,23 @@ test('employee report cards escape branch, date, sales and team-status values', 
 });
 
 test('employee role selector cannot assign Owner to non-owner accounts', () => {
-  assert.match(pages.permissions, /ROLES\.filter\(role=>role!=='Owner'\|\|currentRole==='Owner'\)/);
-  assert.match(pages.permissions, /roleOptionsHTML\(emp\.role\)/);
+  assert.match(pages.permissions, /ROLES\.filter\(role=>\(role!=='Owner'\|\|currentRole==='Owner'\)\)/);
+  assert.match(pages.permissions, /roleOptionsHTML\(emp\.role==='Owner'\?'':emp\.role,managerScopeAvailable\)\.replace/);
+  assert.match(pages.permissions, /if\(!role\|\|role==='Owner'\)throw new Error\('invalid_pending_role'\)/);
+});
+
+test('manager report writes require can_manage_reports independently of saved branch scope', () => {
+  assert.match(managerWriteMigration, /current_user_manager_can_manage_reports\(\)[\s\S]*?ap\.can_manage_reports IS TRUE/);
+  assert.match(managerWriteMigration, /FOR INSERT TO authenticated[\s\S]*?current_user_manager_can_manage_reports/);
+  assert.match(managerWriteMigration, /FOR UPDATE TO authenticated[\s\S]*?current_user_manager_can_manage_reports/);
+  assert.match(managerWriteMigration, /FOR DELETE TO authenticated[\s\S]*?current_user_manager_can_manage_reports/);
+  assert.match(managerWriteMigration, /TG_TABLE_NAME IN \('daily_reports', 'waste_logs', 'shift_issues', 'technical_issues'\)[\s\S]*?current_user_manager_can_manage_reports/);
+});
+
+test('manager write migration remains compatible with the current production visit schema', () => {
+  assert.match(managerWriteMigration, /ADD COLUMN IF NOT EXISTS can_perform_branch_visits boolean NOT NULL DEFAULT false/);
+  assert.match(managerWriteMigration, /current_user_manager_branch_in_scope\(a\.branch_id\)/);
+  assert.doesNotMatch(managerWriteMigration, /\b(?:a|NEW|OLD)\.assignee_role\b/);
 });
 
 test('supervisor dashboard container has a complete class attribute', () => {
@@ -57,12 +73,19 @@ test('shared bell installer waits for sidebars and removes bell slots from non-d
   assert.match(pages.shared, /window\.__zamActiveSidebarKey === 'dashboard'/);
   assert.match(pages.shared, /if \(!showNotifications\) notificationSlot\?\.remove\(\)/);
   assert.match(pages.shared, /if \(showNotifications\) refreshNotificationBell\(\)\.catch/);
-  for (const page of ['staff-management', 'supervisor-checklist']) {
+  for (const page of ['supervisor-checklist']) {
     const html = read(`${page}/index.html`);
     assert.match(html, /id="sidebar-slot"/, `${page} needs the shared sidebar lifecycle hook`);
     assert.match(html, /renderZamSidebar\('/, `${page} must provide its active key to the shared header`);
   }
   assert.match(pages.dashboard, /renderZamSidebar\('dashboard'/);
+});
+
+test('legacy staff route redirects to the unified permissions page without loading staff data', () => {
+  const legacy = read('staff-management/index.html');
+  assert.match(legacy, /ZamSession\.requireAuth\('\.\.\/index\.html'\)/);
+  assert.match(legacy, /window\.location\.replace\('\.\.\/permissions\/index\.html#staff-section'\)/);
+  assert.doesNotMatch(legacy, /getStaffForManagement|\.from\('profiles'\)|\.from\('admin_permissions'\)/);
 });
 
 test('shared sidebar uses the approved Riwaq background, active and readable text colors', () => {
@@ -96,7 +119,9 @@ test('branch dashboard preserves cached rows and reports the latest refresh fail
 
 test('starting a report-log refresh clears the exportable prior result set', () => {
   assert.match(pages.reportsLog, /function setStatus\(message,error=false\)\{if\(message==='جارٍ تحميل التقارير…'\)reportsData=\[\]/);
-  assert.match(pages.reportsLog, /async function loadReports\(\)\{setStatus\('جارٍ تحميل التقارير…'\)/);
+  const loadReports = pages.reportsLog.match(/async function loadReports\(\)\{([\s\S]*?)\}\s*async function openDetail/)?.[1] || '';
+  assert.match(loadReports, /if\(currentUser\.role==='Manager'\)\{[^}]*return;\}/);
+  assert.ok(loadReports.indexOf("setStatus('جارٍ تحميل التقارير…')") < loadReports.indexOf("zamClient.from('daily_reports')"));
 });
 
 test('report monitor ignores stale date responses and only unlocks the latest request', () => {
