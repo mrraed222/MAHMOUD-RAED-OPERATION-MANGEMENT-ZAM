@@ -15,6 +15,10 @@ const corsHeaders = {
 }
 const FROM = 'ZAM Operations <operations@zam.sa>'
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const FONT_ASSET_URL = 'https://raw.githubusercontent.com/mrraed222/MAHMOUD-RAED-OPERATION-MANGEMENT-ZAM/69c8cab2662f96eced304428b768c32c82e2d43f/supabase/functions/send-report-copy/assets/ZamArabicSans-Regular.ttf'
+const FONT_ASSET_BYTES = 589944
+const FONT_ASSET_SHA256 = '08ce8078eb76b5211f36c8f77418896c9f9e276e978461dd2f31cd47c3a52796'
+let arabicLatinFontBytesPromise: Promise<Uint8Array> | null = null
 
 class FunctionError extends Error {
   constructor(readonly status: number, readonly code: string) { super(code) }
@@ -51,6 +55,41 @@ function base64(bytes: Uint8Array) {
     binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length)))
   }
   return btoa(binary)
+}
+async function loadArabicLatinFontBytes(): Promise<Uint8Array> {
+  if (!arabicLatinFontBytesPromise) {
+    arabicLatinFontBytesPromise = (async () => {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 10_000)
+      try {
+        const response = await fetch(FONT_ASSET_URL, {
+          method: 'GET',
+          redirect: 'error',
+          signal: controller.signal,
+        })
+        if (!response.ok) throw new FunctionError(503, 'pdf_font_asset_unavailable')
+        const declaredLength = Number(response.headers.get('Content-Length') || 0)
+        if (declaredLength > FONT_ASSET_BYTES) throw new FunctionError(503, 'pdf_font_asset_invalid')
+        const bytes = new Uint8Array(await response.arrayBuffer())
+        if (bytes.byteLength !== FONT_ASSET_BYTES) throw new FunctionError(503, 'pdf_font_asset_invalid')
+        const digest = await crypto.subtle.digest('SHA-256', bytes)
+        const sha256 = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
+        if (sha256 !== FONT_ASSET_SHA256) throw new FunctionError(503, 'pdf_font_asset_invalid')
+        return bytes
+      } catch (error) {
+        if (error instanceof FunctionError) throw error
+        throw new FunctionError(503, 'pdf_font_asset_unavailable')
+      } finally {
+        clearTimeout(timeout)
+      }
+    })()
+  }
+  try {
+    return await arabicLatinFontBytesPromise
+  } catch (error) {
+    arabicLatinFontBytesPromise = null
+    throw error
+  }
 }
 function formatAmount(value: unknown) {
   const amount = Number(value)
@@ -154,7 +193,7 @@ Deno.serve(async (req: Request) => {
     const resendKey = Deno.env.get('RESEND_API_KEY')
     if (!resendKey) throw new FunctionError(503, 'email_provider_not_configured')
 
-    const arabicLatinFontBytes = await Deno.readFile(new URL('./assets/ZamArabicSans-Regular.ttf', import.meta.url))
+    const arabicLatinFontBytes = await loadArabicLatinFontBytes()
     const branchName = clean(report.branches?.name || 'فرع غير محدد', 160)
     const pdfBytes = await buildDailyReportPdf({
       jsPDF, fontBase64: base64(arabicLatinFontBytes),

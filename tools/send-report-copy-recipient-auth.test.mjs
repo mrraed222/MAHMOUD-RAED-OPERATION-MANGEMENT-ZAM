@@ -5,6 +5,9 @@ import { sendEmailWithResend } from '../supabase/functions/send-report-copy/emai
 import { sendReportEmailOnce } from '../supabase/functions/send-report-copy/email-send-once.mjs';
 
 const edgePath = new URL('../supabase/functions/send-report-copy/index.ts', import.meta.url);
+const fontPath = new URL('../supabase/functions/send-report-copy/assets/ZamArabicSans-Regular.ttf', import.meta.url);
+const fontBytes = fs.readFileSync(fontPath);
+const fontAssetUrl = 'https://raw.githubusercontent.com/mrraed222/MAHMOUD-RAED-OPERATION-MANGEMENT-ZAM/69c8cab2662f96eced304428b768c32c82e2d43f/supabase/functions/send-report-copy/assets/ZamArabicSans-Regular.ttf';
 const rawEdge = fs.readFileSync(edgePath, 'utf8').replace(
   'constructor(readonly status: number, readonly code: string) { super(code) }',
   'constructor(status, code) { super(code); this.status = status; this.code = code }',
@@ -84,8 +87,7 @@ function resolveMockRecipients(report, configuredRecipients) {
   const automaticManagement = [allBranchManager, legacyAllBranchManager, branchManager, unrelatedBranchManager, summaryOnlyManager, analyticsOnlyManager, noneScopeManager]
     .filter(profile => {
       const scope = mockManagerScopes.get(profile.id);
-      const hasAllBranchesScope = scope?.mode === 'all'
-        || (!scope && profile.can_view_all_reports === true);
+      const hasAllBranchesScope = scope?.mode === 'all';
       return profile.status === 'active' && profile.role === 'Manager'
         && profile.can_view_analytics === true
         && hasAllBranchesScope;
@@ -99,8 +101,7 @@ function resolveMockRecipients(report, configuredRecipients) {
     if (profile.role === 'Manager') {
       const scope = mockManagerScopes.get(profile.id);
       const branchAuthorized = scope?.mode === 'all'
-        || (scope?.mode === 'selected' && scope.branchIds.includes(report.branch_id))
-        || (!scope && profile.can_view_all_reports === true);
+        || (scope?.mode === 'selected' && scope.branchIds.includes(report.branch_id));
       return profile.can_view_analytics === true && branchAuthorized;
     }
     if (profile.role === 'Supervisor') return profile.id === report.submitted_by;
@@ -117,7 +118,7 @@ function resolveMockRecipients(report, configuredRecipients) {
   return [...merged.values()];
 }
 
-async function invoke({ actor, report = reportB, configuredRecipients, visible = true }) {
+async function invoke({ actor, report = reportB, configuredRecipients, visible = true, fontFetch }) {
   const env = {
     SUPABASE_URL: 'https://supabase.mock.invalid',
     SUPABASE_ANON_KEY: 'anon-test-only',
@@ -130,7 +131,15 @@ async function invoke({ actor, report = reportB, configuredRecipients, visible =
   const Deno = {
     env: { get: name => env[name] ?? undefined },
     serve: fn => { handler = fn; },
-    readFile: async () => new Uint8Array([1, 2, 3]),
+  };
+  const fetchFont = async (url, init) => {
+    assert.equal(url, fontAssetUrl, 'only the pinned public font artifact may be fetched');
+    assert.equal(init.redirect, 'error', 'font downloads must not follow redirects');
+    return {
+      ok: true,
+      headers: { get: name => name.toLowerCase() === 'content-length' ? String(fontBytes.length) : null },
+      arrayBuffer: async () => Uint8Array.from(fontBytes).buffer,
+    };
   };
   const userClient = {
     auth: { getUser: async () => ({ data: { user: { id: actor.id } }, error: null }) },
@@ -203,8 +212,8 @@ async function invoke({ actor, report = reportB, configuredRecipients, visible =
   });
   const buildDailyReportPdf = async () => pdfBytes;
   new Function(
-    'createClient', 'jsPDF', 'buildDailyReportPdf', 'sendEmailWithResend', 'sendReportEmailOnce', 'Deno', handlerSource,
-  )(createClient, function MockJsPdf() {}, buildDailyReportPdf, sendEmail, sendReportEmailOnce, Deno);
+    'createClient', 'jsPDF', 'buildDailyReportPdf', 'sendEmailWithResend', 'sendReportEmailOnce', 'Deno', 'fetch', handlerSource,
+  )(createClient, function MockJsPdf() {}, buildDailyReportPdf, sendEmail, sendReportEmailOnce, Deno, fontFetch || fetchFont);
 
   const response = await handler(new Request('https://edge.mock.invalid/send-report-copy', {
     method: 'POST',
@@ -233,7 +242,7 @@ assert.equal(requestByA.result.email_sent, true);
 assert.equal(Buffer.from(requestByA.result.pdf_base64, 'base64').toString(), '%PDF-mock-local-only', 'authorized PDF remains available in the app response');
 const resolvedIdsForB = requestByA.resolvedRecipients.map(row => row.profile_id);
 assert.ok(resolvedIdsForB.includes(allBranchManager.id), 'the resolver adds the all-branch Manager automatically');
-assert.ok(resolvedIdsForB.includes(legacyAllBranchManager.id), 'legacy can_view_all_reports may stand in for all scope only when no explicit scope exists and the new data permission is set');
+assert.ok(!resolvedIdsForB.includes(legacyAllBranchManager.id), 'legacy permission alone does not bypass the live explicit Manager scope helper');
 assert.ok(!resolvedIdsForB.includes(branchManager.id), 'the resolver excludes a Manager scoped only to this selected branch');
 assert.ok(!resolvedIdsForB.includes(unrelatedBranchManager.id), 'the resolver excludes a Manager scoped only to another selected branch');
 assert.ok(!resolvedIdsForB.includes(summaryOnlyManager.id),
@@ -241,8 +250,8 @@ assert.ok(!resolvedIdsForB.includes(summaryOnlyManager.id),
 assert.ok(!resolvedIdsForB.includes(noneScopeManager.id), 'none branch scope cannot qualify a Manager for the report');
 assert.equal(requestByA.providerPayload.to, 'operations@zam.sa', 'the shared To field must not contain the recipient list');
 assert.deepEqual(requestByA.providerPayload.bcc.slice().sort(),
-  [owner.email, supervisorB.email, allBranchManager.email, legacyAllBranchManager.email, analyticsOnlyManager.email].sort(),
-  'only all-branches managers with analytics/detail permission are included in private BCC alongside configured recipients');
+  [owner.email, supervisorB.email, allBranchManager.email, analyticsOnlyManager.email].sort(),
+  'only managers with explicit all-branches analytics permission are included in private BCC alongside configured recipients');
 assert.ok(!requestByA.providerPayload.bcc.includes(supervisorA.email));
 assert.ok(!requestByA.providerPayload.bcc.includes(branchManager.email), 'a same-branch Manager with selected-only scope is not an automatic recipient');
 assert.ok(!requestByA.providerPayload.bcc.includes(unrelatedBranchManager.email), 'a manager scoped to another selected branch is excluded');
@@ -268,7 +277,7 @@ assert.equal(managerRequest.response.status, 200, 'an authorized branch manager 
 assert.equal(Buffer.from(managerRequest.result.pdf_base64, 'base64').toString(), '%PDF-mock-local-only');
 assert.ok(!managerRequest.providerPayload.bcc.includes(branchManager.email), 'selected-branch scope does not make a Manager an automatic copy recipient');
 assert.ok(managerRequest.providerPayload.bcc.includes(allBranchManager.email), 'the all-branches Operations Manager remains included despite a one-branch profile assignment');
-assert.ok(managerRequest.providerPayload.bcc.includes(legacyAllBranchManager.email));
+assert.ok(!managerRequest.providerPayload.bcc.includes(legacyAllBranchManager.email));
 assert.ok(!managerRequest.providerPayload.bcc.includes(unrelatedBranchManager.email));
 
 const manuallyConfiguredManagers = await invoke({
@@ -315,5 +324,19 @@ assert.equal(noneScopeManagerRequest.response.status, 404, 'a Manager with none 
 assert.equal(noneScopeManagerRequest.serviceRoleCreated, false,
   'none-scope denial happens before service-role client creation');
 assert.equal(noneScopeManagerRequest.providerPayload, undefined);
+
+const invalidFontResult = await invoke({
+  actor: supervisorB,
+  configuredRecipients: configuredForB,
+  fontFetch: async () => ({
+    ok: true,
+    headers: { get: () => '3' },
+    arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+  }),
+});
+assert.equal(invalidFontResult.response.status, 503, 'an invalid font must fail the report request');
+assert.equal(invalidFontResult.result.ok, false);
+assert.equal(invalidFontResult.result.email_sent, false);
+assert.equal(invalidFontResult.providerPayload, undefined, 'an invalid font must fail before calling the email provider');
 
 console.log('send-report-copy recipient authorization tests: configured-vs-automatic recipients, manager analytics/detail gate, and recipient ownership passed (mocked Supabase/PDF/provider; no live email)');

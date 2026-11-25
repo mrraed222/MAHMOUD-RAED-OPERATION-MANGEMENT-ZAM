@@ -40,7 +40,12 @@ assert.doesNotMatch(edge, /!recipientRows\.some\(\(row\) => row\.is_primary === 
 assert.doesNotMatch(edge, /\.in\('role', managementRoles\)/, 'do not send to every account with a broad role');
 assert.match(edge, /import \{ jsPDF \} from 'npm:jspdf@4\.2\.1'/);
 assert.doesNotMatch(edge, /bidi-shaper|pdf-lib|fontkit/, 'the Edge Function must not retain the failed PDF/fontkit shaping paths');
-assert.match(edge, /Deno\.readFile\(new URL\('\.\/assets\/ZamArabicSans-Regular\.ttf'/);
+assert.match(edge, /FONT_ASSET_URL = 'https:\/\/raw\.githubusercontent\.com\/mrraed222\/MAHMOUD-RAED-OPERATION-MANGEMENT-ZAM\/69c8cab2662f96eced304428b768c32c82e2d43f\/supabase\/functions\/send-report-copy\/assets\/ZamArabicSans-Regular\.ttf'/,
+  'the deployment-safe font source must be pinned to an immutable repository commit');
+assert.match(edge, /FONT_ASSET_SHA256 = '08ce8078eb76b5211f36c8f77418896c9f9e276e978461dd2f31cd47c3a52796'/,
+  'the downloaded font must be checked against its known SHA-256');
+assert.match(edge, /crypto\.subtle\.digest\('SHA-256', bytes\)/);
+assert.doesNotMatch(edge, /Deno\.readFile\(new URL\('\.\/assets\/ZamArabicSans-Regular\.ttf'/);
 assert.match(edge, /fontBase64: base64\(arabicLatinFontBytes\)/);
 assert.match(edge, /if \(pdfBytes\.length > 15 \* 1024 \* 1024\)/, 'the generated attachment must be size-limited');
 assert.match(edge, /\.select\('\*,branches\(name\)'\)/, 'the report row and branch name should be loaded for the PDF');
