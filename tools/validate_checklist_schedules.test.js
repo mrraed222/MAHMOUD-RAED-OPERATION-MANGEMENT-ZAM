@@ -114,9 +114,9 @@ test('صفحات قوائم التحقق تحمل نسخ cache المحدثة ل
     const html = fs.readFileSync(path.join(__dirname, '..', page, 'index.html'), 'utf8');
     assert.match(html, /restroom-hourly\.js\?v=20261121170500/, `${page} must load the current restroom task helper`);
   }
-  assert.match(employeePage, /supabase-config\.js\?v=20261121212700/);
-  assert.match(supervisorPage, /supabase-config\.js\?v=20261121212700/);
-  assert.match(templateAdminPage, /supabase-config\.js\?v=20261121212700/);
+  assert.match(employeePage, /supabase-config\.js\?v=20261124203300/);
+  assert.match(supervisorPage, /supabase-config\.js\?v=20261124203300/);
+  assert.match(templateAdminPage, /supabase-config\.js\?v=20261124203300/);
   assert.match(templateAdminPage, /id="f-scope-all"/);
   assert.match(templateAdminPage, /class="f-branch-checkbox/);
   assert.match(templateAdminPage, /saveTemplateWithBranches/);

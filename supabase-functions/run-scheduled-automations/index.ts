@@ -1,19 +1,11 @@
 // كل الاستعلامات عبر REST مباشرة بمفتاح service_role.
 // @ts-ignore ملف المساعد محلي ويُضمّن مع دالة Supabase عند النشر.
-import { authorizeAutomationRequest, buildChecklistShiftSummary, buildPendingEmployeeTasks, escapeHtml, isBranchOperational, isScheduledChecklistTask, templateAppliesToBranch } from './automation-helpers.mjs'
+import { authorizeAutomationRequest, buildChecklistShiftSummary, buildPendingEmployeeTasks, escapeHtml, isBranchOperational, isPostMidnightTimeMatch, isScheduledChecklistTask, scheduledDateForTime, templateAppliesToBranch, timeMatches } from './automation-helpers.mjs'
 
 function riyadhNow() {
   const now = new Date()
   const utc = now.getTime() + now.getTimezoneOffset() * 60000
   return new Date(utc + 3 * 3600000)
-}
-
-function timeMatches(sendTime: string, current: Date) {
-  const [h, m] = sendTime.split(':').map(Number)
-  const curH = current.getHours()
-  const curM = current.getMinutes()
-  const diff = Math.abs((curH * 60 + curM) - (h * 60 + m))
-  return diff <= 7
 }
 
 // ============ وصول قاعدة البيانات عبر REST ============
@@ -116,6 +108,7 @@ async function sendEmail(resendKey: string, to: string[], subject: string, html:
       await sbInsert('email_logs', {
         recipient_email: recipients,
         subject,
+        body_html: html,
         status: ok ? 'Sent' : 'Failed',
         error_message: errorMsg,
       })
@@ -127,6 +120,7 @@ async function sendEmail(resendKey: string, to: string[], subject: string, html:
       await sbInsert('email_logs', {
         recipient_email: recipients,
         subject,
+        body_html: html,
         status: 'Failed',
         error_message: String(e),
       })
@@ -151,6 +145,9 @@ Deno.serve(async (req: Request) => {
     const resendKey = Deno.env.get('RESEND_API_KEY')
     const now = riyadhNow()
     const today = now.toISOString().split('T')[0]
+    const yesterdayDate = new Date(`${today}T00:00:00.000Z`)
+    yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1)
+    const yesterday = yesterdayDate.toISOString().split('T')[0]
 
     if (!resendKey || !SB_URL || !SR_KEY) {
       return new Response(JSON.stringify({ error: 'automation_configuration_missing' }), { status: 503, headers: { 'Content-Type': 'application/json' } })
@@ -160,13 +157,9 @@ Deno.serve(async (req: Request) => {
       sbGetFiltered('automation_schedules', 'is_active=eq.true', 'id,report_type,branch_id,shift_type,send_time,is_active,last_run_date'),
       sbGetFiltered('profiles', 'status=eq.active', 'id,full_name,email,role,branch_id,shift_type,status,receives_branch_reports'),
       sbGet('employee_task_categories', 'profile_id,category'),
-      sbGet('checklist_templates', 'id,task_title,category,shift_type,instructions,branch_id,target_time,frequency,day_of_week,day_of_month,task_type,is_active,checklist_template_branches(branch_id)'),
+      sbGet('checklist_templates', 'id,task_title,category,shift_type,instructions,branch_id,target_time,frequency,day_of_week,days_of_week,day_of_month,task_type,is_active,checklist_template_branches(branch_id)'),
       sbGet('branches', 'id,name,lifecycle_status'),
     ])
-    if (!schedules.length) {
-      return new Response(JSON.stringify({ ok: true, ran: 0 }), { headers: { 'Content-Type': 'application/json' } })
-    }
-
     const staffProfiles = allProfiles.filter((p: any) => p.email)
     const branchById = new Map(branches.map((branch: any) => [branch.id, branch]))
     const isBranchActive = (branchId: string | null) => isBranchOperational(branchById.get(branchId), today)
@@ -209,12 +202,14 @@ Deno.serve(async (req: Request) => {
     function fmtTime(t: any): string {
       return t ? ` (⏰ ${escapeHtml(String(t).slice(0, 5))})` : ''
     }
-    function isDueToday(t: any): boolean {
-      // مرّر اللحظة الحقيقية؛ now أعلاه محوّل لعرض وقت الرياض على بيئة UTC.
-      return isScheduledChecklistTask(t, new Date())
+    function isDueOnDate(t: any, date: string): boolean {
+      return isScheduledChecklistTask(t, new Date(`${date}T12:00:00.000Z`))
     }
 
-    const logsToday = await sbGetFiltered('checklist_logs', `execution_date=eq.${today}`, 'template_id,branch_id,execution_date,status,shift_type,executed_by')
+    const needsPreviousDateData = schedules.some((schedule: any) => isPostMidnightTimeMatch(schedule.send_time, now))
+      || allTemplates.some((template: any) => template.target_time && isPostMidnightTimeMatch(template.target_time, now))
+    const occurrenceDateFilter = needsPreviousDateData ? `in.(${yesterday},${today})` : `eq.${today}`
+    const logsForScheduledWork = await sbGetFiltered('checklist_logs', `execution_date=${occurrenceDateFilter}`, 'template_id,branch_id,execution_date,status,shift_type,executed_by')
     const operationalBranches = branches.filter((branch: any) => isBranchOperational(branch, today))
     const operationalBranchIds = new Set(operationalBranches.map((branch: any) => branch.id))
 
@@ -222,16 +217,23 @@ Deno.serve(async (req: Request) => {
 
     // ============ تذكير لحظي عند وقت المهمة (target_time) ============
     {
-      const dueTemplates = allTemplates.filter((t: any) => t.target_time && timeMatches(t.target_time, now) && isDueToday(t))
+      const dueTemplates = allTemplates.filter((t: any) => {
+        if (!t.target_time || !timeMatches(t.target_time, now)) return false
+        const reminderDate = scheduledDateForTime(t.target_time, now, today)
+        return isDueOnDate(t, reminderDate)
+      })
       if (dueTemplates.length) {
-        const alreadySent = await sbGetFiltered('task_reminder_logs', `log_date=eq.${today}`, 'template_id,log_date')
+        const reminderDates = [...new Set(dueTemplates.map((t: any) => scheduledDateForTime(t.target_time, now, today)))]
+        const reminderDateFilter = reminderDates.length > 1 ? `in.(${reminderDates.join(',')})` : `eq.${reminderDates[0]}`
+        const alreadySent = await sbGetFiltered('task_reminder_logs', `log_date=${reminderDateFilter}`, 'template_id,log_date')
         const sentIds = new Set(alreadySent.map((r: any) => r.template_id))
         const staff = staffProfiles.filter((p: any) => ['Barista', 'Waiter', 'Kitchen'].includes(p.role) && isBranchActive(p.branch_id))
 
         for (const t of dueTemplates) {
           if (sentIds.has(t.id)) continue
+          const reminderDate = scheduledDateForTime(t.target_time, now, today)
           const targets = staff.filter((emp: any) => taskFitsEmployee(t, emp) && buildPendingEmployeeTasks(
-            [t], logsToday, emp, { branchId: emp.branch_id, date: today, categories: employeeCategories(emp) }
+            [t], logsForScheduledWork, emp, { branchId: emp.branch_id, date: reminderDate, categories: employeeCategories(emp) }
           ).length > 0)
           let reminderOk = true
           if (targets.length) {
@@ -240,60 +242,62 @@ Deno.serve(async (req: Request) => {
               (t.instructions ? `<p style="color:#4e453d;">${escapeHtml(t.instructions)}</p>` : '')
             reminderOk = await sendEmail(resendKey, targets.map((e: any) => e.email), `⏰ حان وقت مهمة: ${t.task_title}`, emailShell('تذكير بوقت المهمة', body, '#ba1a1a'))
           }
-          if (reminderOk) await sbInsert('task_reminder_logs', { template_id: t.id, log_date: today }, true)
+          if (reminderOk) await sbInsert('task_reminder_logs', { template_id: t.id, log_date: reminderDate }, true)
         }
       }
     }
 
-    const reportsToday = (await sbGetFiltered('daily_reports', `report_date=eq.${today}`, 'id,branch_id,report_date,shift_type,total_sales,orders_count,team_status'))
+    const reportsForScheduledWork = (await sbGetFiltered('daily_reports', `report_date=${occurrenceDateFilter}`, 'id,branch_id,report_date,shift_type,total_sales,orders_count,team_status'))
       .filter((report: any) => operationalBranchIds.has(report.branch_id))
 
     for (const sch of schedules) {
       if (sch.branch_id && !isBranchActive(sch.branch_id)) continue
-      if (sch.last_run_date === today) continue
       if (!timeMatches(sch.send_time, now)) continue
+      const scheduleDate = scheduledDateForTime(sch.send_time, now, today)
+      if (sch.last_run_date === scheduleDate) continue
+      const reportsOnScheduleDate = reportsForScheduledWork.filter((report: any) => report.report_date === scheduleDate)
       let scheduleOk = true
 
       // ============ ملخص تشيك ليست بالفئات ============
       if (sch.report_type === 'checklist_summary') {
         const scopeBranches = sch.branch_id ? operationalBranches.filter((b: any) => b.id === sch.branch_id) : operationalBranches
-        let body = sectionTitle(`ملخص تنفيذ التشيك ليست - ${today}`)
+        let body = sectionTitle(`ملخص تنفيذ التشيك ليست - ${scheduleDate}`)
         const shifts = sch.shift_type === 'Morning' || sch.shift_type === 'Evening' ? [sch.shift_type] : ['Morning', 'Evening']
         const shiftNames: Record<string, string> = { Morning: 'الوردية الصباحية', Evening: 'الوردية المسائية' }
         for (const b of scopeBranches) {
           body += `<div style="margin-bottom:16px;"><div style="font-weight:700;color:#33210d;margin-bottom:6px;">${escapeHtml(b.name)}</div>`
           for (const shift of shifts) {
-            const summary = buildChecklistShiftSummary(allTemplates, logsToday, { branchId: b.id, shiftType: shift, date: today })
+            const summary = buildChecklistShiftSummary(allTemplates, logsForScheduledWork, { branchId: b.id, shiftType: shift, date: scheduleDate })
             body += sectionTitle(shiftNames[shift] || escapeHtml(shift))
             body += listBlock(summary.map((row: any) => `${escapeHtml(row.category)}: <b>${row.done}</b> من ${row.total}`))
           }
           body += '</div>'
         }
-        scheduleOk = await sendEmail(resendKey, await resolveRecipients(sch), `ملخص تشيك ليست - ${today}`, emailShell('ملخص قوائم التحقق اليومية', body))
+        scheduleOk = await sendEmail(resendKey, await resolveRecipients(sch), `ملخص تشيك ليست - ${scheduleDate}`, emailShell('ملخص قوائم التحقق اليومية', body))
       }
 
       // ============ ملخص أداء التقارير ============
       if (sch.report_type === 'manager_reports_summary') {
-        const scopeReports = sch.branch_id ? reportsToday.filter((r: any) => r.branch_id === sch.branch_id) : reportsToday
+        const scopeReports = sch.branch_id ? reportsOnScheduleDate.filter((r: any) => r.branch_id === sch.branch_id) : reportsOnScheduleDate
         const totalSales = scopeReports.reduce((s: number, r: any) => s + (Number(r.total_sales) || 0), 0)
         const reportIds = scopeReports.map((r: any) => r.id)
         const waste = reportIds.length ? await sbGetFiltered('waste_logs', `report_id=in.(${reportIds.join(',')})`, 'id,report_id') : []
         const issues = reportIds.length ? await sbGetFiltered('shift_issues', `report_id=in.(${reportIds.join(',')})`, 'id,report_id') : []
-        let body = sectionTitle(`ملخص أداء الفروع - ${today}`)
+        let body = sectionTitle(`ملخص أداء الفروع - ${scheduleDate}`)
         body += `<div style="text-align:center;">${statPill('تقارير مستلمة', scopeReports.length)}${statPill('إجمالي المبيعات', totalSales.toLocaleString() + ' ر.س', '#56b958')}${statPill('سجلات هدر', waste.length, '#ba1a1a')}${statPill('مشاكل شفت', issues.length, '#ba1a1a')}</div>`
         body += sectionTitle('تفاصيل الفروع')
         body += listBlock(scopeReports.map((r: any) => `${escapeHtml(branches.find((b: any) => b.id === r.branch_id)?.name || '')}: ${escapeHtml(r.total_sales)} ر.س (${escapeHtml(r.orders_count)} طلب) - ${escapeHtml(r.team_status || '')}`))
-        scheduleOk = await sendEmail(resendKey, await resolveRecipients(sch), `ملخص أداء الفروع - ${today}`, emailShell('ملخص أداء التقارير', body, '#4b3621'))
+        scheduleOk = await sendEmail(resendKey, await resolveRecipients(sch), `ملخص أداء الفروع - ${scheduleDate}`, emailShell('ملخص أداء التقارير', body, '#4b3621'))
       }
 
       // ============ تنبيه تأخر تسليم التقارير ============
       if (sch.report_type === 'missed_report_alert') {
         const scopeBranches = sch.branch_id ? operationalBranches.filter((b: any) => b.id === sch.branch_id) : operationalBranches
-        const reportedBranchIds = new Set(reportsToday.map((r: any) => r.branch_id))
+        const reportedBranchIds = new Set(reportsOnScheduleDate.map((r: any) => r.branch_id))
         const missing = scopeBranches.filter((b: any) => !reportedBranchIds.has(b.id))
         if (missing.length) {
-          const body = sectionTitle('⚠️ فروع لم ترسل تقريرها اليوم') + listBlock(missing.map((b: any) => escapeHtml(b.name)))
-          scheduleOk = await sendEmail(resendKey, await resolveRecipients(sch), `⚠️ فروع لم ترسل تقريرها - ${today}`, emailShell('تنبيه تأخر التقارير', body, '#ba1a1a'))
+          const body = sectionTitle(`⚠️ فروع لم ترسل تقريرها في ${scheduleDate}`) + listBlock(missing.map((b: any) => escapeHtml(b.name)))
+          scheduleOk = await sendEmail(resendKey, await resolveRecipients(sch), `⚠️ فروع لم ترسل تقريرها - ${scheduleDate}`, emailShell('تنبيه تأخر التقارير', body, '#ba1a1a'))
         }
       }
 
@@ -304,8 +308,8 @@ Deno.serve(async (req: Request) => {
         if (sch.shift_type && sch.shift_type !== 'Both') staff = staff.filter((p: any) => p.shift_type === 'Both' || p.shift_type === sch.shift_type)
 
         for (const emp of staff) {
-          const pending = buildPendingEmployeeTasks(allTemplates, logsToday, emp, {
-            branchId: emp.branch_id, shiftType: sch.shift_type && sch.shift_type !== 'Both' ? sch.shift_type : null, date: today, categories: employeeCategories(emp)
+          const pending = buildPendingEmployeeTasks(allTemplates, logsForScheduledWork, emp, {
+            branchId: emp.branch_id, shiftType: sch.shift_type && sch.shift_type !== 'Both' ? sch.shift_type : null, date: scheduleDate, categories: employeeCategories(emp)
           })
           if (!pending.length) continue
 
@@ -322,7 +326,7 @@ Deno.serve(async (req: Request) => {
         if (sch.branch_id) supervisors = supervisors.filter((p: any) => p.branch_id === sch.branch_id)
         if (sch.shift_type && sch.shift_type !== 'Both') supervisors = supervisors.filter((p: any) => p.shift_type === 'Both' || p.shift_type === sch.shift_type)
 
-        const reportedBranches = new Set(reportsToday.map((r: any) => `${r.branch_id}|${r.shift_type}`))
+        const reportedBranches = new Set(reportsOnScheduleDate.map((r: any) => `${r.branch_id}|${r.shift_type}`))
         for (const sup of supervisors) {
           const shifts = sch.shift_type === 'Morning' || sch.shift_type === 'Evening'
             ? [sch.shift_type]
@@ -330,8 +334,8 @@ Deno.serve(async (req: Request) => {
           const supervisorCategories = categoriesByProfile[sup.id]?.length
             ? categoriesByProfile[sup.id]
             : [...new Set(allTemplates.filter((t: any) => templateAppliesToBranch(t, sup.branch_id)).map((t: any) => t.category).filter(Boolean))]
-          const pending = shifts.flatMap((shift: string) => buildPendingEmployeeTasks(allTemplates, logsToday, sup, {
-            branchId: sup.branch_id, shiftType: shift, date: today, categories: supervisorCategories
+          const pending = shifts.flatMap((shift: string) => buildPendingEmployeeTasks(allTemplates, logsForScheduledWork, sup, {
+            branchId: sup.branch_id, shiftType: shift, date: scheduleDate, categories: supervisorCategories
           }))
           const missingReportShifts = shifts.filter((shift: string) => !reportedBranches.has(`${sup.branch_id}|${shift}`))
           if (!pending.length && !missingReportShifts.length) continue
@@ -345,7 +349,7 @@ Deno.serve(async (req: Request) => {
       }
 
       if (scheduleOk) {
-        await sbPatch('automation_schedules', `id=eq.${sch.id}`, { last_run_date: today })
+        await sbPatch('automation_schedules', `id=eq.${sch.id}`, { last_run_date: scheduleDate })
         ranCount++
       } else {
         console.error(`Schedule ${sch.id} was not marked complete because at least one email failed or had no recipients.`)

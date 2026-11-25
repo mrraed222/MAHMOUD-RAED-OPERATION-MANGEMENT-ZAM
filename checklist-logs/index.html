@@ -249,7 +249,7 @@ async function loadLogs() {
             visibleRecordBranchIds.has(String(branch.id)) ||
             (currentUser.role === 'Supervisor' && String(branch.id) === String(currentUser.branch_id))
         ));
-        const summaryRows = ZamChecklistLogMetrics.summarizeHourlyExecutionCounts(allHourlyLogs, summaryBranches);
+        const summaryRows = ZamChecklistLogMetrics.summarizeHourlyExecutionCounts(hourlyLogs, summaryBranches);
         document.getElementById('branch-shift-summary').innerHTML = summaryRows.length
             ? summaryRows.map(row => `<article class="checklist-counter-card"><h3>${escHtml(row.branchName)} · ${row.shiftType === 'Morning' ? 'الصباحية' : 'المسائية'}</h3><div class="checklist-counter-pair"><span>منفذ <strong>${row.completed}</strong></span><span>غير منفذ <strong>${row.notPerformed}</strong></span></div></article>`).join('')
             : '<p class="hint">لا توجد فروع ضمن النطاق المصرح به لعرض عداداتها.</p>';

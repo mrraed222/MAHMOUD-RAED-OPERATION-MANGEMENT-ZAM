@@ -8,7 +8,9 @@ import {
   isChecklistComplete,
   isBranchOperational,
   isScheduledChecklistTask,
+  scheduledDateForTime,
   templateAppliesToBranch,
+  timeMatches,
 } from '../supabase-functions/run-scheduled-automations/automation-helpers.mjs';
 
 const branchId = 'branch-1';
@@ -42,6 +44,39 @@ test('weekly and monthly due dates use Riyadh calendar days, including month-end
   assert.equal(isScheduledChecklistTask(baseTask({ frequency: 'monthly', day_of_month: 31 }), november30Riyadh), true);
   assert.equal(isScheduledChecklistTask(baseTask({ frequency: 'monthly', day_of_month: 30 }), november30Riyadh), true);
   assert.equal(isScheduledChecklistTask(baseTask({ frequency: 'monthly', day_of_month: 29 }), november30Riyadh), false);
+});
+
+test('weekly recurrence supports multiple selected days and falls back to legacy day_of_week', () => {
+  const mondayRiyadh = new Date('2026-11-15T21:30:00.000Z');
+  const wednesdayRiyadh = new Date('2026-11-17T21:30:00.000Z');
+  const tuesdayRiyadh = new Date('2026-11-16T21:30:00.000Z');
+  const multiDay = baseTask({ frequency: 'weekly', days_of_week: [1, 3], day_of_week: 6 });
+
+  assert.equal(isScheduledChecklistTask(multiDay, mondayRiyadh), true);
+  assert.equal(isScheduledChecklistTask(multiDay, wednesdayRiyadh), true);
+  assert.equal(isScheduledChecklistTask(multiDay, tuesdayRiyadh), false);
+  assert.equal(isScheduledChecklistTask(baseTask({ frequency: 'weekly', days_of_week: [], day_of_week: 1 }), mondayRiyadh), true);
+});
+
+test('scheduled time matching handles post-midnight grace without running next-day schedules early', () => {
+  const atLocalTime = (hour, minute) => {
+    const current = new Date(0);
+    current.setHours(hour, minute, 0, 0);
+    return current;
+  };
+
+  assert.equal(timeMatches('23:58:00', atLocalTime(0, 3)), true);
+  assert.equal(timeMatches('00:05', atLocalTime(0, 0)), true);
+  assert.equal(timeMatches('00:05', atLocalTime(23, 59)), false);
+  assert.equal(timeMatches('23:45', atLocalTime(0, 1)), false);
+  assert.equal(timeMatches('25:00', atLocalTime(1, 0)), false);
+  assert.equal(scheduledDateForTime('23:58', atLocalTime(0, 3), '2026-11-25'), '2026-11-24');
+  assert.equal(scheduledDateForTime('00:05', atLocalTime(0, 3), '2026-11-25'), '2026-11-25');
+
+  const firstRunOccurrence = scheduledDateForTime('23:58', atLocalTime(23, 58), '2026-11-24');
+  const retryOccurrence = scheduledDateForTime('23:58', atLocalTime(0, 3), '2026-11-25');
+  assert.equal(firstRunOccurrence, '2026-11-24');
+  assert.equal(retryOccurrence, firstRunOccurrence, 'the 00:03 retry must reuse the prior date as its dedupe key');
 });
 
 test('summary splits Both tasks by shift and counts only matching completed logs', () => {

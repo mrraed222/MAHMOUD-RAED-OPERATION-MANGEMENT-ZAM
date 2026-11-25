@@ -6,6 +6,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '../..');
 const worker = fs.readFileSync(path.join(root, 'supabase-functions/run-scheduled-automations/index.ts'), 'utf8');
 const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20261125164500_daily_report_recipients_and_automation_guard.sql'), 'utf8');
+const postgrestRefreshMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261125171000_refresh_postgrest_recipient_rpcs.sql'), 'utf8');
 
 let helpersPromise;
 function helpers() {
@@ -54,9 +55,29 @@ test('worker profile, report, template, and log reads select only fields used by
   assert.match(worker, /'profiles', 'status=eq\.active', 'id,full_name,email,role,branch_id,shift_type,status,receives_branch_reports'/);
   assert.doesNotMatch(worker, /'profiles', 'status=eq\.active'\)/, 'do not fetch every profile column');
   assert.doesNotMatch(worker, /'passcode'|passcode_reset_requested/);
-  assert.match(worker, /'daily_reports', `report_date=eq\.\$\{today\}`, 'id,branch_id,report_date,shift_type,total_sales,orders_count,team_status'/);
+  assert.match(worker, /frequency,day_of_week,days_of_week,day_of_month/);
+  assert.equal((worker.match(/body_html: html/g) || []).length, 2, 'both success and failure email-log rows must satisfy body_html NOT NULL');
+  assert.match(worker, /'daily_reports', `report_date=\$\{occurrenceDateFilter\}`, 'id,branch_id,report_date,shift_type,total_sales,orders_count,team_status'/);
   assert.match(worker, /'waste_logs', `report_id=in\.\(\$\{reportIds\.join\(','\)\}\)`, 'id,report_id'/);
   assert.match(worker, /'shift_issues', `report_id=in\.\(\$\{reportIds\.join\(','\)\}\)`, 'id,report_id'/);
+});
+
+test('midnight grace uses the original occurrence date for reads and deduplication', () => {
+  assert.match(worker, /execution_date=\$\{occurrenceDateFilter\}/);
+  assert.match(worker, /report_date=\$\{occurrenceDateFilter\}/);
+  assert.match(worker, /const reminderDate = scheduledDateForTime\(t\.target_time, now, today\)/);
+  assert.match(worker, /log_date=\$\{reminderDateFilter\}/);
+  assert.match(worker, /task_reminder_logs', \{ template_id: t\.id, log_date: reminderDate \}/);
+  assert.match(worker, /const scheduleDate = scheduledDateForTime\(sch\.send_time, now, today\)/);
+  assert.match(worker, /sch\.last_run_date === scheduleDate/);
+  assert.match(worker, /\{ last_run_date: scheduleDate \}/);
+  assert.doesNotMatch(worker, /if \(!schedules\.length\)\s*\{\s*return/,
+    'task-time reminders must not be skipped when there are no email schedule rows');
+});
+
+test('recipient-RPC cache refresh migration only notifies PostgREST to reload its schema', () => {
+  assert.match(postgrestRefreshMigration, /NOTIFY pgrst, 'reload schema';/i);
+  assert.doesNotMatch(postgrestRefreshMigration, /INSERT|UPDATE|DELETE|CREATE POLICY|DROP POLICY/i);
 });
 
 test('recipient migration implements the frontend RPC contract without unrelated report RLS edits', () => {

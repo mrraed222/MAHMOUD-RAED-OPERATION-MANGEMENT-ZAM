@@ -13,6 +13,34 @@ function riyadhDateParts(value) {
   };
 }
 
+export function isPostMidnightTimeMatch(sendTime, current) {
+  const [hour, minute] = String(sendTime ?? '').split(':').slice(0, 2).map(Number);
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute) || minute < 0 || minute > 59) return false;
+
+  const targetMinutes = hour * 60 + minute;
+  const currentMinutes = current.getHours() * 60 + current.getMinutes();
+  const difference = currentMinutes - targetMinutes;
+  const elapsedAfterMidnight = difference + 1440;
+  return difference < 0 && targetMinutes >= 1433 && currentMinutes <= 7
+    && elapsedAfterMidnight >= 0 && elapsedAfterMidnight <= 7;
+}
+
+export function timeMatches(sendTime, current) {
+  const [hour, minute] = String(sendTime ?? '').split(':').slice(0, 2).map(Number);
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute) || minute < 0 || minute > 59) return false;
+  const difference = (current.getHours() * 60 + current.getMinutes()) - (hour * 60 + minute);
+  // Keep the existing ±7-minute window and allow its post-midnight portion
+  // for late-night schedules, but never run a new-day schedule early.
+  return Math.abs(difference) <= 7 || isPostMidnightTimeMatch(sendTime, current);
+}
+
+export function scheduledDateForTime(sendTime, current, currentDate) {
+  if (!isPostMidnightTimeMatch(sendTime, current)) return currentDate;
+  const date = new Date(`${currentDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
 export function isScheduledChecklistTask(task, date = new Date()) {
   if (!task || task.is_active === false || task.active === false) return false;
   if (task.task_type === 'inventory_request' || task.task_type === 'inventory_count') return false;
@@ -20,7 +48,12 @@ export function isScheduledChecklistTask(task, date = new Date()) {
   if (frequency === 'hourly') return false;
   const today = riyadhDateParts(date);
   if (frequency === 'daily') return true;
-  if (frequency === 'weekly') return Number(task.day_of_week) === today.weekday;
+  if (frequency === 'weekly') {
+    if (Array.isArray(task.days_of_week) && task.days_of_week.length > 0) {
+      return task.days_of_week.some(day => Number.isInteger(day) && day >= 0 && day <= 6 && day === today.weekday);
+    }
+    return Number(task.day_of_week) === today.weekday;
+  }
   if (frequency === 'monthly') {
     const lastDay = new Date(Date.UTC(today.year, today.month, 0)).getUTCDate();
     const requestedDay = Number(task.day_of_month);
