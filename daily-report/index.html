@@ -2,7 +2,7 @@
 
 <html dir="rtl" lang="ar"><head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../assets/supabase-config.js?v=20261124203300"></script>
+<script src="../assets/supabase-config.js?v=20261125184500"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script src="../assets/weekly-report-metrics.js?v=20261125170000"></script>
 <script src="../assets/checklist-log-metrics.js?v=20261125170000"></script>
@@ -913,8 +913,15 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
                     alert('تم إنشاء التقرير ' + partialReportId + ' لكن لم يكتمل حفظ كل التفاصيل. أوقفت إعادة إرسال نفس الفرع والتاريخ والوردية لتجنب التكرار؛ راجع سجل التقارير مع الإدارة.');
                     return;
                 }
+                const failureCode = String(err?.code || err?.cause?.code || err?.status || err?.cause?.status || '');
+                const failureMessage = err?.friendly || (failureCode === '42501'
+                    ? 'رفضت قاعدة البيانات حفظ التقرير ضمن صلاحيات الجلسة أو نطاق الفرع والوردية (42501). تحقق من التكليف ثم أعد تسجيل الدخول؛ لم يُحفظ التقرير ولم يُرسل البريد.'
+                    : ['401', 'PGRST301'].includes(failureCode)
+                        ? 'انتهت جلسة الدخول أو تعذر التحقق منها. سجّل الخروج ثم الدخول من جديد؛ لم يُحفظ التقرير ولم يُرسل البريد.'
+                        : 'حدث خطأ أثناء حفظ التقرير. لم يُحفظ التقرير ولم يُرسل البريد؛ حاول مرة أخرى.');
                 restoreReportSubmissionForm(btn, dateInput, shiftInput);
-                alert('حدث خطأ أثناء إرسال التقرير. حاول مرة أخرى.');
+                document.getElementById('report-submit-status').textContent = failureMessage;
+                alert(failureMessage);
             }
         });
 

@@ -4,11 +4,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const source = fs.readFileSync(path.join(__dirname, '../../reports-log/index.html'), 'utf8');
+const summarySource = fs.readFileSync(path.join(__dirname, '../../assets/report-log-summary.js'), 'utf8');
+const migrationSource = fs.readFileSync(path.join(__dirname, '../../supabase/migrations/20261125184500_daily_report_log_summary_auth.sql'), 'utf8');
 
 test('the Supabase SDK loads before the shared configuration', () => {
   const sdk = source.indexOf('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
   const config = source.indexOf('../assets/supabase-config.js');
+  const renderer = source.indexOf('../assets/report-detail-renderer.js');
+  const summary = source.indexOf('../assets/report-log-summary.js');
   assert.ok(sdk >= 0 && config > sdk, 'the SDK must be present and precede shared configuration');
+  assert.ok(renderer > config && summary > renderer, 'report helpers must load after Supabase configuration and in dependency order');
 });
 
 test('reports log preserves auth, scoped branch options, operational filtering, and Supervisor branch/shift scope', () => {
@@ -20,12 +25,32 @@ test('reports log preserves auth, scoped branch options, operational filtering, 
   assert.match(source, /async function loadReports\(\)\{if\(currentUser\.role==='Manager'\)\{setStatus\([\s\S]*?return;\}/,
     'manual filtering and retry must not fall back to all Manager branches');
   assert.match(source, /currentUser\.role==='Supervisor'[\s\S]*?branchId=currentUser\.branch_id/);
+  assert.match(source, /if\(currentUser\.role==='Supervisor'\)/);
+  assert.match(source, /async function init\(\)\{try\{if\(currentUser\.role==='Manager'&&/,
+    'only the configured Manager gate applies here; Supervisor access must not gain an analytics-permission requirement');
   assert.match(source, /query\.eq\('shift_type',currentUser\.shift_type\)/,
     'Morning/Evening Supervisors must filter to their assigned shift');
   assert.match(source, /query\.in\('shift_type',\['Morning','Evening'\]\)/,
     'Both Supervisors may see both valid shift types');
   assert.match(source, /!report\.custom_fields\?\.technical_parent/);
   assert.match(source, /ZamBranchLifecycle\.isOperational\(branchesById\.get/);
+  assert.match(source, /await loadReportSummaries\(reportsData\)/);
+  assert.match(source, /rpc\('get_daily_report_log_summaries'/);
+});
+
+test('report log summary renders by-unit waste quantities and distinguishes unavailable data from zero', () => {
+  assert.match(summarySource, /function wasteHtml\(summary\)/);
+  assert.match(summarySource, /تعذّر تحميل ملخص الهدر/);
+  assert.match(summarySource, /لا يوجد هدر مطابق لهذا التقرير/);
+  assert.match(summarySource, /formatQuantity\(quantity\)[\s\S]*?escapeHtml\(unit\)/);
+  assert.match(summarySource, /مشاكل الشفت:[\s\S]*?بلاغات تقنية/);
+  assert.match(source, /ملخص الهدر بالكميات/);
+  assert.match(source, /لا تتوفر تكلفة وحدة لحساب قيمة مالية/);
+  assert.match(migrationSource, /SECURITY INVOKER/);
+  assert.match(migrationSource, /cardinality\(COALESCE\(p_report_ids, '\{\}'::uuid\[\]\)\) <= 10000/);
+  assert.match(migrationSource, /GRANT EXECUTE ON FUNCTION public\.get_daily_report_log_summaries\(uuid\[\]\)\s+TO authenticated/);
+  assert.match(migrationSource, /REVOKE ALL ON FUNCTION public\.get_daily_report_log_summaries\(uuid\[\]\)\s+FROM PUBLIC, anon, service_role/);
+  assert.doesNotMatch(migrationSource, /CREATE POLICY|GRANT SELECT ON|item_name|reason|unit_cost/);
 });
 
 test('filters, retry, empty state and export operate on the currently loaded result set', () => {
@@ -68,6 +93,6 @@ test('desktop table and mobile cards are semantic, responsive, and escape databa
     'narrow screens must stack date filters to avoid clipping browser-native date inputs');
   assert.doesNotMatch(source, /calc\(312px\s*\+\s*24px\)/,
     'the hidden-by-default sidebar must not reserve a permanent desktop gutter');
-  assert.match(source, /escapeHtml\(r\.supervisor_name/);
+  assert.match(summarySource, /escapeHtml\(report\.supervisor_name/);
   assert.match(source, /aria-live="polite"/);
 });

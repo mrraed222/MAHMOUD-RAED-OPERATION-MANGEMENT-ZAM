@@ -1402,15 +1402,40 @@ const ZamAPI = {
     },
 
     async submitDailyReport({ core, custom_fields = {}, waste = [], issues = [] }) {
-        // submitted_by يربط التقرير بمقدّمه الفعلي — عليه يقوم تقييد رؤية المشرف لتقاريره فقط
         if (!core?.branch_id || !core?.report_date || !['Morning', 'Evening'].includes(core?.shift_type)) {
             throw new Error('بيانات الفرع والتاريخ والوردية مطلوبة لحفظ التقرير.');
         }
         const me = ZamSession.get();
+        const authFailure = (code, message) => {
+            const failure = new Error(message);
+            failure.code = code;
+            failure.friendly = message;
+            return failure;
+        };
+        if (!me?.id) {
+            throw authFailure('ZAM_PROFILE_MISSING', 'لا توجد بيانات مستخدم محفوظة لهذه الجلسة. سجّل الدخول من جديد؛ لم يُحفظ التقرير.');
+        }
+        const { data: authData, error: authError } = await zamClient.auth.getUser();
+        const authenticatedUser = authData?.user;
+        if (authError || !authenticatedUser) {
+            throw authFailure('ZAM_AUTH_SESSION_INVALID', 'تعذر التحقق من جلسة الدخول. أعد المحاولة، وإذا استمر العطل سجّل الخروج ثم الدخول؛ لم يُحفظ التقرير.');
+        }
+        if (String(authenticatedUser.id) !== String(me.id)) {
+            throw authFailure('ZAM_AUTH_PROFILE_MISMATCH', 'لا تتطابق جلسة Supabase مع ملف المستخدم الحالي. سجّل الخروج ثم الدخول من جديد؛ لم يُحفظ التقرير.');
+        }
+        if (me.role === 'Supervisor') {
+            if (!me.branch_id || String(me.branch_id) !== String(core.branch_id)) {
+                throw authFailure('ZAM_SUPERVISOR_BRANCH_MISMATCH', 'الفرع المحدد لا يطابق فرع حساب المشرف؛ لم يُحفظ التقرير.');
+            }
+            if (!['Morning', 'Evening', 'Both'].includes(me.shift_type)
+                || (me.shift_type !== 'Both' && me.shift_type !== core.shift_type)) {
+                throw authFailure('ZAM_SUPERVISOR_SHIFT_MISMATCH', 'الوردية المحددة لا تطابق تكليف حساب المشرف؛ لم يُحفظ التقرير.');
+            }
+        }
         const sheetKey = `zam-web-daily-report-v1:${core.branch_id}:${core.report_date}:${core.shift_type}`;
         const { data: report, error } = await zamClient
             .from('daily_reports')
-            .insert([{ ...core, sheet_key: sheetKey, custom_fields, submitted_by: me ? me.id : null }])
+            .insert([{ ...core, sheet_key: sheetKey, custom_fields, submitted_by: authenticatedUser.id }])
             .select()
             .single();
         if (error) {

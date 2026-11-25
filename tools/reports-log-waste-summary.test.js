@@ -15,9 +15,11 @@ assert.match(html, /columns:'id,report_id,shift_type'/,
 assert.match(html, /isImportedSheetReport\(report\)&&!attempt\.hasShift/,
   'migrated rows without shift metadata must not be guessed into a report');
 assert.match(html, /ZamReportDetailRenderer\.filterWasteForReport\(report,\s*wasteRes\.data\s*\|\|\s*\[\]\)/,
-  'the display must verify imported key/shift before counting waste');
-assert.match(renderer, /عدد السجلات المرتبطة بهذا التقرير/);
-assert.doesNotMatch(renderer, /row\.item_name|row\.quantity|row\.reason|row\.root_cause|row\.corrective_action/,
+  'the display must verify imported key/shift before aggregating waste quantities');
+assert.match(renderer, /ملخص الهدر بالكميات حسب الوحدة/);
+assert.match(renderer, /summarizeWasteForReport/);
+assert.match(renderer, /row\.quantity/);
+assert.doesNotMatch(renderer, /row\.item_name|row\.reason|row\.root_cause|row\.corrective_action/,
   'the report detail renderer must never read or display raw waste item/reason fields');
 assert.doesNotMatch(html, /loadChildren\('waste_logs'\)/,
   'the page must not request complete raw waste rows');

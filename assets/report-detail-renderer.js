@@ -78,6 +78,28 @@
     });
   }
 
+  function summarizeWasteForReport(report, rows = []) {
+    const reportId = report?.id == null ? '' : String(report.id);
+    if (!reportId || !Array.isArray(rows)) return { status: 'error', byUnit: [] };
+    const totals = new Map();
+    for (const row of filterWasteForReport(report, rows)) {
+      if (String(row?.report_id) !== reportId) continue;
+      if (typeof row.unit !== 'string' || row.unit.length === 0 || row.quantity === null || row.quantity === undefined || row.quantity === '') {
+        return { status: 'error', byUnit: [] };
+      }
+      const quantity = Number(row.quantity);
+      if (!Number.isFinite(quantity)) return { status: 'error', byUnit: [] };
+      const total = (totals.get(row.unit) || 0) + quantity;
+      if (!Number.isFinite(total)) return { status: 'error', byUnit: [] };
+      totals.set(row.unit, total);
+    }
+    return {
+      status: 'ready',
+      byUnit: Array.from(totals, ([unit, quantity]) => ({ unit, quantity }))
+        .sort((left, right) => left.unit.localeCompare(right.unit)),
+    };
+  }
+
   function render(report, { branchName = '—', waste = [], issues = [], reviews = [], technicalIssues = [], errors = {} } = {}) {
     const reportId = report?.id == null ? null : String(report.id);
     const linkedTechnicalIssues = reportId
@@ -108,13 +130,13 @@
     const customHtml = customFields.length
       ? section('حقول التقرير الإضافية', `<dl class="detail-facts">${customFields.map(([key, value]) => field(key, value)).join('')}</dl>`)
       : '';
-    const wasteCount = Array.isArray(waste) ? waste.length : 0;
-    const wasteSummary = errors.waste
+    const wasteTotals = errors.waste ? { status: 'error', byUnit: [] } : summarizeWasteForReport(report, waste);
+    const wasteSummary = wasteTotals.status !== 'ready'
       ? 'تعذّر التحقق من ملخص الهدر المرتبط بهذا التقرير.'
-      : wasteCount
-        ? `عدد السجلات المرتبطة بهذا التقرير: <strong>${wasteCount.toLocaleString('ar-SA')}</strong>. لا تُعرض تفاصيل الأصناف أو الأسباب هنا.`
-        : 'لا توجد سجلات هدر مرتبطة بهذا التقرير.';
-    const wasteSection = section('ملخص الهدر', `<p class="safe-waste-summary" role="status">${wasteSummary}</p>`);
+      : wasteTotals.byUnit.length
+        ? wasteTotals.byUnit.map(({ unit, quantity }) => `${Number(quantity).toLocaleString('ar-SA', { maximumFractionDigits: 10 })} ${unit}`).join(' · ')
+        : 'لا توجد كميات هدر مطابقة لهذا التقرير.';
+    const wasteSection = section('ملخص الهدر بالكميات حسب الوحدة', `<p class="safe-waste-summary" role="status">${escapeHtml(wasteSummary)}</p>`);
     const issuesSection = detailRows('مشاكل الشفت', issues, (row) => {
       const fields = [
         field('نوع المشكلة', row.issue_type),
@@ -156,5 +178,5 @@
     return `<div class="report-detail"><section class="detail-section detail-overview"><h3>ملخص التقرير</h3><div class="detail-metrics">${metricsHtml}</div><dl class="detail-facts">${metadataHtml}</dl></section>${customHtml}${wasteSection}${issuesSection}${technicalIssuesSection}${reviewsSection}</div>`;
   }
 
-  global.ZamReportDetailRenderer = { render, filterWasteForReport };
+  global.ZamReportDetailRenderer = { render, filterWasteForReport, summarizeWasteForReport };
 })(typeof window !== 'undefined' ? window : globalThis);

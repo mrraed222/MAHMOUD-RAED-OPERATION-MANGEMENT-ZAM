@@ -15,12 +15,12 @@ const importedReport = {
   sheet_key: eveningKey, custom_fields: { sheet_row: 32 },
 };
 const rows = [
-  { id: 'right', sheet_key: `${eveningKey}|W|milk|1|L|expired`, shift_type: 'Evening' },
+  { id: 'right', report_id: 'report-evening', sheet_key: `${eveningKey}|W|milk|1|L|expired`, shift_type: 'Evening', quantity: 1, unit: 'لتر', item_name: 'must not leak' },
   { id: 'wrong-date', sheet_key: 'زام الرئيسي|2026-11-23|Evening|مشرف المساء|30|W|milk|1|L|expired', shift_type: 'Evening' },
   { id: 'wrong-branch', sheet_key: 'زام 2|2026-11-24|Evening|مشرف المساء|30|W|milk|1|L|expired', shift_type: 'Evening' },
   { id: 'wrong-shift-key', sheet_key: `${morningKey}|W|juice|1|L|damaged`, shift_type: 'Evening' },
   { id: 'malformed-key', sheet_key: 'legacy-unparseable-key', shift_type: 'Evening' },
-  { id: 'unkeyed-right-shift', shift_type: 'Evening' },
+  { id: 'unkeyed-right-shift', report_id: 'report-evening', shift_type: 'Evening', quantity: 2, unit: 'لتر' },
   { id: 'unkeyed-wrong-shift', shift_type: 'Morning' },
   { id: 'unverifiable', item_name: 'must not leak' },
 ];
@@ -38,6 +38,7 @@ assert.deepEqual(Array.from(filter(importedWithoutReportKey, [
 const rendered = window.ZamReportDetailRenderer.render(importedReport, {
   branchName: 'زام الرئيسي', waste: filter(importedReport, rows),
 });
-assert.match(rendered, /عدد السجلات المرتبطة بهذا التقرير/);
+assert.match(rendered, /ملخص الهدر بالكميات حسب الوحدة/);
+assert.match(rendered, /لتر/);
 assert.doesNotMatch(rendered, /milk|expired|must not leak|wrong-date|wrong-branch/);
 console.log('reports-log exact waste association unit test: passed');

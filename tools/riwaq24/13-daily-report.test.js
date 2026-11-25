@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const source = fs.readFileSync(path.join(__dirname, '../../daily-report/index.html'), 'utf8');
+const apiSource = fs.readFileSync(path.join(__dirname, '../../assets/supabase-config.js'), 'utf8');
 
 test('daily report organizes completion from identity through review and submission', () => {
   const positions = [
@@ -34,6 +35,18 @@ test('auth, owner redirect, branch lifecycle, duplicate guard, payload and saved
   assert.match(source, /savedReportPrintSnapshot = printSnapshot/);
   assert.match(source, /id="saved-report-actions"/);
   assert.match(source, /تم حفظ التقرير، لكن تعذر تأكيد البريد/);
+});
+
+test('daily report save requires the matching authenticated UID and enforces the supervisor assignment', () => {
+  assert.match(source, /supabase-config\.js\?v=20261125184500/);
+  assert.match(apiSource, /await zamClient\.auth\.getUser\(\)/);
+  assert.match(apiSource, /String\(authenticatedUser\.id\) !== String\(me\.id\)/);
+  assert.match(apiSource, /submitted_by: authenticatedUser\.id/);
+  assert.doesNotMatch(apiSource, /submitted_by: me \? me\.id/);
+  assert.match(apiSource, /me\.role === 'Supervisor'[\s\S]*?String\(me\.branch_id\) !== String\(core\.branch_id\)/);
+  assert.match(apiSource, /me\.shift_type !== 'Both' && me\.shift_type !== core\.shift_type/);
+  assert.match(source, /صلاحيات الجلسة أو نطاق الفرع والوردية \(42501\)/);
+  assert.match(source, /\['401', 'PGRST301'\]/);
 });
 
 test('row editing, complaint and technical workflows remain present and the shared bell is not duplicated', () => {
