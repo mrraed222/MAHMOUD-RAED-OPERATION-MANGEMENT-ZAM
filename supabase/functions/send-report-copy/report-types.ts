@@ -154,6 +154,10 @@ type SendReportDatabase = {
         Args: { p_permission: string; p_branch_id: string | null };
         Returns: boolean;
       };
+      can_generate_daily_report_copy: {
+        Args: { p_report_id: string };
+        Returns: boolean;
+      };
       get_daily_report_copy_recipients: {
         Args: { p_report_id: string };
         Returns: ReportCopyRecipientRow[];

@@ -8,9 +8,12 @@ const edge = fs.readFileSync(path.join(functionDir, 'index.ts'), 'utf8');
 const pdf = fs.readFileSync(path.join(functionDir, 'report-pdf.mjs'), 'utf8');
 const provider = fs.readFileSync(path.join(functionDir, 'email-provider.mjs'), 'utf8');
 const sendOnce = fs.readFileSync(path.join(functionDir, 'email-send-once.mjs'), 'utf8');
+const types = fs.readFileSync(path.join(functionDir, 'report-types.ts'), 'utf8');
 const ui = fs.readFileSync(path.join(root, 'daily-report/index.html'), 'utf8');
 
 assert.match(edge, /auth\.getUser\(\)/, 'the Edge Function must verify the caller session');
+assert.match(types, /can_generate_daily_report_copy:[\s\S]*?Args: \{ p_report_id: string \};[\s\S]*?Returns: boolean;/,
+  'the authenticated report authorization RPC must be included in the typed Supabase schema');
 assert.match(edge, /\.select\('id,email,status,role'\)/, 'the caller role must distinguish own-report supervisor copies from readers');
 assert.match(edge, /rpc\('can_generate_daily_report_copy', \{\s*p_report_id: reportId,?\s*\}\)/,
   'one authenticated RPC must authorize the exact report and the Manager analytics/detail capability');
