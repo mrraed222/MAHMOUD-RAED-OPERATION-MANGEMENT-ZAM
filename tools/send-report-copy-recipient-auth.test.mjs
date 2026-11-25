@@ -249,6 +249,12 @@ assert.ok(!requestByA.providerPayload.bcc.includes(unrelatedBranchManager.email)
 assert.ok(!requestByA.providerPayload.bcc.includes(summaryOnlyManager.email), 'a Manager role alone does not grant analytics/detail permission');
 assert.ok(!requestByA.providerPayload.bcc.includes(noneScopeManager.email), 'none-scope Managers are excluded from daily report copies');
 
+const ownerExcludedByResolver = await invoke({ actor: supervisorB, configuredRecipients: [] });
+assert.equal(ownerExcludedByResolver.response.status, 200);
+assert.ok(!ownerExcludedByResolver.resolvedRecipients.some(row => row.profile_id === owner.id));
+assert.ok(!ownerExcludedByResolver.providerPayload.bcc.includes(owner.email),
+  'an active Owner omitted by the report-scoped resolver must not be appended as a global fallback');
+
 const ownReportByB = await invoke({
   actor: supervisorB,
   configuredRecipients: [{ profile_id: owner.id, email: owner.email, is_primary: true }],

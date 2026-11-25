@@ -60,12 +60,17 @@
     const reportShift = normalizeShift(report?.shift_type);
     const importedReport = !!(report?.custom_fields?.sheet_row != null || parentKey.includes('|'));
     return (Array.isArray(rows) ? rows : []).filter((row) => {
+      const rowKey = typeof row?.sheet_key === 'string' ? row.sheet_key.trim() : '';
       const childParentKey = wasteParentSheetKey(row);
       if (childParentKey) {
         if (parentKey) return childParentKey === parentKey;
-        const keyParts = childParentKey.split('|');
-        return keyParts[1] === String(report?.report_date ?? '') && normalizeShift(keyParts[2]) === reportShift;
+        // A child key encodes branch/date/shift in its parent prefix; without
+        // the report key that full historical association cannot be verified.
+        return false;
       }
+      // A present but malformed/unmatched imported key is not legacy data.
+      // Never weaken it to a shift-only match.
+      if (rowKey && importedReport) return false;
       const childShift = normalizeShift(row?.shift_type);
       if (childShift) return childShift === reportShift;
       // For migrated sheet reports, do not guess when old rows lack verifiable shift metadata.

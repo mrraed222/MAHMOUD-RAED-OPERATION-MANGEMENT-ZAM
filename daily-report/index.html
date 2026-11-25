@@ -4,6 +4,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js?v=20261124203300"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
+<script src="../assets/weekly-report-metrics.js?v=20261125170000"></script>
+<script src="../assets/checklist-log-metrics.js?v=20261125170000"></script>
 <script>
   // حماية الشاشة: لازم تسجيل دخول قبل الوصول
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -394,12 +396,20 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
 
         const WASTE_UNITS = ['جرام', 'حبة', 'أخرى'];
 
+        const WASTE_REASONS = [
+            ['expiry', 'الصلاحية'],
+            ['calibration', 'المعايرة'],
+            ['employee_coffee', 'قهوة الموظف اليومية'],
+            ['human_error', 'التلف بسبب خطأ بشري'],
+            ['other', 'أخرى']
+        ];
+
         function wasteRowHTML() {
             return `
                 <td class="py-sm px-sm"><input type="text" placeholder="مثال: حليب" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs waste-item"></td>
                 <td class="py-sm px-sm"><input type="number" placeholder="0" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs waste-qty"></td>
                 <td class="py-sm px-sm"><select class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs waste-unit">${WASTE_UNITS.map(u => `<option value="${u}">${u}</option>`).join('')}</select></td>
-                <td class="py-sm px-sm"><input type="text" placeholder="مثال: منتهي الصلاحية" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs waste-reason"></td>
+                <td class="py-sm px-sm"><div class="flex min-w-[190px] flex-col gap-xs"><select class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs waste-reason" aria-label="سبب الهدر" required><option value="">اختر سبب الهدر</option>${WASTE_REASONS.map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}</select><input type="text" maxlength="240" placeholder="تفصيل مختصر (مطلوب لخطأ بشري أو أخرى)" class="w-full bg-surface-container-lowest border-outline-variant rounded p-xs waste-detail hidden" aria-label="تفصيل سبب الهدر"><span class="waste-detail-error hidden text-error text-xs" role="status">أدخل تفصيلًا مختصرًا لهذا السبب.</span></div></td>
                 <td class="py-sm px-sm"><button type="button" class="remove-row-btn text-error material-symbols-outlined text-[18px]">close</button></td>
             `;
         }
@@ -450,6 +460,21 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
             const newRow = tbody.insertRow();
             newRow.innerHTML = ROW_BUILDERS[tableId]();
             newRow.querySelector('.remove-row-btn').addEventListener('click', () => newRow.remove());
+            const wasteReason = newRow.querySelector('.waste-reason');
+            if (wasteReason) {
+                const detail = newRow.querySelector('.waste-detail');
+                const syncWasteReason = () => {
+                    const needsDetail = ['human_error', 'other'].includes(wasteReason.value);
+                    detail.classList.toggle('hidden', !needsDetail);
+                    detail.required = needsDetail;
+                    if (!needsDetail) {
+                        detail.value = '';
+                        newRow.querySelector('.waste-detail-error').classList.add('hidden');
+                    }
+                };
+                wasteReason.addEventListener('change', syncWasteReason);
+                syncWasteReason();
+            }
             const reviewType = newRow.querySelector('.review-type');
             if (reviewType) {
                 const syncReviewFields = () => {
@@ -539,7 +564,52 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
         function escapeReportPrintText(value) {
             return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
-        function printSavedReport() {
+        async function getSavedReportChecklistSummary(report) {
+            const branchId = String(report?.branch_id || '');
+            const reportDate = String(report?.report_date || '');
+            const shiftType = report?.shift_type;
+            if (!branchId || !/^\d{4}-\d{2}-\d{2}$/.test(reportDate) || !['Morning', 'Evening'].includes(shiftType)) return null;
+
+            if (currentUser.role === 'Supervisor') {
+                const shiftAllowed = currentUser.shift_type === 'Both' || currentUser.shift_type === shiftType;
+                if (String(currentUser.branch_id || '') !== branchId || !shiftAllowed) return null;
+            } else if (currentUser.role === 'Manager') {
+                const scopes = await ZamAPI.getManagerReportScopes([currentUser.id]);
+                const scope = scopes?.[currentUser.id];
+                const branchAllowed = scope?.scope_mode === 'all'
+                    || (scope?.scope_mode === 'selected' && (scope.branchIds || []).some(id => String(id) === branchId));
+                if (!scope?.can_view_checklist_logs || !branchAllowed) return null;
+            } else if (currentUser.role === 'Admin') {
+                if (!(await ZamAPI.requireAdminPerm('can_view_all_reports'))) return null;
+            } else if (currentUser.role !== 'Owner') {
+                return null;
+            }
+
+            const [templates, logs, hourlyLogs] = await Promise.all([
+                ZamAPI.getTemplates(null, null, branchId),
+                ZamAPI.getChecklistLogs({ branchId, date: reportDate, shiftType }),
+                ZamAPI.getHourlyChecklistLogs({ branchId, date: reportDate, shiftType }),
+            ]);
+            const compliance = ZamWeeklyMetrics.calculateCompliance(
+                templates,
+                [{ date: reportDate, branch: branchId, shift: shiftType }],
+                logs,
+                { branchFilter: branchId, branches: [branchId], shiftFilter: shiftType },
+            );
+            const hourly = ZamChecklistLogMetrics.summarizeHourlyExecutionCounts(
+                hourlyLogs,
+                [{ id: branchId, name: report.branches?.name || '' }],
+            ).find(row => row.branchId === branchId && row.shiftType === shiftType);
+            return {
+                nonHourlyCompleted: compliance.nonHourlyDone,
+                nonHourlyPending: compliance.nonHourlyPending,
+                nonHourlyExpected: compliance.nonHourlyExpected,
+                hourlyCompleted: hourly?.completed || 0,
+                hourlyNotPerformed: hourly?.notPerformed || 0,
+                hourlyTemplateCount: compliance.hourlyTemplateCount || 0,
+            };
+        }
+        async function printSavedReport() {
             if (!savedReportPrintSnapshot) return;
             const popup = window.open('', '_blank');
             if (!popup) {
@@ -547,13 +617,33 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
                 return;
             }
             const snapshot = savedReportPrintSnapshot;
+            popup.document.open();
+            popup.document.write('<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><body style="font-family:Arial,sans-serif;padding:24px">جارٍ تحميل ملخص قائمة التحقق…</body></html>');
+            popup.document.close();
+            let checklistSummary = null;
+            try { checklistSummary = await getSavedReportChecklistSummary(snapshot.report); }
+            catch (checklistError) { console.error('Saved report checklist summary unavailable:', checklistError); }
+            if (popup.closed) return;
             const report = snapshot.report;
             const esc = escapeReportPrintText;
-            const rows = (items, render, empty) => items.length ? items.map(item => `<li>${render(item)}</li>`).join('') : `<li>${esc(empty)}</li>`;
+            const rows = (items, render, empty, headers) => items.length
+                ? `<table><thead><tr>${headers.map(header => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${items.map(item => `<tr>${render(item)}</tr>`).join('')}</tbody></table>`
+                : `<p class="empty">${esc(empty)}</p>`;
             const shift = report.shift_type === 'Morning' ? 'صباحية' : report.shift_type === 'Evening' ? 'مسائية' : report.shift_type;
-            const printHtml = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تقرير الوردية ${esc(report.report_date)}</title><style>body{font-family:Arial,sans-serif;color:#20312b;margin:28px;line-height:1.7}h1,h2{color:#17664e}h1{font-size:24px}h2{font-size:18px;margin:20px 0 6px;border-bottom:1px solid #cbd8cf;padding-bottom:4px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px}.meta p{margin:3px 0}ul{padding-right:22px}li{margin:5px 0}.brand{border-top:8px solid #17664e;padding-top:14px}@media print{body{margin:14mm}.no-print{display:none}}</style></head><body><div class="brand"><h1>تقرير الوردية اليومية</h1><div class="meta"><p><b>الفرع:</b> ${esc(snapshot.branchName || '—')}</p><p><b>التاريخ:</b> ${esc(report.report_date || '—')}</p><p><b>الوردية:</b> ${esc(shift || '—')}</p><p><b>المشرف:</b> ${esc(report.supervisor_name || '—')}</p><p><b>حالة الفريق:</b> ${esc(report.team_status || '—')}</p><p><b>إجمالي المبيعات:</b> ${esc(report.total_sales ?? '—')} ر.س</p><p><b>عدد الطلبات:</b> ${esc(report.orders_count ?? '—')}</p><p><b>متوسط الفاتورة:</b> ${esc(report.avg_ticket ?? '—')} ر.س</p><p><b>التقييمات الإيجابية:</b> ${esc(report.positive_reviews ?? '—')}</p></div><h2>سجلات الهدر</h2><ul>${rows(snapshot.waste, item => `${esc(item.item_name)} — ${esc(item.quantity)} ${esc(item.unit)} · ${esc(item.reason || '—')}`, 'لا توجد سجلات هدر.')}</ul><h2>مشكلات الوردية والإجراءات</h2><ul>${rows(snapshot.issues, item => `${esc(item.priority)} — ${esc(item.description)} · الإجراء: ${esc(item.action_taken || '—')}`, 'لا توجد مشكلات مسجلة.')}</ul><h2>تقييمات العملاء</h2><ul>${rows(snapshot.reviews, item => `${esc(item.review_type === 'positive' ? 'إيجابي' : item.review_type === 'negative' ? 'سلبي' : item.review_type)} — ${esc(item.comment_text)}${item.status ? ` · الحالة: ${esc(item.status)}` : ''}${item.owner ? ` · المسؤول: ${esc(item.owner)}` : ''}${item.action_taken ? ` · الإجراء: ${esc(item.action_taken)}` : ''}`, 'لا توجد تقييمات عملاء مضافة.')}</ul></div></body></html>`;
+            const money = value => value == null || value === '' ? '—' : `${esc(value)} ر.س`;
+            const wasteRows = rows(snapshot.waste, item => `<td>${esc(item.item_name || '—')}</td><td>${esc(item.quantity)} ${esc(item.unit)}</td><td>${esc(item.reason || '—')}</td>`, 'لا يوجد هدر مسجل.', ['الصنف', 'الكمية', 'السبب والتفصيل']);
+            const issueRows = rows(snapshot.issues, item => `<td>${esc(item.issue_type || '—')}</td><td>${esc(item.description || '—')}</td><td>${esc(item.priority || '—')}</td><td>${esc(item.action_taken || '—')}</td>`, 'لا توجد مشكلات مسجلة.', ['النوع', 'المشكلة', 'الأولوية', 'الإجراء']);
+            const reviewRows = rows(snapshot.reviews, item => `<td>${esc(item.review_type === 'positive' ? 'إيجابي' : item.review_type === 'negative' ? 'سلبي' : item.review_type || '—')}</td><td>${esc(item.comment_text || '—')}</td><td>${esc(item.status || '—')}</td><td>${esc(item.owner || '—')}</td><td>${esc(item.action_taken || '—')}</td>`, 'لا توجد تقييمات أو شكاوى مضافة.', ['النوع', 'التعليق', 'الحالة', 'المسؤول', 'الإجراء']);
+            const checklistHtml = checklistSummary
+                ? `<section class="section"><h2>ملخص التشيك ليست</h2><div class="cards"><div class="card"><b>المهام المجدولة غير الساعية المنفذة</b><strong>${checklistSummary.nonHourlyCompleted.toLocaleString('ar-SA')} من ${checklistSummary.nonHourlyExpected.toLocaleString('ar-SA')}</strong></div><div class="card"><b>المهام غير الساعية غير المنفذة</b><strong>${checklistSummary.nonHourlyPending.toLocaleString('ar-SA')}</strong></div><div class="card"><b>المهام الساعية المسجلة صراحةً</b><strong>${checklistSummary.hourlyCompleted.toLocaleString('ar-SA')} منفذة · ${checklistSummary.hourlyNotPerformed.toLocaleString('ar-SA')} غير منفذة</strong></div></div><p class="note">الحصيلة الأساسية تحسب المهام المجدولة غير الساعية لهذا الفرع والتاريخ والوردية. الحالات الساعية تعرض ما سُجل صراحةً فقط؛ لا يُفترض أن غياب سجل يعني عدم التنفيذ.${checklistSummary.hourlyTemplateCount ? ` استُبعدت ${checklistSummary.hourlyTemplateCount.toLocaleString('ar-SA')} قوالب ساعية من إجمالي المهام المجدولة.` : ''}</p></section>`
+                : '<section class="section"><h2>ملخص التشيك ليست</h2><p class="empty">تعذر عرض الأرقام ضمن صلاحيات الجلسة الحالية أو تعذر تحميل السجلات.</p></section>';
+            const logoUrl = new URL('../assets/logo/zam-logo.png', window.location.href).href;
+            const printHtml = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تقرير الوردية ${esc(report.report_date)}</title><style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#20312b;margin:26px;line-height:1.55;background:#f5f7f5}.sheet{max-width:1050px;margin:auto}.brand{display:flex;align-items:center;gap:16px;border-bottom:3px solid #17664e;padding:0 0 14px}.brand img{width:68px;height:68px;object-fit:contain}.brand h1{color:#17664e;font-size:23px;margin:0}.brand p{margin:3px 0;color:#617168}.meta,.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}.meta div,.card,.section{background:#fff;border:1px solid #dce6dd;border-radius:10px;padding:11px}.meta b,.card b{display:block;color:#617168;font-size:12px}.meta strong,.card strong{display:block;font-size:16px;margin-top:4px}.card strong{color:#17664e;font-size:18px}.section{margin-top:12px}h2{color:#17664e;font-size:16px;margin:0 0 8px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:right;vertical-align:top;padding:7px;border-bottom:1px solid #e5ece6}th{background:#f0f5f1;color:#53675d}.empty{margin:4px 0;color:#617168}.note{font-size:12px;color:#617168;margin:8px 0 0}@media(max-width:650px){.meta,.cards{grid-template-columns:repeat(2,minmax(0,1fr)}}@media print{body{margin:10mm;background:#fff}.sheet{max-width:none}.meta div,.card,.section{break-inside:avoid;box-shadow:none}}</style></head><body><article class="sheet"><header class="brand"><img src="${esc(logoUrl)}" alt="شعار ZAM"><div><h1>تقرير مشرف الوردية</h1><p>ZAM Coffee Operations</p></div></header><section class="meta"><div><b>الفرع</b><strong>${esc(snapshot.branchName || '—')}</strong></div><div><b>الوردية</b><strong>${esc(shift || '—')}</strong></div><div><b>المشرف</b><strong>${esc(report.supervisor_name || '—')}</strong></div><div><b>التاريخ</b><strong>${esc(report.report_date || '—')}</strong></div></section><section class="cards"><div class="card"><b>إجمالي المبيعات</b><strong>${money(report.total_sales)}</strong></div><div class="card"><b>متوسط الفاتورة</b><strong>${money(report.avg_ticket)}</strong></div><div class="card"><b>عدد الطلبات</b><strong>${esc(report.orders_count ?? '—')}</strong></div><div class="card"><b>تقييمات Google الإيجابية</b><strong>${esc(report.positive_reviews ?? '—')}</strong></div><div class="card"><b>حالة أداء الفريق</b><strong>${esc(report.team_status || '—')}</strong></div><div class="card"><b>عدد سجلات الهدر</b><strong>${snapshot.waste.length}</strong></div><div class="card"><b>المشكلات والشكاوى</b><strong>${snapshot.issues.length + snapshot.reviews.filter(item => item.review_type === 'negative').length}</strong></div></section><section class="section"><h2>ملخص الهدر</h2>${wasteRows}</section><section class="section"><h2>مشكلات الوردية والإجراءات</h2>${issueRows}</section><section class="section"><h2>تقييمات العملاء والشكاوى</h2>${reviewRows}</section><p class="note">تُعرض بيانات هذا التقرير المحفوظ فقط. لا تتوفر في سجل التقرير اليومي الحالي حصيلة تنفيذ قائمة التحقق.</p></article></body></html>`;
             popup.document.open();
-            popup.document.write(printHtml);
+            const printHtmlWithChecklist = printHtml
+                .replace('<section class="section"><h2>مشكلات الوردية والإجراءات</h2>', `${checklistHtml}<section class="section"><h2>مشكلات الوردية والإجراءات</h2>`)
+                .replace('<p class="note">تُعرض بيانات هذا التقرير المحفوظ فقط. لا تتوفر في سجل التقرير اليومي الحالي حصيلة تنفيذ قائمة التحقق.</p>', '');
+            popup.document.write(printHtmlWithChecklist);
             popup.document.close();
             popup.focus();
             setTimeout(() => popup.print(), 300);
@@ -664,9 +754,28 @@ body.zam-page main table button.remove-row-btn{border-radius:9px;background:#fff
             const ordersCount = parseInt(document.getElementById('orderCount').value) || 0;
             const avgTicket = ordersCount > 0 ? totalSales / ordersCount : 0;
 
-            const wasteRows = collectRows('waste-table', { item_name: 'waste-item', quantity: 'waste-qty', unit: 'waste-unit', reason: 'waste-reason' })
-                .filter(w => w.item_name && w.quantity)
-                .map(w => ({ item_name: w.item_name, quantity: parseFloat(w.quantity) || 0, unit: w.unit, reason: w.reason || null }));
+            const wasteInputRows = [...document.querySelectorAll('#waste-table tbody tr')]
+                .map(row => ({ row, item_name: row.querySelector('.waste-item')?.value.trim() || '', quantity: row.querySelector('.waste-qty')?.value.trim() || '', unit: row.querySelector('.waste-unit')?.value || '', reason: row.querySelector('.waste-reason')?.value || '', detail: row.querySelector('.waste-detail')?.value.trim() || '' }))
+                .filter(w => w.item_name && w.quantity);
+            const missingWasteReason = wasteInputRows.find(w => !w.reason);
+            if (missingWasteReason) {
+                missingWasteReason.row.querySelector('.waste-reason').focus();
+                restoreReportSubmissionForm(btn, dateInput, shiftInput);
+                alert('اختر سببًا لكل سجل هدر قبل الإرسال.');
+                return;
+            }
+            const missingWasteDetail = wasteInputRows.find(w => ['human_error', 'other'].includes(w.reason) && !w.detail);
+            if (missingWasteDetail) {
+                missingWasteDetail.row.querySelector('.waste-detail-error').classList.remove('hidden');
+                missingWasteDetail.row.querySelector('.waste-detail').focus();
+                restoreReportSubmissionForm(btn, dateInput, shiftInput);
+                alert('أدخل تفصيلًا مختصرًا لسبب الهدر المحدد قبل الإرسال.');
+                return;
+            }
+            const wasteRows = wasteInputRows.map(w => {
+                const reasonLabel = WASTE_REASONS.find(([value]) => value === w.reason)?.[1] || w.reason;
+                return { item_name: w.item_name, quantity: parseFloat(w.quantity) || 0, unit: w.unit, reason: `${reasonLabel}${w.detail ? ` — ${w.detail}` : ''}` };
+            });
 
             const reviewRows = collectRows('google-table', { review_type: 'review-type', comment_text: 'review-comment', status: 'review-status', owner: 'review-owner', action_taken: 'review-action' })
                 .filter(r => r.comment_text);
