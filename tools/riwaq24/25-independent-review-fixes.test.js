@@ -149,8 +149,10 @@ test('custom analytics period requires both endpoints and focuses the missing fi
   assert.match(pages.analytics, /!fromValue \? document\.getElementById\('f-from'\) : !toValue \? document\.getElementById\('f-to'\)/);
 });
 
-test('decorative zoom layer does not intercept checklist photo clicks', () => {
-  assert.match(pages.checklistLogs, /class="pointer-events-none absolute inset-0 bg-primary\/20/);
+test('checklist photos use a direct accessible zoom button without a decorative click layer', () => {
+  assert.match(pages.checklistLogs, /class="checklist-photo-trigger zoomable-btn"/);
+  assert.match(pages.checklistLogs, /document\.querySelectorAll\('\.zoomable-img, \.zoomable-btn'\)/);
+  assert.match(pages.checklistLogs, /id="image-modal"[^>]*role="dialog"[^>]*aria-modal="true"/);
 });
 
 test('inline scripts on all changed screens remain syntactically valid', () => {

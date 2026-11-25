@@ -114,13 +114,13 @@ test('scheduled email escapes supervisor names and target times before HTML inte
   assert.match(source, /escapeHtml\(String\(t\)\.slice\(0, 5\)\)/);
 });
 
-test('planned branches stay out of automation until their confirmed Riyadh opening date', () => {
+test('planned branches stay out of automation until lifecycle status is explicitly operational', () => {
   const planned = { lifecycle_status: 'planned', planned_opening_date: null };
   assert.equal(isBranchOperational(planned, date), false);
   planned.planned_opening_date = '2026-11-18';
   assert.equal(isBranchOperational(planned, '2026-11-17'), false);
-  assert.equal(isBranchOperational(planned, '2026-11-18'), true);
-  assert.equal(isBranchOperational({ lifecycle_status: 'planned', planned_opening_date: '2026-11-17' }, new Date('2026-11-16T21:00:00.000Z')), true);
+  assert.equal(isBranchOperational(planned, '2026-11-18'), false);
+  assert.equal(isBranchOperational({ lifecycle_status: 'planned', planned_opening_date: '2020-01-01' }, date), false);
   assert.equal(isBranchOperational({ lifecycle_status: null }, date), true);
   assert.equal(isBranchOperational({ lifecycle_status: 'operational' }, date), true);
 });

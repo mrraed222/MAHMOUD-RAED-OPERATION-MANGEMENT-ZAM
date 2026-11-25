@@ -26,7 +26,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../assets/supabase-config.js?v=20261124203300"></script>
 <script src="../assets/weekly-report-metrics.js?v=20261117194500"></script>
-<script src="../assets/weekly-report-core.js?v=20261118205235"></script>
+<script src="../assets/weekly-report-core.js?v=20261125161700"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
   // التقرير التنفيذي خاص بمالك النظام فقط.
@@ -248,6 +248,7 @@
     .print-brand img { width:22mm; height:22mm; object-fit:contain; background:#fff; border-radius:3mm; padding:1.5mm; }
     .print-brand h1 { margin:0; color:#fff; font-size:18pt; }
     .print-brand p { margin:2mm 0 0; color:#f3e8dd; font-size:9pt; }
+    .print-brand .print-attribution { margin-top:3mm; font-weight:700; }
     main { margin-right:0 !important; min-height:0 !important; }
     .card { break-inside:avoid; box-shadow:none !important; border:1px solid #b9afa7 !important; border-radius:4px; }
     .report-header { background:#fff !important; color:#33210d !important; border-bottom:1px solid #b9afa7; box-shadow:none !important; }
@@ -455,7 +456,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 <main class="mr-[280px] min-h-screen">
 
   <!-- ================= HEADER ================= -->
-  <div class="print-brand"><img src="../assets/logo/zam-logo.png" alt="شعار زام"><div><h1>التقرير الأسبوعي لإدارة التشغيل</h1><p>نسخة للطباعة</p><p>فترة التقرير: <span id="printPeriod">—</span></p></div></div>
+  <div class="print-brand"><img src="../assets/logo/zam-logo.png" alt="شعار زام"><div><h1>التقرير الأسبوعي لإدارة التشغيل</h1><p>نسخة للطباعة</p><p>فترة التقرير: <span id="printPeriod">—</span></p><p class="print-attribution">إعداد وتقديم محمود شريف — إدارة التشغيل والجودة</p></div></div>
   <header class="no-print sticky top-0 z-40 report-header shadow-sm" aria-label="رأس التقرير الأسبوعي">
     <div class="header-inner px-margin-desktop py-3 flex items-center justify-between gap-4 flex-wrap">
       <div class="flex items-center gap-md">

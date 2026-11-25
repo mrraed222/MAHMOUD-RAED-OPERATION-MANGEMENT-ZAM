@@ -1,6 +1,6 @@
 // كل الاستعلامات عبر REST مباشرة بمفتاح service_role.
 // @ts-ignore ملف المساعد محلي ويُضمّن مع دالة Supabase عند النشر.
-import { buildChecklistShiftSummary, buildPendingEmployeeTasks, escapeHtml, isBranchOperational, isScheduledChecklistTask, templateAppliesToBranch } from './automation-helpers.mjs'
+import { authorizeAutomationRequest, buildChecklistShiftSummary, buildPendingEmployeeTasks, escapeHtml, isBranchOperational, isScheduledChecklistTask, templateAppliesToBranch } from './automation-helpers.mjs'
 
 function riyadhNow() {
   const now = new Date()
@@ -40,6 +40,15 @@ async function sbGetFiltered(table: string, filter: string, select = '*'): Promi
   const res = await fetch(`${SB_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}&${filter}&limit=10000`, { headers: sbHeaders() })
   if (!res.ok) throw new Error(`sbGet ${table} failed: ${res.status} ${await res.text()}`)
   return await res.json()
+}
+
+async function sbRpc(name: string, body: Record<string, unknown>): Promise<any> {
+  const res = await fetch(`${SB_URL}/rest/v1/rpc/${name}`, {
+    method: 'POST', headers: sbHeaders(), body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`sbRpc ${name} failed: ${res.status}`)
+  const text = await res.text()
+  return text ? JSON.parse(text) : null
 }
 
 async function sbPatch(table: string, filter: string, body: any) {
@@ -126,22 +135,33 @@ async function sendEmail(resendKey: string, to: string[], subject: string, html:
   }
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req: Request) => {
+  const authorized = await authorizeAutomationRequest(req, async candidate => {
+    try {
+      return (await sbRpc('verify_zam_automation_cron_secret', { p_candidate: candidate })) === true
+    } catch {
+      return false
+    }
+  })
+  if (!authorized) {
+    return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } })
+  }
+
   try {
     const resendKey = Deno.env.get('RESEND_API_KEY')
     const now = riyadhNow()
     const today = now.toISOString().split('T')[0]
 
     if (!resendKey || !SB_URL || !SR_KEY) {
-      return new Response(JSON.stringify({ ok: true, ran: 0, hasKey: !!resendKey }), { headers: { 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ error: 'automation_configuration_missing' }), { status: 503, headers: { 'Content-Type': 'application/json' } })
     }
 
     const [schedules, allProfiles, taskCategoryRows, allTemplates, branches] = await Promise.all([
-      sbGetFiltered('automation_schedules', 'is_active=eq.true'),
-      sbGetFiltered('profiles', 'status=eq.active'),
-      sbGet('employee_task_categories'),
-      sbGet('checklist_templates', '*,checklist_template_branches(branch_id)'),
-      sbGet('branches'),
+      sbGetFiltered('automation_schedules', 'is_active=eq.true', 'id,report_type,branch_id,shift_type,send_time,is_active,last_run_date'),
+      sbGetFiltered('profiles', 'status=eq.active', 'id,full_name,email,role,branch_id,shift_type,status,receives_branch_reports'),
+      sbGet('employee_task_categories', 'profile_id,category'),
+      sbGet('checklist_templates', 'id,task_title,category,shift_type,instructions,branch_id,target_time,frequency,day_of_week,day_of_month,task_type,is_active,checklist_template_branches(branch_id)'),
+      sbGet('branches', 'id,name,lifecycle_status'),
     ])
     if (!schedules.length) {
       return new Response(JSON.stringify({ ok: true, ran: 0 }), { headers: { 'Content-Type': 'application/json' } })
@@ -150,7 +170,6 @@ Deno.serve(async () => {
     const staffProfiles = allProfiles.filter((p: any) => p.email)
     const branchById = new Map(branches.map((branch: any) => [branch.id, branch]))
     const isBranchActive = (branchId: string | null) => isBranchOperational(branchById.get(branchId), today)
-    const ownerAdminEmails = staffProfiles.filter((r: any) => r.role === 'Owner' || r.role === 'Admin').map((r: any) => r.email)
 
     const categoriesByProfile: Record<string, string[]> = {}
     for (const row of taskCategoryRows) {
@@ -158,14 +177,21 @@ Deno.serve(async () => {
       categoriesByProfile[row.profile_id].push(row.category)
     }
 
-    function resolveRecipients(sch: any) {
-      if (sch.recipient_emails && sch.recipient_emails.length) return [...new Set(sch.recipient_emails)]
-      let list = [...ownerAdminEmails]
-      if (sch.branch_id) {
-        const branchExtra = staffProfiles.filter((r: any) => r.branch_id === sch.branch_id && r.receives_branch_reports).map((r: any) => r.email)
-        list = [...new Set([...list, ...branchExtra])]
+    const recipientCache = new Map<string, Promise<string[]>>()
+    async function resolveRecipients(sch: any): Promise<string[]> {
+      const allowedTypes = new Set(['checklist_summary', 'manager_reports_summary', 'missed_report_alert'])
+      if (!allowedTypes.has(sch.report_type)) return []
+      const cacheKey = `${sch.report_type}|${sch.branch_id || ''}`
+      if (!recipientCache.has(cacheKey)) {
+        recipientCache.set(cacheKey, sbRpc('get_scheduled_automation_email_recipients', {
+          p_report_type: sch.report_type,
+          p_branch_id: sch.branch_id || null,
+        }).then((rows: any) => {
+          if (!Array.isArray(rows)) return []
+          return [...new Set(rows.map((row: any) => String(row?.email || '').trim()).filter(Boolean))]
+        }))
       }
-      return list
+      return await recipientCache.get(cacheKey)!
     }
 
     const ROLE_CATEGORY: Record<string, string> = { Barista: 'البار', Waiter: 'الصالة', Kitchen: 'المطبخ' }
@@ -188,7 +214,7 @@ Deno.serve(async () => {
       return isScheduledChecklistTask(t, new Date())
     }
 
-    const logsToday = await sbGetFiltered('checklist_logs', `execution_date=eq.${today}`)
+    const logsToday = await sbGetFiltered('checklist_logs', `execution_date=eq.${today}`, 'template_id,branch_id,execution_date,status,shift_type,executed_by')
     const operationalBranches = branches.filter((branch: any) => isBranchOperational(branch, today))
     const operationalBranchIds = new Set(operationalBranches.map((branch: any) => branch.id))
 
@@ -198,7 +224,7 @@ Deno.serve(async () => {
     {
       const dueTemplates = allTemplates.filter((t: any) => t.target_time && timeMatches(t.target_time, now) && isDueToday(t))
       if (dueTemplates.length) {
-        const alreadySent = await sbGetFiltered('task_reminder_logs', `log_date=eq.${today}`)
+        const alreadySent = await sbGetFiltered('task_reminder_logs', `log_date=eq.${today}`, 'template_id,log_date')
         const sentIds = new Set(alreadySent.map((r: any) => r.template_id))
         const staff = staffProfiles.filter((p: any) => ['Barista', 'Waiter', 'Kitchen'].includes(p.role) && isBranchActive(p.branch_id))
 
@@ -219,7 +245,7 @@ Deno.serve(async () => {
       }
     }
 
-    const reportsToday = (await sbGetFiltered('daily_reports', `report_date=eq.${today}`))
+    const reportsToday = (await sbGetFiltered('daily_reports', `report_date=eq.${today}`, 'id,branch_id,report_date,shift_type,total_sales,orders_count,team_status'))
       .filter((report: any) => operationalBranchIds.has(report.branch_id))
 
     for (const sch of schedules) {
@@ -243,7 +269,7 @@ Deno.serve(async () => {
           }
           body += '</div>'
         }
-        scheduleOk = await sendEmail(resendKey, resolveRecipients(sch), `ملخص تشيك ليست - ${today}`, emailShell('ملخص قوائم التحقق اليومية', body))
+        scheduleOk = await sendEmail(resendKey, await resolveRecipients(sch), `ملخص تشيك ليست - ${today}`, emailShell('ملخص قوائم التحقق اليومية', body))
       }
 
       // ============ ملخص أداء التقارير ============
@@ -251,13 +277,13 @@ Deno.serve(async () => {
         const scopeReports = sch.branch_id ? reportsToday.filter((r: any) => r.branch_id === sch.branch_id) : reportsToday
         const totalSales = scopeReports.reduce((s: number, r: any) => s + (Number(r.total_sales) || 0), 0)
         const reportIds = scopeReports.map((r: any) => r.id)
-        const waste = reportIds.length ? await sbGetFiltered('waste_logs', `report_id=in.(${reportIds.join(',')})`) : []
-        const issues = reportIds.length ? await sbGetFiltered('shift_issues', `report_id=in.(${reportIds.join(',')})`) : []
+        const waste = reportIds.length ? await sbGetFiltered('waste_logs', `report_id=in.(${reportIds.join(',')})`, 'id,report_id') : []
+        const issues = reportIds.length ? await sbGetFiltered('shift_issues', `report_id=in.(${reportIds.join(',')})`, 'id,report_id') : []
         let body = sectionTitle(`ملخص أداء الفروع - ${today}`)
         body += `<div style="text-align:center;">${statPill('تقارير مستلمة', scopeReports.length)}${statPill('إجمالي المبيعات', totalSales.toLocaleString() + ' ر.س', '#56b958')}${statPill('سجلات هدر', waste.length, '#ba1a1a')}${statPill('مشاكل شفت', issues.length, '#ba1a1a')}</div>`
         body += sectionTitle('تفاصيل الفروع')
         body += listBlock(scopeReports.map((r: any) => `${escapeHtml(branches.find((b: any) => b.id === r.branch_id)?.name || '')}: ${escapeHtml(r.total_sales)} ر.س (${escapeHtml(r.orders_count)} طلب) - ${escapeHtml(r.team_status || '')}`))
-        scheduleOk = await sendEmail(resendKey, resolveRecipients(sch), `ملخص أداء الفروع - ${today}`, emailShell('ملخص أداء التقارير', body, '#4b3621'))
+        scheduleOk = await sendEmail(resendKey, await resolveRecipients(sch), `ملخص أداء الفروع - ${today}`, emailShell('ملخص أداء التقارير', body, '#4b3621'))
       }
 
       // ============ تنبيه تأخر تسليم التقارير ============
@@ -267,7 +293,7 @@ Deno.serve(async () => {
         const missing = scopeBranches.filter((b: any) => !reportedBranchIds.has(b.id))
         if (missing.length) {
           const body = sectionTitle('⚠️ فروع لم ترسل تقريرها اليوم') + listBlock(missing.map((b: any) => escapeHtml(b.name)))
-          scheduleOk = await sendEmail(resendKey, resolveRecipients(sch), `⚠️ فروع لم ترسل تقريرها - ${today}`, emailShell('تنبيه تأخر التقارير', body, '#ba1a1a'))
+          scheduleOk = await sendEmail(resendKey, await resolveRecipients(sch), `⚠️ فروع لم ترسل تقريرها - ${today}`, emailShell('تنبيه تأخر التقارير', body, '#ba1a1a'))
         }
       }
 

@@ -72,7 +72,8 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 .checklist-page-header{min-height:88px;display:grid;grid-template-columns:minmax(180px,1fr) minmax(260px,2fr) auto;align-items:center;gap:20px;padding-block:12px}
 .checklist-brand-logo{width:42px;height:42px;object-fit:contain}.checklist-header-brand{display:flex;align-items:center;gap:10px}.checklist-header-brand>div{display:flex;flex-direction:column;gap:2px}.checklist-system-name{font-size:12px;font-weight:800;color:#16392f}.checklist-user-role{font-size:11px;color:#697871}.checklist-header-title h1{margin:0;font-size:20px}.checklist-header-title p{margin:2px 0 0;font-size:13px}.checklist-header-date{white-space:nowrap}
 .checklist-main{padding-top:112px}.checklist-section-intro{margin:0 0 12px}.checklist-section-intro h2{font-size:18px;font-weight:800;color:#16392f;margin:0}.checklist-section-intro p{font-size:13px;color:#697871;margin:3px 0 0}.checklist-scope{padding:18px;margin-bottom:24px;background:#edf3ee;border:1px solid #dbe5dc;border-radius:16px}.checklist-summary{padding:18px;background:#fff;border:1px solid #e3e9e3;border-radius:16px}.checklist-summary>.grid{margin-top:12px}.checklist-results{margin-top:24px}.checklist-results [role=tablist]{display:flex;gap:8px;overflow:auto}.checklist-results button{min-height:44px}.checklist-results table th,.checklist-results table td{vertical-align:top}.checklist-results section{margin-top:24px}.checklist-status{margin:0 0 16px;padding:12px 16px;border:1px solid #dbe5dc;border-radius:12px;background:#fff}.checklist-status:empty{display:none}.checklist-view-switch{display:flex;gap:8px;overflow:auto}.checklist-results table{min-width:760px}.checklist-photo-trigger{display:block;width:100%;height:100%;padding:0;border:0;background:transparent;cursor:zoom-in}.checklist-photo-trigger:focus-visible{outline:3px solid #bd8150;outline-offset:-3px}@media(max-width:767px){.checklist-results table{min-width:680px}}
-@media(max-width:767px){.checklist-page-header{position:relative;left:auto;top:auto;padding:12px 16px;grid-template-columns:1fr auto;gap:8px 12px;min-height:0}.checklist-header-brand{grid-column:1/-1}.checklist-header-title{grid-column:1}.checklist-header-date{grid-column:2;grid-row:2;align-self:start;text-align:left;white-space:normal;font-size:12px}.checklist-header-title p{max-width:38ch}.checklist-main{padding-top:0}.checklist-scope,.checklist-summary{padding:14px}.checklist-results>div:first-of-type{gap:4px}.checklist-results #gallery-view{min-height:80px}.checklist-results #table-view{max-width:calc(100vw - 32px)}}
+.checklist-counter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:12px}.checklist-counter-card{border:1px solid #e3e9e3;border-radius:10px;background:#fff;padding:10px 12px;min-width:0}.checklist-counter-card h3{font-size:14px;line-height:1.4;font-weight:800;margin:0}.checklist-counter-pair{display:flex;gap:8px;margin-top:8px}.checklist-counter-pair span{flex:1;padding:5px 8px;border-radius:7px;background:#f4f6f2;font-size:12px;display:flex;justify-content:space-between;gap:6px}.checklist-counter-pair strong{font-size:16px;color:#217a5e}.checklist-results #table-view{max-height:560px}
+@media(max-width:767px){.checklist-page-header{position:relative;left:auto;top:auto;padding:12px 16px;grid-template-columns:1fr auto;gap:8px 12px;min-height:0}.checklist-header-brand{grid-column:1/-1}.checklist-header-title{grid-column:1}.checklist-header-date{grid-column:2;grid-row:2;align-self:start;text-align:left;white-space:normal;font-size:12px}.checklist-header-title p{max-width:38ch}.checklist-main{padding-top:0}.checklist-scope,.checklist-summary{padding:14px}.checklist-results>div:first-of-type{gap:4px}.checklist-results #table-view{max-width:calc(100vw - 32px)}}
 </style>
 
 </head><body class="zam-page bg-background text-on-surface overflow-x-hidden">
@@ -118,88 +119,22 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
     </div>
     </section>
 
-    <!-- الإحصائيات -->
-    <section class="checklist-summary mb-lg" aria-labelledby="summary-heading">
-      <div class="checklist-section-intro"><h2 id="summary-heading">ملخص النتائج</h2><p>أعداد السجلات ضمن المرشحات الحالية؛ إجمالي المهام لا يعني تحقق حالة الإنجاز.</p></div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-md">
-      <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex items-center gap-sm">
-        <div class="w-12 h-12 rounded-full bg-primary-container/10 flex items-center justify-center text-primary"><span class="material-symbols-outlined">task_alt</span></div>
-        <div>
-          <p class="text-body-sm text-on-surface-variant">إجمالي المهام المنجزة</p>
-          <p class="text-2xl font-bold text-primary" id="stat-total-executed">—</p>
-        </div>
-      </div>
-      <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex items-center gap-sm">
-        <div class="w-12 h-12 rounded-full bg-tertiary-fixed/30 flex items-center justify-center text-tertiary"><span class="material-symbols-outlined">image</span></div>
-        <div>
-          <p class="text-body-sm text-on-surface-variant">المهام الموثقة بصور</p>
-          <p class="text-2xl font-bold text-tertiary" id="stat-with-photos">—</p>
-        </div>
-      </div>
-      <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex items-center gap-sm">
-        <div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container"><span class="material-symbols-outlined">groups</span></div>
-        <div>
-          <p class="text-body-sm text-on-surface-variant">موظفون منفذون</p>
-          <p class="text-2xl font-bold text-on-surface" id="stat-staff-count">—</p>
-        </div>
-      </div>
-      </div>
-    </section>
-
     <section class="checklist-results" aria-labelledby="results-heading">
     <div id="checklist-status" class="checklist-status" role="status" aria-live="polite" aria-atomic="true"></div>
     <div class="checklist-section-intro"><h2 id="results-heading">سجل التنفيذ والصور</h2><p>تعرض التفاصيل المهام المنفذة فقط؛ وتظهر حالات «غير منفذة» في العدادات.</p></div>
     <section class="checklist-summary mb-lg" aria-labelledby="branch-shift-summary-heading">
-      <div class="checklist-section-intro"><h2 id="branch-shift-summary-heading">المنفذ وغير المنفذ حسب الفرع والوردية</h2><p>يعرض الجدول الورديتين معًا للتاريخ والفرع المحددين؛ الحالات المعلّقة لا تدخل في العدّادين.</p></div>
-      <div class="max-h-80 overflow-auto rounded-xl border border-outline-variant" role="region" tabindex="0" aria-label="عدادات التنفيذ حسب الفرع والوردية">
-        <table class="w-full min-w-[560px] text-body-sm text-right">
-          <thead class="sticky top-0 bg-surface-container text-on-surface-variant font-bold"><tr><th class="p-sm">الفرع</th><th class="p-sm">الوردية</th><th class="p-sm">منفذ</th><th class="p-sm">غير منفذ</th></tr></thead>
-          <tbody id="branch-shift-summary-tbody"><tr><td colspan="4" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody>
-        </table>
-      </div>
+      <div class="checklist-section-intro"><h2 id="branch-shift-summary-heading">عدادات المهام الساعية حسب الفرع والوردية</h2><p>العدادات تخص سجلات المهام الساعية فقط؛ تعرض المنفذ وغير المنفذ المسجلين صراحةً، ولا تدخل المهام العادية أو الحالات المعلّقة.</p></div>
+      <div id="branch-shift-summary" class="checklist-counter-grid" aria-live="polite" aria-label="عدادات المهام الساعية حسب الفرع والوردية"><p class="hint">جارٍ تحميل العدادات…</p></div>
     </section>
-    <!-- عرض التبديل بين الجدول والمعرض -->
-    <div class="flex justify-between items-center mb-sm border-b border-outline-variant pb-xs">
-      <div class="checklist-view-switch" role="group" aria-label="طريقة عرض سجلات التنفيذ">
-        <button type="button" aria-pressed="true" id="tab-gallery" class="px-md py-sm border-b-2 border-primary font-bold text-primary text-body-sm transition-all flex items-center gap-1"><span class="material-symbols-outlined text-base">grid_view</span> معرض الصور</button>
-        <button type="button" aria-pressed="false" id="tab-table" class="px-md py-sm text-on-surface-variant text-body-sm hover:text-primary transition-all flex items-center gap-1"><span class="material-symbols-outlined text-base">table_view</span> جدول التفاصيل</button>
-      </div>
-    </div>
-
-    <!-- حاويات البيانات -->
-    <div id="gallery-view" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-md">
-      <p class="text-on-surface-variant text-body-sm">جارِ التحميل...</p>
-    </div>
-
-    <div id="table-view" class="hidden max-h-[560px] overflow-auto bg-surface-container-lowest rounded-xl border border-outline-variant" role="region" tabindex="0" aria-label="جدول تفاصيل المهام المنفذة">
-      <table class="w-full text-body-sm text-right">
-        <thead class="sticky top-0 bg-surface-container text-on-surface-variant font-bold">
-          <tr>
-            <th class="p-sm">التاريخ</th>
-            <th class="p-sm">الفرع</th>
-            <th class="p-sm">المهمة</th>
-            <th class="p-sm">الفئة</th>
-            <th class="p-sm">الوردية</th>
-            <th class="p-sm">بواسطة</th>
-            <th class="p-sm">الصورة</th>
-          </tr>
-        </thead>
-        <tbody id="logs-table-tbody" class="divide-y divide-outline-variant">
-          <tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>
-        </tbody>
+    <div id="table-view" class="max-h-[560px] overflow-auto bg-surface-container-lowest rounded-xl border border-outline-variant" role="region" tabindex="0" aria-label="جدول المهام المكتملة وملاحظات الفريق">
+      <table class="w-full min-w-[1100px] text-body-sm text-right">
+        <caption class="sr-only">المهام المكتملة فقط، مع ملاحظات الفريق كسجلات مستقلة غير منسوبة إلى مهمة</caption>
+        <thead class="sticky top-0 bg-surface-container text-on-surface-variant font-bold"><tr>
+          <th class="p-sm">التاريخ والوقت</th><th class="p-sm">الفرع</th><th class="p-sm">نوع السجل</th><th class="p-sm">المهمة</th><th class="p-sm">الفئة أو الخطوات</th><th class="p-sm">الوردية</th><th class="p-sm">الموظف / المسجل</th><th class="p-sm">الملاحظة</th><th class="p-sm">الصورة</th>
+        </tr></thead>
+        <tbody id="logs-table-tbody" class="divide-y divide-outline-variant"><tr><td colspan="9" class="p-md text-center text-on-surface-variant">جارٍ تحميل السجلات…</td></tr></tbody>
       </table>
     </div>
-
-    <section class="mt-lg bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
-      <div class="p-md border-b border-outline-variant"><h2 class="font-title-md text-primary">تفاصيل المهام الساعية المنفذة</h2><p class="text-[11px] text-on-surface-variant">تظهر المهام المكتملة فقط؛ حالات «غير منفذة» ضمن العدادات أعلاه. الساعة حسب توقيت الرياض.</p></div>
-      <div class="max-h-[560px] overflow-auto" role="region" tabindex="0" aria-label="جدول المهام الساعية المكتملة"><table class="w-full min-w-[900px] text-body-sm text-right"><thead class="sticky top-0 bg-surface-container text-on-surface-variant font-bold"><tr><th class="p-sm">التاريخ</th><th class="p-sm">الساعة</th><th class="p-sm">الفرع</th><th class="p-sm">المهمة</th><th class="p-sm">الوردية</th><th class="p-sm">الحالة</th><th class="p-sm">الخطوات</th><th class="p-sm">المنفذ / الدور</th><th class="p-sm">ملاحظات</th><th class="p-sm">الصورة</th></tr></thead><tbody id="hourly-logs-tbody"><tr><td colspan="10" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody></table></div>
-    </section>
-
-    <section class="mt-md bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
-      <div class="p-md border-b border-outline-variant"><h2 class="font-title-md text-primary">ملاحظات الفريق</h2><p class="text-[11px] text-on-surface-variant">ملاحظات تشغيلية غير مرتبطة بمهمة، مع الفرع والوردية والتوقيت المحلي.</p></div>
-      <div id="team-notes-list" class="divide-y divide-outline-variant"><p class="p-md text-center text-on-surface-variant">جارِ التحميل...</p></div>
-    </section>
-
     <section class="mt-md bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
       <div class="p-md border-b border-outline-variant"><h2 class="font-title-md text-primary">قراءات حرارة الثلاجات والفريزرات</h2><p class="text-[11px] text-on-surface-variant">السجل الأصلي مرتبط بالثلاجة/الفريزر والفرع والموظف والوردية.</p></div>
       <div class="overflow-x-auto"><table class="w-full text-body-sm text-right"><thead class="bg-surface-container text-on-surface-variant font-bold"><tr><th class="p-sm">الوقت المحلي</th><th class="p-sm">الفرع</th><th class="p-sm">الجهاز</th><th class="p-sm">القراءة</th><th class="p-sm">الحالة</th><th class="p-sm">الوردية</th><th class="p-sm">الموظف / الدور</th><th class="p-sm">ملاحظة</th></tr></thead><tbody id="fridge-readings-tbody"><tr><td colspan="8" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody></table></div>
@@ -216,27 +151,15 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </div>
 
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
-<script src="../assets/checklist-log-metrics.js?v=20261124203300"></script>
+<script src="../assets/checklist-log-metrics.js?v=20261125162100"></script>
 <script>
 document.getElementById('current-user-role').textContent = ({Owner:'مالك',Admin:'مدير النظام',Manager:'مدير',Supervisor:'مشرف'}[currentUser.role] || '');
 document.getElementById('date-label').textContent = new Date().toLocaleDateString('ar-SA', { timeZone: 'Asia/Riyadh', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 document.getElementById('f-date').value = ZamChecklistSchedule.riyadhDateString();
 
-const tabGallery = document.getElementById('tab-gallery');
-const tabTable = document.getElementById('tab-table');
-const galleryView = document.getElementById('gallery-view');
 const tableView = document.getElementById('table-view');
 const checklistStatus = document.getElementById('checklist-status');
 let lastImageTrigger = null;
-function setView(button, other, shown, hidden) {
-    button.setAttribute('aria-pressed', 'true'); other.setAttribute('aria-pressed', 'false');
-    button.className = 'px-md py-sm border-b-2 border-primary font-bold text-primary text-body-sm transition-all flex items-center gap-1';
-    other.className = 'px-md py-sm text-on-surface-variant hover:text-primary text-body-sm transition-all flex items-center gap-1';
-    shown.classList.remove('hidden'); hidden.classList.add('hidden');
-}
-
-tabGallery.addEventListener('click', () => setView(tabGallery, tabTable, galleryView, tableView));
-tabTable.addEventListener('click', () => setView(tabTable, tabGallery, tableView, galleryView));
 
 let branchesCache = [];
 
@@ -282,9 +205,8 @@ async function loadLogs() {
     const applyButton = document.getElementById('apply-filters');
     applyButton.disabled = true; applyButton.setAttribute('aria-busy', 'true');
     checklistStatus.textContent = 'جارٍ تحديث السجلات…';
-    galleryView.setAttribute('aria-busy', 'true');
-    galleryView.innerHTML = '<p class="text-on-surface-variant text-body-sm p-sm">جارِ التحميل...</p>';
-    document.getElementById('logs-table-tbody').innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr>';
+    tableView.setAttribute('aria-busy', 'true');
+    document.getElementById('logs-table-tbody').innerHTML = '<tr><td colspan="9" class="p-md text-center text-on-surface-variant">جارٍ تحميل السجلات…</td></tr>';
 
     const branchId = document.getElementById('f-branch').value || (currentUser.role === 'Supervisor' ? currentUser.branch_id : null);
     const date = document.getElementById('f-date').value;
@@ -317,15 +239,8 @@ async function loadLogs() {
         }
 
         checklistStatus.textContent = 'تم تحديث السجل حسب الفلاتر المحددة.';
-        // حساب الإحصائيات
-        document.getElementById('stat-total-executed').textContent = ZamChecklistLogMetrics.countCompletedExecutionLogs(logs, hourlyLogs);
         const completedLogs = logs.filter(ZamChecklistLogMetrics.isCompleted);
         const hourlyCompletedLogs = hourlyLogs.filter(ZamChecklistLogMetrics.isCompleted);
-        const completedExecutionLogs = [...completedLogs, ...hourlyCompletedLogs];
-        const withPhotos = completedExecutionLogs.filter(l => safeImageUrl(l.photo_url)).length;
-        document.getElementById('stat-with-photos').textContent = withPhotos;
-        const staff = [...new Set(completedExecutionLogs.map(l => l.executed_by).filter(Boolean))].length;
-        document.getElementById('stat-staff-count').textContent = staff;
 
         const visibleRecordBranchIds = new Set([...allLogs, ...allHourlyLogs].map(log => String(log.branch_id || '')).filter(Boolean));
         const showAllOperationalBranches = ['Owner', 'Admin'].includes(currentUser.role);
@@ -334,69 +249,37 @@ async function loadLogs() {
             visibleRecordBranchIds.has(String(branch.id)) ||
             (currentUser.role === 'Supervisor' && String(branch.id) === String(currentUser.branch_id))
         ));
-        const summaryRows = ZamChecklistLogMetrics.summarizeExecutionCounts(allLogs, allHourlyLogs, summaryBranches);
-        document.getElementById('branch-shift-summary-tbody').innerHTML = summaryRows.length
-            ? summaryRows.map(row => `<tr><th scope="row" class="p-sm font-bold">${escHtml(row.branchName)}</th><td class="p-sm">${row.shiftType === 'Morning' ? 'صباحي' : 'مسائي'}</td><td class="p-sm font-bold text-tertiary">${row.completed}</td><td class="p-sm font-bold">${row.notPerformed}</td></tr>`).join('')
-            : '<tr><td colspan="4" class="p-md text-center text-on-surface-variant">لا توجد سجلات ضمن النطاق لاحتساب العدادات.</td></tr>';
+        const summaryRows = ZamChecklistLogMetrics.summarizeHourlyExecutionCounts(allHourlyLogs, summaryBranches);
+        document.getElementById('branch-shift-summary').innerHTML = summaryRows.length
+            ? summaryRows.map(row => `<article class="checklist-counter-card"><h3>${escHtml(row.branchName)} · ${row.shiftType === 'Morning' ? 'الصباحية' : 'المسائية'}</h3><div class="checklist-counter-pair"><span>منفذ <strong>${row.completed}</strong></span><span>غير منفذ <strong>${row.notPerformed}</strong></span></div></article>`).join('')
+            : '<p class="hint">لا توجد فروع ضمن النطاق المصرح به لعرض عداداتها.</p>';
 
-        // رندر معرض الصور
-        const logsWithPhotos = completedExecutionLogs.filter(l => safeImageUrl(l.photo_url));
-        if (!logsWithPhotos.length) {
-            galleryView.innerHTML = '<p class="col-span-3 text-on-surface-variant text-body-sm p-md text-center bg-surface-container-lowest border border-outline-variant rounded-xl">لا توجد مهام موثقة بصور مطابقة للفلاتر اليوم.</p>';
-        } else {
-            galleryView.innerHTML = logsWithPhotos.map(l => `
-                <div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col">
-                  <div class="h-48 overflow-hidden relative cursor-pointer group flex items-center justify-center bg-surface-container">
-                    <button type="button" class="checklist-photo-trigger zoomable-btn" aria-label="تكبير صورة: ${escHtml(l.checklist_templates?.task_title || l.template_title || 'مهمة')}" data-src="${escHtml(safeImageUrl(l.photo_url))}"><img src="${escHtml(safeImageUrl(l.photo_url))}" alt="توثيق مصور للمهمة ${escHtml(l.checklist_templates?.task_title || l.template_title || '')}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-all"/></button>
-                    <div class="pointer-events-none absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"><span class="material-symbols-outlined text-4xl">zoom_in</span></div>
-                  </div>
-                  <div class="p-sm flex flex-col gap-xs flex-1 justify-between">
-                    <div>
-                      <span class="inline-block px-sm py-xs rounded-full text-[10px] bg-primary/10 text-primary font-bold mb-xs">${escHtml(l.checklist_templates?.category || l.template_category || '—')}</span>
-                      <h4 class="font-bold text-on-surface text-body-sm leading-tight">${escHtml(l.checklist_templates?.task_title || l.template_title || 'مهمة مجهولة')}</h4>
-                    </div>
-                    <div class="text-[11px] text-on-surface-variant border-t border-outline-variant pt-xs mt-xs flex justify-between items-center">
-                      <span>👤 ${escHtml(l.profiles?.full_name || 'موظف')}</span>
-                      <span>📍 ${escHtml(l.branches?.name || 'فرع')}</span>
-                    </div>
-                  </div>
-                </div>
-            `).join('');
-        }
-
-        // رندر جدول التفاصيل
-        const tbody = document.getElementById('logs-table-tbody');
-        if (!completedLogs.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="p-md text-center text-on-surface-variant">لا توجد سجلات مطابقة للفلاتر.</td></tr>';
-        } else {
-            tbody.innerHTML = completedLogs.map(l => `
-                <tr class="hover:bg-surface-container-low transition-colors">
-                  <td class="p-sm">${escHtml(l.execution_date)}</td>
-                  <td class="p-sm font-bold">${escHtml(l.branches?.name || 'عام')}</td>
-                  <td class="p-sm">${escHtml(l.checklist_templates?.task_title || 'مهمة مجهولة')}</td>
-                  <td class="p-sm">${escHtml(l.checklist_templates?.category || '—')}</td>
-                  <td class="p-sm">${escHtml(shiftLabel(l.shift_type || l.checklist_templates?.shift_type))}</td>
-                  <td class="p-sm font-bold">${escHtml(l.profiles?.full_name || '—')} <span class="text-[10px] text-outline">${escHtml(l.profiles?.role || '')}</span></td>
-                  <td class="p-sm">
-                    ${safeImageUrl(l.photo_url) ? `<button class="text-primary hover:underline flex items-center gap-xs zoomable-btn" data-src="${escHtml(safeImageUrl(l.photo_url))}"><span class="material-symbols-outlined">image</span> عرض</button>` : '<span class="text-outline">—</span>'}
-                  </td>
-                </tr>
-            `).join('');
-        }
-
-        const hourlyBody = document.getElementById('hourly-logs-tbody');
-        hourlyBody.innerHTML = hourlyCompletedLogs.length ? hourlyCompletedLogs.map(l => {
-            const stepText = ZamRestroomHourly.STEPS
-                .filter(step => l.steps_completed?.[step.key] === true)
-                .map(step => step.label).join('، ') || '—';
-            const photoUrl = safeImageUrl(l.photo_url);
-            return `<tr><td class="p-sm">${escHtml(l.execution_date)}</td><td class="p-sm font-bold">${String(l.occurrence_hour).padStart(2, '0')}:00–${String(l.occurrence_hour).padStart(2, '0')}:59</td><td class="p-sm">${escHtml(l.branches?.name || '—')}</td><td class="p-sm">${escHtml(l.checklist_templates?.task_title || l.template_title || 'مهمة ساعية')}</td><td class="p-sm">${escHtml(shiftLabel(l.shift_type))}</td><td class="p-sm font-bold text-tertiary">مكتملة</td><td class="p-sm min-w-64">${escHtml(stepText)}</td><td class="p-sm">${escHtml(l.profiles?.full_name || '—')} <span class="text-[10px] text-outline">${escHtml(l.profiles?.role || '')}</span></td><td class="p-sm">${escHtml(l.notes || '—')}</td><td class="p-sm">${photoUrl ? `<button type="button" class="text-primary hover:underline flex items-center gap-xs zoomable-btn" data-src="${escHtml(photoUrl)}" aria-label="عرض صورة المهمة الساعية"><span class="material-symbols-outlined">image</span> عرض</button>` : '<span class="text-outline">—</span>'}</td></tr>`;
-        }).join('') : '<tr><td colspan="10" class="p-md text-center text-on-surface-variant">لا توجد مهام ساعية مكتملة مطابقة.</td></tr>';
-
-        const notesList = document.getElementById('team-notes-list');
-        notesList.innerHTML = notes.length ? notes.map(n => `
-            <article class="p-md"><div class="flex flex-wrap items-center justify-between gap-sm text-[11px] text-on-surface-variant"><span class="font-bold text-primary">${escHtml(n.branches?.name || 'فرع غير محدد')} · ${escHtml(n.profiles?.full_name || '—')} (${escHtml(n.profiles?.role || '—')})</span><span>${escHtml(shiftLabel(n.shift_type))} · ${escHtml(riyadhDateTime(n.created_at))}</span></div><p class="text-body-sm mt-xs whitespace-pre-wrap">${escHtml(n.note)}</p></article>
-        `).join('') : '<p class="p-md text-center text-on-surface-variant">لا توجد ملاحظات مطابقة للفلاتر.</p>';
+        const executionRows = [
+            ...completedLogs.map(log => ({ kind: 'task', sortAt: log.created_at || log.execution_date || '', log })),
+            ...hourlyCompletedLogs.map(log => ({ kind: 'hourly', sortAt: log.created_at || `${log.execution_date || ''}T${String(log.occurrence_hour ?? '').padStart(2, '0')}:00:00`, log })),
+            ...notes.map(note => ({ kind: 'team-note', sortAt: note.created_at || '', note })),
+        ].sort((a, b) => String(b.sortAt).localeCompare(String(a.sortAt)));
+        const executionBody = document.getElementById('logs-table-tbody');
+        executionBody.innerHTML = executionRows.length ? executionRows.map(entry => {
+            const isNote = entry.kind === 'team-note';
+            const log = entry.log;
+            const note = entry.note;
+            const row = isNote ? note : log;
+            const branchName = row.branches?.name || branchesCache.find(branch => String(branch.id) === String(row.branch_id))?.name || '—';
+            const actor = row.profiles?.full_name || '—';
+            const actorRole = row.profiles?.role || '';
+            const dateTime = entry.kind === 'hourly'
+                ? `${log.execution_date || '—'} · ${log.occurrence_hour == null ? '—' : `${String(log.occurrence_hour).padStart(2, '0')}:00`}`
+                : entry.sortAt && String(entry.sortAt).includes('T') ? riyadhDateTime(entry.sortAt) : String(row.execution_date || entry.sortAt || '—');
+            const kindLabel = isNote ? 'ملاحظة فريق عامة — غير مرتبطة بمهمة' : entry.kind === 'hourly' ? 'مهمة ساعية مكتملة' : 'مهمة مكتملة';
+            const taskTitle = isNote ? '—' : (log.checklist_templates?.task_title || log.template_title || (entry.kind === 'hourly' ? 'مهمة ساعية' : 'مهمة مجهولة'));
+            const completedSteps = entry.kind === 'hourly' ? ZamRestroomHourly.STEPS.filter(step => log.steps_completed?.[step.key] === true).map(step => step.label).join('، ') || '—' : (log.checklist_templates?.category || log.template_category || '—');
+            const shift = isNote ? note.shift_type : (log.shift_type || log.checklist_templates?.shift_type);
+            const memo = isNote ? (note.note || '—') : (log.notes || '—');
+            const photoUrl = isNote ? '' : safeImageUrl(log.photo_url);
+            const photoCell = photoUrl ? `<button type="button" class="checklist-photo-trigger zoomable-btn" data-src="${escHtml(photoUrl)}" aria-label="عرض صورة ${escHtml(taskTitle)}"><img src="${escHtml(photoUrl)}" alt="صورة توثيق ${escHtml(taskTitle)}" loading="lazy" width="64" height="48" class="w-16 h-12 object-cover rounded-md"/></button>` : '<span class="text-outline">—</span>';
+            return `<tr class="hover:bg-surface-container-low transition-colors"><td class="p-sm whitespace-nowrap">${escHtml(dateTime)}</td><td class="p-sm">${escHtml(branchName)}</td><td class="p-sm font-bold">${escHtml(kindLabel)}</td><td class="p-sm">${escHtml(taskTitle)}</td><td class="p-sm">${escHtml(completedSteps)}</td><td class="p-sm">${escHtml(shiftLabel(shift))}</td><td class="p-sm">${escHtml(actor)} <span class="text-[10px] text-outline">${escHtml(actorRole)}</span></td><td class="p-sm min-w-48 whitespace-pre-wrap">${escHtml(memo)}</td><td class="p-sm">${photoCell}</td></tr>`;
+        }).join('') : '<tr><td colspan="9" class="p-md text-center text-on-surface-variant">لا توجد مهام مكتملة أو ملاحظات فريق مطابقة للفلاتر.</td></tr>';
 
         const readingsBody = document.getElementById('fridge-readings-tbody');
         readingsBody.innerHTML = readings.length ? readings.map(r => {
@@ -421,11 +304,10 @@ async function loadLogs() {
 
     } catch (err) {
         console.error(err);
-        galleryView.innerHTML = '<p class="col-span-3 text-error text-body-sm text-center">حدث خطأ أثناء تحميل السجلات.</p>';
-        document.getElementById('logs-table-tbody').innerHTML = '<tr><td colspan="7" class="p-md text-center text-error">حدث خطأ أثناء تحميل السجلات.</td></tr>';
+        document.getElementById('logs-table-tbody').innerHTML = '<tr><td colspan="9" class="p-md text-center text-error">حدث خطأ أثناء تحميل السجلات.</td></tr>';
         checklistStatus.innerHTML = '<span class="text-error">تعذّر تحميل بيانات السجل. <button type="button" id="retry-checklist-load" class="underline font-bold">إعادة المحاولة</button></span>';
         document.getElementById('retry-checklist-load').addEventListener('click', loadLogs);
-    } finally { applyButton.disabled = false; applyButton.removeAttribute('aria-busy'); galleryView.removeAttribute('aria-busy'); }
+    } finally { applyButton.disabled = false; applyButton.removeAttribute('aria-busy'); tableView.removeAttribute('aria-busy'); }
 }
 
 function closeImageModal() {

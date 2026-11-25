@@ -212,20 +212,25 @@ test('Manager read permissions remain independent, default off, and separate fro
   assert.match(source, /can_manage_reports', label: 'إضافة تقارير؛ تعديل\/حذف التقارير المقروءة'/);
 });
 
-test('Manager and task-scope load failures remain visible and fail closed without defaulting to all branches', () => {
+test('Manager and task-scope load failures remain visible, source-specific, retryable, and fail closed', () => {
   assert.match(script, /managerScopeAvailable=false/);
   assert.match(script, /managerScopeErrorText\(managerScopeLoadError\)/);
   assert.match(script, /reportScope\?\.scope_mode\|\|'selected'/);
   assert.match(script, /managerScopeAvailable\?`<section id="manager-report-scope-panel"/);
   assert.match(script, /scopeMode==='selected'&&!scopeBranchIds\.length/);
-  assert.match(script, /if\(!permissionDataAvailable\)\{alert\(/);
+  assert.match(script, /if\(!permissionDataAvailable\)\{const status=document\.getElementById\('permissions-data-status'\)/);
+  assert.match(script, /failedLoads=.*فئات المهام المسندة.*قوالب المهام للفرع.*إسنادات الموظف/s);
+  assert.match(script, /appendRetryButton\(panel,'إعادة المحاولة'/);
+  assert.match(script, /appendRetryButton\(permissionDataStatus,'إعادة تحميل صلاحيات الحساب',loadStaff\)/);
+  assert.match(script, /permissionDataAvailable=isOwner&&!permissionError/);
   assert.match(script, /ستظل طلبات التسجيل ظاهرة، وتعطّل محررات الصلاحيات/);
 });
 
 test('staff and registration views retain loading, empty, error, and success feedback', () => {
   assert.match(script, /جارٍ تحميل الحسابات والطلبات/);
   assert.match(script, /لا توجد طلبات تسجيل معلّقة حاليًا/);
-  assert.match(script, /تعذّر تحميل الموظفين أو الصلاحيات/);
+  assert.match(script, /تعذّر تحميل \$\{source\}/);
+  assert.match(script, /إعادة تحميل بيانات \$\{escapeHtml\(source\)\}/);
   assert.match(script, /تم حفظ التغييرات/);
   assert.match(script, /إعادة المحاولة/);
   assert.match(source, /aria-live="polite"/);

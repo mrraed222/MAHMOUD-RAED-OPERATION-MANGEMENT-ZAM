@@ -172,13 +172,14 @@ function testReportWiringAndPrintSafety() {
   assert.match(core, /لا يتضمن قياس نفاد المنتجات أو تقدير المبيعات الفائتة/);
   assert.match(core, /ملاحظة مدير التشغيل لهذا المحور/);
   assert.doesNotMatch(html, /id="dashboardNotes"/, 'separate notes beneath the KPI area should be removed');
-  assert.match(core, /محمود رائد مدير التشغيل والجودة/);
+  assert.match(html, /class="print-attribution">إعداد وتقديم محمود شريف — إدارة التشغيل والجودة<\/p>/, 'the exact approved attribution must appear in the print header');
+  assert.doesNotMatch(core, /محمود رائد|print-signature/, 'the outdated footer attribution must not be generated');
   assert.match(core, /var PANES = \{ 1: pane1, 2: pane2, 3: pane3, 4: pane4, 5: pane5, 6: pane6 \}/);
   const metricsIndex = html.indexOf('weekly-report-metrics.js');
   const coreIndex = html.indexOf('weekly-report-core.js');
   assert.ok(metricsIndex >= 0 && coreIndex > metricsIndex, 'metrics script must load before core');
   assert.match(html, /weekly-report-metrics\.js\?v=20261117194500/, 'weekly report must load the multi-day recurrence and branch-scope helper');
-  assert.match(html, /weekly-report-core\.js\?v=20261118205235/, 'weekly report must load the cache-busted rendering fix');
+  assert.match(html, /weekly-report-core\.js\?v=20261125161700/, 'weekly report must load the header and signature update');
   assert.match(html, /#overviewCharts \{ display:grid !important/);
   assert.match(html, /#overviewBranchCharts \{ display:grid !important/);
   assert.match(html, /\.print-brand \{[^}]*background:linear-gradient\(125deg,#24170c,#76583d\)[^}]*print-color-adjust:exact/s);

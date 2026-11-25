@@ -76,6 +76,7 @@ async function loadDailyChecklistSummary(date){
 function resetCounts(){['c-morning-done','c-morning-missing','c-evening-done','c-evening-missing'].forEach(id=>document.getElementById(id).textContent='—');}
 function showLoading(){document.getElementById('monitor-feedback').textContent='جارٍ تحميل بيانات الفروع والتقارير…';document.getElementById('results-count').textContent='';tbody.innerHTML='<tr><td colspan="3" class="rm-loading">جارٍ التحميل…</td></tr>';document.getElementById('monitor-mobile').innerHTML='';resetCounts();sortSelect.disabled=true;}
 function showMonitorMessage(message,isError=false){branchRows=[];resetCounts();document.getElementById('results-count').textContent='';document.getElementById('monitor-feedback').textContent=message;const stateClass=isError?'rm-error':'rm-empty';tbody.innerHTML=`<tr><td colspan="3" class="${stateClass}">${escapeHtml(message)}</td></tr>`;document.getElementById('monitor-mobile').innerHTML=`<div class="rm-card ${stateClass}">${escapeHtml(message)}</div>`;sortSelect.disabled=true;}
+function monitorAuthorizationHint(role){if(role==='Manager')return 'تحقق من نشاط الحساب، وتفعيل صلاحية «الاطلاع على ملخص التقارير اليومية»، وإدراج الفرع ضمن النطاق المصرح به؛ لم يُوسّع النطاق تلقائيًا.';if(role==='Admin')return 'تحقق من نشاط الحساب وصلاحية «الاطلاع على كل التقارير»؛ لم تُمنح صلاحية تلقائيًا.';if(role==='Owner')return 'تحقق من نشاط الحساب وجلسة المالك؛ لم تُمنح صلاحية تلقائيًا.';return 'هذا الدور غير مخول بقراءة ملخص التقارير؛ لم تُمنح صلاحية تلقائيًا.';}
 function renderMonitor(){if(sortSelect.disabled)return;const sort=sortSelect.value;const rows=[...branchRows].sort((a,b)=>String(a.branch.name).localeCompare(String(b.branch.name),'ar')*(sort==='desc'?-1:1));const done={Morning:0,Evening:0};rows.forEach(x=>{if(x.morning)done.Morning++;if(x.evening)done.Evening++;});
  document.getElementById('c-morning-done').textContent=done.Morning;document.getElementById('c-morning-missing').textContent=rows.length-done.Morning;document.getElementById('c-evening-done').textContent=done.Evening;document.getElementById('c-evening-missing').textContent=rows.length-done.Evening;document.getElementById('results-count').textContent=`${rows.length} ${rows.length===1?'فرع':'فروع'} ضمن النطاق`;
  const mobile=document.getElementById('monitor-mobile');if(!rows.length){tbody.innerHTML='<tr><td colspan="3" class="rm-empty">لا توجد فروع تشغيلية لعرضها في هذا التاريخ.</td></tr>';mobile.innerHTML='<div class="rm-card rm-empty">لا توجد فروع تشغيلية لعرضها في هذا التاريخ.</div>';document.getElementById('monitor-feedback').textContent='اكتمل التحديث؛ لا توجد فروع تشغيلية ضمن النطاق.';return;}
@@ -111,7 +112,8 @@ async function loadMonitor(){
   console.error(err);
   const stage=failure?.stage||'تحميل البيانات';
   const code=String(err?.code||'').match(/^[A-Za-z0-9_-]{1,32}$/)?.[0];
-  const message=`تعذّر ${stage}؛ لم تُعرض أرقام غير مكتملة${code?` (رمز الخطأ: ${code})`:''}. أعد المحاولة.`;
+  const permissionHint=err?.code==='42501'?` ${monitorAuthorizationHint(currentUser.role)}`:'';
+  const message=`تعذّر ${stage}؛ لم تُعرض أرقام غير مكتملة${code?` (رمز الخطأ: ${code})`:''}. أعد المحاولة.${permissionHint}`;
   showMonitorMessage(message,true);
  }finally{if(generation===monitorLoadGeneration)refreshButton.disabled=false;}
 }

@@ -247,9 +247,19 @@ let branchesCache=[]; let permsCache={}; let managerReportScopeCache={}; let man
 function managerScopeErrorText(error) { return error?.code==='MANAGER_SCOPE_UNCONFIGURED'?'ميزة نطاق فروع المدير غير مهيأة على قاعدة البيانات الحالية؛ لم يُحمّل أو يُحفظ أي نطاق.':error?.code==='MANAGER_SCOPE_INVALID'?'بيانات نطاق مدير الفرع غير متسقة مع الفرع الأساسي أو الفروع التشغيلية؛ تم تعطيل تعديل نطاقات المدير منعًا لتوسيع الوصول.': 'تعذّر تحميل نطاق فروع المدير؛ لم يُعرض نطاق افتراضي ولم يُغيّر أي نطاق. تحقق من الاتصال والصلاحيات ثم أعد المحاولة.'; }
 function roleOptionsHTML(currentRole, allowManager = managerScopeAvailable) { const canChooseManager=!!allowManager; const roles=ROLES.filter(role=>(role!=='Owner'||currentRole==='Owner')); if(currentRole&&!roles.includes(currentRole)) roles.push(currentRole); return roles.map(role=>{const unavailable=isManagerRole(role)&&!canChooseManager&&role!==currentRole;return `<option value="${escapeHtml(role)}" ${role===currentRole?'selected':''} ${unavailable?'disabled':''}>${escapeHtml(ROLE_LABELS[role]||role)}${unavailable?' (غير متاح حتى تهيئة النطاق)':''}</option>`;}).join(''); }
 function permsCellHTML(emp) { if(!isOwner)return '<span class="hint">تعديل الصلاحيات الإدارية متاح للمالك فقط.</span>'; return emp.role==='Owner' ? '<span class="hint">لا تنطبق على مالك ومطور النظام</span>' : permissionDataAvailable ? `<button type="button" class="edit-perms-btn quiet-action" data-id="${escapeHtml(emp.id)}">تحديد الصلاحيات</button>` : '<span class="hint">محرر الصلاحيات متوقف حتى تحميل صلاحيات الحساب بأمان</span>'; }
+function permissionErrorCode(error) { return String(error?.code||'').match(/^[A-Za-z0-9_-]{1,32}$/)?.[0]||''; }
+function appendRetryButton(container,label,action) { const button=document.createElement('button');button.type='button';button.className='quiet-action';button.textContent=label;button.addEventListener('click',async()=>{button.disabled=true;button.textContent='جارٍ إعادة المحاولة…';try{await action();}finally{if(button.isConnected){button.disabled=false;button.textContent=label;}}});container.append(document.createTextNode(' '),button); }
+function loadSourceError(error,source) { const wrapped=new Error('permissions_source_load_failed');wrapped.source=source;wrapped.code=error?.code;wrapped.cause=error;return wrapped; }
+function showPermissionEditorLoadFailure(empId,empName,empRole,empBranchId,empShiftType,failures) {
+  const list=document.getElementById('staff-list');const panel=document.createElement('section');panel.className='staff-card';panel.setAttribute('role','alert');panel.setAttribute('aria-live','assertive');
+  const title=document.createElement('h3');title.className='font-bold';title.textContent=`تعذّر تحميل محرر الصلاحيات والمهام لحساب ${empName||'الموظف'}. لم يُفتح المحرر ولم يحدث حفظ.`;panel.appendChild(title);
+  const details=document.createElement('ul');details.className='hint';failures.forEach(failure=>{const item=document.createElement('li');item.textContent=`${failure.source}${failure.code?` (رمز الخطأ: ${failure.code})`:''}`;details.appendChild(item);});panel.appendChild(details);
+  appendRetryButton(panel,'إعادة المحاولة',()=>openPermsEditor(empId,empName,empRole,empBranchId,empShiftType));
+  const close=document.createElement('button');close.type='button';close.className='quiet-action';close.textContent='إغلاق الرسالة';close.addEventListener('click',()=>panel.remove());panel.append(' ',close);list.prepend(panel);
+}
 async function openPermsEditor(empId, empName, empRole, empBranchId, empShiftType) {
   if(!isOwner)return;
-  if(!permissionDataAvailable){alert('تعذّر تحميل صلاحيات الحساب؛ لم يُفتح المحرر منعًا من حفظ قيم افتراضية. أعد تحميل الصفحة أو أعد المحاولة.');return;}
+  if(!permissionDataAvailable){const status=document.getElementById('permissions-data-status');status.hidden=false;if(!status.textContent)status.textContent='لم تُحمّل بيانات الصلاحيات؛ بقي محرر الحساب مغلقًا لمنع حفظ قيم افتراضية.';status.scrollIntoView?.({block:'center'});return;}
   const opener=document.activeElement;
   const p=permsCache[empId]||{}; const old=document.getElementById('perms-modal'); if(old) old.remove();
   const employeeBranch=branchesCache.find(branch=>branch.id===empBranchId);
@@ -259,7 +269,8 @@ async function openPermsEditor(empId, empName, empRole, empBranchId, empShiftTyp
     ZamAPI.getChecklistTemplateAssignmentIds(empId),
     zamClient.from('checklist_templates').select('category')
   ]);
-  if(catsResult.status==='rejected'||templatesResult.status==='rejected'||assignmentsResult.status==='rejected'||categoryResult.status==='rejected'||categoryResult.value?.error) { alert('تعذّر تحميل بيانات الصلاحيات أو المهام. أعد المحاولة.'); return; }
+  const failedLoads=[['فئات المهام المسندة',catsResult],['قوالب المهام للفرع',templatesResult],['إسنادات الموظف',assignmentsResult],['فئات قوالب المهام',categoryResult]].map(([source,result])=>({source,error:result.status==='rejected'?result.reason:result.value?.error})).filter(item=>item.error).map(item=>({source:item.source,code:permissionErrorCode(item.error)}));
+  if(failedLoads.length){showPermissionEditorLoadFailure(empId,empName,empRole,empBranchId,empShiftType,failedLoads);return;}
   const activeCategories=catsResult.value||[]; const assignedIds=assignmentsResult.value||[];
   const dbCategories=(categoryResult.value.data||[]).map(t=>t.category).filter(Boolean);
   const categories=[...new Set(['البار','الصالة','المطبخ','مهام المشرفين',...dbCategories])];
@@ -486,8 +497,8 @@ async function loadStaff() {
   ]);
   const coreDeadline=new Promise((_,reject)=>{loadTimeout=setTimeout(()=>{loadTimedOut=true;controller.abort();reject(new Error('staff_permission_load_timeout'));},20000);});
   const [branchesResult,staffResult,permsResult]=await Promise.race([coreLoad,coreDeadline]);clearTimeout(loadTimeout);
-  if(branchesResult.status==='rejected')throw branchesResult.reason;
-  if(staffResult.status==='rejected')throw staffResult.reason;
+  if(branchesResult.status==='rejected')throw loadSourceError(branchesResult.reason,'قائمة الفروع');
+  if(staffResult.status==='rejected')throw loadSourceError(staffResult.reason,'حسابات الطاقم وطلبات التسجيل');
   branchesCache=branchesResult.value||[];
   const staff=staffResult.value||[];
   const permissionError=permsResult.status==='rejected'?permsResult.reason:permsResult.value?.error;
@@ -495,12 +506,13 @@ async function loadStaff() {
   permsCache={};
   if(permissionDataAvailable)(permsResult.value.data||[]).forEach(row=>permsCache[row.profile_id]=row);
   else if(isOwner) {
-   const code=String(permissionError?.code||'').match(/^[A-Za-z0-9_-]{1,32}$/)?.[0];
+   const code=permissionErrorCode(permissionError);
    permissionDataStatus.textContent=`تعذّر تحميل صلاحيات الحساب${code?` (رمز الخطأ: ${code})`:''}. ستظل طلبات التسجيل ظاهرة، وتعطّل محررات الصلاحيات منعًا لحفظ قيم افتراضية.`;
    permissionDataStatus.hidden=false;
+   appendRetryButton(permissionDataStatus,'إعادة تحميل صلاحيات الحساب',loadStaff);
   }
   const managerIds=staff.filter(emp=>emp.role==='Manager').map(emp=>emp.id);managerReportScopeCache={};managerScopeAvailable=false;managerScopeLoadError=null;
-  if(isOwner){let scopeTimeout;const scopeLoad=ZamAPI.getManagerReportScopes(managerIds,{signal:controller.signal});const scopeDeadline=new Promise((_,reject)=>{scopeTimeout=setTimeout(()=>{controller.abort();const error=new Error('manager_scope_load_timeout');error.code='MANAGER_SCOPE_LOAD_TIMEOUT';reject(error);},10000);});try{const loadedScopes=await Promise.race([scopeLoad,scopeDeadline]);const invalidStoredScope=staff.some(emp=>{if(emp.role!=='Manager')return false;const scope=loadedScopes[emp.id];if(!scope)return false;if(scope.scope_mode==='selected'&&(scope.branchIds||[]).some(id=>!isOperationalBranch(branchesCache.find(branch=>branch.id===id))))return true;if(scope.manager_type==='branch'){const branch=branchesCache.find(item=>item.id===emp.branch_id);return scope.scope_mode!=='selected'||scope.branchIds?.length!==1||scope.branchIds[0]!==emp.branch_id||!isOperationalBranch(branch);}return false;});if(invalidStoredScope){const error=new Error('manager_scope_invalid');error.code='MANAGER_SCOPE_INVALID';throw error;}managerReportScopeCache=loadedScopes;managerScopeAvailable=true;}catch(scopeError){managerReportScopeCache={};managerScopeLoadError=scopeError;scopeStatus.textContent=managerScopeErrorText(scopeError);scopeStatus.hidden=false;}finally{clearTimeout(scopeTimeout);}}
+  if(isOwner){let scopeTimeout;const scopeLoad=ZamAPI.getManagerReportScopes(managerIds,{signal:controller.signal});const scopeDeadline=new Promise((_,reject)=>{scopeTimeout=setTimeout(()=>{controller.abort();const error=new Error('manager_scope_load_timeout');error.code='MANAGER_SCOPE_LOAD_TIMEOUT';reject(error);},10000);});try{const loadedScopes=await Promise.race([scopeLoad,scopeDeadline]);const invalidStoredScope=staff.some(emp=>{if(emp.role!=='Manager')return false;const scope=loadedScopes[emp.id];if(!scope)return false;if(scope.scope_mode==='selected'&&(scope.branchIds||[]).some(id=>!isOperationalBranch(branchesCache.find(branch=>branch.id===id))))return true;if(scope.manager_type==='branch'){const branch=branchesCache.find(item=>item.id===emp.branch_id);return scope.scope_mode!=='selected'||scope.branchIds?.length!==1||scope.branchIds[0]!==emp.branch_id||!isOperationalBranch(branch);}return false;});if(invalidStoredScope){const error=new Error('manager_scope_invalid');error.code='MANAGER_SCOPE_INVALID';throw error;}managerReportScopeCache=loadedScopes;managerScopeAvailable=true;}catch(scopeError){managerReportScopeCache={};managerScopeLoadError=scopeError;const scopeCode=permissionErrorCode(scopeError);scopeStatus.textContent=`${managerScopeErrorText(scopeError)}${scopeCode?` (رمز الخطأ: ${scopeCode})`:''}`;scopeStatus.hidden=false;appendRetryButton(scopeStatus,'إعادة تحميل نطاقات المدير',loadStaff);}finally{clearTimeout(scopeTimeout);}}
   const pending=staff.filter(employee=>employee.status==='pending'),others=staff.filter(employee=>employee.status!=='pending');
   staffCache=others;if(isOwner)renderPending(pending);
   summary.textContent=isOwner?`${others.length} حسابًا · ${pending.length} طلب معلّق`:`${others.length} موظفًا`;
@@ -508,7 +520,7 @@ async function loadStaff() {
   branchFilter.innerHTML='<option value="">كل الفروع</option>'+branchesCache.map(branch=>`<option value="${escapeHtml(branch.id)}">${escapeHtml(branch.name)}</option>`).join('');
   if(branchesCache.some(branch=>branch.id===savedBranchFilter))branchFilter.value=savedBranchFilter;
   renderStaff();renderEmployeeGallery();
- } catch(err){clearTimeout(loadTimeout);controller.abort();console.error(err);const message=loadTimedOut?'انتهت مهلة تحميل الموظفين أو الصلاحيات بعد 20 ثانية؛ تحقق من الاتصال ثم أعد المحاولة.':err.code==='42501'?'رفضت قاعدة البيانات قراءة بيانات الموظفين أو الصلاحيات؛ تحقق من دور الحساب وسياسات الوصول.':'تعذّر تحميل الموظفين أو الصلاحيات. تحقق من الاتصال أو صلاحية الوصول ثم أعد المحاولة.';summary.textContent=message;list.innerHTML=`<div class="panel" role="alert"><p class="text-error">${escapeHtml(message)}</p><button id="retry-staff" class="quiet-action" type="button">إعادة المحاولة</button></div>`;document.getElementById('pending-list').innerHTML='<p class="hint" role="alert">تعذّر تحميل طلبات التسجيل.</p>';document.getElementById('pending-count').textContent='غير متاح';document.getElementById('retry-staff').addEventListener('click',loadStaff);}
+ } catch(err){clearTimeout(loadTimeout);controller.abort();console.error(err);const cause=err?.cause||err;const source=err?.source||'قائمة الفروع أو حسابات الطاقم';const code=permissionErrorCode(cause);const message=loadTimedOut?`انتهت مهلة تحميل ${source} بعد 20 ثانية${code?` (رمز الخطأ: ${code})`:''}؛ لم تُعرض بيانات جزئية.`:`تعذّر تحميل ${source}${code?` (رمز الخطأ: ${code})`:''}. تحقق من الاتصال وصلاحية الوصول ثم أعد المحاولة.`;summary.textContent=message;list.innerHTML=`<div class="panel" role="alert"><p class="text-error">${escapeHtml(message)}</p><button id="retry-staff" class="quiet-action" type="button">إعادة تحميل بيانات ${escapeHtml(source)}</button></div>`;document.getElementById('pending-list').innerHTML='<p class="hint" role="alert">تعذّر تحميل طلبات التسجيل.</p>';document.getElementById('pending-count').textContent='غير متاح';document.getElementById('retry-staff').addEventListener('click',event=>{event.currentTarget.disabled=true;loadStaff();});}
 }
 function exportFilteredStaffCSV(){
   const rows=filteredStaff();

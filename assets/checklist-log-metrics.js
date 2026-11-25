@@ -62,6 +62,10 @@
       a.branchName.localeCompare(b.branchName, 'ar') || SHIFTS.indexOf(a.shiftType) - SHIFTS.indexOf(b.shiftType));
   }
 
+  function summarizeHourlyExecutionCounts(hourlyLogs = [], branches = []) {
+    return summarizeExecutionCounts([], hourlyLogs, branches);
+  }
+
   function countCompletedExecutionLogs(logs = [], hourlyLogs = []) {
     return [...(logs || []), ...(hourlyLogs || [])].filter(isCompleted).length;
   }
@@ -71,6 +75,7 @@
     isNotPerformed,
     normalizeShift,
     summarizeExecutionCounts,
+    summarizeHourlyExecutionCounts,
     countCompletedExecutionLogs,
   });
 });

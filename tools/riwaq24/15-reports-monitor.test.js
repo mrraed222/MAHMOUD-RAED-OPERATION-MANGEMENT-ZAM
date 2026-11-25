@@ -241,6 +241,22 @@ test('monitor error copy identifies the failing stage without exposing raw serve
   assert.doesNotMatch(source, /showMonitorMessage\(err\.message/);
 });
 
+test('42501 error points Managers to the summary permission and current branch scope only', async () => {
+  const branch = { id: 'branch-1', name: 'فرع الاختبار' };
+  const harness = createMonitorHarness({
+    role: 'Manager',
+    managerBranchResponse: { data: [branch], error: null },
+    rangeSummaryResponse: { data: null, error: { code: '42501', message: 'sensitive raw database detail' } },
+  });
+  await harness.start();
+  const message = harness.elements.get('monitor-feedback').textContent;
+  assert.match(message, /42501/);
+  assert.match(message, /الاطلاع على ملخص التقارير اليومية/);
+  assert.match(message, /النطاق المصرح به/);
+  assert.match(message, /لم يُوسّع النطاق تلقائيًا/);
+  assert.doesNotMatch(message, /sensitive raw database detail/);
+});
+
 test('date, refresh and sorting are actionable with accessible responsive output', () => {
   assert.match(source, /id="check-date"/);
   assert.match(source, /id="refresh-monitor"/);

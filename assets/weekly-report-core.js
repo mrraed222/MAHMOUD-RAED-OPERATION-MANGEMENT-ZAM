@@ -1731,10 +1731,6 @@
       }
       el.appendChild(pane);
     }
-    var signature = document.createElement('footer');
-    signature.className = 'print-signature';
-    signature.innerHTML = '<span>التوقيع</span><strong>محمود رائد مدير التشغيل والجودة</strong>';
-    el.appendChild(signature);
     return function () {
       el.innerHTML = originalHTML;
       state.tab = originalTab;

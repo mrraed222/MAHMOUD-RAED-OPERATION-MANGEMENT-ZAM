@@ -16,20 +16,24 @@ test('checklist log preserves auth/role guards and existing read sources and fil
   for (const id of ['f-branch', 'f-date', 'f-shift']) assert.match(source, new RegExp(`id="${id}"`));
 });
 
-test('record gallery/table, secure image URLs, image dialog and status states are accessible', () => {
+test('single completed-execution table merges notes independently and keeps secure, accessible photo zoom', () => {
   assert.match(source, /function safeImageUrl\(/);
   assert.match(source, /role="status" aria-live="polite"/);
   assert.match(source, /role="dialog" aria-modal="true"/);
-  assert.match(source, /aria-pressed="true"/);
+  assert.match(source, /id="table-view" class="max-h-\[560px\] overflow-auto/);
+  assert.doesNotMatch(source, /id="gallery-view"|id="tab-gallery"|id="hourly-logs-tbody"|id="team-notes-list"/);
   assert.match(source, /إعادة المحاولة/);
   assert.match(source, /event\.key === 'Escape'/);
   assert.match(source, /loading="lazy"/);
-  assert.match(source, /إجمالي المهام لا يعني تحقق حالة الإنجاز/);
-  assert.match(source, /if \(!completedLogs\.length\)/);
-  assert.match(source, /tbody\.innerHTML = completedLogs\.map/);
-  assert.match(source, /hourlyBody\.innerHTML = hourlyCompletedLogs\.length \? hourlyCompletedLogs\.map/);
-  assert.match(source, /data-src="\$\{escHtml\(photoUrl\)\}" aria-label="عرض صورة المهمة الساعية"/);
-  assert.match(source, /لا توجد مهام ساعية مكتملة مطابقة/);
+  assert.match(source, /const completedLogs = logs\.filter\(ZamChecklistLogMetrics\.isCompleted\)/);
+  assert.match(source, /const hourlyCompletedLogs = hourlyLogs\.filter\(ZamChecklistLogMetrics\.isCompleted\)/);
+  assert.match(source, /executionRows\.length \? executionRows\.map/);
+  assert.match(source, /ملاحظة فريق عامة — غير مرتبطة بمهمة/);
+  assert.match(source, /const taskTitle = isNote \? '—'/, 'a note without a task link must not be attributed to a task');
+  assert.match(source, /class="checklist-photo-trigger zoomable-btn" data-src=/);
+  assert.match(source, /id="branch-shift-summary" class="checklist-counter-grid"/);
+  assert.match(source, /summarizeHourlyExecutionCounts\(allHourlyLogs, summaryBranches\)/);
+  assert.match(source, /قراءات حرارة الثلاجات والفريزرات/, 'the unrelated fridge-reading table remains available');
 });
 
 test('all inline JavaScript parses', () => {

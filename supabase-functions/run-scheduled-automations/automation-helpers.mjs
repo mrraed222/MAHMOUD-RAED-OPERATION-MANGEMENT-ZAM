@@ -34,15 +34,9 @@ export function isBranchOperational(branch, asOf = new Date()) {
   const status = branch.lifecycle_status;
   if (status == null || status === '') return true;
   if (status === 'operational') return true;
-  if (status !== 'planned') return false;
-  const openingDate = String(branch.planned_opening_date || '').slice(0, 10);
-  const current = typeof asOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(asOf)
-    ? asOf
-    : (() => {
-      const parts = riyadhDateParts(asOf);
-      return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
-    })();
-  return /^\d{4}-\d{2}-\d{2}$/.test(openingDate) && openingDate <= current;
+  // A planned opening date is informational only; scheduled work starts after
+  // the owner explicitly changes the branch lifecycle to operational.
+  return false;
 }
 
 export function templateBranchIds(task) {
@@ -128,4 +122,15 @@ export function escapeHtml(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[character]);
+}
+
+export async function authorizeAutomationRequest(request, verifySecret) {
+  if (!request || request.method !== 'POST' || typeof verifySecret !== 'function') return false;
+  const candidate = request.headers?.get('x-zam-automation-secret');
+  if (typeof candidate !== 'string' || candidate.length !== 64) return false;
+  try {
+    return await verifySecret(candidate) === true;
+  } catch {
+    return false;
+  }
 }
