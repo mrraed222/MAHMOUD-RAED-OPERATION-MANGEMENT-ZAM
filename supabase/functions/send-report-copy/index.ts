@@ -1,8 +1,11 @@
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2'
 import { jsPDF } from 'npm:jspdf@4.2.1'
 import { buildDailyReportPdf } from './report-pdf.mjs'
 import { sendEmailWithResend } from './email-provider.mjs'
 import { sendReportEmailOnce } from './email-send-once.mjs'
+import { buildChecklistSummary, buildShiftWindow } from './checklist-summary.mjs'
+import { buildReportEmailPayload } from './report-email-payload.mjs'
+import { readPngResponseBytes } from './report-logo.mjs'
 import type {
   DailyReportRow,
   SendReportDatabase,
@@ -18,6 +21,8 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const FONT_ASSET_URL = 'https://raw.githubusercontent.com/mrraed222/MAHMOUD-RAED-OPERATION-MANGEMENT-ZAM/69c8cab2662f96eced304428b768c32c82e2d43f/supabase/functions/send-report-copy/assets/ZamArabicSans-Regular.ttf'
 const FONT_ASSET_BYTES = 589944
 const FONT_ASSET_SHA256 = '08ce8078eb76b5211f36c8f77418896c9f9e276e978461dd2f31cd47c3a52796'
+const LOGO_ASSET_URL = 'https://raw.githubusercontent.com/mrraed222/MAHMOUD-RAED-OPERATION-MANGEMENT-ZAM/main/assets/logo/zam-logo.png'
+let logoDataUriPromise: Promise<string | null> | null = null
 let arabicLatinFontBytesPromise: Promise<Uint8Array> | null = null
 
 class FunctionError extends Error {
@@ -55,6 +60,24 @@ function base64(bytes: Uint8Array) {
     binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length)))
   }
   return btoa(binary)
+}
+async function loadLogoDataUri(): Promise<string | null> {
+  if (!logoDataUriPromise) {
+    logoDataUriPromise = (async () => {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 5_000)
+      try {
+        const response = await fetch(LOGO_ASSET_URL, { redirect: 'error', signal: controller.signal })
+        const bytes = await readPngResponseBytes(response)
+        if (!bytes) return null
+        return `data:image/png;base64,${base64(bytes)}`
+      } catch { return null }
+      finally { clearTimeout(timeout) }
+    })()
+  }
+  const logoDataUri = await logoDataUriPromise
+  if (!logoDataUri) logoDataUriPromise = null
+  return logoDataUri
 }
 async function loadArabicLatinFontBytes(): Promise<Uint8Array> {
   if (!arabicLatinFontBytesPromise) {
@@ -107,6 +130,60 @@ async function fetchAllPages<T>(
     rows.push(...page)
     if (page.length < DETAIL_PAGE_SIZE) return rows
   }
+}
+async function loadReportChecklistSummary(
+  admin: SupabaseClient<SendReportDatabase>,
+  report: DailyReportRow,
+  branchName: string,
+) {
+  const branchId = report.branch_id
+  if (!branchId || !report.report_date || (report.shift_type !== 'Morning' && report.shift_type !== 'Evening')) return null
+  const shiftType = report.shift_type
+  const branchHours = {
+    opening_time: report.branches?.opening_time ?? null,
+    closing_time: report.branches?.closing_time ?? null,
+  }
+  const window = buildShiftWindow(report.report_date, shiftType, branchHours)
+  if (!window) return null
+
+  // Template assignments are limited to the report's shift and relevant template IDs;
+  // completion logs below are filtered by this report's branch, business-date window, and shift.
+  const templateSelect = 'id,category,shift_type,task_type,branch_id,target_time,frequency,day_of_week,day_of_month,days_of_week,is_active,checklist_template_branches(branch_id)' as const
+  const activeShiftTemplates = () => admin.from('checklist_templates')
+    .select(templateSelect).eq('is_active', true).in('shift_type', [shiftType, 'Both'])
+  const [branchTemplates, globalTemplates, selectedBranchLinks] = await Promise.all([
+    fetchAllPages((from, to) => activeShiftTemplates().eq('branch_id', branchId).range(from, to)),
+    fetchAllPages((from, to) => activeShiftTemplates().is('branch_id', null).range(from, to)),
+    fetchAllPages((from, to) => admin.from('checklist_template_branches')
+      .select('template_id,branch_id').eq('branch_id', branchId).range(from, to)),
+  ])
+  const linkedTemplateIds = [...new Set(selectedBranchLinks.map((row) => String(row.template_id)).filter(Boolean))]
+  const linkedTemplates = linkedTemplateIds.length
+    ? await fetchAllPages((from, to) => activeShiftTemplates().in('id', linkedTemplateIds).range(from, to))
+    : []
+  const templateById = new Map<string, typeof branchTemplates[number]>()
+  for (const template of [...branchTemplates, ...globalTemplates, ...linkedTemplates]) {
+    templateById.set(String(template.id), template)
+  }
+  const templates = [...templateById.values()]
+
+  const logSelect = 'id,template_id,branch_id,status,execution_date,shift_type,created_at' as const
+  const shiftOrUnspecified = `shift_type.eq.${shiftType},shift_type.is.null`
+  const [logs, hourlyLogs] = await Promise.all([
+    fetchAllPages((from, to) => admin.from('checklist_logs').select(logSelect)
+      .eq('branch_id', branchId).gte('execution_date', window.dateFrom).lte('execution_date', window.dateTo)
+      .or(shiftOrUnspecified).order('execution_date', { ascending: true })
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
+    fetchAllPages((from, to) => admin.from('hourly_checklist_logs').select(logSelect)
+      .eq('branch_id', branchId).gte('execution_date', window.dateFrom).lte('execution_date', window.dateTo)
+      .eq('shift_type', shiftType).order('execution_date', { ascending: true })
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
+  ])
+
+  return buildChecklistSummary({
+    templates, logs, hourlyLogs, branchId, branchName,
+    reportDate: report.report_date, shiftType, branchHours,
+  })
 }
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
@@ -173,13 +250,14 @@ Deno.serve(async (req: Request) => {
     if (!actor || actor.status !== 'active') return json({ ok: false, message: 'الحساب غير نشط.' }, 403)
 
     const { data: report, error: reportError } = await admin.from('daily_reports')
-      .select('*,branches(name)')
+      .select('*,branches(name,opening_time,closing_time)')
       .eq('id', reportId)
       .maybeSingle()
     if (reportError) throw new FunctionError(500, 'report_lookup_failed')
     if (!report) return json({ ok: false, message: 'التقرير غير موجود.' }, 404)
+    const branchName = clean(report.branches?.name || 'فرع غير محدد', 160)
 
-    const [waste, issues, reviews, technicalIssues] = await Promise.all([
+    const [waste, issues, reviews, technicalIssues, checklistSummary] = await Promise.all([
       fetchAllPages((from, to) => admin.from('waste_logs').select('*')
         .eq('report_id', reportId).order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
       fetchAllPages((from, to) => admin.from('shift_issues').select('*')
@@ -189,6 +267,7 @@ Deno.serve(async (req: Request) => {
       fetchAllPages((from, to) => admin.from('technical_issues')
         .select('id,report_id,title,description,source,priority,status,created_at,resolved_at')
         .eq('report_id', reportId).order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
+      loadReportChecklistSummary(admin, report, branchName),
     ])
 
     const { data: configuredRecipients, error: recipientsError } = await admin
@@ -207,12 +286,14 @@ Deno.serve(async (req: Request) => {
     const resendKey = Deno.env.get('RESEND_API_KEY')
     if (!resendKey) throw new FunctionError(503, 'email_provider_not_configured')
 
-    const arabicLatinFontBytes = await loadArabicLatinFontBytes()
-    const branchName = clean(report.branches?.name || 'فرع غير محدد', 160)
+    const [arabicLatinFontBytes, logoDataUri] = await Promise.all([
+      loadArabicLatinFontBytes(), loadLogoDataUri(),
+    ])
     const pdfBytes = await buildDailyReportPdf({
-      jsPDF, fontBase64: base64(arabicLatinFontBytes),
+      jsPDF, fontBase64: base64(arabicLatinFontBytes), logoDataUri,
       report,
       branchName,
+      checklistSummary,
       waste,
       issues,
       reviews,
@@ -238,14 +319,15 @@ Deno.serve(async (req: Request) => {
     const safeBranch = branchName.replace(/[^\p{L}\p{N}_-]/gu, '-').replace(/-+/g, '-').slice(0, 60) || 'branch'
     const pdfFilename = `zam-shift-report-${safeBranch}-${reportDate}.pdf`
     const pdfBase64 = base64(pdfBytes)
-    const payload = {
+    const payload = buildReportEmailPayload({
       from: FROM,
-      to: 'operations@zam.sa',
-      bcc: recipients.filter((email) => email !== 'operations@zam.sa'),
-      subject: `تقرير الوردية اليومية - ${branchName} - ${reportDate}`,
+      report,
+      branchName,
+      recipients,
+      pdfFilename,
+      pdfBytes,
       html: emailHtml(report, branchName, waste, issues, reviews, technicalIssues),
-      attachments: [{ filename: pdfFilename, content: pdfBase64 }],
-    }
+    })
     const payloadSha256 = await sha256Hex(JSON.stringify(payload))
     const delivery = await sendReportEmailOnce({
       claimSend: async () => {

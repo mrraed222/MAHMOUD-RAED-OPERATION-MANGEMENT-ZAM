@@ -41,7 +41,7 @@ export interface DailyReportRow {
   positive_reviews: number | null;
   custom_fields: Json | null;
   created_at: string | null;
-  branches: { name: string } | null;
+  branches: { name: string; opening_time?: string | null; closing_time?: string | null } | null;
 }
 
 export interface WasteLogRow {
@@ -97,6 +97,11 @@ export interface TechnicalIssueRow {
   resolved_at: string | null;
 }
 
+export interface DailyChecklistSummary {
+  nonHourly: { scheduled: number; completed: number; incomplete: number };
+  hourly: { completed: number; notPerformed: number };
+}
+
 type Relationship = {
   foreignKeyName: string;
   columns: string[];
@@ -117,11 +122,34 @@ type ProfileDatabaseRow = ProfileActorRow & {
   shift_type: string | null;
 } & Record<string, unknown>;
 type DailyReportDatabaseRow = Omit<DailyReportRow, 'branches'> & { sheet_key: string | null } & Record<string, unknown>;
-type BranchRow = { id: string; name: string } & Record<string, unknown>;
+type BranchRow = { id: string; name: string; opening_time: string | null; closing_time: string | null } & Record<string, unknown>;
 type WasteDatabaseRow = WasteLogRow & { report_id: string | null } & Record<string, unknown>;
 type ShiftIssueDatabaseRow = ShiftIssueRow & { report_id: string | null } & Record<string, unknown>;
 type NegativeReviewDatabaseRow = NegativeReviewRow & { report_id: string | null } & Record<string, unknown>;
 type TechnicalIssueDatabaseRow = TechnicalIssueRow & { branch_id: string; reported_by: string } & Record<string, unknown>;
+type ChecklistTemplateDatabaseRow = {
+  id: string;
+  category: string | null;
+  shift_type: string | null;
+  task_type: string;
+  branch_id: string | null;
+  target_time: string | null;
+  frequency: string | null;
+  day_of_week: number | null;
+  day_of_month: number | null;
+  days_of_week: number[];
+  is_active: boolean;
+} & Record<string, unknown>;
+type ChecklistLogDatabaseRow = {
+  id: string;
+  template_id: string | null;
+  branch_id: string | null;
+  status: string | null;
+  execution_date: string | null;
+  shift_type: string | null;
+  created_at: string | null;
+} & Record<string, unknown>;
+type ChecklistTemplateBranchDatabaseRow = { template_id: string; branch_id: string } & Record<string, unknown>;
 type DailyReportBranchRelationship = {
   foreignKeyName: 'daily_reports_branch_id_fkey';
   columns: ['branch_id'];
@@ -136,6 +164,13 @@ type ChildReportRelationship = {
   referencedRelation: 'daily_reports';
   referencedColumns: ['id'];
 };
+type ChecklistTemplateBranchTemplateRelationship = {
+  foreignKeyName: 'checklist_template_branches_template_id_fkey';
+  columns: ['template_id'];
+  isOneToOne: false;
+  referencedRelation: 'checklist_templates';
+  referencedColumns: ['id'];
+};
 
 type SendReportDatabase = {
   public: {
@@ -147,6 +182,10 @@ type SendReportDatabase = {
       shift_issues: Table<ShiftIssueDatabaseRow, [ChildReportRelationship]>;
       negative_reviews: Table<NegativeReviewDatabaseRow, [ChildReportRelationship]>;
       technical_issues: Table<TechnicalIssueDatabaseRow>;
+      checklist_templates: Table<ChecklistTemplateDatabaseRow>;
+      checklist_logs: Table<ChecklistLogDatabaseRow>;
+      hourly_checklist_logs: Table<ChecklistLogDatabaseRow>;
+      checklist_template_branches: Table<ChecklistTemplateBranchDatabaseRow, [ChecklistTemplateBranchTemplateRelationship]>;
     };
     Views: Record<never, never>;
     Functions: {
@@ -186,8 +225,10 @@ export type { SendReportDatabase };
 export interface BuildDailyReportPdfInput {
   jsPDF: typeof jsPDF;
   fontBase64: string;
+  logoDataUri: string | null;
   report: DailyReportRow;
   branchName: string;
+  checklistSummary: DailyChecklistSummary | null;
   waste?: WasteLogRow[];
   issues?: ShiftIssueRow[];
   reviews?: NegativeReviewRow[];
