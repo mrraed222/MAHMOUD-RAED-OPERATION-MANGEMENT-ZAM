@@ -16,7 +16,6 @@
       Object.assign(currentUser, freshProfile);
       ZamSession.save(currentUser);
       const allowed = await ZamAPI.requireAdminPerm('can_manage_automations');
-      if (!allowed) window.location.href = zamRoleHomePath(currentUser.role);
       return { allowed };
     } catch (error) {
       console.error(error);
@@ -244,6 +243,18 @@ async function init(){
 document.getElementById('instant-forward-toggle').onchange=async e=>{if(!automationAuthorized)return;const v=e.target.checked;e.target.disabled=true;try{const {error}=await zamClient.from('automation_settings').upsert({key:'instant_report_forward',is_active:v});if(error)throw error;document.getElementById('instant-state').textContent=v?'مفعّل':'متوقف';showStatus('تم حفظ الإعداد.')}catch(err){e.target.checked=!v;showStatus(`تعذر حفظ الإعداد${errorCodeSuffix(err)}.`)}finally{e.target.disabled=false}};
 document.getElementById('schedule-form').onsubmit=async e=>{e.preventDefault();if(!automationAuthorized)return;if(!branchOptionsReady){showStatus('تعذر تحميل خيارات الفروع؛ أعد تحميل الصفحة قبل إضافة الموعد.');return}const b=document.getElementById('add-schedule-btn'),report_type=document.getElementById('new-report-type').value,branch_id=document.getElementById('new-branch').value||null,send_time=document.getElementById('new-send-time').value,shift_type=document.getElementById('new-shift-type').value||null;if(!send_time){showStatus('حدد وقت الإرسال.');return}b.disabled=true;try{const {error}=await zamClient.from('automation_schedules').insert([{report_type,branch_id,send_time,shift_type,is_active:true}]);if(error)throw error;await loadSchedules();showStatus('تمت إضافة الموعد وتفعيله.')}catch(err){showStatus(`تعذر إضافة الموعد${errorCodeSuffix(err)}؛ تحقق من الاتصال والصلاحية.`)}finally{b.disabled=false}};
 document.getElementById('retry-recipients').onclick=loadRecipients;document.getElementById('save-recipients').onclick=saveRecipients;document.querySelectorAll('[data-shift-btn]').forEach(b=>b.onclick=()=>{currentShiftFilter=currentShiftFilter===b.dataset.shiftBtn?null:b.dataset.shiftBtn;document.querySelectorAll('[data-shift-btn]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.shiftBtn===currentShiftFilter)));document.getElementById('clear-filter').setAttribute('aria-pressed',String(!currentShiftFilter));renderSchedules()});document.getElementById('clear-filter').onclick=()=>{currentShiftFilter=null;document.querySelectorAll('[data-shift-btn]').forEach(x=>x.setAttribute('aria-pressed','false'));document.getElementById('clear-filter').setAttribute('aria-pressed','true');renderSchedules()};document.getElementById('retry-schedules').onclick=loadSchedules;init();
+</script><script>
+setTimeout(() => {
+  const list = document.getElementById('schedules-list');
+  if (!automationAuthorized && list?.getAttribute('aria-busy') === 'true') {
+    const banner = document.createElement('div');
+    banner.className = 'error-box';
+    banner.setAttribute('role', 'alert');
+    banner.textContent = 'تعذر إكمال التحقق من جلسة الأتمتة. أعد تحميل الصفحة بعد تسجيل الدخول.';
+    document.querySelector('.automation-page')?.prepend(banner);
+    list.setAttribute('aria-busy', 'false');
+  }
+}, 8000);
 </script></body></html>
 
 
