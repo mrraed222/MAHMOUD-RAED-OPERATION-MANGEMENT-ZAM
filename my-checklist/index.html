@@ -303,12 +303,63 @@ document.querySelectorAll('.shift-btn').forEach(btn => {
     });
 });
 
+function evidenceErrorMessage(error) {
+    const message = String(error?.message || error || '').toLowerCase();
+    if (message.includes('unsupported') || message.includes('mime') || message.includes('type') || error?.code === 'ZAM_IMAGE_DECODE_FAILED') {
+        return 'صيغة الصورة غير مدعومة. استخدم JPG أو PNG أو WebP.';
+    }
+    if (message.includes('size') || message.includes('large')) {
+        return 'حجم الصورة كبير. أعد اختيار صورة أصغر.';
+    }
+    if (message.includes('jwt') || message.includes('auth') || error?.code === 'ZAM_AUTH_SESSION_INVALID') {
+        return 'انتهت جلسة الدخول. سجّل الدخول من جديد ثم أعد المحاولة.';
+    }
+    return 'تعذّر رفع الصورة. تحقق من الاتصال ثم أعد المحاولة.';
+}
+
+async function imageAsJpeg(file) {
+    if (!file || !String(file.type || '').startsWith('image/')) {
+        throw new Error('نوع الملف ليس صورة.');
+    }
+    if (file.size > 50 * 1024 * 1024) {
+        throw new Error('حجم الصورة أكبر من الحد المسموح.');
+    }
+    let source;
+    try {
+        source = typeof createImageBitmap === 'function'
+            ? await createImageBitmap(file, { imageOrientation: 'from-image' })
+            : await new Promise((resolve, reject) => {
+                const url = URL.createObjectURL(file);
+                const image = new Image();
+                image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
+                image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('تعذر قراءة الصورة.')); };
+                image.src = url;
+            });
+    } catch (error) {
+        error.code = 'ZAM_IMAGE_DECODE_FAILED';
+        throw error;
+    }
+    const maxSide = 1920;
+    const scale = Math.min(1, maxSide / Math.max(source.width, source.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(source.width * scale));
+    canvas.height = Math.max(1, Math.round(source.height * scale));
+    const context = canvas.getContext('2d', { alpha: false });
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+    if (typeof source.close === 'function') source.close();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+    if (!blob) throw new Error('تعذر تجهيز الصورة.');
+    return new File([blob], 'evidence.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+}
+
 async function uploadEvidence(file) {
-    const ext = file.name.split('.').pop() || 'jpg';
-    const path = `${currentUser.id}/${Date.now()}.${ext}`;
-    const { error } = await zamClient.storage.from('task-evidence').upload(path, file, {
-        contentType: file.type || 'image/jpeg',
-        upsert: true
+    await ZamAPI.requireLiveAuth(currentUser);
+    const normalized = await imageAsJpeg(file);
+    const path = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.jpg`;
+    const { error } = await zamClient.storage.from('task-evidence').upload(path, normalized, {
+        contentType: 'image/jpeg',
+        cacheControl: '3600',
+        upsert: false
     });
     if (error) throw error;
     const { data } = zamClient.storage.from('task-evidence').getPublicUrl(path);
@@ -772,7 +823,7 @@ async function loadMyChecklist() {
                     await loadMyChecklist();
                 } catch (err) {
                     console.error(err);
-                    if (statusSpan) statusSpan.textContent = 'حدث خطأ أثناء رفع الصورة، حاول مرة أخرى.';
+                    if (statusSpan) statusSpan.textContent = evidenceErrorMessage(err);
                     if (checkbox) {
                         checkbox.disabled = false;
                         checkbox.checked = false;
@@ -838,3 +889,4 @@ function scheduleChecklistRefresh() {
 loadMyChecklist().finally(scheduleChecklistRefresh);
 </script>
 </body></html>
+
