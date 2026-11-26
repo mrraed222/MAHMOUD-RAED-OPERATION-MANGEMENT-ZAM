@@ -69,7 +69,7 @@ function zamRoleHomePath(role) {
     if (role === 'Supervisor') {
         return 'supervisor-dashboard/index.html';
     }
-    return 'my-checklist/index.html';
+    return 'my-checklist/index.html?v=20261126223000';
 }
 
 // ============================================
@@ -95,7 +95,7 @@ function requireRole(allowedRoles, redirectPath) {
 const ZAM_NAV_ITEMS = [
     { key: 'dashboard', label: 'لوحة التحكم', icon: 'dashboard', href: 'dashboard/index.html', roles: ['Owner', 'Admin', 'Manager'], perm: null },
     { key: 'branches', label: 'الفروع', icon: 'storefront', href: 'branches-checklists/index.html', roles: ['Owner', 'Admin', 'Supervisor'], perm: 'can_manage_branches' },
-    { key: 'my-checklist', label: 'مهامي اليومية', icon: 'task_alt', href: 'my-checklist/index.html', roles: ['Barista', 'Kitchen', 'Waiter'], perm: null },
+    { key: 'my-checklist', label: 'مهامي اليومية', icon: 'task_alt', href: 'my-checklist/index.html?v=20261126223000', roles: ['Barista', 'Kitchen', 'Waiter'], perm: null },
     { key: 'supervisor-checklist', label: 'قوائم المهام', icon: 'checklist', href: 'supervisor-checklist/index.html', roles: ['Admin', 'Manager', 'Supervisor'], perm: null },
     { key: 'inventory-requests', label: 'الجرد والطلبيات', icon: 'inventory_2', href: 'inventory-requests/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor', 'Quality', 'Quality Manager', 'Barista', 'Kitchen', 'Waiter'], perm: 'can_manage_inventory' },
     { key: 'supervisor-dashboard', label: 'داشبورد الفرع', icon: 'space_dashboard', href: 'supervisor-dashboard/index.html', roles: ['Supervisor', 'Manager'], perm: null },
