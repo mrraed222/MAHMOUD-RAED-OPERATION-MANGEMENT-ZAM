@@ -35,8 +35,10 @@
     if (shift === 'evening' || /مسائ|ليلي/.test(shift)) return 'Evening';
     return '';
   };
-  const field = (label, value, formatter = valueText) =>
-    `<div class="detail-field"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(formatter(value))}</dd></div>`;
+  const field = (label, value, formatter = valueText) => {
+    if (value === null || value === undefined || String(value).trim() === '') return '';
+    return `<div class="detail-field"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(formatter(value))}</dd></div>`;
+  };
   const section = (title, content) =>
     `<section class="detail-section"><h3>${escapeHtml(title)}</h3>${content}</section>`;
   const detailRows = (title, rows, renderRow, error, emptyMessage) => {
@@ -116,24 +118,12 @@
     const metricsHtml = metrics.map(([label, value, formatter]) =>
       `<article class="detail-metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(formatter(value))}</strong></article>`
     ).join('');
-    const metadata = [
-      ['الفرع', branchName],
-      ['المشرف', report.supervisor_name],
-      ['التاريخ', report.report_date, reportDate],
-      ['وقت التسجيل', report.entry_time || report.custom_fields?.entry_time],
-      ['الوردية', shiftLabel(report.shift_type)],
-      ['حالة الفريق', report.team_status],
-      ['التقييمات الإيجابية المسجلة', report.positive_reviews],
-      ['تاريخ إنشاء التقرير', report.created_at, dateTime],
-    ];
     const headerIdentityHtml = [
       ['الفرع', branchName],
       ['التاريخ', report.report_date, reportDate],
       ['الوردية', shiftLabel(report.shift_type)],
       ['المشرف', report.supervisor_name],
     ].map(([label, value, formatter]) => `<span><b>${escapeHtml(label)}</b>${escapeHtml((formatter || valueText)(value))}</span>`).join('');
-    const metadataHtml = [metadata[3], metadata[5], metadata[6], metadata[7]]
-      .map(([label, value, formatter]) => field(label, value, formatter)).join('');
     const customHtml = customFields.length
       ? section('حقول التقرير الإضافية', `<dl class="detail-facts">${customFields.map(([key, value]) => field(key, value)).join('')}</dl>`)
       : '';
@@ -182,7 +172,7 @@
       return `<article class="detail-entry"><dl class="detail-facts">${fields}</dl></article>`;
     }, errors.reviews, 'لا توجد تقييمات مرتبطة بهذا التقرير.');
 
-    return `<div class="report-detail"><section class="detail-hero"><div><span class="detail-kicker">ZAM Operations · التقرير اليومي</span><h3>تقرير أداء الوردية</h3><div class="detail-identity">${headerIdentityHtml}</div></div></section><section class="detail-section detail-overview"><h3>مؤشرات التقرير</h3><div class="detail-metrics">${metricsHtml}</div></section><section class="detail-section detail-operational"><h3>بيانات التشغيل</h3><dl class="detail-facts detail-facts-compact">${metadataHtml}</dl></section>${customHtml}${wasteSection}${issuesSection}${technicalIssuesSection}${reviewsSection}</div>`;
+    return `<div class="report-detail"><section class="detail-hero"><div><span class="detail-kicker">ZAM Operations · التقرير اليومي</span><h3>تقرير أداء الوردية</h3><div class="detail-identity">${headerIdentityHtml}</div></div></section><section class="detail-section detail-overview"><h3>مؤشرات التقرير</h3><div class="detail-metrics">${metricsHtml}</div></section>${customHtml}${wasteSection}${issuesSection}${technicalIssuesSection}${reviewsSection}</div>`;
   }
 
   global.ZamReportDetailRenderer = { render, filterWasteForReport, summarizeWasteForReport };
