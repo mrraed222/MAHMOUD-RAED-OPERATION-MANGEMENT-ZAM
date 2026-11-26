@@ -930,6 +930,7 @@ function renderFridgePanel(panel, fridges, readings, log) {
 async function loadChecklist() {
     container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
     try {
+        await ZamAPI.requireLiveAuth(currentUser);
         await loadCurrentBranchHours();
         if (!ZamBranchLifecycle.isOperational(currentBranchLifecycle, new Date())) {
             container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm" role="status">قوائم المهام والإرسال غير متاحة قبل تاريخ افتتاح الفرع.</p>';
@@ -1008,7 +1009,7 @@ document.getElementById('save-note-btn')?.addEventListener('click', async () => 
     const btn = document.getElementById('save-note-btn');
     btn.disabled = true;
     try {
-        await zamClient.auth.getSession();
+        await ZamAPI.requireLiveAuth(currentUser);
         const { error } = await zamClient.from('team_notes').insert([{
             profile_id: currentUser.id,
             branch_id: currentUser.branch_id,
@@ -1034,7 +1035,7 @@ async function loadRecentNotes() {
     const listEl = document.getElementById('recent-notes-list');
     if (!listEl) return;
     try {
-        await zamClient.auth.getSession();
+        await ZamAPI.requireLiveAuth(currentUser);
         const { data: notes, error } = await zamClient
             .from('team_notes')
             .select('id, profile_id, branch_id, shift_type, note, created_at, profiles(full_name, avatar_url)')
@@ -1096,3 +1097,4 @@ try {
 
 </script>
 </body></html>
+
