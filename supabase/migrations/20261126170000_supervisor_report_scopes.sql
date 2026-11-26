@@ -1,6 +1,5 @@
--- Review-only draft: optional extra branch/shift read scope for Supervisors.
--- The profile's own branch and shift remain the baseline scope. This migration
--- must be reviewed and applied by the database owner; it is not applied here.
+-- Optional extra branch/shift read scope for Supervisors.
+-- The profile's own branch and shift remain the baseline scope.
 
 CREATE TABLE IF NOT EXISTS public.supervisor_report_scopes (
   profile_id uuid PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
