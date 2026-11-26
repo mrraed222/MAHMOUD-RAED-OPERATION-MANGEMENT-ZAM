@@ -146,6 +146,42 @@ body.zam-page button, body.zam-page label, body.zam-page summary { touch-action:
  .task-actions { padding-inline:0 !important; }
 }
 @media(max-width:380px) { body.zam-page header .shift-btn { font-size:10px; } }
+
+/* Waiter header and overview contrast polish */
+body.zam-page > header {
+  min-height: 76px;
+  background: rgba(255,255,255,.98) !important;
+  border-bottom: 1px solid #dce7df !important;
+  box-shadow: 0 4px 18px rgba(25, 60, 46, .07) !important;
+}
+body.zam-page > header img { width: 44px; height: 44px; object-fit: contain; }
+body.zam-page > header h1 { color: #174d3b !important; font-weight: 900; letter-spacing: -.02em; }
+body.zam-page > header p { color: #6b7d74 !important; }
+body.zam-page > header .shift-btn { min-height: 36px; border: 1px solid #c9ddd1; }
+body.zam-page > header .shift-btn.bg-primary { background: #1f7658 !important; border-color: #1f7658; }
+body.zam-page > header .shift-btn:not(.bg-primary) { background: #f5faf6; }
+.task-overview {
+  background: linear-gradient(120deg, #123e30 0%, #1f7658 100%) !important;
+  color: #fff !important;
+  overflow: hidden;
+}
+.task-overview:before { background: #8dd5ae; }
+.task-overview #checklist-heading,
+.task-overview p,
+.task-overview .text-on-surface,
+.task-overview .text-on-surface-variant,
+.task-overview .text-primary { color: #fff !important; }
+.task-overview > div > div:last-child {
+  background: rgba(255,255,255,.97) !important;
+  border-color: rgba(255,255,255,.72) !important;
+  color: #174d3b !important;
+}
+.task-overview > div > div:last-child span { color: #174d3b !important; }
+@media(max-width:767px) {
+  body.zam-page > header { min-height: 72px; }
+  body.zam-page > header img { width: 36px; height: 36px; }
+  body.zam-page > header h1 { font-size: 15px; }
+}
 </style>
 </head>
 <body class="zam-page bg-background text-on-surface overflow-x-hidden">
