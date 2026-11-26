@@ -34,15 +34,24 @@ try {
 @media(max-width:900px){.rm-main{padding:24px 18px 48px}}@media(max-width:640px){.rm-main{padding:20px 14px 40px}.rm-page-header{padding:10px 14px}.rm-heading{display:block}.rm-controls{margin-top:18px;align-items:stretch}.rm-control{flex:1}.rm-control input{width:100%;min-width:0}.rm-actions{width:100%}.rm-actions .rm-btn{flex:1}.rm-summary{grid-template-columns:1fr;gap:10px}.rm-section-head{display:block}.rm-table-wrap{display:none}.rm-mobile-list{display:block}.rm-mobile-shifts{grid-template-columns:1fr 1fr}.rm-card{padding:15px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
 </style>
+<style>
+.rm-month-controls{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin-top:14px;padding:14px 16px;background:#edf4ef;border:1px solid var(--rm-line);border-radius:12px}
+.rm-month-controls .rm-control{min-width:190px}.rm-month-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.rm-month-card{background:#fff;border:1px solid var(--rm-line);border-radius:14px;padding:16px;box-shadow:0 5px 20px #1d2f2708}.rm-month-card span{display:block;color:var(--rm-muted);font-size:14px}.rm-month-card strong{display:block;margin-top:5px;font-size:28px;color:var(--rm-ink)}.rm-month-card.ok strong{color:var(--rm-green)}.rm-month-card.missing strong{color:var(--rm-red)}.rm-month-card.rate strong{color:#2f6f94}.rm-month-caption{margin:8px 0 0;color:var(--rm-muted);font-size:13px}.rm-section-kicker{margin:0 0 12px;color:var(--rm-muted);font-size:14px}
+@media(max-width:800px){.rm-month-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.rm-month-grid{grid-template-columns:1fr 1fr}.rm-month-card{padding:13px}.rm-month-card strong{font-size:23px}}
+</style>
 </head>
 <body class="zam-page">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('reports-monitor',currentUser.role);})();</script>
 <header class="rm-page-header"><img src="../assets/logo/zam-logo.png" alt="شعار زام" width="42" height="42"><div><h1>مراقبة تسليم التقارير</h1><p>ZAM Operation</p></div></header>
 <main class="rm-main"><div class="rm-wrap">
-<header class="rm-heading"><div><h1 class="rm-title">ملخص التسجيل حسب الفرع والوردية</h1><p class="rm-sub">اختر التاريخ لعرض السجلات الموجودة فقط.</p></div>
-<div class="rm-controls"><label class="rm-control" for="check-date">تاريخ التقرير <input type="date" id="check-date"></label><div class="rm-actions"><button class="rm-btn primary" id="refresh-monitor" type="button">تحديث البيانات</button></div></div></header>
-<div class="rm-note" role="note">«لم يُسجّل» تعني عدم وجود سجل فقط، ولا تعني التأخر. التاريخ حسب توقيت الرياض.</div>
-<section class="rm-section" aria-labelledby="summary-title"><div class="rm-section-head"><div><h2 id="summary-title">ملخص التغطية</h2><p id="summary-context">حسب الفروع التشغيلية في التاريخ المحدد</p></div></div><div class="rm-summary">
+<header class="rm-heading"><div><h1 class="rm-title">المتابعة اليومية والشهرية للتقارير</h1><p class="rm-sub">تابع التقارير المتوقع استلامها والتقارير المسجلة فعليًا حسب الفروع والورديات.</p></div>
+<div class="rm-controls"><label class="rm-control" for="check-date">اليوم <input type="date" id="check-date"></label><div class="rm-actions"><button class="rm-btn primary" id="refresh-monitor" type="button">تحديث البيانات</button></div></div></header>
+<div class="rm-month-controls"><label class="rm-control" for="month-date">الشهر المراد متابعته <input type="month" id="month-date"></label><p class="rm-month-caption">المتوقع = فرع تشغيلي × ورديتين × أيام الشهر؛ لا تُحتسب الفروع قبل افتتاحها.</p></div>
+<div class="rm-note" role="note">«لم يُسجّل» تعني عدم وجود تقرير محفوظ فقط، ولا تعني التأخر. جميع التواريخ حسب توقيت الرياض.</div>
+<section class="rm-section" aria-labelledby="month-summary-title"><div class="rm-section-head"><div><h2 id="month-summary-title">العداد الشهري</h2><p id="month-summary-context">جارٍ تجهيز الفترة المحددة</p></div></div><div class="rm-month-grid">
+<article class="rm-month-card"><span>التقارير المتوقعة</span><strong id="m-expected">—</strong></article><article class="rm-month-card ok"><span>الإرسال الفعلي</span><strong id="m-actual">—</strong></article><article class="rm-month-card missing"><span>التقارير غير المستلمة</span><strong id="m-missing">—</strong></article><article class="rm-month-card rate"><span>نسبة الالتزام</span><strong id="m-rate">—</strong></article></div></section>
+<section class="rm-section" aria-labelledby="summary-title"><div class="rm-section-head"><div><h2 id="summary-title">المتابعة اليومية</h2><p id="summary-context">حسب الفروع التشغيلية في التاريخ المحدد</p></div></div><div class="rm-summary">
 <article class="rm-card"><h3>الوردية الصباحية</h3><div class="rm-stats"><div class="rm-stat ok"><span>تم تسجيل التقرير</span><strong id="c-morning-done" aria-live="polite">—</strong></div><div class="rm-stat missing"><span>لم يُسجّل تقرير</span><strong id="c-morning-missing" aria-live="polite">—</strong></div></div></article>
 <article class="rm-card"><h3>الوردية المسائية</h3><div class="rm-stats"><div class="rm-stat ok"><span>تم تسجيل التقرير</span><strong id="c-evening-done" aria-live="polite">—</strong></div><div class="rm-stat missing"><span>لم يُسجّل تقرير</span><strong id="c-evening-missing" aria-live="polite">—</strong></div></div></article></div></section>
 <section class="rm-section" aria-labelledby="list-title"><div class="rm-section-head"><div><h2 id="list-title">حالة التسجيل حسب الفرع</h2><p id="results-count">—</p></div><label class="rm-control" for="sort-branches">ترتيب الفروع<select id="sort-branches" class="rm-btn" aria-label="ترتيب الفروع"><option value="asc">أبجديًا: أ إلى ي</option><option value="desc">أبجديًا: ي إلى أ</option></select></label></div>
@@ -50,29 +59,39 @@ try {
 </div></main>
 <script>
 const dateInput=document.getElementById('check-date');
+const monthInput=document.getElementById('month-date');
 const tbody=document.getElementById('monitor-tbody');
 const refreshButton=document.getElementById('refresh-monitor');
 const sortSelect=document.getElementById('sort-branches');
 let branchRows=[];
+let monthBranches=[];
+let monthReports=[];
 let monitorLoadGeneration=0;
 let monitorAuthorized=false;
 dateInput.disabled=true;
+monthInput.disabled=true;
 refreshButton.disabled=true;
 sortSelect.disabled=true;
 dateInput.value=ZamBranchLifecycle.riyadhDateString(new Date());
+monthInput.value=dateInput.value.slice(0,7);
 dateInput.addEventListener('change',loadMonitor);
+monthInput.addEventListener('change',loadMonitor);
 refreshButton.addEventListener('click',loadMonitor);
 sortSelect.addEventListener('change',renderMonitor);
 function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function statusBadge(submitted,time){return submitted?`<span class="rm-state ok"><span aria-hidden="true">✓</span> تم التسجيل${time?` · ${escapeHtml(time)}`:''}</span>`:'<span class="rm-state missing"><span aria-hidden="true">—</span> لم يُسجّل</span>';}
-async function loadDailyChecklistSummary(date){
-  const rangeRes=await zamClient.rpc('get_daily_checklist_summary_v2',{p_date_from:date,p_date_to:date});
+async function loadDailyChecklistSummary(dateFrom,dateTo){
+  const rangeRes=await zamClient.rpc('get_daily_checklist_summary_v2',{p_date_from:dateFrom,p_date_to:dateTo});
   if(rangeRes.error)throw rangeRes.error;
   return rangeRes.data||[];
 }
 function resetCounts(){['c-morning-done','c-morning-missing','c-evening-done','c-evening-missing'].forEach(id=>document.getElementById(id).textContent='—');}
+function resetMonthly(){['m-expected','m-actual','m-missing','m-rate'].forEach(id=>document.getElementById(id).textContent='—');document.getElementById('month-summary-context').textContent='جارٍ تجهيز الفترة المحددة';}
 function showLoading(){document.getElementById('monitor-feedback').textContent='جارٍ تحميل بيانات الفروع والتقارير…';document.getElementById('results-count').textContent='';tbody.innerHTML='<tr><td colspan="3" class="rm-loading">جارٍ التحميل…</td></tr>';document.getElementById('monitor-mobile').innerHTML='';resetCounts();sortSelect.disabled=true;}
-function showMonitorMessage(message,isError=false){branchRows=[];resetCounts();document.getElementById('results-count').textContent='';document.getElementById('monitor-feedback').textContent=message;const stateClass=isError?'rm-error':'rm-empty';tbody.innerHTML=`<tr><td colspan="3" class="${stateClass}">${escapeHtml(message)}</td></tr>`;document.getElementById('monitor-mobile').innerHTML=`<div class="rm-card ${stateClass}">${escapeHtml(message)}</div>`;sortSelect.disabled=true;}
+function showMonitorMessage(message,isError=false){branchRows=[];monthBranches=[];monthReports=[];resetCounts();resetMonthly();document.getElementById('results-count').textContent='';document.getElementById('monitor-feedback').textContent=message;const stateClass=isError?'rm-error':'rm-empty';tbody.innerHTML=`<tr><td colspan="3" class="${stateClass}">${escapeHtml(message)}</td></tr>`;document.getElementById('monitor-mobile').innerHTML=`<div class="rm-card ${stateClass}">${escapeHtml(message)}</div>`;sortSelect.disabled=true;}
+function monthRange(month){const [year,monthNumber]=String(month).split('-').map(Number);const lastDay=new Date(Date.UTC(year,monthNumber,0)).getUTCDate();return {from:`${month}-${'01'}`,to:`${month}-${String(lastDay).padStart(2,'0')}`};}
+function renderMonthly(branches,reports,month){const range=monthRange(month);let expected=0;for(let cursor=new Date(`${range.from}T12:00:00+03:00`);cursor<=new Date(`${range.to}T12:00:00+03:00`);cursor.setUTCDate(cursor.getUTCDate()+1)){const day=cursor.toISOString().slice(0,10);expected+=(branches||[]).filter(branch=>ZamBranchLifecycle.isOperational(branch,day)).length*2;}const actual=new Set((reports||[]).map(row=>`${row.branch_id}|${row.report_date}|${row.shift_type}`)).size;const missing=Math.max(0,expected-actual);const rate=expected?Math.round(actual/expected*100):0;document.getElementById('m-expected').textContent=expected.toLocaleString('ar-SA');document.getElementById('m-actual').textContent=actual.toLocaleString('ar-SA');document.getElementById('m-missing').textContent=missing.toLocaleString('ar-SA');document.getElementById('m-rate').textContent=`${rate.toLocaleString('ar-SA')}%`;document.getElementById('month-summary-context').textContent=`${month} · ${branches.length.toLocaleString('ar-SA')} فروع ضمن النطاق`;
+}
 function monitorAuthorizationHint(role){if(role==='Manager')return 'تحقق من نشاط الحساب، وتفعيل صلاحية «الاطلاع على ملخص التقارير اليومية»، وإدراج الفرع ضمن النطاق المصرح به؛ لم يُوسّع النطاق تلقائيًا.';if(role==='Admin')return 'تحقق من نشاط الحساب وصلاحية «الاطلاع على كل التقارير»؛ لم تُمنح صلاحية تلقائيًا.';if(role==='Owner')return 'تحقق من نشاط الحساب وجلسة المالك؛ لم تُمنح صلاحية تلقائيًا.';return 'هذا الدور غير مخول بقراءة ملخص التقارير؛ لم تُمنح صلاحية تلقائيًا.';}
 function renderMonitor(){if(sortSelect.disabled)return;const sort=sortSelect.value;const rows=[...branchRows].sort((a,b)=>String(a.branch.name).localeCompare(String(b.branch.name),'ar')*(sort==='desc'?-1:1));const done={Morning:0,Evening:0};rows.forEach(x=>{if(x.morning)done.Morning++;if(x.evening)done.Evening++;});
  document.getElementById('c-morning-done').textContent=done.Morning;document.getElementById('c-morning-missing').textContent=rows.length-done.Morning;document.getElementById('c-evening-done').textContent=done.Evening;document.getElementById('c-evening-missing').textContent=rows.length-done.Evening;document.getElementById('results-count').textContent=`${rows.length} ${rows.length===1?'فرع':'فروع'} ضمن النطاق`;
@@ -83,7 +102,7 @@ function renderMonitor(){if(sortSelect.disabled)return;const sort=sortSelect.val
 async function loadMonitor(){
  if(!monitorAuthorized)return;
  const generation=++monitorLoadGeneration;
- const date=dateInput.value;
+ const date=dateInput.value;const month=monthInput.value||date.slice(0,7);if(date.slice(0,7)!==month)dateInput.value=`${month}-01`;
  branchRows=[];
  showLoading();
  if(!date){showMonitorMessage('اختر تاريخًا صالحًا لعرض التقارير.');refreshButton.disabled=false;return;}
@@ -93,14 +112,17 @@ async function loadMonitor(){
    ? zamClient.rpc('list_manager_daily_summary_branches').then(result=>{if(result.error)throw result.error;return result.data||[];})
    : ZamAPI.getBranches();
   const staged=(promise,stage)=>promise.catch(error=>{throw {stage,error};});
+  const range=monthRange(month);
   const [branches,reports]=await Promise.all([
    staged(branchPromise,currentUser.role==='Manager'?'نطاق الفروع':'قائمة الفروع'),
-   staged(loadDailyChecklistSummary(date),'ملخص التقارير'),
+   staged(loadDailyChecklistSummary(range.from,range.to),'ملخص التقارير'),
   ]);
   if(generation!==monitorLoadGeneration||date!==dateInput.value)return;
   if(currentUser.role==='Manager'&&!branches.length){showMonitorMessage('نطاق فروع المدير غير مهيأ أو لا يحتوي على فروع مسموح بها؛ لا توجد أرقام متاحة.',true);return;}
-  const operationalBranches=(branches||[]).filter(branch=>ZamBranchLifecycle.isOperational(branch,date));
-  branchRows=operationalBranches.map(branch=>({branch,morning:reports.find(r=>r.branch_id===branch.id&&r.shift_type==='Morning'),evening:reports.find(r=>r.branch_id===branch.id&&r.shift_type==='Evening')}));
+  monthBranches=branches||[];monthReports=reports||[];renderMonthly(monthBranches,monthReports,month);
+  const dailyReports=monthReports.filter(report=>report.report_date===date);
+  const operationalBranches=monthBranches.filter(branch=>ZamBranchLifecycle.isOperational(branch,date));
+  branchRows=operationalBranches.map(branch=>({branch,morning:dailyReports.find(r=>r.branch_id===branch.id&&r.shift_type==='Morning'),evening:dailyReports.find(r=>r.branch_id===branch.id&&r.shift_type==='Evening')}));
   sortSelect.disabled=false;
   renderMonitor();
  }catch(failure){
@@ -122,6 +144,7 @@ async function initializeMonitor(){
   if(currentUser.role!=='Manager'&&!(await ZamAPI.requireAdminPerm('can_view_all_reports'))){window.location.href=zamRoleHomePath(currentUser.role);return;}
   monitorAuthorized=true;
   dateInput.disabled=false;
+  monthInput.disabled=false;
   refreshButton.disabled=false;
   await loadMonitor();
  }catch(err){
