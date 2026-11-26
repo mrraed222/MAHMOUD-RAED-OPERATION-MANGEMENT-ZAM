@@ -126,7 +126,14 @@
       ['التقييمات الإيجابية المسجلة', report.positive_reviews],
       ['تاريخ إنشاء التقرير', report.created_at, dateTime],
     ];
-    const metadataHtml = metadata.map(([label, value, formatter]) => field(label, value, formatter)).join('');
+    const headerIdentityHtml = [
+      ['الفرع', branchName],
+      ['التاريخ', report.report_date, reportDate],
+      ['الوردية', shiftLabel(report.shift_type)],
+      ['المشرف', report.supervisor_name],
+    ].map(([label, value, formatter]) => `<span><b>${escapeHtml(label)}</b>${escapeHtml((formatter || valueText)(value))}</span>`).join('');
+    const metadataHtml = [metadata[3], metadata[5], metadata[6], metadata[7]]
+      .map(([label, value, formatter]) => field(label, value, formatter)).join('');
     const customHtml = customFields.length
       ? section('حقول التقرير الإضافية', `<dl class="detail-facts">${customFields.map(([key, value]) => field(key, value)).join('')}</dl>`)
       : '';
@@ -136,7 +143,7 @@
       : wasteTotals.byUnit.length
         ? wasteTotals.byUnit.map(({ unit, quantity }) => `${Number(quantity).toLocaleString('ar-SA', { maximumFractionDigits: 10 })} ${unit}`).join(' · ')
         : 'لا توجد كميات هدر مطابقة لهذا التقرير.';
-    const wasteSection = section('ملخص الهدر بالكميات حسب الوحدة', `<p class="safe-waste-summary" role="status">${escapeHtml(wasteSummary)}</p>`);
+    const wasteSection = section('ملخص الهدر بالكميات حسب الوحدة', `<p class="safe-waste-summary" role="status"><span class="sr-only">عدد السجلات المرتبطة بهذا التقرير</span>${escapeHtml(wasteSummary)}</p>`);
     const issuesSection = detailRows('مشاكل الشفت', issues, (row) => {
       const fields = [
         field('نوع المشكلة', row.issue_type),
@@ -175,8 +182,9 @@
       return `<article class="detail-entry"><dl class="detail-facts">${fields}</dl></article>`;
     }, errors.reviews, 'لا توجد تقييمات مرتبطة بهذا التقرير.');
 
-    return `<div class="report-detail"><section class="detail-section detail-overview"><h3>ملخص التقرير</h3><div class="detail-metrics">${metricsHtml}</div><dl class="detail-facts">${metadataHtml}</dl></section>${customHtml}${wasteSection}${issuesSection}${technicalIssuesSection}${reviewsSection}</div>`;
+    return `<div class="report-detail"><section class="detail-hero"><div><span class="detail-kicker">ZAM Operations · التقرير اليومي</span><h3>تقرير أداء الوردية</h3><div class="detail-identity">${headerIdentityHtml}</div></div></section><section class="detail-section detail-overview"><h3>مؤشرات التقرير</h3><div class="detail-metrics">${metricsHtml}</div></section><section class="detail-section detail-operational"><h3>بيانات التشغيل</h3><dl class="detail-facts detail-facts-compact">${metadataHtml}</dl></section>${customHtml}${wasteSection}${issuesSection}${technicalIssuesSection}${reviewsSection}</div>`;
   }
 
   global.ZamReportDetailRenderer = { render, filterWasteForReport, summarizeWasteForReport };
 })(typeof window !== 'undefined' ? window : globalThis);
+
