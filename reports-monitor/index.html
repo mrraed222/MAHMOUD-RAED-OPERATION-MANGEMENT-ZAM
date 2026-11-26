@@ -66,12 +66,9 @@ sortSelect.addEventListener('change',renderMonitor);
 function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function statusBadge(submitted,time){return submitted?`<span class="rm-state ok"><span aria-hidden="true">✓</span> تم التسجيل${time?` · ${escapeHtml(time)}`:''}</span>`:'<span class="rm-state missing"><span aria-hidden="true">—</span> لم يُسجّل</span>';}
 async function loadDailyChecklistSummary(date){
- const rangeRes=await zamClient.rpc('get_daily_checklist_summary',{p_date_from:date,p_date_to:date});
- if(!rangeRes.error)return rangeRes.data||[];
- if(currentUser.role==='Manager'||rangeRes.error.code!=='PGRST202')throw rangeRes.error;
- const legacyRes=await zamClient.rpc('get_daily_checklist_summary',{p_report_date:date});
- if(legacyRes.error)throw legacyRes.error;
- return legacyRes.data||[];
+  const rangeRes=await zamClient.rpc('get_daily_checklist_summary_v2',{p_date_from:date,p_date_to:date});
+  if(rangeRes.error)throw rangeRes.error;
+  return rangeRes.data||[];
 }
 function resetCounts(){['c-morning-done','c-morning-missing','c-evening-done','c-evening-missing'].forEach(id=>document.getElementById(id).textContent='—');}
 function showLoading(){document.getElementById('monitor-feedback').textContent='جارٍ تحميل بيانات الفروع والتقارير…';document.getElementById('results-count').textContent='';tbody.innerHTML='<tr><td colspan="3" class="rm-loading">جارٍ التحميل…</td></tr>';document.getElementById('monitor-mobile').innerHTML='';resetCounts();sortSelect.disabled=true;}
@@ -135,3 +132,4 @@ async function initializeMonitor(){
 initializeMonitor();
 </script>
 </body></html>
+
