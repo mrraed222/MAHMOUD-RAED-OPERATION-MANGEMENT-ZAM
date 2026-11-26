@@ -341,6 +341,9 @@ document.querySelectorAll('.shift-btn').forEach(btn => {
 
 function evidenceErrorMessage(error) {
     const message = String(error?.message || error || '').toLowerCase();
+    if (error?.code === 'ZAM_CHECKLIST_SAVE_FAILED') {
+        return 'تم رفع الصورة، لكن تعذّر حفظ إنجاز المهمة. تحقق من الوردية والتكليف ثم أعد المحاولة.';
+    }
     if (message.includes('row-level security') || message.includes('not authorized') || message.includes('unauthorized') || error?.code === 'ZAM_AUTH_PROFILE_MISMATCH') {
         return 'لا تملك الجلسة الحالية صلاحية رفع الصور. سجّل الخروج ثم الدخول من جديد.';
     }
@@ -872,7 +875,12 @@ async function loadMyChecklist() {
                 try {
                     const photo_url = await uploadEvidence(file);
                     const notes = container.querySelector(`.task-note[data-id="${templateId}"]`)?.value.trim() || null;
-                    await saveTaskCompletion(templateId, notes, photo_url);
+                    try {
+                        await saveTaskCompletion(templateId, notes, photo_url);
+                    } catch (saveError) {
+                        saveError.code = 'ZAM_CHECKLIST_SAVE_FAILED';
+                        throw saveError;
+                    }
                     await loadMyChecklist();
                 } catch (err) {
                     console.error(err);
