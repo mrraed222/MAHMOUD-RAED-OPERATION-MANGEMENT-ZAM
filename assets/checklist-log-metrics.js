@@ -86,12 +86,14 @@
 
     (hourlyLogs || []).forEach(log => {
       const shift = normalizeShift(log);
-      const branchName = String(log?.branches?.name ?? log?.branch_name ?? '').trim();
+      const logBranch = Array.isArray(log?.branches) ? log.branches[0] : log?.branches;
+      const branchId = log?.branch_id ?? logBranch?.id;
+      const branch = (branches || []).find(item => String(item?.id) === String(branchId));
+      const branchName = String(branch?.name ?? logBranch?.name ?? log?.branch_name ?? '').trim();
       if (shift === 'Morning' && branchName === 'تجربة زام') return;
-      const branchId = log?.branch_id ?? log?.branches?.id;
       const row = branchId == null ? null : rows.get(String(branchId));
       if (!row || !SHIFTS.includes(shift)) return;
-      if (log?.branches?.name || log?.branch_name) row.branchName = String(log.branches?.name || log.branch_name);
+      if (branchName) row.branchName = branchName;
       if (isCompleted(log)) row.shifts[shift].completed += 1;
       else if (isNotPerformed(log)) row.shifts[shift].notPerformed += 1;
     });

@@ -40,6 +40,15 @@ test('single completed-execution table merges notes independently and keeps secu
   assert.match(source, /قراءات حرارة الثلاجات والفريزرات/, 'the unrelated fridge-reading table remains available');
 });
 
+test('checklist log section and table headings describe the records and displayed fields', () => {
+  assert.match(source, /<h1 class="font-title-md text-title-md text-primary">سجل تنفيذ المهام والصور<\/h1>/);
+  assert.match(source, /<h2 id="scope-heading">فلاتر السجل<\/h2>/);
+  assert.match(source, /<h2 id="results-heading">تفاصيل التنفيذ وملاحظات الفريق<\/h2>/);
+  assert.match(source, /<h2 id="branch-shift-summary-heading">ملخص المهام الساعية حسب الفرع والوردية<\/h2>/);
+  assert.match(source, /تاريخ ووقت التنفيذ \/ التسجيل[\s\S]*?صورة الإثبات/);
+  assert.match(source, /<h2 class="font-title-md text-primary">سجل قراءات حرارة الثلاجات والفريزرات<\/h2>/);
+  assert.match(source, /تاريخ ووقت القراءة[\s\S]*?درجة الحرارة[\s\S]*?ملاحظة القراءة/);
+});
 test('all inline JavaScript parses', () => {
   const scripts = [...source.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
   for (const [index, match] of scripts.entries()) {

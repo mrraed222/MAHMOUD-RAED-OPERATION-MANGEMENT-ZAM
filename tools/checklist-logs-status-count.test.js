@@ -103,6 +103,22 @@ test('morning hourly counter excludes branch تجربة زام only; evening and
   assert.equal(hourlyLogs.length, 16, 'the counter does not modify or delete source records');
 });
 
+test('morning hourly counter resolves تجربة زام from branch_id when the joined branch name is absent', () => {
+  const branches = [{ id: 'trial', name: 'تجربة زام' }, { id: 'other', name: 'الفرع الآخر' }];
+  const hourlyLogs = [
+    ...Array.from({ length: 8 }, () => ({ branch_id: 'trial', shift_type: 'Morning', status: 'not_performed' })),
+    ...Array.from({ length: 8 }, () => ({ branch_id: 'trial', shift_type: 'Evening', status: 'not_performed' })),
+    { branch_id: 'other', shift_type: 'Morning', status: 'not_performed' },
+  ];
+  const originalHourlyLogs = JSON.parse(JSON.stringify(hourlyLogs));
+  const rows = metrics.summarizeHourlyExecutionCounts(hourlyLogs, branches);
+  assert.deepEqual(rows.find(row => row.branchId === 'trial').shifts, {
+    Morning: { completed: 0, notPerformed: 0 },
+    Evening: { completed: 0, notPerformed: 8 },
+  });
+  assert.deepEqual(rows.find(row => row.branchId === 'other').shifts.Morning, { completed: 0, notPerformed: 1 });
+  assert.deepEqual(hourlyLogs, originalHourlyLogs, 'counting does not modify execution records');
+});
 test('checklist-log view uses the hourly-only counter and a single completed-execution table', () => {
   assert.match(page, /checklist-log-metrics\.js\?v=\d+/);
   assert.match(page, /ZamChecklistLogMetrics\.summarizeHourlyExecutionCounts\(allHourlyLogs, hourlyTaskBranches\)/);
