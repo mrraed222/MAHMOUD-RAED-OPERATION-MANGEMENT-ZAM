@@ -161,26 +161,43 @@ body.zam-page > header .shift-btn { min-height: 36px; border: 1px solid #c9ddd1;
 body.zam-page > header .shift-btn.bg-primary { background: #1f7658 !important; border-color: #1f7658; }
 body.zam-page > header .shift-btn:not(.bg-primary) { background: #f5faf6; }
 .task-overview {
-  background: linear-gradient(120deg, #123e30 0%, #1f7658 100%) !important;
-  color: #fff !important;
+  background: #fff !important;
+  color: #19352b !important;
+  border: 1px solid #d8e8de !important;
+  box-shadow: 0 12px 30px rgba(29, 72, 53, .08) !important;
   overflow: hidden;
 }
-.task-overview:before { background: #8dd5ae; }
+.task-overview:before { background: #2f8a65; }
 .task-overview #checklist-heading,
 .task-overview p,
 .task-overview .text-on-surface,
 .task-overview .text-on-surface-variant,
-.task-overview .text-primary { color: #fff !important; }
+.task-overview .text-primary { color: #19352b !important; }
+.task-overview > div { align-items: center !important; gap: 18px !important; }
+.task-overview > div > div:first-child { flex: 1 1 auto; min-width: 0; padding-inline: 4px; }
 .task-overview > div > div:last-child {
-  background: rgba(255,255,255,.97) !important;
-  border-color: rgba(255,255,255,.72) !important;
-  color: #174d3b !important;
+  flex: 0 0 245px;
+  min-height: 76px;
+  padding: 13px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  background: #edf7f1 !important;
+  border: 1px solid #c9e1d2 !important;
+  border-radius: 14px !important;
+  color: #245b43 !important;
+  box-shadow: none !important;
 }
-.task-overview > div > div:last-child span { color: #174d3b !important; }
+.task-overview > div > div:last-child span { color: #245b43 !important; }
+.task-overview > div > div:last-child #progress-label { color: #17664e !important; font-size: 16px; font-weight: 800; }
 @media(max-width:767px) {
   body.zam-page > header { min-height: 72px; }
   body.zam-page > header img { width: 36px; height: 36px; }
   body.zam-page > header h1 { font-size: 15px; }
+  .task-overview > div { align-items: stretch !important; }
+  .task-overview > div > div:last-child { flex-basis: auto; width: 100%; min-height: 64px; }
 }
 </style>
 </head>
@@ -423,6 +440,13 @@ async function uploadEvidence(file) {
 }
 
 async function saveTaskCompletion(templateId, notes = null, photo_url = null) {
+    const authUser = await ZamAPI.requireLiveAuth();
+    const { data: liveProfile, error: liveProfileError } = await zamClient.from('profiles')
+        .select('*, branches(name, opening_time, closing_time)').eq('id', authUser.id).maybeSingle();
+    if (liveProfileError || !liveProfile) throw liveProfileError || new Error('تعذر تحميل تكليف المستخدم الحالي.');
+    Object.assign(currentUser, liveProfile);
+    currentBranchHours = liveProfile.branches || {};
+    ZamSession.save(currentUser);
     if (!(await currentBranchIsOperational())) throw new Error('فرعك غير نشط حتى تاريخ الافتتاح.');
     const task = visibleTemplatesById.get(templateId);
     const visibility = {
@@ -440,7 +464,7 @@ async function saveTaskCompletion(templateId, notes = null, photo_url = null) {
     const base = {
         template_id: templateId,
         branch_id: currentUser.branch_id,
-        executed_by: currentUser.id,
+        executed_by: authUser.id,
         status: 'Completed',
         notes,
         photo_url,
