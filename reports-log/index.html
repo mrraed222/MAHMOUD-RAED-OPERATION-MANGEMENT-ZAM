@@ -8,8 +8,8 @@
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../assets/supabase-config.js?v=20261124203300"></script>
-  <script src="../assets/report-detail-renderer.js?v=20261125184500"></script>
+  <script src="../assets/supabase-config.js?v=20261126235500"></script>
+  <script src="../assets/report-detail-renderer.js?v=20261126235500"></script>
   <script src="../assets/report-log-summary.js?v=20261126193000"></script>
   <script src="../assets/supabase-pagination.js?v=20261122234500"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -43,6 +43,17 @@
     .report-summary-wide{grid-column:1/-1}.report-summary-value{display:block;color:var(--ink);font-size:14px;font-weight:600;line-height:1.7;overflow-wrap:anywhere}
     .summary-error{color:#a3332d}.log-disclaimer{margin:-4px 0 16px;padding:10px 12px;border-radius:10px;background:#eef3ec;color:var(--muted);font-size:13px;line-height:1.6}
   </style>
+<style>
+  .detail-hero{padding:18px 20px;border-radius:14px;background:linear-gradient(135deg,#123e30,#217a5e);color:#fff;margin-bottom:14px;break-inside:avoid}
+  .detail-kicker{display:block;font-size:12px;font-weight:700;opacity:.82;margin-bottom:5px}
+  .detail-hero h3{margin:0!important;color:#fff!important;font-size:24px!important}
+  .detail-identity{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:14px}
+  .detail-identity span{font-size:13px;color:#fff;opacity:.95}
+  .detail-identity b{display:inline-block;margin-inline-end:5px;color:#bce8d2;font-size:11px}
+  .detail-operational{background:#fbfdfb!important}
+  .detail-facts-compact{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  @media(max-width:680px){.detail-hero{padding:15px}.detail-hero h3{font-size:20px!important}.detail-facts-compact{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+</style>
 </head>
 <body class="zam-page">
   <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('reports-log',currentUser.role);})();</script>
