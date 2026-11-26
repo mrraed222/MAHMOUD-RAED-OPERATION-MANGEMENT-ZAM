@@ -525,6 +525,12 @@ if (currentUser.shift_type && currentUser.shift_type !== 'Both' && currentUser.r
 
 function evidenceErrorMessage(error) {
     const message = String(error?.message || error || '').toLowerCase();
+    if (message.includes('row-level security') || message.includes('not authorized') || message.includes('unauthorized')) {
+        return 'لا تملك الجلسة الحالية صلاحية رفع الصور. سجّل الخروج ثم الدخول من جديد.';
+    }
+    if (message.includes('bucket') && message.includes('not found')) {
+        return 'مخزن الصور غير متاح حاليًا. أبلغ مسؤول النظام.';
+    }
     if (message.includes('unsupported') || message.includes('mime') || message.includes('type') || error?.code === 'ZAM_IMAGE_DECODE_FAILED') {
         return 'صيغة الصورة غير مدعومة. استخدم JPG أو PNG أو WebP.';
     }
@@ -543,6 +549,10 @@ async function imageAsJpeg(file) {
     }
     if (file.size > 50 * 1024 * 1024) {
         throw new Error('حجم الصورة أكبر من الحد المسموح.');
+    }
+    const directTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    if (directTypes.has(file.type) && file.size <= 10 * 1024 * 1024) {
+        return { file, contentType: file.type, extension: file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg' };
     }
     let source;
     try {
@@ -569,15 +579,15 @@ async function imageAsJpeg(file) {
     if (typeof source.close === 'function') source.close();
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.82));
     if (!blob) throw new Error('تعذر تجهيز الصورة.');
-    return new File([blob], 'evidence.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+    return { file: new File([blob], 'evidence.jpg', { type: 'image/jpeg', lastModified: Date.now() }), contentType: 'image/jpeg', extension: 'jpg' };
 }
 
 async function uploadEvidence(file) {
     await ZamAPI.requireLiveAuth(currentUser);
-    const normalized = await imageAsJpeg(file);
-    const path = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.jpg`;
-    const { error } = await zamClient.storage.from('task-evidence').upload(path, normalized, {
-        contentType: 'image/jpeg',
+    const prepared = await imageAsJpeg(file);
+    const path = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${prepared.extension}`;
+    const { error } = await zamClient.storage.from('task-evidence').upload(path, prepared.file, {
+        contentType: prepared.contentType,
         cacheControl: '3600',
         upsert: false
     });
