@@ -305,7 +305,7 @@ document.querySelectorAll('.shift-btn').forEach(btn => {
 
 function evidenceErrorMessage(error) {
     const message = String(error?.message || error || '').toLowerCase();
-    if (message.includes('row-level security') || message.includes('not authorized') || message.includes('unauthorized')) {
+    if (message.includes('row-level security') || message.includes('not authorized') || message.includes('unauthorized') || error?.code === 'ZAM_AUTH_PROFILE_MISMATCH') {
         return 'لا تملك الجلسة الحالية صلاحية رفع الصور. سجّل الخروج ثم الدخول من جديد.';
     }
     if (message.includes('bucket') && message.includes('not found')) {
@@ -363,9 +363,9 @@ async function imageAsJpeg(file) {
 }
 
 async function uploadEvidence(file) {
-    await ZamAPI.requireLiveAuth(currentUser);
+    const authUser = await ZamAPI.requireLiveAuth(currentUser);
     const prepared = await imageAsJpeg(file);
-    const path = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${prepared.extension}`;
+    const path = `${authUser.id}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${prepared.extension}`;
     const { error } = await zamClient.storage.from('task-evidence').upload(path, prepared.file, {
         contentType: prepared.contentType,
         cacheControl: '3600',
