@@ -9,7 +9,12 @@
   const automationPermissionGate = (async () => {
     if (!currentUser) return { allowed: false };
     try {
-      await ZamAPI.requireLiveAuth(currentUser);
+      const liveAuthUser = await ZamAPI.requireLiveAuth();
+      const { data: freshProfile, error: profileError } = await zamClient.from('profiles')
+        .select('*, branches(name)').eq('id', liveAuthUser.id).maybeSingle();
+      if (profileError || !freshProfile) throw profileError || new Error('تعذر تحميل ملف المستخدم الحالي.');
+      Object.assign(currentUser, freshProfile);
+      ZamSession.save(currentUser);
       const allowed = await ZamAPI.requireAdminPerm('can_manage_automations');
       if (!allowed) window.location.href = zamRoleHomePath(currentUser.role);
       return { allowed };
