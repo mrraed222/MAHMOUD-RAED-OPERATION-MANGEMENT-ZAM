@@ -112,9 +112,23 @@ async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
 }
-function emailHtml(report: DailyReportRow, branchName: string) {
+function emailHtml(
+  report: DailyReportRow,
+  branchName: string,
+  waste: Array<{ item_name?: string | null; quantity?: number | null; unit?: string | null }>,
+  issues: Array<{ description?: string | null; priority?: string | null }>,
+  reviews: Array<{ comment_text?: string | null; customer_rating?: number | null }>,
+  technicalIssues: Array<{ title?: string | null; status?: string | null }>,
+) {
   const shift = report.shift_type === 'Morning' ? 'صباحية' : report.shift_type === 'Evening' ? 'مسائية' : clean(report.shift_type)
-  return `<div dir="rtl" lang="ar" style="font-family:Arial,sans-serif;background:#f5f7f5;padding:24px;color:#1e2922"><div style="max-width:640px;margin:auto;background:#fff;border:1px solid #dbe4dc;border-radius:12px;padding:24px"><h2 style="color:#145238;margin-top:0">تقرير الوردية اليومية</h2><p>الفرع: <b>${escapeHtml(branchName)}</b></p><p>التاريخ: <b>${escapeHtml(report.report_date)}</b> · الوردية: <b>${escapeHtml(shift)}</b></p><p>المشرف: <b>${escapeHtml(report.supervisor_name)}</b></p><p>إجمالي المبيعات: <b>${escapeHtml(formatAmount(report.total_sales))} ر.س</b> · عدد الطلبات: <b>${escapeHtml(report.orders_count ?? '—')}</b></p><p>أُرفقت نسخة PDF من التقرير بعد حفظه.</p></div></div>`
+  const card = (label: string, value: unknown, tone = '#145238') => `<td style="width:25%;padding:6px;vertical-align:top"><div style="border:1px solid #dbe4dc;border-radius:12px;background:#ffffff;padding:14px 10px;text-align:center"><div style="font-size:24px;font-weight:800;color:${tone};line-height:1.2">${escapeHtml(value)}</div><div style="font-size:12px;color:#64736a;margin-top:7px">${escapeHtml(label)}</div></div></td>`
+  const status = clean(report.team_status || 'غير محدد', 80) || 'غير محدد'
+  const positiveReviews = report.positive_reviews == null ? '—' : formatAmount(report.positive_reviews)
+  const issueTone = issues.length ? '#a34b35' : '#145238'
+  const wasteTone = waste.length ? '#9b6a1f' : '#145238'
+  const reviewTone = reviews.length ? '#6b4f9a' : '#145238'
+  const detail = (title: string, value: unknown, tone: string) => `<div style="display:inline-block;min-width:28%;margin:4px 1%;padding:10px 12px;border-radius:10px;background:${tone};color:#ffffff;text-align:center"><strong style="display:block;font-size:20px">${escapeHtml(value)}</strong><span style="font-size:12px">${escapeHtml(title)}</span></div>`
+  return `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#f2f6f3;color:#1e2922;font-family:Arial,Tahoma,sans-serif"><div style="max-width:720px;margin:0 auto;padding:22px 12px"><div style="overflow:hidden;border:1px solid #d4e0d6;border-radius:18px;background:#ffffff;box-shadow:0 8px 24px rgba(31,67,48,.08)"><div style="background:#145238;padding:22px 24px;color:#ffffff"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="vertical-align:middle"><img src="https://raw.githubusercontent.com/mrraed222/MAHMOUD-RAED-OPERATION-MANGEMENT-ZAM/main/assets/logo/zam-logo.png" width="64" height="64" alt="شعار زام" style="display:block;width:64px;height:64px;object-fit:contain;border-radius:12px;background:#ffffff;padding:4px"></td><td style="vertical-align:middle;text-align:right;padding-right:14px"><div style="font-size:12px;opacity:.82">ZAM Operations</div><h1 style="margin:5px 0 0;font-size:24px;line-height:1.35">لوحة تقرير الوردية</h1><div style="margin-top:5px;font-size:13px;opacity:.88">${escapeHtml(branchName)} · ${escapeHtml(report.report_date || '—')} · وردية ${escapeHtml(shift || '—')}</div></td></tr></table></div><div style="padding:22px 20px"><div style="border:1px solid #e0e8e1;border-radius:12px;background:#f8fbf8;padding:14px 16px;margin-bottom:16px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="color:#64736a;font-size:13px">المشرف</td><td style="text-align:left;font-weight:700">${escapeHtml(report.supervisor_name || '—')}</td></tr><tr><td style="color:#64736a;font-size:13px;padding-top:8px">حالة الفريق</td><td style="text-align:left;font-weight:700;color:#145238;padding-top:8px">${escapeHtml(status)}</td></tr></table></div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 -6px;width:calc(100% + 12px)"><tr>${card('إجمالي المبيعات', `${formatAmount(report.total_sales)} ر.س`)}${card('عدد الطلبات', report.orders_count ?? '—')}${card('متوسط الفاتورة', `${formatAmount(report.avg_ticket)} ر.س`)}${card('التقييمات الإيجابية', positiveReviews)}</tr><tr>${card('سجلات الهدر', waste.length, wasteTone)}${card('مشاكل الشفت', issues.length, issueTone)}${card('تعليقات جوجل', reviews.length, reviewTone)}${card('مشاكل تقنية', technicalIssues.length, technicalIssues.length ? '#a34b35' : '#145238')}</tr></table><div style="margin-top:18px;padding:16px;border-radius:12px;background:#f8f3ea;text-align:center"><div style="font-size:13px;color:#6b604d;margin-bottom:5px">ملخص المتابعة التشغيلية</div>${detail('الهدر المسجل', waste.length, '#9b6a1f')}${detail('المشاكل المفتوحة', issues.length, '#a34b35')}${detail('مراجعات تحتاج متابعة', reviews.length, '#6b4f9a')}</div><div style="margin-top:18px;border-top:1px solid #e2e9e3;padding-top:14px;color:#64736a;font-size:13px;line-height:1.8"><strong style="color:#1e2922">ماذا ستجد في المرفق؟</strong><br>التقرير الكامل بصيغة PDF، متضمنًا تفاصيل التقرير والملاحظات والهدر ومشاكل الشفت والتعليقات المتاحة.</div></div><div style="padding:15px 20px;background:#f5f8f5;border-top:1px solid #e1e9e2;color:#708078;text-align:center;font-size:11px;line-height:1.7">ZAM Operations · هذه الرسالة ملخص بصري سريع، والمرجع الكامل هو ملف PDF المرفق.<br><a href="mailto:operation@zam.sa" style="color:#145238">operation@zam.sa</a></div></div></div></body></html>`
 }
 
 Deno.serve(async (req: Request) => {
@@ -229,7 +243,7 @@ Deno.serve(async (req: Request) => {
       to: 'operations@zam.sa',
       bcc: recipients.filter((email) => email !== 'operations@zam.sa'),
       subject: `تقرير الوردية اليومية - ${branchName} - ${reportDate}`,
-      html: emailHtml(report, branchName),
+      html: emailHtml(report, branchName, waste, issues, reviews, technicalIssues),
       attachments: [{ filename: pdfFilename, content: pdfBase64 }],
     }
     const payloadSha256 = await sha256Hex(JSON.stringify(payload))
@@ -313,3 +327,5 @@ Deno.serve(async (req: Request) => {
     }, status)
   }
 })
+
+
