@@ -69,6 +69,16 @@
     return `<span>مشاكل الشفت: <strong>${countText(summary.shiftIssueCount)}</strong><br>بلاغات تقنية: <strong>${countText(summary.technicalIssueCount)}</strong></span>`;
   }
 
+  function customerText(report) {
+    const positive = report?.positive_reviews ?? report?.custom_fields?.positive_reviews;
+    const negative = report?.negative_reviews ?? report?.custom_fields?.negative_reviews;
+    if (positive === null && negative === null) return 'لا توجد بيانات تعليقات العملاء';
+    const parts = [];
+    if (positive !== null && positive !== undefined && positive !== '') parts.push(`إيجابية: ${countText(positive)}`);
+    if (negative !== null && negative !== undefined && negative !== '') parts.push(`سلبية: ${countText(negative)}`);
+    return parts.length ? parts.join(' · ') : 'لا توجد بيانات تعليقات العملاء';
+  }
+
   function wasteHtml(summary) {
     if (!summary || summary.wasteStatus !== 'ready') {
       return '<span class="summary-error">تعذّر تحميل ملخص الهدر</span>';
@@ -84,7 +94,7 @@
 
   function renderMobileCard(report, summary) {
     const shift = reportShiftLabel(report.shift_type);
-    return `<article class="report-card"><div class="card-top"><strong>${escapeHtml(report.supervisor_name || '—')}</strong><span>${escapeHtml(shift)}</span></div><div class="card-meta"><div>الفرع<b>${escapeHtml(report.branches?.name || '—')}</b></div><div>التاريخ<b>${escapeHtml(report.report_date || '—')}</b></div><div>متوسط الفاتورة<b>${escapeHtml(formatMoney(report.avg_ticket))}</b></div><div>المبيعات<b>${escapeHtml(formatMoney(report.total_sales))}</b></div><div class="report-summary-wide">ملخص الهدر<b class="report-summary-value">${wasteHtml(summary)}</b></div><div class="report-summary-wide">المشاكل المسجلة<b class="report-summary-value">${issuesHtml(summary)}</b></div><div class="report-summary-wide">حالة الفريق<b>${escapeHtml(report.team_status || '—')}</b></div></div><button class="view-btn" type="button" data-detail="${escapeHtml(report.id)}">عرض تفاصيل التقرير</button></article>`;
+    return `<article class="report-card"><header class="card-top"><div><strong>${escapeHtml(report.supervisor_name || 'بدون اسم مشرف')}</strong><div class="card-identity"><span>${escapeHtml(report.branches?.name || '—')}</span><span>${escapeHtml(report.report_date || '—')}</span><span>${escapeHtml(shift)}</span></div></div><span class="card-label">تقرير يومي</span></header><div class="card-metrics"><div><span>المبيعات</span><b>${escapeHtml(formatMoney(report.total_sales))}</b></div><div><span>عدد الطلبات</span><b>${escapeHtml(countText(report.orders_count ?? '—'))}</b></div><div><span>متوسط الفاتورة</span><b>${escapeHtml(formatMoney(report.avg_ticket))}</b></div></div><div class="card-sections"><section class="card-section"><span>الهدر</span><b>${wasteHtml(summary)}</b></section><section class="card-section"><span>مشاكل الشفت والبلاغات</span><b>${issuesHtml(summary)}</b></section><section class="card-section"><span>تعليقات العملاء</span><b>${escapeHtml(customerText(report))}</b></section><section class="card-section"><span>حالة الفريق</span><b>${escapeHtml(report.team_status || '—')}</b></section></div><button class="view-btn" type="button" data-detail="${escapeHtml(report.id)}">عرض تفاصيل التقرير</button></article>`;
   }
 
   global.ZamReportLogSummary = {
@@ -96,3 +106,4 @@
     wasteText,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
+
