@@ -530,9 +530,6 @@ if (currentUser.shift_type && currentUser.shift_type !== 'Both' && currentUser.r
 
 function evidenceErrorMessage(error) {
     const message = String(error?.message || error || '').toLowerCase();
-    if (error?.code === 'ZAM_CHECKLIST_SAVE_FAILED') {
-        return 'تم رفع الصورة، لكن تعذّر حفظ إنجاز المهمة. تحقق من الوردية والتكليف ثم أعد المحاولة.';
-    }
     if (message.includes('row-level security') || message.includes('not authorized') || message.includes('unauthorized') || error?.code === 'ZAM_AUTH_PROFILE_MISMATCH') {
         return 'لا تملك الجلسة الحالية صلاحية رفع الصور. سجّل الخروج ثم الدخول من جديد.';
     }
@@ -549,6 +546,27 @@ function evidenceErrorMessage(error) {
         return 'انتهت جلسة الدخول. سجّل الدخول من جديد ثم أعد المحاولة.';
     }
     return 'تعذّر رفع الصورة. تحقق من الاتصال ثم أعد المحاولة.';
+}
+
+function checklistSaveErrorMessage(error, imageUploaded = false) {
+    const prefix = imageUploaded ? 'تم رفع الصورة، لكن ' : '';
+    const code = String(error?.code || '');
+    if (code === '42501') {
+        return `${prefix}تعذّر حفظ إنجاز المهمة بسبب صلاحية الجلسة أو نطاق الفرع والوردية (42501). تحقق من التكليف والوردية المحددة ثم أعد المحاولة.`;
+    }
+    if (code === '23505') {
+        return `${prefix}يبدو أن المهمة محفوظة بالفعل لهذا التاريخ والوردية (23505). أعد تحميل القائمة؛ لم يُستبدل أي سجل.`;
+    }
+    const suffix = code ? ` (رمز الخطأ: ${code})` : '';
+    return `${prefix}تعذّر حفظ إنجاز المهمة${suffix}. تحقق من الفرع والتكليف والوردية ثم أعد المحاولة.`;
+}
+
+function checklistLogMatchesShiftWindow(log, shiftWindow, shiftType, fallbackShiftType = null) {
+    const logDate = String(log?.execution_date || '').slice(0, 10);
+    const startDate = String(shiftWindow?.dateFrom || shiftWindow?.businessDate || '').slice(0, 10);
+    const endDate = String(shiftWindow?.dateTo || shiftWindow?.businessDate || '').slice(0, 10);
+    const logShift = log?.shift_type || fallbackShiftType;
+    return Boolean(logDate && startDate && endDate && logDate >= startDate && logDate <= endDate && logShift === shiftType);
 }
 
 async function imageAsJpeg(file) {
@@ -812,6 +830,8 @@ function renderChecklist(templates, logsByTemplate) {
                     return;
                 }
                 cb.disabled = true;
+                const statusSpan = wrap?.querySelector('.task-status');
+                if (statusSpan) statusSpan.textContent = '';
                 try {
                     await ZamAPI.submitChecklistLog({
                         template_id: cb.dataset.id,
@@ -824,6 +844,7 @@ function renderChecklist(templates, logsByTemplate) {
                     await loadChecklist();
                 } catch (err) {
                     console.error(err);
+                    if (statusSpan) statusSpan.textContent = checklistSaveErrorMessage(err);
                     cb.disabled = false;
                     cb.checked = false;
                 }
@@ -843,9 +864,19 @@ function renderChecklist(templates, logsByTemplate) {
                 if (label) label.classList.add('hidden');
                 if (loader) loader.classList.remove('hidden');
                 if (statusSpan) statusSpan.textContent = '';
+                let photo_url;
                 try {
-                    const photo_url = await uploadEvidence(file);
-                    try {
+                    photo_url = await uploadEvidence(file);
+                } catch (err) {
+                    console.error(err);
+                    if (statusSpan) statusSpan.textContent = evidenceErrorMessage(err);
+                    if (checkbox) { checkbox.disabled = false; checkbox.checked = false; }
+                    if (label) label.classList.remove('hidden');
+                    if (loader) loader.classList.add('hidden');
+                    input.value = '';
+                    return;
+                }
+                try {
                     await ZamAPI.submitChecklistLog({
                         template_id: templateId,
                         branch_id: currentUser.branch_id,
@@ -855,18 +886,16 @@ function renderChecklist(templates, logsByTemplate) {
                         photo_url,
                         shift_type: currentShift
                     });
-                    } catch (saveError) {
-                        saveError.code = 'ZAM_CHECKLIST_SAVE_FAILED';
-                        throw saveError;
-                    }
-                    await loadChecklist();
                 } catch (err) {
                     console.error(err);
-                    if (statusSpan) statusSpan.textContent = evidenceErrorMessage(err);
+                    if (statusSpan) statusSpan.textContent = checklistSaveErrorMessage(err, true);
                     if (checkbox) { checkbox.disabled = false; checkbox.checked = false; }
                     if (label) label.classList.remove('hidden');
                     if (loader) loader.classList.add('hidden');
+                    input.value = '';
+                    return;
                 }
+                await loadChecklist();
             });
         });
     } else {
@@ -1038,24 +1067,17 @@ async function loadChecklist() {
         const templatesById = new Map(templates.map(task => [task.id, task]));
         const logsByTemplate = {};
         logs.forEach(l => {
-            const created = Date.parse(l.created_at || '');
-            const belongsToShift = Number.isFinite(created)
-                ? created >= shiftWindow.startAt.getTime() && created < shiftWindow.graceEndAt.getTime()
-                : String(l.execution_date).slice(0, 10) === shiftWindow.businessDate;
-            if (!belongsToShift) return;
             const task = templatesById.get(l.template_id);
-            const matchesShift = l.shift_type
-                ? l.shift_type === currentShift
-                : !!task && task.shift_type !== 'Both' && task.shift_type === currentShift;
-            if (matchesShift) logsByTemplate[l.template_id] = l;
+            if (checklistLogMatchesShiftWindow(l, shiftWindow, currentShift, task?.shift_type)) {
+                logsByTemplate[l.template_id] = l;
+            }
         });
         const currentHour = ZamChecklistSchedule.riyadhParts().hour;
         hourlyLogs.forEach(log => {
-            const created = Date.parse(log.created_at || '');
-            const belongsToShift = Number.isFinite(created)
-                ? created >= shiftWindow.startAt.getTime() && created < shiftWindow.graceEndAt.getTime()
-                : String(log.execution_date).slice(0, 10) === shiftWindow.businessDate;
-            if (belongsToShift && Number(log.occurrence_hour) === currentHour && log.shift_type === currentShift) logsByTemplate[log.template_id] = log;
+            if (checklistLogMatchesShiftWindow(log, shiftWindow, currentShift)
+                && Number(log.occurrence_hour) === currentHour) {
+                logsByTemplate[log.template_id] = log;
+            }
         });
         renderChecklist(templates, logsByTemplate);
         if (activeSubTab === 'my-tasks') initFridgePanels(logsByTemplate);
