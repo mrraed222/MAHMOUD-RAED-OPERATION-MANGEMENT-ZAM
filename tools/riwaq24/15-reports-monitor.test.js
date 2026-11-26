@@ -64,7 +64,7 @@ function createMonitorHarness({
       async rpc(name, args) {
         rpcCalls.push({ name, args });
         if (name === 'list_manager_daily_summary_branches') return managerBranchResponse;
-        if (name === 'get_daily_checklist_summary') {
+        if (name === 'get_daily_checklist_summary_v2') {
           if (args.p_date_from && deferredRangeSummary) return deferredRangeSummary.promise;
           return args.p_date_from
             ? rangeSummaryResponse
@@ -89,12 +89,11 @@ function createMonitorHarness({
   };
 }
 
-test('monitor loads branches and date-range summary together and falls back only for non-Managers', () => {
+test('monitor loads branches and the auth-independent date-range summary', () => {
   assert.match(source, /\['Owner','Admin','Manager'\]\.includes\(currentUser\.role\)/);
   assert.match(source, /async function loadDailyChecklistSummary\(date\)/);
-  assert.match(source, /rpc\('get_daily_checklist_summary',\{p_date_from:date,p_date_to:date\}\)/);
-  assert.match(source, /if\(currentUser\.role==='Manager'\|\|rangeRes\.error\.code!=='PGRST202'\)throw rangeRes\.error/);
-  assert.match(source, /rpc\('get_daily_checklist_summary',\{p_report_date:date\}\)/);
+  assert.match(source, /rpc\('get_daily_checklist_summary_v2',\{p_date_from:date,p_date_to:date\}\)/);
+  assert.match(source, /if\(rangeRes\.error\)throw rangeRes\.error/);
   assert.match(source, /const \[branches,reports\]=await Promise\.all\(/);
   assert.match(source, /staged\(loadDailyChecklistSummary\(date\),'ملخص التقارير'\)/);
   assert.match(source, /رمز الخطأ:/);
@@ -123,7 +122,7 @@ test('branch request and summary RPC both start before either deferred response 
   assert.equal(harness.branchLoads, 0, 'Managers must not enumerate all branches');
   assert.deepEqual(harness.rpcCalls.map(call => call.name), [
     'list_manager_daily_summary_branches',
-    'get_daily_checklist_summary',
+    'get_daily_checklist_summary_v2',
   ]);
 
   resolveBranches([{ id: 'branch-1', name: 'فرع الاختبار' }]);
@@ -167,7 +166,7 @@ test('Manager with no configured branch scope receives no fabricated counts and 
   assert.deepEqual(harness.permissionsChecked, [], 'Manager access must not depend on the legacy admin_permissions row');
   assert.deepEqual(harness.rpcCalls.map(call => call.name), [
     'list_manager_daily_summary_branches',
-    'get_daily_checklist_summary',
+    'get_daily_checklist_summary_v2',
   ]);
   assert.equal(harness.branchLoads, 0, 'Manager must never fall back to all branches');
   assert.equal(harness.elements.get('c-morning-done').textContent, '—');
@@ -187,7 +186,7 @@ test('Manager with an authorized scope uses only the summary-scoped branch RPC a
 
   assert.deepEqual(harness.rpcCalls.map(call => call.name), [
     'list_manager_daily_summary_branches',
-    'get_daily_checklist_summary',
+    'get_daily_checklist_summary_v2',
   ]);
   assert.deepEqual(JSON.parse(JSON.stringify(harness.rpcCalls[1].args)), { p_date_from: '2026-11-23', p_date_to: '2026-11-23' });
   assert.equal(harness.branchLoads, 0);
@@ -196,23 +195,20 @@ test('Manager with an authorized scope uses only the summary-scoped branch RPC a
   assert.match(harness.elements.get('monitor-feedback').textContent, /اكتمل التحديث/);
 });
 
-test('Owner recovers from an unavailable range signature using the tracked single-date RPC', async () => {
+test('Owner uses the auth-independent summary RPC without a legacy fallback', async () => {
   const branch = { id: 'branch-1', name: 'فرع الاختبار' };
   const harness = createMonitorHarness({
     role: 'Owner',
     branches: [branch],
-    rangeSummaryResponse: { data: null, error: { code: 'PGRST202', message: 'Function signature not found' } },
-    legacySummaryResponse: { data: [{ branch_id: branch.id, shift_type: 'Morning', entry_time: '08:10:00' }], error: null },
+    rangeSummaryResponse: { data: [{ branch_id: branch.id, shift_type: 'Morning', entry_time: '08:10:00' }], error: null },
   });
   await harness.start();
 
   assert.deepEqual(harness.permissionsChecked, ['can_view_all_reports']);
   assert.deepEqual(harness.rpcCalls.map(call => call.name), [
-    'get_daily_checklist_summary',
-    'get_daily_checklist_summary',
+    'get_daily_checklist_summary_v2',
   ]);
   assert.deepEqual(JSON.parse(JSON.stringify(harness.rpcCalls[0].args)), { p_date_from: '2026-11-23', p_date_to: '2026-11-23' });
-  assert.deepEqual(JSON.parse(JSON.stringify(harness.rpcCalls[1].args)), { p_report_date: '2026-11-23' });
   assert.equal(harness.elements.get('c-morning-done').textContent, '1');
   assert.equal(harness.elements.get('c-evening-missing').textContent, '1');
 });
@@ -228,7 +224,7 @@ test('Managers do not fall back to the legacy summary or branch APIs when a scop
 
   assert.deepEqual(harness.rpcCalls.map(call => call.name), [
     'list_manager_daily_summary_branches',
-    'get_daily_checklist_summary',
+    'get_daily_checklist_summary_v2',
   ]);
   assert.equal(harness.branchLoads, 0);
   assert.equal(harness.elements.get('c-morning-done').textContent, '—');
@@ -275,3 +271,5 @@ test('only the main dashboard is marked as the page allowed to mount the notific
   assert.match(source, /renderZamSidebar\('reports-monitor'/);
   assert.doesNotMatch(source, /id="notif-bell-slot"/);
 });
+
+
