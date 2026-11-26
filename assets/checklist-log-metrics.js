@@ -86,6 +86,8 @@
 
     (hourlyLogs || []).forEach(log => {
       const shift = normalizeShift(log);
+      const branchName = String(log?.branches?.name ?? log?.branch_name ?? '').trim();
+      if (shift === 'Morning' && branchName === 'تجربة زام') return;
       const branchId = log?.branch_id ?? log?.branches?.id;
       const row = branchId == null ? null : rows.get(String(branchId));
       if (!row || !SHIFTS.includes(shift)) return;

@@ -118,7 +118,7 @@ test('صفحات قوائم التحقق تحمل نسخ cache المحدثة ل
   assert.match(employeePage, /supabase-config\.js\?v=20261124203300/);
   assert.match(supervisorPage, /supabase-config\.js\?v=20261124203300/);
   assert.match(templateAdminPage, /supabase-config\.js\?v=20261124203300/);
-  assert.match(adminLogPage, /checklist-log-metrics\.js\?v=20261126202700/);
+  assert.match(adminLogPage, /checklist-log-metrics\.js\?v=20261126220452/);
   assert.match(templateAdminPage, /id="f-scope-all"/);
   assert.match(templateAdminPage, /class="f-branch-checkbox/);
   assert.match(templateAdminPage, /saveTemplateWithBranches/);

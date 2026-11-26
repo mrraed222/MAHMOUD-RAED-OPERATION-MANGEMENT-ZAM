@@ -81,6 +81,28 @@ test('hourly counters aggregate both shifts independently of the selected-shift 
   ]);
 });
 
+test('morning hourly counter excludes branch تجربة زام only; evening and other branches remain counted', () => {
+  const branches = [{ id: 'trial', name: 'تجربة زام' }, { id: 'other', name: 'الفرع الآخر' }];
+  const hourlyLogs = [
+    ...Array.from({ length: 7 }, () => ({
+      branch_id: 'trial', shift_type: 'Morning', status: 'not_performed', branches: { name: 'تجربة زام' },
+    })),
+    { branch_id: 'trial', shift_type: 'Morning', status: 'completed', branches: { name: 'تجربة زام' } },
+    ...Array.from({ length: 7 }, () => ({
+      branch_id: 'trial', shift_type: 'Evening', status: 'not_performed', branches: { name: 'تجربة زام' },
+    })),
+    { branch_id: 'other', shift_type: 'Morning', status: 'completed', branches: { name: 'الفرع الآخر' } },
+  ];
+
+  const rows = metrics.summarizeHourlyExecutionCounts(hourlyLogs, branches);
+  assert.deepEqual(rows.find(row => row.branchId === 'trial').shifts, {
+    Morning: { completed: 0, notPerformed: 0 },
+    Evening: { completed: 0, notPerformed: 7 },
+  });
+  assert.deepEqual(rows.find(row => row.branchId === 'other').shifts.Morning, { completed: 1, notPerformed: 0 });
+  assert.equal(hourlyLogs.length, 16, 'the counter does not modify or delete source records');
+});
+
 test('checklist-log view uses the hourly-only counter and a single completed-execution table', () => {
   assert.match(page, /checklist-log-metrics\.js\?v=\d+/);
   assert.match(page, /ZamChecklistLogMetrics\.summarizeHourlyExecutionCounts\(allHourlyLogs, hourlyTaskBranches\)/);
