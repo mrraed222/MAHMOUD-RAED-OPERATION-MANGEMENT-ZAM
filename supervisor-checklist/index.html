@@ -352,6 +352,11 @@ let currentBranchHoursLoaded = false;
 let currentBranchLifecycle = null;
 const defaultShiftByRiyadhTime = () => ZamChecklistSchedule.isWithinShiftTaskWindow('Evening', currentBranchHours) ? 'Evening' : 'Morning';
 let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : defaultShiftByRiyadhTime();
+if (['Morning', 'Evening'].includes(currentUser.shift_type)) {
+    document.querySelectorAll('.shift-btn').forEach(button => {
+        button.hidden = button.dataset.shift !== currentUser.shift_type;
+    });
+}
 let currentCategory = '';
 let activeSubTab = 'my-tasks'; // الصفحة الآن لمهام المشرف فقط — متابعة الفريق في داشبورد الفرع
 
@@ -525,6 +530,9 @@ if (currentUser.shift_type && currentUser.shift_type !== 'Both' && currentUser.r
 
 function evidenceErrorMessage(error) {
     const message = String(error?.message || error || '').toLowerCase();
+    if (error?.code === 'ZAM_CHECKLIST_SAVE_FAILED') {
+        return 'تم رفع الصورة، لكن تعذّر حفظ إنجاز المهمة. تحقق من الوردية والتكليف ثم أعد المحاولة.';
+    }
     if (message.includes('row-level security') || message.includes('not authorized') || message.includes('unauthorized') || error?.code === 'ZAM_AUTH_PROFILE_MISMATCH') {
         return 'لا تملك الجلسة الحالية صلاحية رفع الصور. سجّل الخروج ثم الدخول من جديد.';
     }
@@ -590,6 +598,13 @@ async function uploadEvidence(file) {
         if (profileError || !freshProfile) throw profileError || new Error('تعذر تحميل ملف المستخدم الحالي.');
         Object.assign(currentUser, freshProfile);
         ZamSession.save(currentUser);
+        if (['Morning', 'Evening'].includes(currentUser.shift_type)) {
+            currentShift = currentUser.shift_type;
+            document.querySelectorAll('.shift-btn').forEach(button => {
+                button.hidden = button.dataset.shift !== currentShift;
+            });
+            updateShiftButtons();
+        }
     }
     const prepared = await imageAsJpeg(file);
     const path = `${authUser.id}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${prepared.extension}`;
@@ -830,6 +845,7 @@ function renderChecklist(templates, logsByTemplate) {
                 if (statusSpan) statusSpan.textContent = '';
                 try {
                     const photo_url = await uploadEvidence(file);
+                    try {
                     await ZamAPI.submitChecklistLog({
                         template_id: templateId,
                         branch_id: currentUser.branch_id,
@@ -839,6 +855,10 @@ function renderChecklist(templates, logsByTemplate) {
                         photo_url,
                         shift_type: currentShift
                     });
+                    } catch (saveError) {
+                        saveError.code = 'ZAM_CHECKLIST_SAVE_FAILED';
+                        throw saveError;
+                    }
                     await loadChecklist();
                 } catch (err) {
                     console.error(err);
