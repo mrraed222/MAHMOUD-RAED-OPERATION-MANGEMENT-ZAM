@@ -102,7 +102,7 @@ const ZAM_NAV_ITEMS = [
     { key: 'manage-templates', label: 'إدارة قوائم التحقق', icon: 'edit_note', href: 'manage-templates/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_manage_templates' },
     { key: 'daily-report', label: 'التقارير اليومية', icon: 'assignment', href: 'daily-report/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: null },
     { key: 'reports-log', label: 'سجل التقارير', icon: 'assessment', href: 'reports-log/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: null, managerPerm: 'can_view_analytics' },
-    { key: 'checklist-logs', label: 'سجل التشيك ليست بالصور', icon: 'photo_library', href: 'checklist-logs/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports', managerPerm: 'can_view_checklist_logs' },
+    { key: 'checklist-logs', label: 'سجل التشيك ليست بالصور', icon: 'photo_library', href: 'checklist-logs/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports', managerPerm: 'can_view_checklist_logs', supervisorPerm: null },
     { key: 'reports-monitor', label: 'متابعة التقارير', icon: 'fact_check', href: 'reports-monitor/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports', managerPerm: 'can_view_daily_checklist_summary' },
     { key: 'analytics', label: 'داشبورد التحليلات', icon: 'insights', href: 'analytics/index.html', roles: ['Owner', 'Admin', 'Manager', 'Supervisor'], perm: 'can_view_all_reports', managerPerm: 'can_view_analytics' },
     { key: 'weekly-report', label: 'التقرير الأسبوعي', icon: 'summarize', href: 'weekly-report/index.html', roles: ['Owner'], perm: null },
@@ -139,7 +139,7 @@ async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
     // جلب صلاحيات المستخدم لمرة واحدة لفلترة القائمة الجانبية
     let permsRow = null;
     if (role !== 'Owner') {
-        await zamClient.auth.getSession();
+        await ZamAPI.requireLiveAuth(sessionProfile);
         const { data } = await zamClient.from('admin_permissions').select('*').eq('profile_id', sessionProfile.id).maybeSingle();
         permsRow = data || {};
     }
@@ -149,7 +149,7 @@ async function renderZamSidebar(activeKey, role, pathPrefix = '../') {
         if (role === 'Owner') return ZAM_OWNER_NAV_KEYS.has(i.key);
         if (!i.roles.includes(role)) return false;
         if (i.key === 'inventory-requests' && role === 'Supervisor') return true;
-        const requiredPerm = role === 'Manager' && i.managerPerm ? i.managerPerm : i.perm;
+        const requiredPerm = role === 'Manager' && i.managerPerm ? i.managerPerm : role === 'Supervisor' && Object.prototype.hasOwnProperty.call(i, 'supervisorPerm') ? i.supervisorPerm : i.perm;
         if (requiredPerm) {
             return !!(permsRow && permsRow[requiredPerm]);
         }
@@ -1062,6 +1062,26 @@ const ZamAPI = {
         if (error) throw this.managerReportScopeError(error);
     },
 
+    async getSupervisorReportScope(profileId) {
+        const { data, error } = await zamClient.from('supervisor_report_scopes')
+            .select('profile_id,branch_ids,shift_types,can_view_checklist_logs,can_view_daily_reports,can_view_visit_reports')
+            .eq('profile_id', profileId).maybeSingle();
+        if (error) throw error;
+        return data || { profile_id: profileId, branch_ids: [], shift_types: [], can_view_checklist_logs: false, can_view_daily_reports: false, can_view_visit_reports: false };
+    },
+
+    async saveSupervisorReportScope(profileId, branchIds = [], shiftTypes = [], canViewChecklistLogs = false, canViewDailyReports = false, canViewVisitReports = false) {
+        const { error } = await zamClient.rpc('save_supervisor_report_scope', {
+            p_profile_id: profileId,
+            p_branch_ids: Array.from(new Set(branchIds || [])),
+            p_shift_types: Array.from(new Set(shiftTypes || [])),
+            p_can_view_checklist_logs: canViewChecklistLogs === true,
+            p_can_view_daily_reports: canViewDailyReports === true,
+            p_can_view_visit_reports: canViewVisitReports === true,
+        });
+        if (error) throw error;
+    },
+
     // ============================================
     // قوالب قوائم التحقق
     // ============================================
@@ -1524,6 +1544,24 @@ const ZamAPI = {
     // تفعيل صلاحيات الأدمن الفعلية: تفحص admin_permissions قبل فتح الصفحة
     // المالك له كل شيء، الأدمن حسب ما حُدد له، وباقي الأدوار تُدار ببوابات كل صفحة
     // ============================================
+    async requireLiveAuth(expectedProfile = ZamSession.get()) {
+        const { data, error } = await zamClient.auth.getSession();
+        const authUser = data?.session?.user;
+        if (error || !authUser) {
+            ZamSession.clear();
+            const failure = new Error('انتهت جلسة الدخول؛ سجّل الدخول من جديد.');
+            failure.code = 'ZAM_AUTH_SESSION_INVALID';
+            throw failure;
+        }
+        if (expectedProfile?.id && String(authUser.id) !== String(expectedProfile.id)) {
+            ZamSession.clear();
+            const failure = new Error('لا تتطابق جلسة Supabase مع ملف المستخدم الحالي؛ سجّل الدخول من جديد.');
+            failure.code = 'ZAM_AUTH_PROFILE_MISMATCH';
+            throw failure;
+        }
+        return authUser;
+    },
+
     async requireAdminPerm(permKey) {
         const me = ZamSession.get();
         if (!me) return false;
@@ -1532,7 +1570,7 @@ const ZamAPI = {
         // الأدوار التشغيلية (Barista, Kitchen, Waiter) ليست لهم صلاحيات أدمن أصلًا
         if (!['Admin', 'Supervisor', 'Manager', 'Quality', 'Quality Manager'].includes(me.role)) return false;
         // الأدمن والمشرف والمدير: نفحص الجدول فعليًا
-        await zamClient.auth.getSession();
+        await ZamAPI.requireLiveAuth(me);
         const { data, error } = await zamClient.from('admin_permissions').select(permKey).eq('profile_id', me.id).maybeSingle();
         if (error) { console.error('perm check failed:', error); return false; }
         return !!(data && data[permKey]);
@@ -1773,3 +1811,4 @@ const ZamAPI = {
         return data;
     }
 };
+
