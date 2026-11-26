@@ -583,7 +583,14 @@ async function imageAsJpeg(file) {
 }
 
 async function uploadEvidence(file) {
-    const authUser = await ZamAPI.requireLiveAuth(currentUser);
+    const authUser = await ZamAPI.requireLiveAuth();
+    if (String(currentUser?.id || '') !== String(authUser.id)) {
+        const { data: freshProfile, error: profileError } = await zamClient.from('profiles')
+            .select('*, branches(name, opening_time, closing_time)').eq('id', authUser.id).maybeSingle();
+        if (profileError || !freshProfile) throw profileError || new Error('تعذر تحميل ملف المستخدم الحالي.');
+        Object.assign(currentUser, freshProfile);
+        ZamSession.save(currentUser);
+    }
     const prepared = await imageAsJpeg(file);
     const path = `${authUser.id}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${prepared.extension}`;
     const { error } = await zamClient.storage.from('task-evidence').upload(path, prepared.file, {
