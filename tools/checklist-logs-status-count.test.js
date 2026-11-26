@@ -33,12 +33,13 @@ test('branch-and-shift counters include completed and explicitly missed records 
     { branch_id: 'b1', shift_type: 'Morning', status: 'completed' },
     { branch_id: 'b1', shift_type: 'Morning', status: 'pending' },
     { branch_id: 'b1', shift_type: 'Evening', status: 'غير منفذة' },
+    { branch_id: 'b1', shift_type: 'Evening', status: 'NotPerformed' },
     { branch_id: 'b1', shift_type: 'Evening', status: 'done' },
   ];
 
   assert.deepEqual(metrics.summarizeExecutionCounts(logs, [], branches), [
     { branchId: 'b1', branchName: 'الفرع الأول', shiftType: 'Morning', completed: 1, notPerformed: 0 },
-    { branchId: 'b1', branchName: 'الفرع الأول', shiftType: 'Evening', completed: 1, notPerformed: 1 },
+    { branchId: 'b1', branchName: 'الفرع الأول', shiftType: 'Evening', completed: 1, notPerformed: 2 },
   ]);
 });
 
@@ -79,4 +80,14 @@ test('checklist-log view uses the hourly-only counter and a single completed-exe
   assert.match(page, /const hourlyCompletedLogs = hourlyLogs\.filter\(ZamChecklistLogMetrics\.isCompleted\)/);
   assert.match(page, /<tbody id="logs-table-tbody"[\s\S]*?<td colspan="9"/);
   assert.doesNotMatch(page, /countCompletedExecutionLogs\(logs, hourlyLogs\)/);
+});
+
+test('one failed checklist-log source does not block the other records or show false zero hourly counts', () => {
+  const loader = page.match(/async function loadLogs\(\) \{([\s\S]*?)\n\}/)[1];
+  assert.match(loader, /Promise\.allSettled\(/);
+  assert.match(loader, /let logs = readArray\(readResults\[0\], 'logs'\)/);
+  assert.match(loader, /let hourlyLogs = readArray\(readResults\[1\], 'hourlyLogs'\)/);
+  assert.match(loader, /failedReads\.has\('hourlyLogs'\)[\s\S]*?لم تُعرض أرقام غير مؤكدة/);
+  assert.match(loader, /executionReadsFailed[\s\S]*?تعذّر تحميل سجل التنفيذ/);
+  assert.match(loader, /showChecklistLogsLoadStatus\([\s\S]*?retry: true/);
 });

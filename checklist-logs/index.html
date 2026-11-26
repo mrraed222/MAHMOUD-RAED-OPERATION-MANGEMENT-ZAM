@@ -183,6 +183,22 @@ function shiftLabel(value) {
     return value === 'Morning' ? 'صباحي' : value === 'Evening' ? 'مسائي' : value === 'Both' ? 'الورديتان' : '—';
 }
 
+function showChecklistLogsLoadStatus(message, { isError = false, retry = false } = {}) {
+    checklistStatus.replaceChildren();
+    const text = document.createElement('span');
+    if (isError) text.className = 'text-error';
+    text.textContent = message;
+    checklistStatus.append(text);
+    if (retry) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'underline font-bold';
+        button.textContent = 'إعادة تحميل البيانات';
+        button.addEventListener('click', () => { void loadLogs(); });
+        checklistStatus.append(document.createTextNode(' '), button);
+    }
+}
+
 async function loadBranchOptions() {
     const sel = document.getElementById('f-branch');
     try { branchesCache = await ZamAPI.getBranches(); } catch (err) {
@@ -207,18 +223,31 @@ async function loadLogs() {
     checklistStatus.textContent = 'جارٍ تحديث السجلات…';
     tableView.setAttribute('aria-busy', 'true');
     document.getElementById('logs-table-tbody').innerHTML = '<tr><td colspan="9" class="p-md text-center text-on-surface-variant">جارٍ تحميل السجلات…</td></tr>';
+    document.getElementById('branch-shift-summary').innerHTML = '<p class="hint">جارٍ تحميل العدادات…</p>';
+    document.getElementById('fridge-readings-tbody').innerHTML = '<tr><td colspan="8" class="p-md text-center text-on-surface-variant">جارٍ تحميل القراءات…</td></tr>';
 
     const branchId = document.getElementById('f-branch').value || (currentUser.role === 'Supervisor' ? currentUser.branch_id : null);
     const date = document.getElementById('f-date').value;
     const shiftType = document.getElementById('f-shift').value || null;
 
     try {
-        let [logs, hourlyLogs, notes, readings] = await Promise.all([
+        const readResults = await Promise.allSettled([
             ZamAPI.getChecklistLogs({ branchId, date }),
             ZamAPI.getHourlyChecklistLogs({ branchId, date }),
             ZamAPI.getTeamNotes({ branchId, date, shiftType }),
             ZamAPI.getFridgeReadings({ branchId, date, shiftType })
         ]);
+        const failedReads = new Set();
+        const readArray = (result, source) => {
+            if (result.status === 'fulfilled' && Array.isArray(result.value)) return result.value;
+            failedReads.add(source);
+            console.error(`Checklist logs ${source} read failed:`, result.status === 'rejected' ? result.reason : new TypeError('Expected an array response'));
+            return [];
+        };
+        let logs = readArray(readResults[0], 'logs');
+        let hourlyLogs = readArray(readResults[1], 'hourlyLogs');
+        let notes = readArray(readResults[2], 'teamNotes');
+        let readings = readArray(readResults[3], 'fridgeReadings');
 
         const branchOperationalForRecord = row => {
             if (!row?.branch_id) return false;
@@ -238,7 +267,6 @@ async function loadLogs() {
             hourlyLogs = allHourlyLogs.filter(matchesShift);
         }
 
-        checklistStatus.textContent = 'تم تحديث السجل حسب الفلاتر المحددة.';
         const completedLogs = logs.filter(ZamChecklistLogMetrics.isCompleted);
         const hourlyCompletedLogs = hourlyLogs.filter(ZamChecklistLogMetrics.isCompleted);
 
@@ -250,9 +278,11 @@ async function loadLogs() {
             (currentUser.role === 'Supervisor' && String(branch.id) === String(currentUser.branch_id))
         ));
         const summaryRows = ZamChecklistLogMetrics.summarizeHourlyExecutionCounts(hourlyLogs, summaryBranches);
-        document.getElementById('branch-shift-summary').innerHTML = summaryRows.length
-            ? summaryRows.map(row => `<article class="checklist-counter-card"><h3>${escHtml(row.branchName)} · ${row.shiftType === 'Morning' ? 'الصباحية' : 'المسائية'}</h3><div class="checklist-counter-pair"><span>منفذ <strong>${row.completed}</strong></span><span>غير منفذ <strong>${row.notPerformed}</strong></span></div></article>`).join('')
-            : '<p class="hint">لا توجد فروع ضمن النطاق المصرح به لعرض عداداتها.</p>';
+        document.getElementById('branch-shift-summary').innerHTML = failedReads.has('hourlyLogs')
+            ? '<p class="hint text-error" role="alert">تعذّر تحميل عدادات المهام الساعية؛ لم تُعرض أرقام غير مؤكدة.</p>'
+            : summaryRows.length
+                ? summaryRows.map(row => `<article class="checklist-counter-card"><h3>${escHtml(row.branchName)} · ${row.shiftType === 'Morning' ? 'الصباحية' : 'المسائية'}</h3><div class="checklist-counter-pair"><span>منفذ <strong>${row.completed}</strong></span><span>غير منفذ <strong>${row.notPerformed}</strong></span></div></article>`).join('')
+                : '<p class="hint">لا توجد فروع ضمن النطاق المصرح به لعرض عداداتها.</p>';
 
         const executionRows = [
             ...completedLogs.map(log => ({ kind: 'task', sortAt: log.created_at || log.execution_date || '', log })),
@@ -260,6 +290,7 @@ async function loadLogs() {
             ...notes.map(note => ({ kind: 'team-note', sortAt: note.created_at || '', note })),
         ].sort((a, b) => String(b.sortAt).localeCompare(String(a.sortAt)));
         const executionBody = document.getElementById('logs-table-tbody');
+        const executionReadsFailed = ['logs', 'hourlyLogs', 'teamNotes'].some(source => failedReads.has(source));
         executionBody.innerHTML = executionRows.length ? executionRows.map(entry => {
             const isNote = entry.kind === 'team-note';
             const log = entry.log;
@@ -279,10 +310,14 @@ async function loadLogs() {
             const photoUrl = isNote ? '' : safeImageUrl(log.photo_url);
             const photoCell = photoUrl ? `<button type="button" class="checklist-photo-trigger zoomable-btn" data-src="${escHtml(photoUrl)}" aria-label="عرض صورة ${escHtml(taskTitle)}"><img src="${escHtml(photoUrl)}" alt="صورة توثيق ${escHtml(taskTitle)}" loading="lazy" width="64" height="48" class="w-16 h-12 object-cover rounded-md"/></button>` : '<span class="text-outline">—</span>';
             return `<tr class="hover:bg-surface-container-low transition-colors"><td class="p-sm whitespace-nowrap">${escHtml(dateTime)}</td><td class="p-sm">${escHtml(branchName)}</td><td class="p-sm font-bold">${escHtml(kindLabel)}</td><td class="p-sm">${escHtml(taskTitle)}</td><td class="p-sm">${escHtml(completedSteps)}</td><td class="p-sm">${escHtml(shiftLabel(shift))}</td><td class="p-sm">${escHtml(actor)} <span class="text-[10px] text-outline">${escHtml(actorRole)}</span></td><td class="p-sm min-w-48 whitespace-pre-wrap">${escHtml(memo)}</td><td class="p-sm">${photoCell}</td></tr>`;
-        }).join('') : '<tr><td colspan="9" class="p-md text-center text-on-surface-variant">لا توجد مهام مكتملة أو ملاحظات فريق مطابقة للفلاتر.</td></tr>';
+        }).join('') : executionReadsFailed
+            ? '<tr><td colspan="9" class="p-md text-center text-error">تعذّر تحميل سجل التنفيذ؛ أعد المحاولة من حالة الصفحة.</td></tr>'
+            : '<tr><td colspan="9" class="p-md text-center text-on-surface-variant">لا توجد مهام مكتملة أو ملاحظات فريق مطابقة للفلاتر.</td></tr>';
 
         const readingsBody = document.getElementById('fridge-readings-tbody');
-        readingsBody.innerHTML = readings.length ? readings.map(r => {
+        readingsBody.innerHTML = failedReads.has('fridgeReadings')
+            ? '<tr><td colspan="8" class="p-md text-center text-error">تعذّر تحميل قراءات الثلاجات.</td></tr>'
+            : readings.length ? readings.map(r => {
             const fridge = Array.isArray(r.fridges) ? r.fridges[0] : r.fridges;
             const device = fridge ? `${fridge.kind === 'freezer' ? 'فريزر' : 'ثلاجة'} ${fridge.number}${fridge.name ? ' — ' + fridge.name : ''}` : 'جهاز غير معروف';
             const status = r.status === 'problem' ? 'مشكلة' : r.status === 'warning' ? 'تنبيه' : 'طبيعي';
@@ -302,11 +337,25 @@ async function loadLogs() {
             });
         });
 
+        if (failedReads.size) {
+            const labels = {
+                logs: 'سجلات المهام العادية',
+                hourlyLogs: 'السجلات الساعية',
+                teamNotes: 'ملاحظات الفريق',
+                fridgeReadings: 'قراءات الثلاجات'
+            };
+            const failedLabels = [...failedReads].map(source => labels[source]);
+            showChecklistLogsLoadStatus(`عُرضت البيانات المتاحة؛ تعذّر تحميل ${failedLabels.join('، ')} وقد تكون النتائج جزئية.`, { isError: true, retry: true });
+        } else {
+            checklistStatus.textContent = 'تم تحديث السجل حسب الفلاتر المحددة.';
+        }
+
     } catch (err) {
         console.error(err);
         document.getElementById('logs-table-tbody').innerHTML = '<tr><td colspan="9" class="p-md text-center text-error">حدث خطأ أثناء تحميل السجلات.</td></tr>';
-        checklistStatus.innerHTML = '<span class="text-error">تعذّر تحميل بيانات السجل. <button type="button" id="retry-checklist-load" class="underline font-bold">إعادة المحاولة</button></span>';
-        document.getElementById('retry-checklist-load').addEventListener('click', loadLogs);
+        document.getElementById('branch-shift-summary').innerHTML = '<p class="hint text-error" role="alert">تعذّر تحميل عدادات المهام الساعية.</p>';
+        document.getElementById('fridge-readings-tbody').innerHTML = '<tr><td colspan="8" class="p-md text-center text-error">تعذّر تحميل قراءات الثلاجات.</td></tr>';
+        showChecklistLogsLoadStatus('تعذّر تحميل بيانات السجل.', { isError: true, retry: true });
     } finally { applyButton.disabled = false; applyButton.removeAttribute('aria-busy'); tableView.removeAttribute('aria-busy'); }
 }
 
