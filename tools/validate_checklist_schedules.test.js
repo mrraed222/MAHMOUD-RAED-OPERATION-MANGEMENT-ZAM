@@ -108,7 +108,8 @@ test('صفحات قوائم التحقق تحمل نسخ cache المحدثة ل
   const restroomPages = ['checklist-logs', 'dashboard', 'manage-templates', 'my-checklist', 'supervisor-dashboard'];
   for (const page of schedulePages) {
     const html = fs.readFileSync(path.join(__dirname, '..', page, 'index.html'), 'utf8');
-    assert.match(html, /checklist-schedule\.js\?v=20261121164000/, `${page} must load the updated schedule helper`);
+    const scheduleVersion = page === 'checklist-logs' ? '20261126202700' : '20261121164000';
+    assert.match(html, new RegExp(`checklist-schedule\\.js\\?v=${scheduleVersion}`), `${page} must load the updated schedule helper`);
   }
   for (const page of restroomPages) {
     const html = fs.readFileSync(path.join(__dirname, '..', page, 'index.html'), 'utf8');
@@ -117,6 +118,7 @@ test('صفحات قوائم التحقق تحمل نسخ cache المحدثة ل
   assert.match(employeePage, /supabase-config\.js\?v=20261124203300/);
   assert.match(supervisorPage, /supabase-config\.js\?v=20261124203300/);
   assert.match(templateAdminPage, /supabase-config\.js\?v=20261124203300/);
+  assert.match(adminLogPage, /checklist-log-metrics\.js\?v=20261126202700/);
   assert.match(templateAdminPage, /id="f-scope-all"/);
   assert.match(templateAdminPage, /class="f-branch-checkbox/);
   assert.match(templateAdminPage, /saveTemplateWithBranches/);
@@ -195,6 +197,17 @@ test('زام الحي لا تظهر له مهام حمامات، لكن تبقى
   const lounge = { task_type: 'standard', category: 'الصالة', shift_type: 'Morning', branch_id: HAY_ID, frequency: 'daily' };
   assert.equal(schedule.isTemplateVisibleForEmployee(lounge, waiter(HAY_ID, 'زام الحي'), now), true);
   assert.match(migration, /'زام الحي'[\s\S]*?لا توجد مهام دورة مياه لهذا الفرع/);
+});
+
+test('عدادات الفروع الساعية لا تشمل الحي أو البرج عند غياب قالب ساعي قابل للتطبيق', () => {
+  const hourlyRestroom = {
+    task_type: 'restroom_check', category: 'الصالة', shift_type: 'Both',
+    branch_id: null, frequency: 'hourly', is_active: true,
+  };
+  assert.equal(schedule.isHourlyTemplateApplicableInBranch(hourlyRestroom, { branchId: MAIN_ID, branchName: 'زام الرئيسي' }), true);
+  assert.equal(schedule.isHourlyTemplateApplicableInBranch(hourlyRestroom, { branchId: HAY_ID, branchName: 'زام الحي' }), false);
+  assert.equal(schedule.isHourlyTemplateApplicableInBranch(hourlyRestroom, { branchId: BURJ_ID, branchName: 'زام البرج' }), false);
+  assert.equal(schedule.isHourlyTemplateApplicableInBranch({ ...hourlyRestroom, is_active: false }, { branchId: MAIN_ID }), false);
 });
 
 test('زام المنح بلا ويتر صباحي، وتُتاح قائمة الوردية المسائية فقط', () => {

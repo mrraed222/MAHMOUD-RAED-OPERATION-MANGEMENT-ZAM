@@ -43,8 +43,11 @@ test('branch-and-shift counters include completed and explicitly missed records 
   ]);
 });
 
-test('hourly branch/shift counters ignore ordinary checklist logs and include both shifts', () => {
-  const branches = [{ id: 'b1', name: 'الفرع الأول' }];
+test('hourly counters show one branch row with both shifts and ignore ordinary checklist logs', () => {
+  const branches = [
+    { id: 'b1', name: 'الفرع الأول' },
+    { id: 'b2', name: 'فرع بلا سجلات ساعية' },
+  ];
   const hourlyLogs = [
     { branch_id: 'b1', shift_type: 'Morning', status: 'completed' },
     { branch_id: 'b1', shift_type: 'Evening', status: 'غير منفذة' },
@@ -52,30 +55,38 @@ test('hourly branch/shift counters ignore ordinary checklist logs and include bo
   ];
 
   assert.deepEqual(metrics.summarizeHourlyExecutionCounts(hourlyLogs, branches), [
-    { branchId: 'b1', branchName: 'الفرع الأول', shiftType: 'Morning', completed: 1, notPerformed: 0 },
-    { branchId: 'b1', branchName: 'الفرع الأول', shiftType: 'Evening', completed: 0, notPerformed: 1 },
+    { branchId: 'b1', branchName: 'الفرع الأول', shifts: {
+      Morning: { completed: 1, notPerformed: 0 },
+      Evening: { completed: 0, notPerformed: 1 },
+    } },
+    { branchId: 'b2', branchName: 'فرع بلا سجلات ساعية', shifts: {
+      Morning: { completed: 0, notPerformed: 0 },
+      Evening: { completed: 0, notPerformed: 0 },
+    } },
   ]);
-  assert.deepEqual(metrics.summarizeHourlyExecutionCounts([], branches).map(row => row.completed + row.notPerformed), [0, 0]);
 });
 
-test('hourly counters summarize only the selected shift when the page filter is active', () => {
+test('hourly counters aggregate both shifts independently of the selected-shift detail filter', () => {
   const branches = [{ id: 'b1', name: 'الفرع الأول' }];
-  const allHourlyLogs = [
+  const hourlyLogs = [
     { branch_id: 'b1', shift_type: 'Morning', status: 'completed' },
     { branch_id: 'b1', shift_type: 'Evening', status: 'غير منفذة' },
   ];
-  const selectedShiftLogs = allHourlyLogs.filter(log => log.shift_type === 'Morning');
 
-  assert.deepEqual(metrics.summarizeHourlyExecutionCounts(selectedShiftLogs, branches), [
-    { branchId: 'b1', branchName: 'الفرع الأول', shiftType: 'Morning', completed: 1, notPerformed: 0 },
-    { branchId: 'b1', branchName: 'الفرع الأول', shiftType: 'Evening', completed: 0, notPerformed: 0 },
+  assert.deepEqual(metrics.summarizeHourlyExecutionCounts(hourlyLogs, branches), [
+    { branchId: 'b1', branchName: 'الفرع الأول', shifts: {
+      Morning: { completed: 1, notPerformed: 0 },
+      Evening: { completed: 0, notPerformed: 1 },
+    } },
   ]);
 });
 
 test('checklist-log view uses the hourly-only counter and a single completed-execution table', () => {
   assert.match(page, /checklist-log-metrics\.js\?v=\d+/);
-  assert.match(page, /ZamChecklistLogMetrics\.summarizeHourlyExecutionCounts\(hourlyLogs, summaryBranches\)/);
-  assert.doesNotMatch(page, /summarizeHourlyExecutionCounts\(allHourlyLogs/);
+  assert.match(page, /ZamChecklistLogMetrics\.summarizeHourlyExecutionCounts\(allHourlyLogs, hourlyTaskBranches\)/);
+  assert.match(page, /ZamAPI\.getTemplates\(null, null, branch\.id\)/);
+  assert.match(page, /isHourlyTemplateApplicableInBranch/);
+  assert.match(page, /الوردية الصباحية[\s\S]*?الوردية المسائية/);
   assert.match(page, /const completedLogs = logs\.filter\(ZamChecklistLogMetrics\.isCompleted\)/);
   assert.match(page, /const hourlyCompletedLogs = hourlyLogs\.filter\(ZamChecklistLogMetrics\.isCompleted\)/);
   assert.match(page, /<tbody id="logs-table-tbody"[\s\S]*?<td colspan="9"/);

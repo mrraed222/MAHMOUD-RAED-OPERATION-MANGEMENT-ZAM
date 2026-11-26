@@ -204,14 +204,24 @@
     return true;
   }
 
-  // Branch/manager views keep scheduled tasks in the denominator after the employee window closes.
-  function isTemplateVisibleInBranch(task, { branchId, branchName, shiftType, branchHours } = {}, date = new Date()) {
+  function isTemplateApplicableInBranch(task, { branchId, branchName, shiftType } = {}) {
     if (!task || task.is_active === false || task.active === false || isSupervisorOnlyTask(task)) return false;
     if (!templateAppliesToBranch(task, branchId)) return false;
     if (String(branchId || '') === BAR_ONLY_BRANCH_ID && task.category === 'الصالة') return false;
     if (shiftType && ![shiftType, 'Both'].includes(task.shift_type)) return false;
     if (branchName === 'زام الحي' && task.task_type === 'restroom_check') return false;
     if (task.frequency === 'hourly' && task.task_type !== 'restroom_check') return false;
+    return true;
+  }
+
+  function isHourlyTemplateApplicableInBranch(task, context = {}) {
+    return String(task?.frequency || '').toLowerCase() === 'hourly' &&
+      task?.task_type === 'restroom_check' && isTemplateApplicableInBranch(task, context);
+  }
+
+  // Branch/manager views keep scheduled tasks in the denominator after the employee window closes.
+  function isTemplateVisibleInBranch(task, { branchId, branchName, shiftType, branchHours } = {}, date = new Date()) {
+    if (!isTemplateApplicableInBranch(task, { branchId, branchName, shiftType })) return false;
     if (shiftType ? !isTaskDueForShift(task, shiftType, date, branchHours) : !isTaskDueToday(task, date)) return false;
     if (!isTaskTimeVisible(task, date, shiftType)) return false;
     return true;
@@ -269,6 +279,7 @@
     isTemplateScheduledForEmployee,
     isTemplateVisibleForEmployee,
     isTemplateAssignableToEmployee,
+    isHourlyTemplateApplicableInBranch,
     isTemplateVisibleInBranch
   };
 });

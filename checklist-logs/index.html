@@ -13,7 +13,7 @@
                 }
             }
         }
-    }catch(_e){}</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/checklist-schedule.js?v=20261121164000"></script><script src="../assets/restroom-hourly.js?v=20261121170500"></script><script src="../assets/supabase-config.js?v=20261124203300"></script><script>
+    }catch(_e){}</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/checklist-schedule.js?v=20261126202700"></script><script src="../assets/restroom-hourly.js?v=20261121170500"></script><script src="../assets/supabase-config.js?v=20261124203300"></script><script>
   const currentUser = ZamSession.requireAuth('../index.html');
   if (!['Owner','Admin','Manager','Supervisor'].includes(currentUser.role)) {
       window.location.href = zamRoleHomePath(currentUser.role);
@@ -75,6 +75,10 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 .checklist-counter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:12px}.checklist-counter-card{border:1px solid #e3e9e3;border-radius:10px;background:#fff;padding:10px 12px;min-width:0}.checklist-counter-card h3{font-size:14px;line-height:1.4;font-weight:800;margin:0}.checklist-counter-pair{display:flex;gap:8px;margin-top:8px}.checklist-counter-pair span{flex:1;padding:5px 8px;border-radius:7px;background:#f4f6f2;font-size:12px;display:flex;justify-content:space-between;gap:6px}.checklist-counter-pair strong{font-size:16px;color:#217a5e}.checklist-results #table-view{max-height:560px}
 @media(max-width:767px){.checklist-page-header{position:relative;left:auto;top:auto;padding:12px 16px;grid-template-columns:1fr auto;gap:8px 12px;min-height:0}.checklist-header-brand{grid-column:1/-1}.checklist-header-title{grid-column:1}.checklist-header-date{grid-column:2;grid-row:2;align-self:start;text-align:left;white-space:normal;font-size:12px}.checklist-header-title p{max-width:38ch}.checklist-main{padding-top:0}.checklist-scope,.checklist-summary{padding:14px}.checklist-results>div:first-of-type{gap:4px}.checklist-results #table-view{max-width:calc(100vw - 32px)}}
 </style>
+<style id="hourly-branch-counters">
+.checklist-counter-shifts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}.checklist-counter-shift{min-width:0;padding:8px;border-radius:8px;background:#f4f6f2}.checklist-counter-shift h4{font-size:14px;font-weight:800;margin:0}.checklist-counter-shift .checklist-counter-pair{margin-top:4px}
+@media(max-width:560px){.checklist-counter-shifts{grid-template-columns:1fr}}
+</style>
 
 </head><body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('checklist-logs', currentUser.role);})();</script>
@@ -123,8 +127,8 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
     <div id="checklist-status" class="checklist-status" role="status" aria-live="polite" aria-atomic="true"></div>
     <div class="checklist-section-intro"><h2 id="results-heading">سجل التنفيذ والصور</h2><p>تعرض التفاصيل المهام المنفذة فقط؛ وتظهر حالات «غير منفذة» في العدادات.</p></div>
     <section class="checklist-summary mb-lg" aria-labelledby="branch-shift-summary-heading">
-      <div class="checklist-section-intro"><h2 id="branch-shift-summary-heading">عدادات المهام الساعية حسب الفرع والوردية</h2><p>العدادات تخص سجلات المهام الساعية فقط؛ تعرض المنفذ وغير المنفذ المسجلين صراحةً، ولا تدخل المهام العادية أو الحالات المعلّقة.</p></div>
-      <div id="branch-shift-summary" class="checklist-counter-grid" aria-live="polite" aria-label="عدادات المهام الساعية حسب الفرع والوردية"><p class="hint">جارٍ تحميل العدادات…</p></div>
+      <div class="checklist-section-intro"><h2 id="branch-shift-summary-heading">عداد واحد لكل فرع لديه مهام ساعية</h2><p>تعرض كل بطاقة الوردية الصباحية والمسائية معًا. العدادات للسجلات الساعية فقط، وتحتسب المنفذ وغير المنفذ المسجلين صراحةً؛ ولا تدخل المهام العادية أو الحالات المعلّقة. فلتر الوردية يخص سجل التفاصيل ولا يخفي أيًا من عدادي الورديتين.</p></div>
+      <div id="branch-shift-summary" class="checklist-counter-grid" aria-live="polite" aria-label="عدادات المهام الساعية ببطاقة واحدة لكل فرع تعرض الورديتين"><p class="hint">جارٍ تحميل العدادات…</p></div>
     </section>
     <div id="table-view" class="max-h-[560px] overflow-auto bg-surface-container-lowest rounded-xl border border-outline-variant" role="region" tabindex="0" aria-label="جدول المهام المكتملة وملاحظات الفريق">
       <table class="w-full min-w-[1100px] text-body-sm text-right">
@@ -151,7 +155,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </div>
 
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
-<script src="../assets/checklist-log-metrics.js?v=20261125162100"></script>
+<script src="../assets/checklist-log-metrics.js?v=20261126202700"></script>
 <script>
 document.getElementById('current-user-role').textContent = ({Owner:'مالك',Admin:'مدير النظام',Manager:'مدير',Supervisor:'مشرف'}[currentUser.role] || '');
 document.getElementById('date-label').textContent = new Date().toLocaleDateString('ar-SA', { timeZone: 'Asia/Riyadh', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -277,12 +281,25 @@ async function loadLogs() {
             visibleRecordBranchIds.has(String(branch.id)) ||
             (currentUser.role === 'Supervisor' && String(branch.id) === String(currentUser.branch_id))
         ));
-        const summaryRows = ZamChecklistLogMetrics.summarizeHourlyExecutionCounts(hourlyLogs, summaryBranches);
-        document.getElementById('branch-shift-summary').innerHTML = failedReads.has('hourlyLogs')
-            ? '<p class="hint text-error" role="alert">تعذّر تحميل عدادات المهام الساعية؛ لم تُعرض أرقام غير مؤكدة.</p>'
+        const hourlyTemplateResults = await Promise.allSettled(summaryBranches.map(branch => ZamAPI.getTemplates(null, null, branch.id)));
+        hourlyTemplateResults.forEach((result, index) => {
+            if (result.status !== 'fulfilled' || !Array.isArray(result.value)) {
+                failedReads.add('hourlyTemplates');
+                console.error('Checklist logs hourly template read failed:', summaryBranches[index]?.id, result.status === 'rejected' ? result.reason : new TypeError('Expected an array response'));
+            }
+        });
+        const hourlyTaskBranches = summaryBranches.filter((branch, index) => {
+            const result = hourlyTemplateResults[index];
+            return result?.status === 'fulfilled' && Array.isArray(result.value) && result.value.some(task =>
+                ZamChecklistSchedule.isHourlyTemplateApplicableInBranch(task, { branchId: branch.id, branchName: branch.name })
+            );
+        });
+        const summaryRows = ZamChecklistLogMetrics.summarizeHourlyExecutionCounts(allHourlyLogs, hourlyTaskBranches);
+        document.getElementById('branch-shift-summary').innerHTML = failedReads.has('hourlyLogs') || failedReads.has('hourlyTemplates')
+            ? '<p class="hint text-error" role="alert">تعذّر التحقق من سجلات أو قوالب المهام الساعية؛ لم تُعرض أرقام غير مؤكدة.</p>'
             : summaryRows.length
-                ? summaryRows.map(row => `<article class="checklist-counter-card"><h3>${escHtml(row.branchName)} · ${row.shiftType === 'Morning' ? 'الصباحية' : 'المسائية'}</h3><div class="checklist-counter-pair"><span>منفذ <strong>${row.completed}</strong></span><span>غير منفذ <strong>${row.notPerformed}</strong></span></div></article>`).join('')
-                : '<p class="hint">لا توجد فروع ضمن النطاق المصرح به لعرض عداداتها.</p>';
+                ? summaryRows.map(row => `<article class="checklist-counter-card"><h3>${escHtml(row.branchName)}</h3><div class="checklist-counter-shifts"><section class="checklist-counter-shift" aria-label="الوردية الصباحية"><h4>الصباحية</h4><div class="checklist-counter-pair"><span>منفذ <strong>${row.shifts.Morning.completed}</strong></span><span>غير منفذ <strong>${row.shifts.Morning.notPerformed}</strong></span></div></section><section class="checklist-counter-shift" aria-label="الوردية المسائية"><h4>المسائية</h4><div class="checklist-counter-pair"><span>منفذ <strong>${row.shifts.Evening.completed}</strong></span><span>غير منفذ <strong>${row.shifts.Evening.notPerformed}</strong></span></div></section></div></article>`).join('')
+                : '<p class="hint">لا توجد فروع لديها مهام ساعية ضمن النطاق الحالي.</p>';
 
         const executionRows = [
             ...completedLogs.map(log => ({ kind: 'task', sortAt: log.created_at || log.execution_date || '', log })),
@@ -341,6 +358,7 @@ async function loadLogs() {
             const labels = {
                 logs: 'سجلات المهام العادية',
                 hourlyLogs: 'السجلات الساعية',
+                hourlyTemplates: 'قوالب المهام الساعية',
                 teamNotes: 'ملاحظات الفريق',
                 fridgeReadings: 'قراءات الثلاجات'
             };

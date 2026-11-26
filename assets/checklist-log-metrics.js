@@ -63,7 +63,38 @@
   }
 
   function summarizeHourlyExecutionCounts(hourlyLogs = [], branches = []) {
-    return summarizeExecutionCounts([], hourlyLogs, branches);
+    const rows = new Map();
+    const ensureBranch = (branchId, branchName = '') => {
+      if (branchId == null) return null;
+      const key = String(branchId);
+      if (!rows.has(key)) rows.set(key, {
+        branchId: key,
+        branchName: String(branchName || 'فرع غير معروف'),
+        shifts: {
+          Morning: { completed: 0, notPerformed: 0 },
+          Evening: { completed: 0, notPerformed: 0 },
+        },
+      });
+      const row = rows.get(key);
+      if (branchName) row.branchName = String(branchName);
+      return row;
+    };
+
+    (branches || []).forEach(branch => {
+      if (branch?.id != null) ensureBranch(branch.id, branch.name);
+    });
+
+    (hourlyLogs || []).forEach(log => {
+      const shift = normalizeShift(log);
+      const branchId = log?.branch_id ?? log?.branches?.id;
+      const row = branchId == null ? null : rows.get(String(branchId));
+      if (!row || !SHIFTS.includes(shift)) return;
+      if (log?.branches?.name || log?.branch_name) row.branchName = String(log.branches?.name || log.branch_name);
+      if (isCompleted(log)) row.shifts[shift].completed += 1;
+      else if (isNotPerformed(log)) row.shifts[shift].notPerformed += 1;
+    });
+
+    return [...rows.values()].sort((a, b) => a.branchName.localeCompare(b.branchName, 'ar'));
   }
 
   function countCompletedExecutionLogs(logs = [], hourlyLogs = []) {

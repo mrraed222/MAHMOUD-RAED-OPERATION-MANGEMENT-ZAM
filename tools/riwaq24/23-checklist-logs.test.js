@@ -32,8 +32,11 @@ test('single completed-execution table merges notes independently and keeps secu
   assert.match(source, /const taskTitle = isNote \? '—'/, 'a note without a task link must not be attributed to a task');
   assert.match(source, /class="checklist-photo-trigger zoomable-btn" data-src=/);
   assert.match(source, /id="branch-shift-summary" class="checklist-counter-grid"/);
-  assert.match(source, /summarizeHourlyExecutionCounts\(hourlyLogs, summaryBranches\)/,
-    'branch/shift counters must use the filtered hourly log set');
+  assert.match(source, /summarizeHourlyExecutionCounts\(allHourlyLogs, hourlyTaskBranches\)/,
+    'branch counters must include both shifts and only branches with applicable hourly templates');
+  assert.match(source, /ZamAPI\.getTemplates\(null, null, branch\.id\)/);
+  assert.match(source, /isHourlyTemplateApplicableInBranch/);
+  assert.match(source, /الوردية الصباحية[\s\S]*?الوردية المسائية/);
   assert.match(source, /قراءات حرارة الثلاجات والفريزرات/, 'the unrelated fridge-reading table remains available');
 });
 
