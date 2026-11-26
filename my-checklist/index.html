@@ -571,10 +571,12 @@ async function loadMyChecklist() {
             container.innerHTML = `<p class="p-md text-on-surface-variant text-body-sm">${message}</p>`;
             progressLabel.textContent = summaryTemplates.length ? 'انتهت مهلة العرض — تبقى المهام غير المكتملة في الملخص' : '';
         } else {
-            const regularTemplates = templates.filter(task => !ZamRestroomHourly.isRestroomHourlyTask(task));
-            const done = regularTemplates.filter(t => logsByTemplate[t.id]).length;
+            // العداد الإداري يحسب كل المهام المجدولة للوردية، حتى التي انتهت نافذة عرضها،
+            // ولا يخلط بينها وبين مهام الحمامات الساعية ذات العداد المستقل.
+            const countedTemplates = summaryTemplates;
+            const done = countedTemplates.filter(t => logsByTemplate[t.id]).length;
             const completedOccurrences = restroomOccurrences.filter(item => item.status === 'completed').length;
-            progressLabel.textContent = `${regularTemplates.length ? `المهام الأخرى ${done}/${regularTemplates.length}` : ''}${restroomTask ? `${regularTemplates.length ? ' · ' : ''}مواعيد الحمامات ${completedOccurrences}/10` : ''}`;
+            progressLabel.textContent = `${countedTemplates.length ? `المهام المنفذة ${done}/${countedTemplates.length}` : ''}${restroomTask ? `${countedTemplates.length ? ' · ' : ''}مواعيد الحمامات ${completedOccurrences}/10` : ''}`;
         }
 
         // تفعيل كارت إرسال الإيميل للإدارة
