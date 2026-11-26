@@ -154,8 +154,8 @@ body.zam-page > header {
   border-bottom: 1px solid #dce7df !important;
   box-shadow: 0 4px 18px rgba(25, 60, 46, .07) !important;
 }
-body.zam-page > header img { width: 44px; height: 44px; object-fit: contain; }
-body.zam-page > header h1 { color: #174d3b !important; font-weight: 900; letter-spacing: -.02em; }
+body.zam-page > header img { width: 52px; height: 52px; object-fit: contain; }
+body.zam-page > header h1 { color: #174d3b !important; font-size: 22px !important; line-height: 1.25; font-weight: 900; letter-spacing: -.02em; }
 body.zam-page > header p { color: #6b7d74 !important; }
 body.zam-page > header .shift-btn { min-height: 36px; border: 1px solid #c9ddd1; }
 body.zam-page > header .shift-btn.bg-primary { background: #1f7658 !important; border-color: #1f7658; }
@@ -194,8 +194,8 @@ body.zam-page > header .shift-btn:not(.bg-primary) { background: #f5faf6; }
 .task-overview > div > div:last-child #progress-label { color: #17664e !important; font-size: 16px; font-weight: 800; }
 @media(max-width:767px) {
   body.zam-page > header { min-height: 72px; }
-  body.zam-page > header img { width: 36px; height: 36px; }
-  body.zam-page > header h1 { font-size: 15px; }
+  body.zam-page > header img { width: 48px; height: 48px; }
+  body.zam-page > header h1 { font-size: 19px !important; }
   .task-overview > div { align-items: stretch !important; }
   .task-overview > div > div:last-child { flex-basis: auto; width: 100%; min-height: 64px; }
 }
@@ -308,8 +308,9 @@ async function currentBranchIsOperational() {
     try {
         // wait for the auth session to be restored before any query,
         // otherwise queries run as anon and multi-category fetch silently fails
-        await zamClient.auth.getSession();
-        const { data: freshProfile } = await zamClient.from('profiles').select('*, branches(name, opening_time, closing_time)').eq('id', currentUser.id).maybeSingle();
+        const { data: sessionData, error: sessionError } = await zamClient.auth.getSession();
+        if (sessionError || !sessionData?.session?.user?.id) throw sessionError || new Error('جلسة Auth غير متاحة');
+        const { data: freshProfile } = await zamClient.from('profiles').select('*, branches(name, opening_time, closing_time)').eq('id', sessionData.session.user.id).maybeSingle();
         if (freshProfile) {
             Object.assign(currentUser, freshProfile);
             currentBranchHours = freshProfile.branches || {};
