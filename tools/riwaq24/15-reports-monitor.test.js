@@ -91,11 +91,11 @@ function createMonitorHarness({
 
 test('monitor loads branches and the auth-independent date-range summary', () => {
   assert.match(source, /\['Owner','Admin','Manager'\]\.includes\(currentUser\.role\)/);
-  assert.match(source, /async function loadDailyChecklistSummary\(date\)/);
-  assert.match(source, /rpc\('get_daily_checklist_summary_v2',\{p_date_from:date,p_date_to:date\}\)/);
+  assert.match(source, /async function loadDailyChecklistSummary\(dateFrom,dateTo\)/);
+  assert.match(source, /rpc\('get_daily_checklist_summary_v2',\{p_date_from:dateFrom,p_date_to:dateTo\}\)/);
   assert.match(source, /if\(rangeRes\.error\)throw rangeRes\.error/);
   assert.match(source, /const \[branches,reports\]=await Promise\.all\(/);
-  assert.match(source, /staged\(loadDailyChecklistSummary\(date\),'ملخص التقارير'\)/);
+  assert.match(source, /staged\(loadDailyChecklistSummary\(range\.from,range\.to\),'ملخص التقارير'\)/);
   assert.match(source, /رمز الخطأ:/);
   assert.doesNotMatch(source, /from\('daily_reports'\)\.select\('branch_id, shift_type, entry_time'\)/);
   assert.match(source, /ZamBranchLifecycle\.isOperational\(branch,date\)/);
@@ -147,7 +147,7 @@ test('manual refresh, date changes and local sorting stay disabled until authori
   assert.match(source, /dateInput\.disabled=true/);
   assert.match(source, /refreshButton\.disabled=true/);
   assert.match(source, /sortSelect\.disabled=true/);
-  assert.match(source, /dateInput\.addEventListener\('change',loadMonitor\)/);
+  assert.match(source, /dateInput\.addEventListener\('change',\(\)=>\{monthInput\.value=dateInput\.value\.slice\(0,7\);loadMonitor\(\);\}\)/);
   assert.match(source, /refreshButton\.addEventListener\('click',loadMonitor\)/);
   assert.match(source, /sortSelect\.addEventListener\('change',renderMonitor\)/);
 });
@@ -180,7 +180,7 @@ test('Manager with an authorized scope uses only the summary-scoped branch RPC a
   const harness = createMonitorHarness({
     role: 'Manager',
     managerBranchResponse: { data: [branch], error: null },
-    rangeSummaryResponse: { data: [{ branch_id: branch.id, shift_type: 'Morning', entry_time: '08:10:00' }], error: null },
+    rangeSummaryResponse: { data: [{ branch_id: branch.id, report_date: '2026-11-23', shift_type: 'Morning', entry_time: '08:10:00' }], error: null },
   });
   await harness.start();
 
@@ -188,7 +188,7 @@ test('Manager with an authorized scope uses only the summary-scoped branch RPC a
     'list_manager_daily_summary_branches',
     'get_daily_checklist_summary_v2',
   ]);
-  assert.deepEqual(JSON.parse(JSON.stringify(harness.rpcCalls[1].args)), { p_date_from: '2026-11-23', p_date_to: '2026-11-23' });
+  assert.deepEqual(JSON.parse(JSON.stringify(harness.rpcCalls[1].args)), { p_date_from: '2026-11-01', p_date_to: '2026-11-30' });
   assert.equal(harness.branchLoads, 0);
   assert.equal(harness.elements.get('c-morning-done').textContent, '1');
   assert.equal(harness.elements.get('c-morning-missing').textContent, '0');
@@ -200,7 +200,7 @@ test('Owner uses the auth-independent summary RPC without a legacy fallback', as
   const harness = createMonitorHarness({
     role: 'Owner',
     branches: [branch],
-    rangeSummaryResponse: { data: [{ branch_id: branch.id, shift_type: 'Morning', entry_time: '08:10:00' }], error: null },
+    rangeSummaryResponse: { data: [{ branch_id: branch.id, report_date: '2026-11-23', shift_type: 'Morning', entry_time: '08:10:00' }], error: null },
   });
   await harness.start();
 
@@ -208,7 +208,7 @@ test('Owner uses the auth-independent summary RPC without a legacy fallback', as
   assert.deepEqual(harness.rpcCalls.map(call => call.name), [
     'get_daily_checklist_summary_v2',
   ]);
-  assert.deepEqual(JSON.parse(JSON.stringify(harness.rpcCalls[0].args)), { p_date_from: '2026-11-23', p_date_to: '2026-11-23' });
+  assert.deepEqual(JSON.parse(JSON.stringify(harness.rpcCalls[0].args)), { p_date_from: '2026-11-01', p_date_to: '2026-11-30' });
   assert.equal(harness.elements.get('c-morning-done').textContent, '1');
   assert.equal(harness.elements.get('c-evening-missing').textContent, '1');
 });
