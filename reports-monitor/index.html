@@ -74,8 +74,8 @@ refreshButton.disabled=true;
 sortSelect.disabled=true;
 dateInput.value=ZamBranchLifecycle.riyadhDateString(new Date());
 monthInput.value=dateInput.value.slice(0,7);
-dateInput.addEventListener('change',loadMonitor);
-monthInput.addEventListener('change',loadMonitor);
+dateInput.addEventListener('change',()=>{monthInput.value=dateInput.value.slice(0,7);loadMonitor();});
+monthInput.addEventListener('change',()=>{if(monthInput.value)dateInput.value=`${monthInput.value}-01`;loadMonitor();});
 refreshButton.addEventListener('click',loadMonitor);
 sortSelect.addEventListener('change',renderMonitor);
 function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -102,7 +102,7 @@ function renderMonitor(){if(sortSelect.disabled)return;const sort=sortSelect.val
 async function loadMonitor(){
  if(!monitorAuthorized)return;
  const generation=++monitorLoadGeneration;
- const date=dateInput.value;const month=monthInput.value||date.slice(0,7);if(date.slice(0,7)!==month)dateInput.value=`${month}-01`;
+ const date=dateInput.value;const month=monthInput.value||date.slice(0,7);
  branchRows=[];
  showLoading();
  if(!date){showMonitorMessage('اختر تاريخًا صالحًا لعرض التقارير.');refreshButton.disabled=false;return;}
