@@ -8,6 +8,7 @@
   const COMPLETED_STATUSES = new Set(['completed', 'done', 'مكتمل', 'منجز']);
   const NOT_PERFORMED_STATUSES = new Set(['notperformed', 'not_performed', 'not-performed', 'missed', 'غير منفذة', 'غير منفذ']);
   const SHIFTS = ['Morning', 'Evening'];
+  const TRIAL_BRANCH_ID = 'dcec5c36-e55f-4b4f-9498-ff4651d9e1ff';
 
   function normalizedStatus(log) {
     return String(log?.status ?? '').trim().toLowerCase();
@@ -90,7 +91,7 @@
       const branchId = log?.branch_id ?? logBranch?.id;
       const branch = (branches || []).find(item => String(item?.id) === String(branchId));
       const branchName = String(branch?.name ?? logBranch?.name ?? log?.branch_name ?? '').trim();
-      if (shift === 'Morning' && branchName === 'تجربة زام') return;
+      if (shift === 'Morning' && String(branchId) === TRIAL_BRANCH_ID) return;
       const row = branchId == null ? null : rows.get(String(branchId));
       if (!row || !SHIFTS.includes(shift)) return;
       if (branchName) row.branchName = branchName;

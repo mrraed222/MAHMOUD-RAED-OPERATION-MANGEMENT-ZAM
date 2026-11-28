@@ -5,6 +5,7 @@
 <script src="../assets/checklist-schedule.js?v=20261121164000"></script>
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
 <script src="../assets/supabase-config.js?v=20261124203300"></script>
+<script src="../assets/checklist-save.js?v=20261128140000"></script>
 <script src="../assets/inventory-receiving.js?v=20261117214500"></script>
 <script>
   const currentUser = ZamSession.requireAuth('../index.html');
@@ -351,14 +352,12 @@ let currentBranchHours = {};
 let currentBranchHoursLoaded = false;
 let currentBranchLifecycle = null;
 const defaultShiftByRiyadhTime = () => ZamChecklistSchedule.isWithinShiftTaskWindow('Evening', currentBranchHours) ? 'Evening' : 'Morning';
+let shiftSelectionMade = false;
 let currentShift = currentUser.shift_type && currentUser.shift_type !== 'Both' ? currentUser.shift_type : defaultShiftByRiyadhTime();
-if (['Morning', 'Evening'].includes(currentUser.shift_type)) {
-    document.querySelectorAll('.shift-btn').forEach(button => {
-        button.hidden = button.dataset.shift !== currentUser.shift_type;
-    });
-}
+let currentLiveScope = `${currentUser.branch_id || ''}|${currentUser.shift_type || ''}`;
 let currentCategory = '';
 let activeSubTab = 'my-tasks'; // الصفحة الآن لمهام المشرف فقط — متابعة الفريق في داشبورد الفرع
+const SUPERVISOR_TASK_CATEGORIES = new Set(['المشرف', 'إشراف', 'مهام المشرفين']);
 
 const container = document.getElementById('checklist-container');
 const progressLabel = document.getElementById('progress-label');
@@ -510,21 +509,39 @@ function setActiveShiftButton() {
     });
 }
 
+function syncLiveProfile(profile) {
+    const nextScope = `${profile.branch_id || ''}|${profile.shift_type || ''}`;
+    const branchChanged = String(currentUser.branch_id || '') !== String(profile.branch_id || '');
+    if (currentLiveScope !== nextScope) shiftSelectionMade = false;
+    currentLiveScope = nextScope;
+    if (branchChanged) {
+        currentBranchHours = {};
+        currentBranchHoursLoaded = false;
+        currentBranchLifecycle = null;
+    }
+    Object.assign(currentUser, profile);
+    ZamSession.save(currentUser);
+    const singleShift = ['Morning', 'Evening'].includes(profile.shift_type);
+    document.querySelectorAll('.shift-btn').forEach(button => {
+        button.hidden = singleShift && button.dataset.shift !== profile.shift_type;
+    });
+    if (singleShift) currentShift = profile.shift_type;
+    else if (profile.shift_type === 'Both' && !shiftSelectionMade && currentBranchHoursLoaded) {
+        currentShift = defaultShiftByRiyadhTime();
+    }
+    setActiveShiftButton();
+}
+
 document.querySelectorAll('.shift-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+        if (currentUser.shift_type !== 'Both' && btn.dataset.shift !== currentUser.shift_type) return;
         currentShift = btn.dataset.shift;
+        shiftSelectionMade = true;
         setActiveShiftButton();
         loadChecklist();
         scheduleInventoryTaskVisibility();
     });
 });
-
-if (currentUser.shift_type && currentUser.shift_type !== 'Both' && currentUser.role !== 'Supervisor') {
-    currentShift = currentUser.shift_type;
-    document.querySelectorAll('.shift-btn').forEach(btn => {
-        if (btn.dataset.shift !== currentShift) btn.style.display = 'none';
-    });
-}
 
 
 
@@ -549,16 +566,23 @@ function evidenceErrorMessage(error) {
 }
 
 function checklistSaveErrorMessage(error, imageUploaded = false) {
-    const prefix = imageUploaded ? 'تم رفع الصورة، لكن ' : '';
     const code = String(error?.code || '');
+    const prefix = imageUploaded ? 'تم رفع الصورة، لكن لم يُحفظ سجل التنفيذ. قد تبقى الصورة كملف غير مرتبط. ' : '';
+    const detail = String(error?.message || '').trim().slice(0, 180);
+    if (code === 'CHECKLIST_EXECUTION_SCOPE_DENIED') {
+        return String(error?.message || 'المهمة غير مؤهلة لحسابك في الفرع والوردية الحالية؛ لم يتم رفع الصورة أو حفظ السجل.');
+    }
+    if (code === 'ZAM_SHIFT_SCOPE_MISMATCH' || code === 'ZAM_BRANCH_SCOPE_MISSING' || code === 'ZAM_PROFILE_INACTIVE') {
+        return String(error?.message || 'بيانات الفرع أو الوردية لا تطابق ملف المستخدم الحالي.');
+    }
     if (code === '42501') {
-        return `${prefix}تعذّر حفظ إنجاز المهمة بسبب صلاحية الجلسة أو نطاق الفرع والوردية (42501). تحقق من التكليف والوردية المحددة ثم أعد المحاولة.`;
+        return `${prefix}رفضت قاعدة البيانات حفظ إنجاز المهمة (42501). تحقق من الجلسة وملف الفرع والوردية والتكليف ثم أعد المحاولة.${detail ? ` التفاصيل: ${detail}` : ''}`;
     }
     if (code === '23505') {
-        return `${prefix}يبدو أن المهمة محفوظة بالفعل لهذا التاريخ والوردية (23505). أعد تحميل القائمة؛ لم يُستبدل أي سجل.`;
+        return `${prefix}يبدو أن المهمة محفوظة بالفعل لهذا التاريخ والوردية (23505). أعد تحميل القائمة؛ لم يُستبدل أي سجل.${detail ? ` التفاصيل: ${detail}` : ''}`;
     }
     const suffix = code ? ` (رمز الخطأ: ${code})` : '';
-    return `${prefix}تعذّر حفظ إنجاز المهمة${suffix}. تحقق من الفرع والتكليف والوردية ثم أعد المحاولة.`;
+    return `${prefix}تعذّر حفظ إنجاز المهمة${suffix}. تحقق من الفرع والتكليف والوردية ثم أعد المحاولة.${detail ? ` التفاصيل: ${detail}` : ''}`;
 }
 
 function checklistLogMatchesShiftWindow(log, shiftWindow, shiftType, fallbackShiftType = null) {
@@ -608,24 +632,9 @@ async function imageAsJpeg(file) {
     return { file: new File([blob], 'evidence.jpg', { type: 'image/jpeg', lastModified: Date.now() }), contentType: 'image/jpeg', extension: 'jpg' };
 }
 
-async function uploadEvidence(file) {
-    const authUser = await ZamAPI.requireLiveAuth();
-    if (String(currentUser?.id || '') !== String(authUser.id)) {
-        const { data: freshProfile, error: profileError } = await zamClient.from('profiles')
-            .select('*, branches(name, opening_time, closing_time)').eq('id', authUser.id).maybeSingle();
-        if (profileError || !freshProfile) throw profileError || new Error('تعذر تحميل ملف المستخدم الحالي.');
-        Object.assign(currentUser, freshProfile);
-        ZamSession.save(currentUser);
-        if (['Morning', 'Evening'].includes(currentUser.shift_type)) {
-            currentShift = currentUser.shift_type;
-            document.querySelectorAll('.shift-btn').forEach(button => {
-                button.hidden = button.dataset.shift !== currentShift;
-            });
-            updateShiftButtons();
-        }
-    }
+async function uploadEvidence(file, userId) {
     const prepared = await imageAsJpeg(file);
-    const path = `${authUser.id}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${prepared.extension}`;
+    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${prepared.extension}`;
     const { error } = await zamClient.storage.from('task-evidence').upload(path, prepared.file, {
         contentType: prepared.contentType,
         cacheControl: '3600',
@@ -633,7 +642,30 @@ async function uploadEvidence(file) {
     });
     if (error) throw error;
     const { data } = zamClient.storage.from('task-evidence').getPublicUrl(path);
-    return data.publicUrl;
+    return { url: data.publicUrl, path };
+}
+
+async function submitSupervisorChecklistTask({ templateId, notes = null, photoFile = null }) {
+    return ZamChecklistSave.submitChecklistExecution({
+        client: zamClient,
+        sessionProfile: currentUser,
+        templateId,
+        shiftType: currentShift,
+        resolveShiftType: profile => {
+            if (['Morning', 'Evening'].includes(profile.shift_type)) currentShift = profile.shift_type;
+            setActiveShiftButton();
+            return currentShift;
+        },
+        onProfile: async profile => {
+            syncLiveProfile(profile);
+            if (!currentBranchHoursLoaded) await loadCurrentBranchHours();
+            syncLiveProfile(profile);
+        },
+        notes,
+        photoFile,
+        uploadEvidence,
+        saveLog: payload => ZamAPI.submitChecklistLog(payload)
+    });
 }
 
 function escHtml(v) {
@@ -702,9 +734,9 @@ function scheduleInventoryTaskVisibility() {
 function renderChecklist(templates, logsByTemplate) {
     let filteredTemplates = templates;
     if (activeSubTab === 'my-tasks') {
-        filteredTemplates = templates.filter(t => ['المشرف', 'إشراف', 'مهام المشرفين'].includes(t.category));
+        filteredTemplates = templates.filter(t => SUPERVISOR_TASK_CATEGORIES.has(t.category));
     } else {
-        filteredTemplates = templates.filter(t => !['المشرف', 'إشراف', 'مهام المشرفين'].includes(t.category));
+        filteredTemplates = templates.filter(t => !SUPERVISOR_TASK_CATEGORIES.has(t.category));
     }
     filteredTemplates.sort((a, b) => {
         const weeklyOrder = Number(a.frequency === 'weekly') - Number(b.frequency === 'weekly');
@@ -833,13 +865,9 @@ function renderChecklist(templates, logsByTemplate) {
                 const statusSpan = wrap?.querySelector('.task-status');
                 if (statusSpan) statusSpan.textContent = '';
                 try {
-                    await ZamAPI.submitChecklistLog({
-                        template_id: cb.dataset.id,
-                        branch_id: currentUser.branch_id,
-                        executed_by: currentUser.id,
-                        status: 'Completed',
-                        notes: container.querySelector(`.task-note[data-id="${cb.dataset.id}"]`)?.value.trim() || null,
-                        shift_type: currentShift
+                    await submitSupervisorChecklistTask({
+                        templateId: cb.dataset.id,
+                        notes: container.querySelector(`.task-note[data-id="${cb.dataset.id}"]`)?.value.trim() || null
                     });
                     await loadChecklist();
                 } catch (err) {
@@ -864,31 +892,17 @@ function renderChecklist(templates, logsByTemplate) {
                 if (label) label.classList.add('hidden');
                 if (loader) loader.classList.remove('hidden');
                 if (statusSpan) statusSpan.textContent = '';
-                let photo_url;
                 try {
-                    photo_url = await uploadEvidence(file);
-                } catch (err) {
-                    console.error(err);
-                    if (statusSpan) statusSpan.textContent = evidenceErrorMessage(err);
-                    if (checkbox) { checkbox.disabled = false; checkbox.checked = false; }
-                    if (label) label.classList.remove('hidden');
-                    if (loader) loader.classList.add('hidden');
-                    input.value = '';
-                    return;
-                }
-                try {
-                    await ZamAPI.submitChecklistLog({
-                        template_id: templateId,
-                        branch_id: currentUser.branch_id,
-                        executed_by: currentUser.id,
-                        status: 'Completed',
+                    await submitSupervisorChecklistTask({
+                        templateId,
                         notes: container.querySelector(`.task-note[data-id="${templateId}"]`)?.value.trim() || null,
-                        photo_url,
-                        shift_type: currentShift
+                        photoFile: file
                     });
                 } catch (err) {
                     console.error(err);
-                    if (statusSpan) statusSpan.textContent = checklistSaveErrorMessage(err, true);
+                    if (statusSpan) statusSpan.textContent = err?.checklistEvidenceUploadFailed
+                        ? evidenceErrorMessage(err)
+                        : checklistSaveErrorMessage(err, Boolean(err?.checklistEvidenceUploaded));
                     if (checkbox) { checkbox.disabled = false; checkbox.checked = false; }
                     if (label) label.classList.remove('hidden');
                     if (loader) loader.classList.add('hidden');
@@ -1047,8 +1061,10 @@ function renderFridgePanel(panel, fridges, readings, log) {
 async function loadChecklist() {
     container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm">جارِ التحميل...</p>';
     try {
-        await ZamAPI.requireLiveAuth(currentUser);
+        const { profile } = await ZamChecklistSave.getLiveProfile(zamClient, currentUser);
+        syncLiveProfile(profile);
         await loadCurrentBranchHours();
+        syncLiveProfile(profile);
         if (!ZamBranchLifecycle.isOperational(currentBranchLifecycle, new Date())) {
             container.innerHTML = '<p class="p-md text-on-surface-variant text-body-sm" role="status">قوائم المهام والإرسال غير متاحة قبل تاريخ افتتاح الفرع.</p>';
             receivingTaskSection.classList.add('hidden');
@@ -1059,7 +1075,19 @@ async function loadChecklist() {
         const now = new Date();
         const shiftWindow = ZamChecklistSchedule.getShiftWindow(currentShift, currentBranchHours, now);
         const categoryFilter = null;
-        const templates = (await ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id)).filter(isTaskDueForCurrentShift);
+        const loadedTemplates = (await ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id)).filter(isTaskDueForCurrentShift);
+        let templates = loadedTemplates;
+        if (activeSubTab === 'my-tasks') {
+            const supervisorTemplates = loadedTemplates.filter(task => SUPERVISOR_TASK_CATEGORIES.has(task.category));
+            const eligibleTemplates = await ZamChecklistSave.filterEligibleTemplates({
+                client: zamClient,
+                profile,
+                templates: supervisorTemplates,
+                shiftType: currentShift
+            });
+            const eligibleIds = new Set(eligibleTemplates.map(task => String(task.id)));
+            templates = loadedTemplates.filter(task => !SUPERVISOR_TASK_CATEGORIES.has(task.category) || eligibleIds.has(String(task.id)));
+        }
         const [logs, hourlyLogs] = await Promise.all([
             ZamAPI.getChecklistLogs({ branchId: currentUser.branch_id, dateFrom: shiftWindow.dateFrom, dateTo: shiftWindow.dateTo, shiftType: currentShift }),
             ZamAPI.getHourlyChecklistLogs({ branchId: currentUser.branch_id, dateFrom: shiftWindow.dateFrom, dateTo: shiftWindow.dateTo, shiftType: currentShift })
@@ -1084,7 +1112,8 @@ async function loadChecklist() {
         await loadOpenReceivingTasks();
     } catch (err) {
         console.error(err);
-        container.innerHTML = '<div class="p-md text-error text-body-sm" role="alert"><p>تعذّر تحميل المهام من قاعدة البيانات.</p><button type="button" id="retry-checklist-btn" class="mt-3 rounded-lg border px-4 py-2 font-bold">إعادة المحاولة</button></div>';
+        const code = err?.code ? ` (${escHtml(err.code)})` : '';
+        container.innerHTML = `<div class="p-md text-error text-body-sm" role="alert"><p>تعذّر تحميل المهام أو التحقق من تكليفها${code}.</p><button type="button" id="retry-checklist-btn" class="mt-3 rounded-lg border px-4 py-2 font-bold">إعادة المحاولة</button></div>`;
         document.getElementById('send-report-btn').disabled = true;
         document.getElementById('retry-checklist-btn')?.addEventListener('click', loadChecklist);
     }

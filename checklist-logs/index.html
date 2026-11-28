@@ -125,9 +125,9 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 
     <section class="checklist-results" aria-labelledby="results-heading">
     <div id="checklist-status" class="checklist-status" role="status" aria-live="polite" aria-atomic="true"></div>
-    <div class="checklist-section-intro"><h2 id="results-heading">تفاصيل التنفيذ وملاحظات الفريق</h2><p>يعرض الجدول المهام المكتملة وملاحظات الفريق، وتوضح العدادات أدناه حالات المهام الساعية غير المنفذة.</p></div>
+    <div class="checklist-section-intro"><h2 id="results-heading">تفاصيل التنفيذ وملاحظات الفريق</h2></div>
     <section class="checklist-summary mb-lg" aria-labelledby="branch-shift-summary-heading">
-      <div class="checklist-section-intro"><h2 id="branch-shift-summary-heading">ملخص المهام الساعية حسب الفرع والوردية</h2><p>تعرض كل بطاقة الوردية الصباحية والمسائية معًا. العدادات للسجلات الساعية فقط، وتحتسب المنفذ وغير المنفذ المسجلين صراحةً؛ ولا تدخل المهام العادية أو الحالات المعلّقة. فلتر الوردية يخص سجل التفاصيل ولا يخفي أيًا من عدادي الورديتين.</p></div>
+      <div class="checklist-section-intro"><h2 id="branch-shift-summary-heading">ملخص المهام الساعية حسب الفرع والوردية</h2></div>
       <div id="branch-shift-summary" class="checklist-counter-grid" aria-live="polite" aria-label="عدادات المهام الساعية ببطاقة واحدة لكل فرع تعرض الورديتين"><p class="hint">جارٍ تحميل العدادات…</p></div>
     </section>
     <div id="table-view" class="max-h-[560px] overflow-auto bg-surface-container-lowest rounded-xl border border-outline-variant" role="region" tabindex="0" aria-label="جدول المهام المكتملة وملاحظات الفريق">
@@ -155,7 +155,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 </div>
 
 <script src="../assets/branch-lifecycle.js?v=20261117194500"></script>
-<script src="../assets/checklist-log-metrics.js?v=20261126222100"></script>
+<script src="../assets/checklist-log-metrics.js?v=20261128140000"></script>
 <script>
 document.getElementById('current-user-role').textContent = ({Owner:'مالك',Admin:'مدير النظام',Manager:'مدير',Supervisor:'مشرف'}[currentUser.role] || '');
 document.getElementById('date-label').textContent = new Date().toLocaleDateString('ar-SA', { timeZone: 'Asia/Riyadh', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });

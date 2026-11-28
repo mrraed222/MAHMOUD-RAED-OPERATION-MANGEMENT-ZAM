@@ -306,7 +306,7 @@ test('عدادات Both تعرض المهمة في الورديتين ولا ت�
   assert.match(employeePage, /\['Morning', 'Evening'\]\.includes\(currentUser\.shift_type\)/);
   assert.match(employeePage, /task\.shift_type !== 'Both' && task\.shift_type === currentShift/);
   assert.match(employeePage, /Number\(l\.occurrence_hour\) === currentHour && l\.shift_type === currentShift/);
-  assert.match(supervisorPage, /task\.shift_type !== 'Both' && task\.shift_type === currentShift/);
+  assert.match(supervisorPage, /ZamChecklistSchedule\.isTaskDueForShift\(task, currentShift, new Date\(\), currentBranchHours\)/);
   assert.match(api, /if \(l\.shift_type\) return l\.shift_type === shiftType;[\s\S]*?templateShift !== 'Both' && templateShift === shiftType/);
 });
 

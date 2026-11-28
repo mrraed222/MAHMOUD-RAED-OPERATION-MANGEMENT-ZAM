@@ -45,7 +45,9 @@ test('checklist log section and table headings describe the records and displaye
   assert.match(source, /<h2 id="scope-heading">فلاتر السجل<\/h2>/);
   assert.match(source, /<h2 id="results-heading">تفاصيل التنفيذ وملاحظات الفريق<\/h2>/);
   assert.match(source, /<h2 id="branch-shift-summary-heading">ملخص المهام الساعية حسب الفرع والوردية<\/h2>/);
-  assert.match(source, /تاريخ ووقت التنفيذ \/ التسجيل[\s\S]*?صورة الإثبات/);
+  assert.doesNotMatch(source, /يعرض الجدول المهام المكتملة وملاحظات الفريق/);
+  assert.doesNotMatch(source, /تعرض كل بطاقة الوردية الصباحية والمسائية معًا/);
+  assert.match(source, /تاريخ ووقت التنفيذ \/ التسجيل[\s\S]*?الفرع[\s\S]*?نوع السجل[\s\S]*?اسم المهمة[\s\S]*?الفئة \/ الخطوات المنفذة[\s\S]*?الوردية[\s\S]*?المنفذ \/ مسجّل الملاحظة[\s\S]*?ملاحظات التنفيذ \/ الفريق[\s\S]*?صورة الإثبات/);
   assert.match(source, /<h2 class="font-title-md text-primary">سجل قراءات حرارة الثلاجات والفريزرات<\/h2>/);
   assert.match(source, /تاريخ ووقت القراءة[\s\S]*?درجة الحرارة[\s\S]*?ملاحظة القراءة/);
 });

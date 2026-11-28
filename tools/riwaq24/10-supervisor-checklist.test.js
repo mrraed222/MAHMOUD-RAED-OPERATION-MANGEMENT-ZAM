@@ -30,7 +30,13 @@ test('role guard, branch lifecycle, shift semantics and operational destinations
   assert.match(source, /complete_inventory_receipt_item/);
   assert.match(source, /p_item_verified: completion\.itemVerified/);
   assert.match(source, /submitFridgeReadings\(entries,\s*\{\s*branch_id: currentUser\.branch_id,\s*recorded_by: currentUser\.id,\s*shift_type: currentShift/);
-  assert.match(source, /submitChecklistLog\(\{[\s\S]*?template_id: cb\.dataset\.id,[\s\S]*?status: 'Completed',[\s\S]*?shift_type: currentShift/);
+  assert.match(source, /checklist-save\.js\?v=\d+/);
+  assert.match(source, /ZamChecklistSave\.getLiveProfile\(zamClient, currentUser\)/);
+  assert.match(source, /ZamChecklistSave\.filterEligibleTemplates\(/);
+  assert.match(source, /ZamChecklistSave\.submitChecklistExecution\(/);
+  assert.match(source, /saveLog: payload => ZamAPI\.submitChecklistLog\(payload\)/);
+  assert.match(source, /templateId: cb\.dataset\.id/);
+  assert.match(source, /photoFile: file/);
   assert.match(source, /\.from\('team_notes'\)\s*\.select\('id, profile_id, branch_id, shift_type, note, created_at, profiles\(full_name, avatar_url\)'\)/);
   assert.match(source, /window\.location\.href = '\.\.\/daily-report\/index\.html'/);
   assert.match(source, /href=\"\.\.\/inventory-requests\/index\.html\?shift=\$\{currentShift\}\"/);
@@ -82,14 +88,19 @@ test('save failures tell the supervisor to verify shift and assignment with or w
   assert.ok(helperSource, 'the save error formatter must be defined');
   const messageFor = vm.runInNewContext(`(${helperSource})`);
 
-  const permissionMessage = messageFor({ code: '42501' });
+  const permissionMessage = messageFor({ code: '42501', message: 'row-level security policy rejected insert' });
   assert.match(permissionMessage, /42501/);
   assert.match(permissionMessage, /التكليف/);
   assert.match(permissionMessage, /الوردية/);
-  assert.match(messageFor({ code: '23505' }, true), /تم رفع الصورة، لكن/);
+  assert.match(permissionMessage, /row-level security policy rejected insert/);
+  assert.match(messageFor({
+    code: 'CHECKLIST_EXECUTION_SCOPE_DENIED',
+    message: 'هذه المهمة ليست مؤهلة لحسابك في الفرع والوردية الحالية؛ لم يتم رفع الصورة أو حفظ السجل.'
+  }), /لم يتم رفع الصورة أو حفظ السجل/);
+  assert.match(messageFor({ code: '23505' }, true), /تم رفع الصورة، لكن لم يُحفظ سجل التنفيذ/);
   assert.match(messageFor({ code: '23505' }, true), /محفوظة بالفعل/);
   assert.match(source, /statusSpan\.textContent = checklistSaveErrorMessage\(err\);/,
     'no-photo save failures must be visible beside the task');
-  assert.match(source, /statusSpan\.textContent = checklistSaveErrorMessage\(err, true\);/,
+  assert.match(source, /checklistSaveErrorMessage\(err, Boolean\(err\?\.checklistEvidenceUploaded\)\)/,
     'photo-upload success followed by save failure must be reported as a save failure');
 });
