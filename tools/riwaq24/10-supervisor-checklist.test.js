@@ -104,14 +104,20 @@ test('save failures tell the supervisor to verify shift and assignment with or w
     'photo-upload success followed by save failure must be reported as a save failure');
 });
 
-test('supervisor sees individually assigned tasks from other categories only when the server confirms eligibility', () => {
+test('supervisor display keeps scoped task candidates when execution eligibility is denied', () => {
   const candidateSource = source.match(/function supervisorTaskCandidates\([^)]*\) \{[\s\S]*?\n\}/)?.[0];
+  const statusSource = source.match(/function supervisorTaskEligibilityStatus\([^)]*\) \{[\s\S]*?\n\}/)?.[0];
+  const messageSource = source.match(/function supervisorTaskEligibilityMessage\([^)]*\) \{[\s\S]*?\n\}/)?.[0];
   const selectorSource = source.match(/function supervisorTemplatesForSubTab\([^)]*\) \{[\s\S]*?\n\}/)?.[0];
-  assert.ok(candidateSource && selectorSource, 'the supervisor task selectors must be defined');
-  const selectForTab = vm.runInNewContext(`(() => { ${candidateSource}\n${selectorSource}\nreturn supervisorTemplatesForSubTab; })()`, {
+  assert.ok(candidateSource && statusSource && messageSource && selectorSource, 'supervisor task display helpers must be defined');
+  const helpers = vm.runInNewContext(`(() => { ${candidateSource}\n${statusSource}\n${messageSource}\n${selectorSource}\nreturn { select: supervisorTemplatesForSubTab, status: supervisorTaskEligibilityStatus, message: supervisorTaskEligibilityMessage }; })()`, {
     SUPERVISOR_TASK_CATEGORIES: new Set(['المشرف', 'إشراف', 'مهام المشرفين']),
     supervisorAssignedTemplateIds: new Set(['assigned-bar', 'assigned-kitchen']),
-    supervisorEligibleTemplateIds: new Set(['supervisor-category', 'assigned-bar']),
+    supervisorTaskEligibilityById: new Map([
+      ['supervisor-category', 'eligible'],
+      ['assigned-bar', 'ineligible'],
+      ['assigned-kitchen', 'unverified']
+    ]),
     activeSubTab: 'my-tasks'
   });
   const templates = [
@@ -120,10 +126,13 @@ test('supervisor sees individually assigned tasks from other categories only whe
     { id: 'assigned-kitchen', category: 'المطبخ' },
     { id: 'team-bar', category: 'البار' }
   ];
-  assert.deepEqual(Array.from(selectForTab(templates, 'my-tasks'), task => task.id), [
-    'supervisor-category', 'assigned-bar'
-  ]);
-  assert.deepEqual(Array.from(selectForTab(templates, 'team-tasks'), task => task.id), ['team-bar']);
+  const visible = Array.from(helpers.select(templates, 'my-tasks'));
+  assert.deepEqual(visible.map(task => task.id), ['supervisor-category', 'assigned-bar', 'assigned-kitchen'],
+    'both eligible and ineligible supervisor candidates remain visible, while unrelated tasks do not');
+  assert.deepEqual(visible.map(task => helpers.status(task)), ['eligible', 'ineligible', 'unverified']);
+  assert.deepEqual(Array.from(helpers.select(templates, 'team-tasks'), task => task.id), ['team-bar']);
+  assert.match(helpers.message('ineligible'), /فحص الأهلية منع التنفيذ/);
+  assert.match(helpers.message('unverified'), /تعذر التحقق من أهلية التنفيذ/);
 
   const loader = source.match(/async function loadChecklist\(\) \{([\s\S]*?)\n\}/)?.[1] || '';
   assert.match(loader, /ZamAPI\.getTemplates\(categoryFilter, currentShift, currentUser\.branch_id\)/,
@@ -133,11 +142,72 @@ test('supervisor sees individually assigned tasks from other categories only whe
   assert.match(loader, /loadedTemplates\.filter\(isTaskDueForCurrentShift\)/,
     'existing schedule and branch/shift visibility checks remain in place');
   assert.match(loader, /ZamChecklistSave\.filterEligibleTemplates\(/,
-    'server eligibility remains the gate before tasks are rendered');
-  assert.match(loader, /templates: supervisorTaskCandidates\(templates\)/,
+    'server eligibility continues to be checked before execution controls are enabled');
+  assert.match(loader, /templates: taskCandidates/,
     'both supervisor-category and individually assigned tasks use the same server eligibility check');
+  assert.match(loader, /catch \(eligibilityError\)/,
+    'an eligibility RPC error must not prevent the scoped candidates from rendering');
   assert.ok(loader.indexOf('filterEligibleTemplates') < loader.indexOf('renderChecklist('),
-    'the eligibility result must be available before rendering');
+    'eligibility status must be known before rendering execution controls');
+  assert.match(source, /disabled aria-describedby="task-eligibility-/,
+    'a denied task checkbox is disabled and connected to its reason');
+  assert.ok(source.includes("!completed && item.task_type !== 'inventory_request' && canExecute ? `"),
+    'upload and save controls render only for eligible, incomplete tasks');
+  assert.ok(source.includes('${canExecute ? `<div class="fridge-panel'),
+    'fridge entry controls are omitted when execution is not eligible');
+  assert.ok(source.includes("item.task_type === 'inventory_request' && canExecute ? `<a href="),
+    'the inventory-request link that can complete the task is hidden when execution is denied');
+  assert.ok(source.includes("item.task_type === 'inventory_request' && !completed && canExecute ? '<p"),
+    'the automatic-completion instruction is shown only when the request task is eligible');
+  const renderSource = source.match(/function renderChecklist\(templates, logsByTemplate\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(renderSource, 'the task card renderer must be defined');
+  const container = { innerHTML: '', querySelectorAll: () => [] };
+  const progressLabel = { textContent: '' };
+  const summaryProgress = { textContent: '' };
+  const summaryShift = { textContent: '' };
+  const renderChecklist = vm.runInNewContext(`(() => { ${candidateSource}\n${statusSource}\n${messageSource}\n${selectorSource}\n${renderSource}\nreturn renderChecklist; })()`, {
+    SUPERVISOR_TASK_CATEGORIES: new Set(['المشرف', 'إشراف', 'مهام المشرفين']),
+    supervisorAssignedTemplateIds: new Set(['assigned-bar', 'inventory-request-denied']),
+    supervisorTaskEligibilityById: new Map([
+      ['eligible-standard', 'eligible'],
+      ['assigned-bar', 'ineligible'],
+      ['inventory-request-denied', 'unverified'],
+      ['eligible-request', 'eligible'],
+      ['ineligible-fridge', 'ineligible'],
+      ['eligible-fridge', 'eligible']
+    ]),
+    activeSubTab: 'my-tasks',
+    currentShift: 'Morning',
+    container,
+    progressLabel,
+    document: { getElementById: id => ({ 'summary-progress': summaryProgress, 'summary-shift': summaryShift }[id] || null) },
+    escHtml: value => String(value ?? ''),
+    ZamChecklistSchedule: { isSupervisorOnlyTask: task => ['inventory_request', 'fridge_temps', 'inventory_count'].includes(task.task_type) }
+  });
+  renderChecklist([
+    { id: 'eligible-standard', category: 'المشرف', task_title: 'مهمة مؤهلة', task_type: 'standard', frequency: 'daily', requires_photo: false, allows_notes: false },
+    { id: 'assigned-bar', category: 'البار', task_title: 'مهمة مسندة مرفوضة', task_type: 'standard', frequency: 'daily', requires_photo: true, allows_notes: false },
+    { id: 'inventory-request-denied', category: 'البار', task_title: 'طلب جرد مرفوض', task_type: 'inventory_request', frequency: 'daily', requires_photo: false, allows_notes: false },
+    { id: 'ineligible-fridge', category: 'المشرف', task_title: 'قراءة ثلاجة مرفوضة', task_type: 'fridge_temps', frequency: 'daily', requires_photo: false, allows_notes: false },
+    { id: 'eligible-fridge', category: 'المشرف', task_title: 'قراءة ثلاجة مؤهلة', task_type: 'fridge_temps', frequency: 'daily', requires_photo: false, allows_notes: false },
+    { id: 'team-unassigned', category: 'البار', task_title: 'مهمة فريق غير مسندة', task_type: 'standard', frequency: 'daily', requires_photo: false, allows_notes: false }
+  ], {});
+  for (const title of ['مهمة مؤهلة', 'مهمة مسندة مرفوضة', 'طلب جرد مرفوض']) {
+    assert.ok(container.innerHTML.includes(title), `rendered HTML includes ${title}`);
+  }
+  assert.match(container.innerHTML, /disabled aria-describedby="task-eligibility-assigned-bar"/);
+  assert.ok(container.innerHTML.includes('data-id="eligible-standard"'), 'eligible task controls are rendered');
+  assert.ok(!container.innerHTML.includes('task-actions" data-id="assigned-bar"'), 'ineligible task upload/save controls are omitted');
+  assert.ok(!container.innerHTML.includes('href="../inventory-requests/index.html?shift=Morning"'),
+    'an ineligible request task cannot navigate to the auto-completing request flow');
+  assert.ok(container.innerHTML.includes('data-id="eligible-fridge"'), 'eligible fridge controls remain available');
+  assert.ok(!container.innerHTML.includes('data-id="ineligible-fridge"'), 'ineligible fridge readings cannot be entered');
+  assert.ok(!container.innerHTML.includes('مهمة فريق غير مسندة'), 'unassigned team tasks remain outside the supervisor list');
+  renderChecklist([
+    { id: 'eligible-request', category: 'المشرف', task_title: 'طلب جرد مؤهل', task_type: 'inventory_request', frequency: 'daily', requires_photo: false, allows_notes: false }
+  ], {});
+  assert.ok(container.innerHTML.includes('href="../inventory-requests/index.html?shift=Morning"'),
+    'the request flow remains linked when the inventory task is eligible');
   assert.match(source, /ZamChecklistSave\.submitChecklistExecution\(/,
     'saving continues through the existing RPC/RLS-checked execution path');
 });

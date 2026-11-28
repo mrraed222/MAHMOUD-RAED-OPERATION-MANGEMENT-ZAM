@@ -359,7 +359,7 @@ let currentCategory = '';
 let activeSubTab = 'my-tasks'; // الصفحة الآن لمهام المشرف فقط — متابعة الفريق في داشبورد الفرع
 const SUPERVISOR_TASK_CATEGORIES = new Set(['المشرف', 'إشراف', 'مهام المشرفين']);
 let supervisorAssignedTemplateIds = new Set();
-let supervisorEligibleTemplateIds = new Set();
+let supervisorTaskEligibilityById = new Map();
 
 const container = document.getElementById('checklist-container');
 const progressLabel = document.getElementById('progress-label');
@@ -736,14 +736,20 @@ function scheduleInventoryTaskVisibility() {
 function supervisorTaskCandidates(templates) {
     return templates.filter(task => SUPERVISOR_TASK_CATEGORIES.has(task.category) || supervisorAssignedTemplateIds.has(String(task.id)));
 }
-
+function supervisorTaskEligibilityStatus(task) {
+    return supervisorTaskEligibilityById.get(String(task.id)) || 'unverified';
+}
+function supervisorTaskEligibilityMessage(status) {
+    if (status === 'ineligible') return 'فحص الأهلية منع التنفيذ لهذا الحساب، لكن الرد لا يوضح السبب التفصيلي (قد يتعلق بالفرع أو الوردية أو التكليف). ستبقى المهمة ظاهرة، لكن لن يُرفع إثبات ولن يُحفظ إنجاز.';
+    if (status === 'unverified') return 'تعذر التحقق من أهلية التنفيذ الآن. المهمة ظاهرة للمتابعة فقط، ولن يُرفع إثبات أو يُحفظ إنجاز.';
+    return '';
+}
 function supervisorTemplatesForSubTab(templates, subTab = activeSubTab) {
     if (subTab === 'my-tasks') {
-        return supervisorTaskCandidates(templates).filter(task => supervisorEligibleTemplateIds.has(String(task.id)));
+        return supervisorTaskCandidates(templates);
     }
     return templates.filter(task => !SUPERVISOR_TASK_CATEGORIES.has(task.category) && !supervisorAssignedTemplateIds.has(String(task.id)));
 }
-
 function renderChecklist(templates, logsByTemplate) {
     const filteredTemplates = supervisorTemplatesForSubTab(templates);
     filteredTemplates.sort((a, b) => {
@@ -771,6 +777,11 @@ function renderChecklist(templates, logsByTemplate) {
     const renderTaskCard = item => {
         const log = logsByTemplate[item.id];
         const completed = !!log;
+        const eligibilityStatus = activeSubTab === 'my-tasks' ? supervisorTaskEligibilityStatus(item) : 'eligible';
+        const canExecute = eligibilityStatus === 'eligible';
+        const eligibilityNotice = activeSubTab === 'my-tasks' && !canExecute
+            ? `<p id="task-eligibility-${escHtml(item.id)}" class="mt-2 rounded-lg bg-error-container/40 px-3 py-2 text-[12px] font-bold text-on-error-container" role="status">${escHtml(supervisorTaskEligibilityMessage(eligibilityStatus))}</p>`
+            : '';
         const weekDays = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
         const selectedDays = item.day_of_week !== null && item.day_of_week !== undefined ? [Number(item.day_of_week)] : [];
         const weeklyLabel = item.frequency === 'weekly' && selectedDays.length
@@ -786,9 +797,9 @@ function renderChecklist(templates, logsByTemplate) {
                         ${item.instructions ? `<p class="text-body-sm text-on-surface-variant">${escHtml(item.instructions)}</p>` : ''}
                     </div>
                 </div>
-                <div class="fridge-panel mt-sm pr-10" data-id="${escHtml(item.id)}" data-allows-notes="${!!item.allows_notes}">
+                ${canExecute ? `<div class="fridge-panel mt-sm pr-10" data-id="${escHtml(item.id)}" data-allows-notes="${!!item.allows_notes}">
                     <p class="text-body-sm text-on-surface-variant">جارِ تحميل الثلاجات...</p>
-                </div>
+                </div>` : eligibilityNotice}
             </div>`;
         }
         if (activeSubTab === 'my-tasks') {
@@ -798,19 +809,20 @@ function renderChecklist(templates, logsByTemplate) {
                     <div class="flex items-center gap-md flex-1">
                         ${ZamChecklistSchedule.isSupervisorOnlyTask(item)
                             ? `<span class="material-symbols-outlined ${completed ? 'text-tertiary-container' : 'text-primary'}">${completed ? 'task_alt' : 'inventory_2'}</span>`
-                            : `<input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" id="task-${escHtml(item.id)}" aria-labelledby="task-title-${escHtml(item.id)}" data-id="${escHtml(item.id)}" ${completed ? 'checked disabled' : ''}/>`}
+                            : `<input type="checkbox" class="w-6 h-6 rounded border-outline text-primary focus:ring-primary task-checkbox" id="task-${escHtml(item.id)}" aria-labelledby="task-title-${escHtml(item.id)}" data-id="${escHtml(item.id)}" ${completed ? 'checked disabled' : canExecute ? '' : `disabled aria-describedby="task-eligibility-${escHtml(item.id)}"`}/>`}
                         <div class="flex-1">
                             <div class="flex flex-wrap items-center gap-xs"><h4 id="task-title-${escHtml(item.id)}" class="font-body-lg font-bold text-on-surface ${completed ? 'line-through opacity-60' : ''}">${escHtml(item.task_title)}</h4>${weeklyLabel}</div>
                             ${item.target_time ? `<p class="text-[11px] font-bold text-secondary">موعد التنفيذ: ${escHtml(String(item.target_time).slice(0, 5))}</p>` : ''}
                             ${item.instructions ? `<p class="text-body-sm text-on-surface-variant">${escHtml(item.instructions)}</p>` : ''}
-                            ${item.task_type === 'inventory_request' ? `<a href="../inventory-requests/index.html?shift=${currentShift}" class="mt-2 inline-flex items-center gap-1 rounded-lg bg-secondary-container px-3 py-2 text-sm font-bold text-primary"><span class="material-symbols-outlined text-base">open_in_new</span> فتح صفحة الجرد والطلبيات</a>` : ''}
-                            ${item.task_type === 'inventory_request' && !completed ? '<p class="mt-1 text-[11px] font-bold text-secondary">تُكمل هذه المهمة تلقائياً بعد حفظ طلب الجرد.</p>' : ''}
+                            ${eligibilityNotice}
+                            ${item.task_type === 'inventory_request' && canExecute ? `<a href="../inventory-requests/index.html?shift=${currentShift}" class="mt-2 inline-flex items-center gap-1 rounded-lg bg-secondary-container px-3 py-2 text-sm font-bold text-primary"><span class="material-symbols-outlined text-base">open_in_new</span> فتح صفحة الجرد والطلبيات</a>` : ''}
+                            ${item.task_type === 'inventory_request' && !completed && canExecute ? '<p class="mt-1 text-[11px] font-bold text-secondary">تُكمل هذه المهمة تلقائياً بعد حفظ طلب الجرد.</p>' : ''}
                             ${item.requires_photo ? '<p class="text-body-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-sm">photo_camera</span> يتطلب صورة إثبات</p>' : ''}
                             ${completed && log.notes ? `<p class="text-body-sm text-on-surface-variant mt-xs">📝 ${escHtml(log.notes)}</p>` : ''}
                         </div>
                     </div>
                 </div>
-                ${!completed && item.task_type !== 'inventory_request' ? `
+                ${!completed && item.task_type !== 'inventory_request' && canExecute ? `
                 <div class="mt-xs pr-10 flex items-center gap-sm flex-wrap task-actions" data-id="${escHtml(item.id)}" data-requires-photo="${item.requires_photo}">
                     ${item.requires_photo ? `
                         <label class="flex items-center gap-xs cursor-pointer px-sm py-1 bg-surface-container border border-outline rounded-lg text-[12px] font-bold text-primary hover:bg-surface-container-high transition-all">
@@ -1089,13 +1101,23 @@ async function loadChecklist() {
         ]);
         supervisorAssignedTemplateIds = new Set(assignedIds.map(String));
         const templates = loadedTemplates.filter(isTaskDueForCurrentShift);
-        const eligibleMyTasks = await ZamChecklistSave.filterEligibleTemplates({
-            client: zamClient,
-            profile,
-            templates: supervisorTaskCandidates(templates),
-            shiftType: currentShift
-        });
-        supervisorEligibleTemplateIds = new Set(eligibleMyTasks.map(task => String(task.id)));
+        const taskCandidates = supervisorTaskCandidates(templates);
+        supervisorTaskEligibilityById = new Map();
+        try {
+            const eligibleMyTasks = await ZamChecklistSave.filterEligibleTemplates({
+                client: zamClient,
+                profile,
+                templates: taskCandidates,
+                shiftType: currentShift
+            });
+            const eligibleIds = new Set(eligibleMyTasks.map(task => String(task.id)));
+            taskCandidates.forEach(task => supervisorTaskEligibilityById.set(
+                String(task.id), eligibleIds.has(String(task.id)) ? 'eligible' : 'ineligible'
+            ));
+        } catch (eligibilityError) {
+            console.error('Supervisor task eligibility check failed; keeping tasks visible but read-only.', eligibilityError);
+            taskCandidates.forEach(task => supervisorTaskEligibilityById.set(String(task.id), 'unverified'));
+        }
         const [logs, hourlyLogs] = await Promise.all([
             ZamAPI.getChecklistLogs({ branchId: currentUser.branch_id, dateFrom: shiftWindow.dateFrom, dateTo: shiftWindow.dateTo, shiftType: currentShift }),
             ZamAPI.getHourlyChecklistLogs({ branchId: currentUser.branch_id, dateFrom: shiftWindow.dateFrom, dateTo: shiftWindow.dateTo, shiftType: currentShift })
