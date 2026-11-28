@@ -154,6 +154,16 @@ test('checklist-log view uses the hourly-only counter and a single completed-exe
   assert.doesNotMatch(page, /countCompletedExecutionLogs\(logs, hourlyLogs\)/);
 });
 
+test('checklist-log view exposes a three-way task filter and accessible colored table headers', () => {
+  assert.match(page, /<label for="f-task-type"[^>]*>نوع المهام في الجدول<\/label>/);
+  assert.match(page, /<option value="hourly">المهام الساعية فقط<\/option>/);
+  assert.match(page, /<option value="non-hourly">المهام غير الساعية فقط<\/option>/);
+  assert.match(page, /<option value="all">كلا النوعين<\/option>/);
+  assert.match(page, /checklist-task-type-header" scope="col">نوع السجل/);
+  assert.match(page, /background:#16392f!important;color:#fff!important/);
+  assert.match(page, /@container \(max-width:620px\)/);
+});
+
 test('one failed checklist-log source does not block the other records or show false zero hourly counts', () => {
   const loader = page.match(/async function loadLogs\(\) \{([\s\S]*?)\n\}/)[1];
   assert.match(loader, /Promise\.allSettled\(/);

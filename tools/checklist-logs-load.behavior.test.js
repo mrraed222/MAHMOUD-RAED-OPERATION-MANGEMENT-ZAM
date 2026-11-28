@@ -51,7 +51,7 @@ class ElementMock {
   removeAttribute(name) { this.attributes.delete(name); }
 }
 
-async function runLoad({ role, branchId = 'branch-a', failSource = null }) {
+async function runLoad({ role, branchId = 'branch-a', failSource = null, taskType = 'all' }) {
   const elements = new Map();
   const getElementById = id => {
     if (!elements.has(id)) elements.set(id, new ElementMock(id));
@@ -82,6 +82,7 @@ async function runLoad({ role, branchId = 'branch-a', failSource = null }) {
   elementsForFilter.value = role === 'Owner' ? '' : branchId;
   getElementById('f-date').value = '2026-11-28';
   getElementById('f-shift').value = '';
+  getElementById('f-task-type').value = taskType;
 
   const context = {
     currentUser,
@@ -140,6 +141,27 @@ test('loadLogs renders task, hourly, independent team-note and fridge rows for O
     const templateBranches = calls.filter(call => call.source === 'templates').map(call => call.args.branchId);
     assert.ok(templateBranches.every(id => id === 'branch-a' || role === 'Owner' && id === 'branch-b'));
   }
+});
+
+test('task-type filter separates hourly and ordinary tasks while leaving hourly counters and fridge readings intact', async () => {
+  const hourly = await runLoad({ role: 'Owner', taskType: 'hourly' });
+  const hourlyTable = hourly.elements.get('logs-table-tbody').innerHTML;
+  assert.match(hourlyTable, /قراءة ساعية/);
+  assert.doesNotMatch(hourlyTable, /مهمة عادية|ملاحظة مستقلة/);
+  assert.match(hourly.elements.get('branch-shift-summary').innerHTML, /الصباحية[\s\S]*المسائية/);
+  assert.match(hourly.elements.get('fridge-readings-tbody').innerHTML, /3\.5°/);
+
+  const ordinary = await runLoad({ role: 'Owner', taskType: 'non-hourly' });
+  const ordinaryTable = ordinary.elements.get('logs-table-tbody').innerHTML;
+  assert.match(ordinaryTable, /مهمة عادية 0/);
+  assert.doesNotMatch(ordinaryTable, /قراءة ساعية|ملاحظة مستقلة/);
+  assert.match(ordinary.elements.get('branch-shift-summary').innerHTML, /الصباحية[\s\S]*المسائية/);
+
+  const both = await runLoad({ role: 'Owner', taskType: 'all' });
+  const allRows = both.elements.get('logs-table-tbody').innerHTML;
+  assert.match(allRows, /مهمة عادية 0/);
+  assert.match(allRows, /قراءة ساعية/);
+  assert.match(allRows, /ملاحظة مستقلة/);
 });
 
 test('a partial team-note read failure preserves other log rows and displays an explicit partial-results warning', async () => {

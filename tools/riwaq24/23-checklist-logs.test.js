@@ -13,7 +13,7 @@ test('checklist log preserves auth/role guards and existing read sources and fil
   }
   assert.match(source, /ZamBranchLifecycle\.isOperational\(branch, row\.execution_date/);
   assert.match(source, /currentUser\.role === 'Supervisor'/);
-  for (const id of ['f-branch', 'f-date', 'f-shift']) assert.match(source, new RegExp(`id="${id}"`));
+  for (const id of ['f-branch', 'f-date', 'f-shift', 'f-task-type']) assert.match(source, new RegExp(`id="${id}"`));
 });
 
 test('single completed-execution table merges notes independently and keeps secure, accessible photo zoom', () => {
@@ -27,7 +27,8 @@ test('single completed-execution table merges notes independently and keeps secu
   assert.match(source, /loading="lazy"/);
   assert.match(source, /const completedLogs = logs\.filter\(ZamChecklistLogMetrics\.isCompleted\)/);
   assert.match(source, /const hourlyCompletedLogs = hourlyLogs\.filter\(ZamChecklistLogMetrics\.isCompleted\)/);
-  assert.match(source, /executionRows\.length \? executionRows\.map/);
+  assert.match(source, /const visibleExecutionRows = executionRows\.filter/);
+  assert.match(source, /visibleExecutionRows\.length \? visibleExecutionRows\.map/);
   assert.match(source, /ملاحظة فريق عامة — غير مرتبطة بمهمة/);
   assert.match(source, /const taskTitle = isNote \? '—'/, 'a note without a task link must not be attributed to a task');
   assert.match(source, /class="checklist-photo-trigger zoomable-btn" data-src=/);

@@ -79,6 +79,25 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 .checklist-counter-shifts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}.checklist-counter-shift{min-width:0;padding:8px;border-radius:8px;background:#f4f6f2}.checklist-counter-shift h4{font-size:14px;font-weight:800;margin:0}.checklist-counter-shift .checklist-counter-pair{margin-top:4px}
 @media(max-width:560px){.checklist-counter-shifts{grid-template-columns:1fr}}
 </style>
+<style id="checklist-log-ui-polish">
+.checklist-summary{container-type:inline-size}
+.checklist-counter-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px;align-items:stretch}
+.checklist-counter-card{padding:14px;border-color:#cad8ce;border-radius:14px;box-shadow:0 1px 3px rgba(22,57,47,.06)}
+.checklist-counter-card h3{padding-block-end:10px;border-block-end:1px solid #e3e9e3;color:#16392f;font-size:16px;line-height:1.45}
+.checklist-counter-shifts{gap:10px;align-items:stretch}
+.checklist-counter-shift{padding:10px;border:1px solid #e0e9e2;border-radius:10px;background:#f7faf7}
+.checklist-counter-shift h4{color:#16392f;font-size:14px;line-height:1.4}
+.checklist-counter-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-block-start:8px}
+.checklist-counter-pair span{display:flex;flex:initial;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:70px;padding:8px 6px;border:1px solid #e3e9e3;border-radius:9px;background:#fff;text-align:center;font-size:14px;line-height:1.35;white-space:normal}
+.checklist-counter-pair strong{color:#176b52;font-size:22px;line-height:1;font-variant-numeric:tabular-nums}
+body.zam-page main .checklist-results table thead{background:#16392f!important;color:#fff!important}
+body.zam-page main .checklist-results table thead th{padding:12px 10px;border-block-end:2px solid #456157;color:#fff!important;font-size:14px;line-height:1.5;white-space:normal}
+body.zam-page main .checklist-results table thead th.checklist-task-type-header{background:#217a5e!important;color:#fff!important}
+.checklist-task-type-cell{min-width:130px;color:#16392f;font-weight:800;line-height:1.5}
+@container (max-width:620px){.checklist-counter-grid{grid-template-columns:1fr}}
+@container (max-width:420px){.checklist-counter-shifts{grid-template-columns:1fr}}
+@media(max-width:767px){.checklist-counter-grid{grid-template-columns:1fr}.checklist-results table thead th{padding:10px 8px}}
+</style>
 
 </head><body class="zam-page bg-background text-on-surface overflow-x-hidden">
 <div id="sidebar-slot"></div><script>(async()=>{document.getElementById('sidebar-slot').outerHTML=await renderZamSidebar('checklist-logs', currentUser.role);})();</script>
@@ -98,7 +117,7 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
 <main class="md:pr-[280px] min-h-screen checklist-main">
   <div class="max-w-5xl mx-auto p-margin-desktop">
     <section class="checklist-scope" aria-labelledby="scope-heading">
-      <div class="checklist-section-intro"><h2 id="scope-heading">فلاتر السجل</h2><p>حدد الفرع والتاريخ والوردية ثم طبّق الفلاتر لتحديث الأقسام أدناه.</p></div>
+      <div class="checklist-section-intro"><h2 id="scope-heading">فلاتر السجل</h2></div>
     <!-- الفلاتر -->
     <div class="flex flex-wrap gap-sm mb-md bg-surface-container-lowest p-md border border-outline-variant rounded-xl shadow-sm items-center">
       <div class="flex flex-col gap-1 min-w-[150px]">
@@ -115,6 +134,14 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
           <option value="">كل الورديات</option>
           <option value="Morning">الوردية الصباحية</option>
           <option value="Evening">الوردية المسائية</option>
+        </select>
+      </div>
+      <div class="flex flex-col gap-1 min-w-[170px]">
+        <label for="f-task-type" class="text-body-sm text-on-surface-variant font-bold">نوع المهام في الجدول</label>
+        <select id="f-task-type" class="border border-outline-variant rounded-lg p-sm text-body-sm bg-white">
+          <option value="all">كلا النوعين</option>
+          <option value="hourly">المهام الساعية فقط</option>
+          <option value="non-hourly">المهام غير الساعية فقط</option>
         </select>
       </div>
       <button id="apply-filters" class="bg-primary text-on-primary rounded-lg px-md py-sm font-bold text-body-sm shrink-0 self-end mt-4 md:mt-0 flex items-center gap-1 hover:bg-primary-container transition-all">
@@ -134,13 +161,13 @@ body.zam-page main .border-outline-variant { border-color:#e3e9e3 !important; }
       <table class="w-full min-w-[1100px] text-body-sm text-right">
         <caption class="sr-only">تفاصيل المهام المكتملة وملاحظات الفريق كسجلات مستقلة غير منسوبة إلى مهمة</caption>
         <thead class="sticky top-0 bg-surface-container text-on-surface-variant font-bold"><tr>
-          <th class="p-sm">تاريخ ووقت التنفيذ / التسجيل</th><th class="p-sm">الفرع</th><th class="p-sm">نوع السجل</th><th class="p-sm">اسم المهمة</th><th class="p-sm">الفئة / الخطوات المنفذة</th><th class="p-sm">الوردية</th><th class="p-sm">المنفذ / مسجّل الملاحظة</th><th class="p-sm">ملاحظات التنفيذ / الفريق</th><th class="p-sm">صورة الإثبات</th>
+          <th class="p-sm" scope="col">تاريخ ووقت التنفيذ / التسجيل</th><th class="p-sm" scope="col">الفرع</th><th class="p-sm checklist-task-type-header" scope="col">نوع السجل</th><th class="p-sm" scope="col">اسم المهمة</th><th class="p-sm" scope="col">الفئة / الخطوات المنفذة</th><th class="p-sm" scope="col">الوردية</th><th class="p-sm" scope="col">المنفذ / مسجّل الملاحظة</th><th class="p-sm" scope="col">ملاحظات التنفيذ / الفريق</th><th class="p-sm" scope="col">صورة الإثبات</th>
         </tr></thead>
         <tbody id="logs-table-tbody" class="divide-y divide-outline-variant"><tr><td colspan="9" class="p-md text-center text-on-surface-variant">جارٍ تحميل السجلات…</td></tr></tbody>
       </table>
     </div>
     <section class="mt-md bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
-      <div class="p-md border-b border-outline-variant"><h2 class="font-title-md text-primary">سجل قراءات حرارة الثلاجات والفريزرات</h2><p class="text-[11px] text-on-surface-variant">كل قراءة مرتبطة بالجهاز والفرع والموظف والوردية.</p></div>
+      <div class="p-md border-b border-outline-variant"><h2 class="font-title-md text-primary">سجل قراءات حرارة الثلاجات والفريزرات</h2></div>
       <div class="overflow-x-auto"><table class="w-full text-body-sm text-right"><thead class="bg-surface-container text-on-surface-variant font-bold"><tr><th class="p-sm">تاريخ ووقت القراءة</th><th class="p-sm">الفرع</th><th class="p-sm">الثلاجة / الفريزر</th><th class="p-sm">درجة الحرارة</th><th class="p-sm">حالة القراءة</th><th class="p-sm">الوردية</th><th class="p-sm">مسجّل القراءة / الدور</th><th class="p-sm">ملاحظة القراءة</th></tr></thead><tbody id="fridge-readings-tbody"><tr><td colspan="8" class="p-md text-center text-on-surface-variant">جارِ التحميل...</td></tr></tbody></table></div>
     </section>
     </section>
@@ -233,6 +260,7 @@ async function loadLogs() {
     const branchId = document.getElementById('f-branch').value || (currentUser.role === 'Supervisor' ? currentUser.branch_id : null);
     const date = document.getElementById('f-date').value;
     const shiftType = document.getElementById('f-shift').value || null;
+    const taskType = document.getElementById('f-task-type').value || 'all';
 
     try {
         const readResults = await Promise.allSettled([
@@ -308,7 +336,12 @@ async function loadLogs() {
         ].sort((a, b) => String(b.sortAt).localeCompare(String(a.sortAt)));
         const executionBody = document.getElementById('logs-table-tbody');
         const executionReadsFailed = ['logs', 'hourlyLogs', 'teamNotes'].some(source => failedReads.has(source));
-        executionBody.innerHTML = executionRows.length ? executionRows.map(entry => {
+        const visibleExecutionRows = executionRows.filter(entry => {
+            if (taskType === 'hourly') return entry.kind === 'hourly';
+            if (taskType === 'non-hourly') return entry.kind === 'task';
+            return true;
+        });
+        executionBody.innerHTML = visibleExecutionRows.length ? visibleExecutionRows.map(entry => {
             const isNote = entry.kind === 'team-note';
             const log = entry.log;
             const note = entry.note;
@@ -326,7 +359,7 @@ async function loadLogs() {
             const memo = isNote ? (note.note || '—') : (log.notes || '—');
             const photoUrl = isNote ? '' : safeImageUrl(log.photo_url);
             const photoCell = photoUrl ? `<button type="button" class="checklist-photo-trigger zoomable-btn" data-src="${escHtml(photoUrl)}" aria-label="عرض صورة ${escHtml(taskTitle)}"><img src="${escHtml(photoUrl)}" alt="صورة توثيق ${escHtml(taskTitle)}" loading="lazy" width="64" height="48" class="w-16 h-12 object-cover rounded-md"/></button>` : '<span class="text-outline">—</span>';
-            return `<tr class="hover:bg-surface-container-low transition-colors"><td class="p-sm whitespace-nowrap">${escHtml(dateTime)}</td><td class="p-sm">${escHtml(branchName)}</td><td class="p-sm font-bold">${escHtml(kindLabel)}</td><td class="p-sm">${escHtml(taskTitle)}</td><td class="p-sm">${escHtml(completedSteps)}</td><td class="p-sm">${escHtml(shiftLabel(shift))}</td><td class="p-sm">${escHtml(actor)} <span class="text-[10px] text-outline">${escHtml(actorRole)}</span></td><td class="p-sm min-w-48 whitespace-pre-wrap">${escHtml(memo)}</td><td class="p-sm">${photoCell}</td></tr>`;
+            return `<tr class="hover:bg-surface-container-low transition-colors"><td class="p-sm whitespace-nowrap">${escHtml(dateTime)}</td><td class="p-sm">${escHtml(branchName)}</td><td class="p-sm checklist-task-type-cell">${escHtml(kindLabel)}</td><td class="p-sm">${escHtml(taskTitle)}</td><td class="p-sm">${escHtml(completedSteps)}</td><td class="p-sm">${escHtml(shiftLabel(shift))}</td><td class="p-sm">${escHtml(actor)} <span class="text-[10px] text-outline">${escHtml(actorRole)}</span></td><td class="p-sm min-w-48 whitespace-pre-wrap">${escHtml(memo)}</td><td class="p-sm">${photoCell}</td></tr>`;
         }).join('') : executionReadsFailed
             ? '<tr><td colspan="9" class="p-md text-center text-error">تعذّر تحميل سجل التنفيذ؛ أعد المحاولة من حالة الصفحة.</td></tr>'
             : '<tr><td colspan="9" class="p-md text-center text-on-surface-variant">لا توجد مهام مكتملة أو ملاحظات فريق مطابقة للفلاتر.</td></tr>';
