@@ -359,6 +359,7 @@ let currentCategory = '';
 let activeSubTab = 'my-tasks'; // الصفحة الآن لمهام المشرف فقط — متابعة الفريق في داشبورد الفرع
 const SUPERVISOR_TASK_CATEGORIES = new Set(['المشرف', 'إشراف', 'مهام المشرفين']);
 let supervisorAssignedTemplateIds = new Set();
+let supervisorEligibleTemplateIds = new Set();
 
 const container = document.getElementById('checklist-container');
 const progressLabel = document.getElementById('progress-label');
@@ -732,9 +733,13 @@ function scheduleInventoryTaskVisibility() {
     }, delay);
 }
 
+function supervisorTaskCandidates(templates) {
+    return templates.filter(task => SUPERVISOR_TASK_CATEGORIES.has(task.category) || supervisorAssignedTemplateIds.has(String(task.id)));
+}
+
 function supervisorTemplatesForSubTab(templates, subTab = activeSubTab) {
     if (subTab === 'my-tasks') {
-        return templates.filter(task => SUPERVISOR_TASK_CATEGORIES.has(task.category) || supervisorAssignedTemplateIds.has(String(task.id)));
+        return supervisorTaskCandidates(templates).filter(task => supervisorEligibleTemplateIds.has(String(task.id)));
     }
     return templates.filter(task => !SUPERVISOR_TASK_CATEGORIES.has(task.category) && !supervisorAssignedTemplateIds.has(String(task.id)));
 }
@@ -1084,6 +1089,13 @@ async function loadChecklist() {
         ]);
         supervisorAssignedTemplateIds = new Set(assignedIds.map(String));
         const templates = loadedTemplates.filter(isTaskDueForCurrentShift);
+        const eligibleMyTasks = await ZamChecklistSave.filterEligibleTemplates({
+            client: zamClient,
+            profile,
+            templates: supervisorTaskCandidates(templates),
+            shiftType: currentShift
+        });
+        supervisorEligibleTemplateIds = new Set(eligibleMyTasks.map(task => String(task.id)));
         const [logs, hourlyLogs] = await Promise.all([
             ZamAPI.getChecklistLogs({ branchId: currentUser.branch_id, dateFrom: shiftWindow.dateFrom, dateTo: shiftWindow.dateTo, shiftType: currentShift }),
             ZamAPI.getHourlyChecklistLogs({ branchId: currentUser.branch_id, dateFrom: shiftWindow.dateFrom, dateTo: shiftWindow.dateTo, shiftType: currentShift })

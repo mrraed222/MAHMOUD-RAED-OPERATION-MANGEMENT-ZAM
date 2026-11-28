@@ -104,12 +104,14 @@ test('save failures tell the supervisor to verify shift and assignment with or w
     'photo-upload success followed by save failure must be reported as a save failure');
 });
 
-test('supervisor sees individually assigned tasks from other categories without widening branch, shift, schedule or save permissions', () => {
-  const helperSource = source.match(/function supervisorTemplatesForSubTab\([^)]*\) \{[\s\S]*?\n\}/)?.[0];
-  assert.ok(helperSource, 'the supervisor tab selector must be defined');
-  const selectForTab = vm.runInNewContext(`(${helperSource})`, {
+test('supervisor sees individually assigned tasks from other categories only when the server confirms eligibility', () => {
+  const candidateSource = source.match(/function supervisorTaskCandidates\([^)]*\) \{[\s\S]*?\n\}/)?.[0];
+  const selectorSource = source.match(/function supervisorTemplatesForSubTab\([^)]*\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(candidateSource && selectorSource, 'the supervisor task selectors must be defined');
+  const selectForTab = vm.runInNewContext(`(() => { ${candidateSource}\n${selectorSource}\nreturn supervisorTemplatesForSubTab; })()`, {
     SUPERVISOR_TASK_CATEGORIES: new Set(['المشرف', 'إشراف', 'مهام المشرفين']),
     supervisorAssignedTemplateIds: new Set(['assigned-bar', 'assigned-kitchen']),
+    supervisorEligibleTemplateIds: new Set(['supervisor-category', 'assigned-bar']),
     activeSubTab: 'my-tasks'
   });
   const templates = [
@@ -119,7 +121,7 @@ test('supervisor sees individually assigned tasks from other categories without 
     { id: 'team-bar', category: 'البار' }
   ];
   assert.deepEqual(Array.from(selectForTab(templates, 'my-tasks'), task => task.id), [
-    'supervisor-category', 'assigned-bar', 'assigned-kitchen'
+    'supervisor-category', 'assigned-bar'
   ]);
   assert.deepEqual(Array.from(selectForTab(templates, 'team-tasks'), task => task.id), ['team-bar']);
 
@@ -130,8 +132,12 @@ test('supervisor sees individually assigned tasks from other categories without 
     'the individually assigned IDs are read for this authenticated supervisor');
   assert.match(loader, /loadedTemplates\.filter\(isTaskDueForCurrentShift\)/,
     'existing schedule and branch/shift visibility checks remain in place');
+  assert.match(loader, /ZamChecklistSave\.filterEligibleTemplates\(/,
+    'server eligibility remains the gate before tasks are rendered');
+  assert.match(loader, /templates: supervisorTaskCandidates\(templates\)/,
+    'both supervisor-category and individually assigned tasks use the same server eligibility check');
+  assert.ok(loader.indexOf('filterEligibleTemplates') < loader.indexOf('renderChecklist('),
+    'the eligibility result must be available before rendering');
   assert.match(source, /ZamChecklistSave\.submitChecklistExecution\(/,
     'saving continues through the existing RPC/RLS-checked execution path');
-  assert.doesNotMatch(source, /filterEligibleTemplates\(/,
-    'the client-side eligibility pre-filter must not hide tasks before display');
 });
