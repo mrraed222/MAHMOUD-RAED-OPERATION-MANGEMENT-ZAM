@@ -321,7 +321,7 @@ async function loadLogs() {
                 : entry.sortAt && String(entry.sortAt).includes('T') ? riyadhDateTime(entry.sortAt) : String(row.execution_date || entry.sortAt || '—');
             const kindLabel = isNote ? 'ملاحظة فريق عامة — غير مرتبطة بمهمة' : entry.kind === 'hourly' ? 'مهمة ساعية مكتملة' : 'مهمة مكتملة';
             const taskTitle = isNote ? '—' : (log.checklist_templates?.task_title || log.template_title || (entry.kind === 'hourly' ? 'مهمة ساعية' : 'مهمة مجهولة'));
-            const completedSteps = entry.kind === 'hourly' ? ZamRestroomHourly.STEPS.filter(step => log.steps_completed?.[step.key] === true).map(step => step.label).join('، ') || '—' : (log.checklist_templates?.category || log.template_category || '—');
+            const completedSteps = isNote ? '—' : entry.kind === 'hourly' ? ZamRestroomHourly.STEPS.filter(step => log.steps_completed?.[step.key] === true).map(step => step.label).join('، ') || '—' : (log.checklist_templates?.category || log.template_category || '—');
             const shift = isNote ? note.shift_type : (log.shift_type || log.checklist_templates?.shift_type);
             const memo = isNote ? (note.note || '—') : (log.notes || '—');
             const photoUrl = isNote ? '' : safeImageUrl(log.photo_url);

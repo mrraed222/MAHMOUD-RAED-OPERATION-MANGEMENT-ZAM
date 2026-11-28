@@ -358,6 +358,7 @@ let currentLiveScope = `${currentUser.branch_id || ''}|${currentUser.shift_type 
 let currentCategory = '';
 let activeSubTab = 'my-tasks'; // الصفحة الآن لمهام المشرف فقط — متابعة الفريق في داشبورد الفرع
 const SUPERVISOR_TASK_CATEGORIES = new Set(['المشرف', 'إشراف', 'مهام المشرفين']);
+let supervisorAssignedTemplateIds = new Set();
 
 const container = document.getElementById('checklist-container');
 const progressLabel = document.getElementById('progress-label');
@@ -731,13 +732,15 @@ function scheduleInventoryTaskVisibility() {
     }, delay);
 }
 
-function renderChecklist(templates, logsByTemplate) {
-    let filteredTemplates = templates;
-    if (activeSubTab === 'my-tasks') {
-        filteredTemplates = templates.filter(t => SUPERVISOR_TASK_CATEGORIES.has(t.category));
-    } else {
-        filteredTemplates = templates.filter(t => !SUPERVISOR_TASK_CATEGORIES.has(t.category));
+function supervisorTemplatesForSubTab(templates, subTab = activeSubTab) {
+    if (subTab === 'my-tasks') {
+        return templates.filter(task => SUPERVISOR_TASK_CATEGORIES.has(task.category) || supervisorAssignedTemplateIds.has(String(task.id)));
     }
+    return templates.filter(task => !SUPERVISOR_TASK_CATEGORIES.has(task.category) && !supervisorAssignedTemplateIds.has(String(task.id)));
+}
+
+function renderChecklist(templates, logsByTemplate) {
+    const filteredTemplates = supervisorTemplatesForSubTab(templates);
     filteredTemplates.sort((a, b) => {
         const weeklyOrder = Number(a.frequency === 'weekly') - Number(b.frequency === 'weekly');
         if (weeklyOrder) return weeklyOrder;
@@ -1075,19 +1078,12 @@ async function loadChecklist() {
         const now = new Date();
         const shiftWindow = ZamChecklistSchedule.getShiftWindow(currentShift, currentBranchHours, now);
         const categoryFilter = null;
-        const loadedTemplates = (await ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id)).filter(isTaskDueForCurrentShift);
-        let templates = loadedTemplates;
-        if (activeSubTab === 'my-tasks') {
-            const supervisorTemplates = loadedTemplates.filter(task => SUPERVISOR_TASK_CATEGORIES.has(task.category));
-            const eligibleTemplates = await ZamChecklistSave.filterEligibleTemplates({
-                client: zamClient,
-                profile,
-                templates: supervisorTemplates,
-                shiftType: currentShift
-            });
-            const eligibleIds = new Set(eligibleTemplates.map(task => String(task.id)));
-            templates = loadedTemplates.filter(task => !SUPERVISOR_TASK_CATEGORIES.has(task.category) || eligibleIds.has(String(task.id)));
-        }
+        const [loadedTemplates, assignedIds] = await Promise.all([
+            ZamAPI.getTemplates(categoryFilter, currentShift, currentUser.branch_id),
+            currentUser.role === 'Supervisor' ? ZamAPI.getMyAssignedTemplateIds() : Promise.resolve([])
+        ]);
+        supervisorAssignedTemplateIds = new Set(assignedIds.map(String));
+        const templates = loadedTemplates.filter(isTaskDueForCurrentShift);
         const [logs, hourlyLogs] = await Promise.all([
             ZamAPI.getChecklistLogs({ branchId: currentUser.branch_id, dateFrom: shiftWindow.dateFrom, dateTo: shiftWindow.dateTo, shiftType: currentShift }),
             ZamAPI.getHourlyChecklistLogs({ branchId: currentUser.branch_id, dateFrom: shiftWindow.dateFrom, dateTo: shiftWindow.dateTo, shiftType: currentShift })

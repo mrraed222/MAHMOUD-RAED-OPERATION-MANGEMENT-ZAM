@@ -477,6 +477,17 @@ async function saveTaskCompletion(templateId, notes = null, photo_url = null) {
     return ZamAPI.submitChecklistLog(base);
 }
 
+function employeeShiftState(shiftType, shiftWindow, now) {
+    if (!shiftWindow.valid) return 'unavailable';
+    const nowMs = now.getTime();
+    if (nowMs < shiftWindow.startAt.getTime()) return 'upcoming';
+    if (nowMs < shiftWindow.graceEndAt.getTime()) return 'open';
+    // Before 15:30 the evening window points to the previous business day.
+    // Once its grace ends, describe today's next shift, not an expired task list.
+    if (shiftType === 'Evening' && ZamChecklistSchedule.riyadhMinuteOfDay(now) < ZamChecklistSchedule.EVENING_START_MINUTE) return 'upcoming';
+    return 'expired';
+}
+
 async function loadMyChecklist() {
     categoryLabel.textContent = `${myCategories.length ? `مهام الفئات: ${myCategories.join(' و ')}` : 'مهامك المسندة'}${myAssignedTemplateIds.length ? ' · وتشمل مهامًا فردية' : ''} — ${currentShift === 'Morning' ? 'الوردية الصباحية' : 'الوردية المسائية'}`;
     container.setAttribute("aria-busy", "true");
@@ -519,7 +530,8 @@ async function loadMyChecklist() {
         };
         const scheduledTemplates = allTemplates.filter(t => ZamChecklistSchedule.isTemplateScheduledForEmployee(t, visibility, now));
         const templates = scheduledTemplates.filter(t => ZamChecklistSchedule.isTemplateVisibleForEmployee(t, visibility, now));
-        const summaryTemplates = shiftWindow.valid && now.getTime() >= shiftWindow.startAt.getTime()
+        const shiftState = employeeShiftState(currentShift, shiftWindow, now);
+        const summaryTemplates = shiftState === 'open' || shiftState === 'expired'
             ? scheduledTemplates.filter(task => !ZamRestroomHourly.isRestroomHourlyTask(task)) : [];
         visibleTemplatesById = new Map(templates.map(task => [task.id, task]));
         const [logs, hourlyLogs] = await Promise.all([
@@ -566,11 +578,13 @@ async function loadMyChecklist() {
         ]));
 
         if (!templates.length) {
-            const message = summaryTemplates.length
+            const message = shiftState === 'upcoming'
+                ? `لم تبدأ الوردية ${currentShift === 'Morning' ? 'الصباحية' : 'المسائية'} بعد.`
+                : shiftState === 'expired' && summaryTemplates.length
                 ? 'انتهت مهلة عرض المهام لهذه الوردية؛ راجع حالة الإنجاز في ملخص الإدارة.'
                 : 'لا توجد مهام مستحقة أو متاحة لهذه الوردية الآن.';
             container.innerHTML = `<p class="p-md text-on-surface-variant text-body-sm">${message}</p>`;
-            progressLabel.textContent = summaryTemplates.length ? 'انتهت مهلة العرض — تبقى المهام غير المكتملة في الملخص' : '';
+            progressLabel.textContent = shiftState === 'expired' && summaryTemplates.length ? 'انتهت مهلة العرض — تبقى المهام غير المكتملة في الملخص' : '';
         } else {
             // العداد الإداري يحسب كل المهام المجدولة للوردية، حتى التي انتهت نافذة عرضها،
             // ولا يخلط بينها وبين مهام الحمامات الساعية ذات العداد المستقل.

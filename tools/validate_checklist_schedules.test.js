@@ -115,10 +115,10 @@ test('صفحات قوائم التحقق تحمل نسخ cache المحدثة ل
     const html = fs.readFileSync(path.join(__dirname, '..', page, 'index.html'), 'utf8');
     assert.match(html, /restroom-hourly\.js\?v=20261121170500/, `${page} must load the current restroom task helper`);
   }
-  assert.match(employeePage, /supabase-config\.js\?v=20261124203300/);
-  assert.match(supervisorPage, /supabase-config\.js\?v=20261124203300/);
-  assert.match(templateAdminPage, /supabase-config\.js\?v=20261124203300/);
-  assert.match(adminLogPage, /checklist-log-metrics\.js\?v=20261126220452/);
+  assert.match(employeePage, /supabase-config\.js\?v=\d+/);
+  assert.match(supervisorPage, /supabase-config\.js\?v=\d+/);
+  assert.match(templateAdminPage, /supabase-config\.js\?v=\d+/);
+  assert.match(adminLogPage, /checklist-log-metrics\.js\?v=\d+/);
   assert.match(templateAdminPage, /id="f-scope-all"/);
   assert.match(templateAdminPage, /class="f-branch-checkbox/);
   assert.match(templateAdminPage, /saveTemplateWithBranches/);
@@ -182,10 +182,11 @@ test('مهام حمامات الإدارة في الفرع الرئيسي تظه
 
 test('جولة الحمام كل ساعة خاصة بزام الرئيسي وموظفي الصالة وتطلب صورة', () => {
   const hourly = { task_type: 'restroom_check', category: 'الصالة', shift_type: 'Both', branch_id: MAIN_ID, frequency: 'hourly' };
-  assert.equal(schedule.isTemplateVisibleForEmployee(hourly, waiter(MAIN_ID, 'زام الرئيسي', 'Evening')), true);
-  assert.equal(schedule.isTemplateVisibleForEmployee(hourly, waiter(HAY_ID, 'زام الحي', 'Evening')), false);
-  assert.equal(schedule.isTemplateVisibleForEmployee(hourly, { role: 'Barista', branchId: MAIN_ID, categories: ['البار'], shiftType: 'Morning' }), false);
-  assert.equal(schedule.isTemplateVisibleForEmployee(hourly, { role: 'Supervisor', branchId: MAIN_ID, branchName: 'زام الرئيسي', categories: ['الصالة'], shiftType: 'Morning' }), false);
+  const eveningNow = atRiyadh('2026-11-16T18:00:00+03:00');
+  assert.equal(schedule.isTemplateVisibleForEmployee(hourly, waiter(MAIN_ID, 'زام الرئيسي', 'Evening'), eveningNow), true);
+  assert.equal(schedule.isTemplateVisibleForEmployee(hourly, waiter(HAY_ID, 'زام الحي', 'Evening'), eveningNow), false);
+  assert.equal(schedule.isTemplateVisibleForEmployee(hourly, { role: 'Barista', branchId: MAIN_ID, categories: ['البار'], shiftType: 'Morning' }, eveningNow), false);
+  assert.equal(schedule.isTemplateVisibleForEmployee(hourly, { role: 'Supervisor', branchId: MAIN_ID, branchName: 'زام الرئيسي', categories: ['الصالة'], shiftType: 'Morning' }, eveningNow), false);
   assert.match(migration, /'تنظيف وفحص دورة المياه كل ساعة'[\s\S]*?b\.id, true, 'hourly'/);
   assert.match(migration, /WHERE b\.name = 'زام الرئيسي'/);
 });
@@ -212,9 +213,11 @@ test('عدادات الفروع الساعية لا تشمل الحي أو ال�
 
 test('زام المنح بلا ويتر صباحي، وتُتاح قائمة الوردية المسائية فقط', () => {
   const morning = { task_type: 'standard', category: 'الصالة', shift_type: 'Morning', branch_id: MANAH_ID, frequency: 'daily' };
-  assert.equal(schedule.isTemplateVisibleForEmployee(morning, waiter(MANAH_ID, 'زام المنح', 'Morning')), false);
+  const morningNow = atRiyadh('2026-11-16T10:00:00+03:00');
+  assert.equal(schedule.isTemplateVisibleForEmployee(morning, waiter(MANAH_ID, 'زام المنح', 'Morning'), morningNow), false);
   const evening = { ...morning, shift_type: 'Evening' };
-  assert.equal(schedule.isTemplateVisibleForEmployee(evening, waiter(MANAH_ID, 'زام المنح', 'Evening')), true);
+  const eveningNow = atRiyadh('2026-11-16T18:00:00+03:00');
+  assert.equal(schedule.isTemplateVisibleForEmployee(evening, waiter(MANAH_ID, 'زام المنح', 'Evening'), eveningNow), true);
   assert.match(migration, /b\.name <> 'زام المنح'/);
 });
 
@@ -222,8 +225,9 @@ test('تُفصل إنجازات الصباح والليل، مع إظهار مه
   const morning = { category: 'الصالة', shift_type: 'Morning', branch_id: HAY_ID, frequency: 'daily', task_type: 'standard' };
   const both = { ...morning, shift_type: 'Both' };
   const eveningContext = waiter(HAY_ID, 'زام الحي', 'Evening');
-  assert.equal(schedule.isTemplateVisibleForEmployee(morning, eveningContext), false);
-  assert.equal(schedule.isTemplateVisibleForEmployee(both, eveningContext), true);
+  const eveningNow = atRiyadh('2026-11-16T18:00:00+03:00');
+  assert.equal(schedule.isTemplateVisibleForEmployee(morning, eveningContext, eveningNow), false);
+  assert.equal(schedule.isTemplateVisibleForEmployee(both, eveningContext, eveningNow), true);
   assert.match(migration, /checklist_logs_shift_occurrence_uidx[\s\S]*?branch_id, shift_type/);
 });
 

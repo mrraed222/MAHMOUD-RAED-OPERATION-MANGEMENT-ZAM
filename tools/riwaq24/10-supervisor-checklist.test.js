@@ -32,7 +32,6 @@ test('role guard, branch lifecycle, shift semantics and operational destinations
   assert.match(source, /submitFridgeReadings\(entries,\s*\{\s*branch_id: currentUser\.branch_id,\s*recorded_by: currentUser\.id,\s*shift_type: currentShift/);
   assert.match(source, /checklist-save\.js\?v=\d+/);
   assert.match(source, /ZamChecklistSave\.getLiveProfile\(zamClient, currentUser\)/);
-  assert.match(source, /ZamChecklistSave\.filterEligibleTemplates\(/);
   assert.match(source, /ZamChecklistSave\.submitChecklistExecution\(/);
   assert.match(source, /saveLog: payload => ZamAPI\.submitChecklistLog\(payload\)/);
   assert.match(source, /templateId: cb\.dataset\.id/);
@@ -103,4 +102,36 @@ test('save failures tell the supervisor to verify shift and assignment with or w
     'no-photo save failures must be visible beside the task');
   assert.match(source, /checklistSaveErrorMessage\(err, Boolean\(err\?\.checklistEvidenceUploaded\)\)/,
     'photo-upload success followed by save failure must be reported as a save failure');
+});
+
+test('supervisor sees individually assigned tasks from other categories without widening branch, shift, schedule or save permissions', () => {
+  const helperSource = source.match(/function supervisorTemplatesForSubTab\([^)]*\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(helperSource, 'the supervisor tab selector must be defined');
+  const selectForTab = vm.runInNewContext(`(${helperSource})`, {
+    SUPERVISOR_TASK_CATEGORIES: new Set(['المشرف', 'إشراف', 'مهام المشرفين']),
+    supervisorAssignedTemplateIds: new Set(['assigned-bar', 'assigned-kitchen']),
+    activeSubTab: 'my-tasks'
+  });
+  const templates = [
+    { id: 'supervisor-category', category: 'المشرف' },
+    { id: 'assigned-bar', category: 'البار' },
+    { id: 'assigned-kitchen', category: 'المطبخ' },
+    { id: 'team-bar', category: 'البار' }
+  ];
+  assert.deepEqual(Array.from(selectForTab(templates, 'my-tasks'), task => task.id), [
+    'supervisor-category', 'assigned-bar', 'assigned-kitchen'
+  ]);
+  assert.deepEqual(Array.from(selectForTab(templates, 'team-tasks'), task => task.id), ['team-bar']);
+
+  const loader = source.match(/async function loadChecklist\(\) \{([\s\S]*?)\n\}/)?.[1] || '';
+  assert.match(loader, /ZamAPI\.getTemplates\(categoryFilter, currentShift, currentUser\.branch_id\)/,
+    'template lookup remains restricted to the current branch and selected shift');
+  assert.match(loader, /ZamAPI\.getMyAssignedTemplateIds\(\)/,
+    'the individually assigned IDs are read for this authenticated supervisor');
+  assert.match(loader, /loadedTemplates\.filter\(isTaskDueForCurrentShift\)/,
+    'existing schedule and branch/shift visibility checks remain in place');
+  assert.match(source, /ZamChecklistSave\.submitChecklistExecution\(/,
+    'saving continues through the existing RPC/RLS-checked execution path');
+  assert.doesNotMatch(source, /filterEligibleTemplates\(/,
+    'the client-side eligibility pre-filter must not hide tasks before display');
 });
