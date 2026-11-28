@@ -132,6 +132,57 @@ test('evening shift legacy logs without created_at use the prior Riyadh business
   assert.equal(dashboard.logInsideShift({ execution_date: '2026-11-17' }, 'Evening', {}, afterMidnight), false);
 });
 
+test('dashboard counts ordinary checklist rows entered after shift grace by execution date and shift', () => {
+  const afterShift = new Date('2026-11-28T15:18:00.000Z'); // 18:18 in Riyadh
+  const branchHours = { opening_time: '05:30:00', closing_time: '02:30:00' };
+  const templates = [
+    task('morning', 'Morning'),
+    task('both', 'Both'),
+    task('wrong-shift', 'Evening'),
+    task('wrong-date', 'Morning'),
+    task('hourly', 'Morning', { frequency: 'hourly' }),
+  ];
+  const lateCreatedAt = '2026-11-28T14:27:41.668Z'; // 17:27 in Riyadh, after morning grace
+  const logs = [
+    { template_id: 'morning', branch_id: branchId, execution_date: '2026-11-28', created_at: lateCreatedAt, shift_type: 'Morning', status: 'Completed' },
+    { template_id: 'both', branch_id: branchId, execution_date: '2026-11-28', created_at: lateCreatedAt, shift_type: 'Morning', status: 'Completed' },
+    { template_id: 'wrong-shift', branch_id: branchId, execution_date: '2026-11-28', created_at: lateCreatedAt, shift_type: 'Evening', status: 'Completed' },
+    { template_id: 'wrong-date', branch_id: branchId, execution_date: '2026-11-27', created_at: lateCreatedAt, shift_type: 'Morning', status: 'Completed' },
+  ];
+  const hourlyLogs = [
+    { template_id: 'hourly', branch_id: branchId, execution_date: '2026-11-28', created_at: lateCreatedAt, occurrence_hour: 18, shift_type: 'Morning', status: 'Completed' },
+  ];
+
+  const completed = dashboard.completedTaskKeys(templates, logs, hourlyLogs, {
+    branchId, branchHours, shiftType: 'Morning', now: afterShift,
+  });
+
+  assert.deepEqual([...completed].sort(), ['both', 'morning']);
+});
+
+test('dashboard attributes a late overnight evening completion to its prior business date', () => {
+  const afterOvernightShift = new Date('2026-11-29T03:00:00.000Z'); // 06:00 in Riyadh; evening business date is Nov 28
+  const branchHours = { opening_time: '05:30:00', closing_time: '02:30:00' };
+  const taskList = [task('evening-late', 'Evening')];
+  const lateLog = {
+    template_id: 'evening-late', branch_id: branchId, execution_date: '2026-11-29',
+    created_at: '2026-11-29T01:00:00.000Z', shift_type: 'Evening', status: 'Completed',
+  };
+
+  const completed = dashboard.completedTaskKeys(taskList, [lateLog], [], {
+    branchId, branchHours, shiftType: 'Evening', now: afterOvernightShift,
+  });
+  const previousEveningLog = {
+    ...lateLog, execution_date: '2026-11-28', created_at: '2026-11-28T01:30:00.000Z',
+  };
+  const previousShiftCompleted = dashboard.completedTaskKeys(taskList, [previousEveningLog], [], {
+    branchId, branchHours, shiftType: 'Evening', now: afterOvernightShift,
+  });
+
+  assert.deepEqual([...completed], ['evening-late']);
+  assert.deepEqual([...previousShiftCompleted], []);
+});
+
 test('checklist pages collapse each category and place weekly lists after routine tasks', () => {
   const employeePage = fs.readFileSync(path.join(__dirname, '..', 'my-checklist', 'index.html'), 'utf8');
   const supervisorPage = fs.readFileSync(path.join(__dirname, '..', 'supervisor-checklist', 'index.html'), 'utf8');

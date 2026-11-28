@@ -123,12 +123,16 @@
     return task.shift_type !== 'Both' && task.shift_type === shiftType;
   }
 
-  function logInsideShift(log, shiftType, branchHours, now) {
+  function logInsideShift(log, shiftType, branchHours, now, { includeLateCompletions = false } = {}) {
     const window = schedule.getShiftWindow(shiftType, branchHours, now);
     if (!window.valid) return false;
     if (!log?.created_at) return String(log?.execution_date).slice(0, 10) === window.businessDate;
     const createdAt = Date.parse(log.created_at);
-    return Number.isFinite(createdAt) && createdAt >= window.startAt.getTime() && createdAt < window.graceEndAt.getTime();
+    if (!Number.isFinite(createdAt)) return false;
+    if (createdAt >= window.startAt.getTime() && createdAt < window.graceEndAt.getTime()) return true;
+    if (!includeLateCompletions || createdAt < window.graceEndAt.getTime()) return false;
+    const executionDate = String(log.execution_date || '').slice(0, 10);
+    return executionDate === window.businessDate || (shiftType === 'Evening' && executionDate === window.dateTo);
   }
 
   function completedTaskKeys(tasks, logs, hourlyLogs, {
@@ -156,7 +160,7 @@
 
       const found = (logs || []).some(log =>
         String(log.template_id) === String(task.id) && log.branch_id === branchId &&
-        logMatchesShift(log, task, shiftType) && logInsideShift(log, shiftType, branchHours, now) &&
+        logMatchesShift(log, task, shiftType) && logInsideShift(log, shiftType, branchHours, now, { includeLateCompletions: true }) &&
         (!executedBy || log.executed_by === executedBy) && isCompleted(log)
       );
       if (found) completed.add(key);
